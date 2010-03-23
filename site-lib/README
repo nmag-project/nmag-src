@@ -1,0 +1,4 @@
+This is the directory where ocamlfind will put the libraries compiled with
+ocaml. This file should not be removed as Mercurial (hg) is not able to store
+empty directories.
+
