@@ -1,0 +1,7 @@
+# Specifications for "mpi_petsc":
+requires = "bigarray nsimconf"
+description = "MPI/Petsc Interface"
+version = "0.1"
+browse_interfaces = " MPI_Petsc "
+archive(byte) = "mpi_petsc.cma"
+archive(native) = "mpi_petsc.cmxa"

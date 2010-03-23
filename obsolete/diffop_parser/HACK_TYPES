@@ -1,0 +1,9 @@
+
+type parser_index = PIX_int of int | PIX_name of string
+
+type parser_field_name = string * parser_index array
+
+type parser_diff_field_spec = parser_field_name * parser_index option
+
+type parser_diffop =
+    ((float * (parser_diff_field_spec*parser_diff_field_spec*parser_field_name option)) list) * (string * int) list

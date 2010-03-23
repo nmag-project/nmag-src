@@ -1,0 +1,7 @@
+# Specifications for the "mumag2" library:
+requires = "snippets mesh mpi_petsc unix str fem qhull sundials nlog"
+description = "Micromagnetism-related functions"
+version = "0.1"
+browse_interfaces = " Mumag2 "
+archive(byte) = "mumag2.cma"
+archive(native) = "mumag2.cmxa"

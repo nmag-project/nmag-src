@@ -1,0 +1,72 @@
+#!/usr/bin/env nsim
+
+import optparse,sys
+
+import nbase
+nbase._need_to_run_configure=False
+
+nbase.conf.set('run_dir',".")
+import nmesh
+
+
+import logging
+logging.getLogger('').setLevel(logging.INFO)
+logging.info("this is a test")
+
+conf = {}
+
+def main(argvs,conf):
+    usage="usage: %prog [options] infile [outfile]\n\n(C) University of Southampton, United Kingdom, 2005,2006.\n"+\
+           "This program converts 3d meshes into the vtk file format.\n"
+
+    version="$Header$"
+
+    parser = optparse.OptionParser(usage=usage,version=version)
+
+    #parser.add_option("--surfaces-only","-s",help="only export surface elements to vtk",action="store_true",dest="surfaces_only")
+
+
+    #parser.add_option("--loglevel","-l",type="string",metavar="LEVEL",help="verbosity level (stdout): critical|error|warn|info|debug|INT.")
+
+    (options, arguments) = parser.parse_args(argvs)
+
+    if len(arguments) == 0:
+        print arguments
+        raise ValueError,"Don't know what this means (expect first arguments values to be program name)"
+    if len(arguments) == 1:
+        raise ValueError,"Need input filname"
+
+    if len(arguments) >= 2:
+        infilename = arguments[1]
+        conf['infile']= infilename
+    if len(arguments) == 2:
+        conf['outfile']=infilename[0:infilename.rfind('.')]+".vtk"
+    if len(arguments) == 3:
+        conf['outfile']=arguments[2]
+
+    return conf,options
+
+conf,options=main(sys.argv,conf)
+
+logging.info("Reading data from '%s'" % conf['infile'])
+mesh = nmesh.load(conf['infile'])
+
+logging.info("Convert mesh object to lists")
+meshinfo = mesh.tolists()
+
+
+##now process any requests
+#if options.surfaces_only:
+#    logging.info("Extract surfaces from lists (and discard other data)")
+#    meshinfo = nmesh.visual.surface_only(meshinfo, listOfSurfaces=None)
+
+
+logging.info("Convert lists into vtkdata structure")
+
+# order the mesh by this metric
+vtkdata = nmesh.visual. mesh2vtk(meshinfo,VTKonly=True,body_numbers=True)
+
+logging.info("Writing data to '%s'" % conf['outfile'])
+nmesh.visual.save_vtk(vtkdata, conf['outfile'], format='ascii',directory='.')
+
+

@@ -1,0 +1,7 @@
+# Specifications for the "fastfields" library:
+requires = "unix bigarray"
+description = "Fastfields"
+version = "0.1"
+browse_interfaces = " Fastfields "
+archive(byte) = "fastfields.cma"
+archive(native) = "fastfields.cmxa"

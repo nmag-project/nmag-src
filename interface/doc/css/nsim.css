@@ -1,0 +1,86 @@
+p, td, li, th {
+	font-family: Gill, Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	line-height: 16pt;
+	color: #000033;
+}
+
+body {
+        background-color: #FFFFFF;
+        background-image: url('images/backg.gif');
+        background-repeat: repeat-x
+}
+
+.maincontent {
+	vertical-align: top;
+	margin-right: 80px;
+	margin-top: 0px;
+        a.link{ color:#0000FF;}
+}
+
+.secondnav {
+	border: 1px solid #000066;
+	padding: 5px;
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-weight: bolder;
+	color: #000066;
+	background-color: #EDEAFB;
+	vertical-align: top;
+}
+
+h1 { 
+       font-family: Verdana, Arial, Helvetica, sans-serif;
+       font-size: 20px;
+       font-weight: bold;
+       color: #000066;
+ }
+
+h2 {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 16px;
+	font-weight: bold;
+	color: #666699;
+}
+
+h3 {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 14px;
+	font-weight: bold;
+	color: #666699;
+}
+
+h4 {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-weight: bold;
+	color: #666699;
+}
+
+
+.navtitle {
+	font-family: Verdana,Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-weight: bold;
+	color: #FFFFFF;
+        background-color: #7777AA;
+        text-align: center;
+}
+
+a.nav:link { color:#FFFFFF;}
+a.nav:visited { color:#FFFFFF; }
+a.nav:hover { color:#FFFFFF; }
+
+a.std:link { color:#000066;}
+a.std:visited { color:#000066; }
+a.std:hover { color:#FF0000; }
+
+
+
+.footer { 
+       font-size: 9px;
+       font-weight: bolder;
+       color: #FFFFFF;
+       color: #444444;
+       background-color: #000058;
+}

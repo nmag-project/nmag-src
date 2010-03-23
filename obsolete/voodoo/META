@@ -1,0 +1,9 @@
+# Specifications for the "voodoo" library:
+requires = ""
+description = "Voodoo Magic - stuff that is needed to make dark things happen"
+version = "0.1"
+directory = "/usr/local/lib/ocaml/voodoo"
+browse_interfaces = " Voodoo "
+archive(byte) = "voodoo.cma"
+archive(native) = "voodoo.cmxa"
+#linkopts="-cclib -lgtk2"

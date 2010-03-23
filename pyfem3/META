@@ -1,0 +1,7 @@
+# Specifications for "pyfem3":b
+requires = "unix nsimconf snippets qhull mt19937 fastfields pycaml mesh fem mpi_petsc diffop_parser nlog sundials_sp ccpla nsim_grammars nsim_anisotropy nsim hlib"
+description = "Extend Python with FEM support"
+version = "0.1"
+browse_interfaces = " Pyfem3 "
+archive(byte) = "pyfem3.cma"
+archive(native) = "pyfem3.cmxa"

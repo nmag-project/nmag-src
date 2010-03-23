@@ -1,0 +1,7 @@
+# Specifications for "nsim_grammars":
+requires = ""
+description = "All the parsers used internally by nsim"
+version = "0.1"
+browse_interfaces = " Nsim_grammars "
+archive(byte) = "nsim_grammars.cma"
+archive(native) = "nsim_grammars.cmxa"

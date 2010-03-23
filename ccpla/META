@@ -1,0 +1,7 @@
+# Specifications for the "ccpla" library:
+requires = "snippets mpi_petsc bigarray unix"
+description = "Centrally Coordinated Parallel Linear Algebra"
+version = "0.1"
+browse_interfaces = " ccpla "
+archive(byte) = "ccpla.cma"
+archive(native) = "ccpla.cmxa"

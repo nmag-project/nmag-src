@@ -1,0 +1,7 @@
+# Specifications for the "pyddpla" library:
+requires = "mpi_petsc bigarray unix ddpla pycaml nsimconf"
+description = "Python Interface to the Dependency Driven Parallel Linear Algebra"
+version = "0.1"
+browse_interfaces = " pyddpla "
+archive(byte) = "pyddpla.cma"
+archive(native) = "pyddpla.cmxa"

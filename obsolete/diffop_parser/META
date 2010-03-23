@@ -1,0 +1,7 @@
+# Specifications for "diffop_parser":
+requires = ""
+description = "Parser for differential operators specified as strings"
+version = "0.1"
+browse_interfaces = " Diffop_parser "
+archive(byte) = "diffop_parser.cma"
+archive(native) = "diffop_parser.cmxa"

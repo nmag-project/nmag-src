@@ -1,0 +1,6 @@
+name = "mt19937"
+version = "0.1"
+description = "Mersenne Twister Random Number Generator"
+requires = ""
+archive(byte) = "mt19937.cma"
+archive(native) = "mt19937.cmxa"

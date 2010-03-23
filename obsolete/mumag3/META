@@ -1,0 +1,7 @@
+# Specifications for the "mumag3" library:
+requires = "snippets mesh mpi_petsc unix str fem qhull nlog ccpla nsim"
+description = "Micromagnetism-related functions"
+version = "0.1"
+browse_interfaces = " Mumag3 "
+archive(byte) = "mumag3.cma"
+archive(native) = "mumag3.cmxa"

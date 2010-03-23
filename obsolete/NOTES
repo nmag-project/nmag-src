@@ -1,0 +1,720 @@
+
+TODO: find out why there is a sign change in the discretization of
+laplace when we go from ord=1 to ord=2! Furthermore, something else
+seems to go badly wrong in our heat flow example!
+
+Ad libraries:
+
+If we build an own toplevel a'la:
+
+ocamlmktop -I /usr/local/lib/ocaml/3.08.3/qhull -o /tmp/mytop str.cma unix.cma qhull.cma
+
+...then this toplevel has to be called via:
+
+/tmp/mytop -I /usr/local/lib/ocaml/3.08.3/qhull
+
+...so that it can be found.
+
+This might be a problem related to ocaml-findlib; this tool is used
+for installing own libs, but to me it seems as if it were installing
+stuff in place A and reporting it was installed in place B, so that it
+will not be found.
+
+XXX have to investigate this!
+
+
+
+
+INSTALLATION NOTES for all platforms (tested: debian, Mac OS X 10.4)
+
+* need a file (can be empty) with name ".petscrc" in the home directory to satisfy petsc. 
+
+
+
+--------------------------------------------------------------------
+INSTALLATION NOTES for Debian Etch (= 3.10) stable
+
+
+This is the (yet very incomplete) list of packages that need to be
+installed (for example using aptitude) to compile the code on Debian
+Sarge.
+
+python2.4
+python-dev
+ocaml
+ocaml-findlib
+libextlib-ocaml-dev 
+libpetsc2.2.0-dev or better petsc2.3.1-dev
+libparmetis3.1 libparmetis-dev parmetis-doc
+libqhull5
+libqhull-dev
+libcryptokit-ocaml-dev
+tetex-bin
+tetex-extra
+zlib1g-dev
+zlib1g
+libocamlgsl-ocaml
+libocamlgsl-ocaml-dev 
+libmpich1.0-dev
+libpetsc2.3.2-dev
+libsundials-serial-dev
+libreadline5-dev
+schedutils (provides taskset)
+
+These can be installed using, for example, the command
+
+aptitude install python2.4 ocaml ocaml-findlib libextlib-ocaml-dev libcryptokit-ocaml-dev libocamlgsl-dev zlib1g-dev libqhull-dev  libmpich1.0-dev libparmetis-dev python2.4-pyvtk ...
+
+
+------------------------------------------------------------------
+Debian Etch:    (13-02-2007  * gb2@soton.ac.uk )
+
+aptitude install python2.4 ocaml ocaml-findlib libextlib-ocaml-dev libcryptokit-ocaml-dev libocamlgsl-dev zlib1g-dev libqhull-dev libmpich1.0-dev libparmetis-dev libsundials-serial-dev libocamlgsl-ocaml libocamlgsl-ocaml-dev	 libpetsc2.3.2-dev python-tables
+#  (* without sundials there is a petsc error! *)
+
+# change the configuration file in the config directory as 
+
+  PETSC_INCLUDE_PATH=/usr/lib/petscdir/2.3.2/include
+  PETSC_LIBRARY_PATH=/usr/lib/petscdir/2.3.2/lib/linux-gnu-c-opt
+  EXTRA_INCLUDE_PATH=/usr/lib/mpich/include
+
+  (* only the 2.3.2 version is available in the repository of debian etch *)
+
+# give users the permission to write on /usr/local/lib/ocaml/3.09.2
+  (* to create the directory mt19937 and mumag2 *)
+
+# in the ocaml directory type: make mrproper; make
+------------------------------------------------------------------------
+
+
+There are a number of packages missing here (such as mpich) and we
+should complete the list of required packagas asap. (But need a
+'clean' debian install for that).
+
+Note that you may have to add 'contrib non-free' to /etc/apt/sources.list for parmetis
+
+Once this is done, we need to do some fine tuning for the ocaml installation:
+
+Firstly, we need to modify the following files:
+In /etc/ocamlfind.conf
+
+we need to update destdir and path to be:
+
+destdir="/usr/local/lib/ocaml"
+path="/usr/local/lib/ocaml:/usr/lib/ocaml/3.08.3:/usr/lib/ocaml/3.08.3/METAS"
+
+We further need to modify /usr/lib/ocaml/3.08.3/ld.conf to contain
+
+/usr/local/lib/ocaml/stublibs
+/usr/lib/ocaml/3.08.3/stublibs
+
+Because we need to write to these locations, one can either (i) run
+the installation as root or (ii) introduce a new user or group that
+has write rights for these locations.
+
+We suggest to create a new group with name 'ocaml' (add to /etc/group)
+and to make the installing user a member of this group (modify
+/etc/group, and log out and login again).
+
+Now we have to make /usr/local/lib/ocaml to be owned by the ocaml group:
+
+chgrp ocaml /usr/local/lib/ocaml
+
+And allow writing to that location by the group:
+
+chmod g+xw /usr/local/lib/ocaml/
+
+The same for /usr/lib/ocaml/3.08.3/ld.conf:
+
+chgrp ocaml  /usr/lib/ocaml/3.08.3/ld.conf
+chmod g+w  /usr/lib/ocaml/3.08.3/ld.conf
+
+We also need to make sure that there is the stublibs directory:
+
+mkdir /usr/local/lib/ocaml/stublibs
+
+and that it has the right settings:
+
+chgrp ocaml /usr/local/lib/ocaml/stublibs/
+chmod g+w /usr/local/lib/ocaml/stublibs/
+
+
+The parmetis packages are in non-free (need to add this to
+/etc/apt/sources.list if necessary). It seems I also need 'contrib' i.e.:
+
+deb http://ftp.uk.debian.org/debian/ etch main contrib non-free
+deb-src http://ftp.uk.debian.org/debian/ etch main non-free
+
+Once this is done (plus a few more steps which we may have missed so far!),
+the code can be compiled by  "make" from the top directory.
+
+(Hans, 22 March 2006, update 10 March 2007)
+(Installation works the same for debian etch testing beta 2, but have to replace Ocaml 3.08.3 with ocaml 3.09.1 in all the paths. Hans 2 June 2006)
+
+--------------------------------------------------------------------------
+
+Installation notes for hostile systems (providing all shared libraries).
+
+Useful to distribute binaries.
+
+(i) recompile petsc without --with-dynamic in debian/rules
+
+#Need to install debian tool 'debuild':
+
+aptitude install devscripts
+
+3Get source and modify:
+
+apt-get source libpetsc2.3.1
+modify petsc-2.3.1/debian/rules to remove '--with-dynamic'
+
+#and add entry to petsc-2.3.1/debian/changelog. Stick to format (best
+#to copy old entry and update). Need a new version number (i.e. change
+#from -1 to -2 or so).
+
+#Build debian package
+cd petsc-2.3.1
+debuild -us -uc
+
+#This produces a number of *.deb files in ../ (just above petsc-2.3.1)
+
+#Install new petsclibrary
+cd ..
+dpkg -i *petsc*.deb        #make sure there are no other *debs there!
+
+
+(ii) Use utils/prepare_ld_distribution.py
+#Create a new directory and cd into it. Then
+
+python PATHTO/prepare_ld_distribution.py PATHTO/pyfem2
+
+(iii) copy extra libraries that that are dynamically linked to from
+the libc into ./libs (to be completed).
+
+# This works on one system, and checking 
+cat /proc/PID/maps
+# shows that only the libraries in ./libs are used.
+
+Copying the lot to another machine (here RedHat something on iridis) brings up new problems: for some reason extra libraries seem to be needed (such as libtermcap) and (probably as a result) it is attempted to access the libc on iridis (wrong version) and then all goes downhill.
+
+Need to understand this. (TF & HF, 23/08/2006)
+
+
+
+--------------------------------------------------------------------------
+
+
+
+
+Issues with Mac OS X (10.4.2)
+
+Getting the right sys.path for pycaml.top and pycaml.cma:
+
+Use 
+PYTHONHOME="/sw"
+to point python to the right place. (This can go in .bashrc or so).
+
+
+*******************************************************************************
+* INSTALLATION GUIDE FOR MAC OS X 10.4 (darwin 8.4.0)                         *
+*******************************************************************************
+(fangohr 30/01/06, Matteo Franchin feb 2006):
+
+The following is an unedited collection of notes showing how to install
+Ocaml, Python, Qhull, mpich2 and petsc so that the program compiles.
+
+NOTE: Current status of compilation under Mac OS X: the program compiles
+and seems to work (more testing needed!!!).
+
+*******************************************************************************
+0. SUMMARY:
+*******************************************************************************
+
+0. SUMMARY
+1. Get ready...
+2. Install ocaml from source (v 3.08.4, v 3.09.01)
+3. Install findlib from source
+4. Permissions and groups
+5. Install Qhull
+6. extlib for ocaml
+7. Installing mpich2 (v 1.0.3)
+8. Installing petsc (v 2.2.0)
+9. Creating dynamic libraries manually for petsc (v <= 2.3.0)
+10. Instaling ParMetis (v. 3.1)
+11. Other useful tools
+
+*******************************************************************************
+1. Get ready...
+*******************************************************************************
+
+Install fink (http://fink.sourceforge.net)
+ and darwinports (http://darwinports.opendarwin.org) if not already done.
+
+From fink, we need the gcc4 package. Therefore, run
+
+fink install gcc4
+
+You should add the following lines to your shell-initialization script
+(.bashrc or .bash_profile if you use bash):
+
+export PATH="$PATH:/usr/local/mpich2/1.0.3/bin"
+
+Find out what kernel you are running. This is best done using
+
+uname -s -r
+
+which will produce something like
+
+Darwin 8.5.0
+
+then set the environment variable PETSC_ARCH to darwin8.5.0.
+You can produce this string, for example, using this line
+python -c "print '`uname -s``uname -r`'.lower()" .
+
+THere are probably better ways to achieve this.
+
+export PETSC_ARCH='darwin8.5.0'
+export PETSC_DIR='/usr/local/petsc/2.2.0'
+
+Do it now, if you don't want to edit the same file many times later.
+
+
+*******************************************************************************
+2. Install ocaml from source (3.08.4, 3.09.01)
+*******************************************************************************
+
+  - follow instructions, defaults are fine, will install
+    into /usr/local
+
+*******************************************************************************
+3. Install findlib from source
+*******************************************************************************
+
+  - follow instructions, defaults are fine
+	install findlib. Download source, untar, cd into directory, run
+	"./configure" (check that it has picked the 'right' ocaml), "make
+	all", "make opt", "sudo make install".
+
+
+  - modify findlib.conf:
+
+    change both paths in /usr/local/etc/findlib.conf to
+
+    destdir="/usr/local/lib/ocaml"
+    path="/usr/local/lib/ocaml:/usr/local/lib/ocaml/site-lib"
+
+
+When compiling pycaml, there is an error from the linker that -lutil
+can'd be found. To compile pycaml, we need to link to libutil on
+Linux. The content of that library on Mac OS X in is libSystem, and
+there is no t libutil. We therefore create a link from libutil.dylib
+to libSystem.dylib to pretend libutil was there. (The cleaner solution
+would be to adapt our makefiles). In fact, for libm.dylib, there
+exists exactly such a link.
+
+ln -s /usr/lib/libSystem.dylib /usr/lib/libutil.dylib
+
+(or maybe better: ?)
+ln -s /usr/lib/libSystem.dylib /usr/local/lib/libutil.dylib
+
+(in fact, similar links exist for libm and other standard libraries;
+only libutil has been excluded (or forgotten?) by Apple. [Why???])
+
+*******************************************************************************
+4. Permissions and groups
+*******************************************************************************
+
+For Thomas' ocaml builds in /usr/local/lib/ocaml we need to share
+these files between all people on the same machine that want to use
+ocaml. We therefore add a new group "ocaml" to the system and make all
+real users who want to use ocaml, a member of the group ocaml. (One
+can do this with Applications/Utilities/Netinfo, then duplicate the
+admin-group and change the name and users.)
+
+We also need to make the /usr/local/lib/site-lib directory writeable
+for users in the Ocaml group, and set the sticky bit for the directory
+(chmod +s /usr/local/lib/site-lib) so that the ownership properties
+are inherited to new subdirectories.
+
+I also found that I had to allow the ocaml group to write to
+/usr/local/lib/ocaml/ld.conf (i.e chmod g+w ld.conf).
+
+Once all this is done, all users in the ocaml group on that Mac OS X
+machine should be able to build snippets, mt19937, pycaml (and I think
+the whole mesher -- untested). (fangohr 29/01/06).
+
+IN CASE THE GRAPHICAL FRONTEND DOESN'T WORK:
+I was not able to create a VALID group using the graphical frontend,
+probably I tried with a wrong (reserved?) group ID (100).
+However I used the command "dseditgroup" for this purpose and
+I had no problem (it does most of the job automatically):
+
+# The following line creates the new group "ocaml"
+# -r "OCaml users" to specify the 'real', long name of the group
+sudo dseditgroup -o create -r "OCaml users" ocaml
+
+# The following line adds the existing user "mf" to the group "ocaml"
+sudo dseditgroup -o edit -a mf -t user ocaml
+
+# The following line shows all the informations for the group "ocaml"
+dseditgroup -o read ocaml
+
+Another note: to perform the installation I changed the ownership
+and permissions of the directory '/usr/local/lib/ocaml/stublibs/':
+
+cd /usr/local/lib/ocaml
+chown :ocaml stublibs
+chmod g+swr stublibs
+
+*******************************************************************************
+5. Qhull (read whole section before you do anything.
+    The easy way is mentioned last)
+*******************************************************************************
+
+  compiles fine from sources but does not create dynamic shared library.
+
+This is an attempt to solve the problem:
+
+gcc -fno-common -dynamiclib -o libqhull.so stat.c user.c global.c io.c
+geom2.c poly2.c merge.c qhull.c geom.c poly.c qset.c mem.c -lc -lm
+
+and produces something like this:
+
+  max:~/root/build/qhull-2003.1/src fangohr$ file libqhull.so 
+  libqhull.so: Mach-O dynamically linked shared library ppc
+
+...but we don't know what it is.
+
+
+-> Thomas has found a qhull-library for Mac OS
+
+Easiest seems to download it from 
+http://www.hmug.org/pub/MacOS_X/X/Libraries/Graphics/qhull/
+
+untar file in /tmp 
+cd into new directory qhull-2003.1 
+and run 'make install'
+
+This will install qhull into /usr/local
+
+It turns out that these does the same as our command above (but it works out of the box).
+
+(I think we don't need this anymore, Hans Jan 2006:)
+
+*******************************************************************************
+6. extlib for ocaml
+*******************************************************************************
+
+extlib for ocaml: download from http://sourceforge.net/projects/ocaml-lib/
+untar, run "ocaml install.ml" and follow instructions.
+
+*******************************************************************************
+7. Installing mpich2 (v 1.0.3)
+*******************************************************************************
+
+Download mpich2. Be careful, there are two different versions of mpich:
+mpich and mpich2. We need the latter (only the latter is able to produce
+shared libraries under Mac OS). Configure and compile it with the following
+commands:
+
+tar xzvf mpich2-1.0.3.tar.gz
+cd mpich2-1.0.3
+./configure --prefix=/usr/local/mpich2/1.0.3 --enable-sharedlibs=osx-gcc >configure.log 2>&1
+make >compilation.log >&1
+sudo make install
+
+In case of problems you can inspect the files configure.log and compilation.log
+Remember to add the following line to your initialization script (.bashrc, .bash_profile, ...):
+
+export PATH="$PATH:/usr/local/mpich2/1.0.3/bin"
+
+*******************************************************************************
+8. Installing petsc (v 2.2.0)
+*******************************************************************************
+
+Get the proper version of petsc (v 2.2.0).
+Create the destination directory for petsc:
+
+sudo mkdir -p /usr/local/petsc-2.2.0
+
+Untar the archive:
+
+cd /usr/local/petsc
+sudo gunzip petsc.tar.gz
+sudo tar xvf petsc.tar.gz
+sudo mv petsc-2.2.0 2.2.0
+
+Add the following lines to your shell-initialization script:
+
+export PETSC_ARCH='darwin8.4.0'
+export PETSC_DIR='/usr/local/petsc/2.2.0'
+
+Update the shell-environment with the following command (or start a new shell):
+
+. ~/bashrc
+
+(verify what you did with 'echo $PETSC_ARCH' and 'echo $PETSC_DIR').
+
+
+Edit bmake/common/rules.shared.basic and add the empty rule
+shared_darwin8: 
+
+(This is required because when petsc 2.2 was released, there was no Darwin8.)
+
+Configure petsc with:
+
+
+Original in Notes (Matteo1)
+
+sudo python ./config/configure.py --with-mpi-dir=/usr/local/mpich2/1.0.3 --with-cc=gcc --with-cxx=g++ --with-shared --with-mpi-shared --with-fc=gfortran --with-mpi-libs=/usr/local/mpich2/1.0.3/lib/libmpich.dylib,/usr/local/mpich2/1.0.3/lib/libpmpich.dylib --with-fc=gfortran -configModules=PETSc.Configure
+
+Hans:
+sudo ./config/configure.py --with-shared --with-fortran=gfortran
+
+(I think 01/03/2006 17:49 I only used the lines above.)
+
+'configure.log' will contain the output of the configuration script.
+Now compile as usual with:
+
+make >compilation.log 2>&1
+
+Check under /usr/local/petsc/2.2.0/lib/libg/darwin8.4.0 if shared
+libraries have been built. If this is not the case you'll need to
+build them manually. Go to the next section.
+
+*******************************************************************************
+9. Creating dynamic libraries manually for petsc (v 2.2.0)
+*******************************************************************************
+
+At the moment (16 feb 2006) petsc (v <= 2.3.0) does not produce shared
+libraries under Mac OS X. Mac OS X need to be considered separately
+by configure scripts and Makefile-s: this is the reason of all these troubles
+when compiling shared libraries. You can find more details on this topic
+on the website of fink (http://fink.sourceforge.net/doc/porting/index.php).
+The positive thing is that you can built the shared libraries by yourself.
+I wrote a simple script that does this automatically (find it under the
+directory utils: utils/make_petsc_dylibs.bash).
+To use it go into the directory utils/ and run:
+
+bash make_petsc_dylibs.bash
+
+If you installed mpich2, petsc, etc using the same paths I used in this NOTES,
+you should get something like this:
+
+WARNING: you gave no option (use 'make_petsc_dylibs.bash -h' for help)
+Checking the system (see './make_petsc_dylibs.log')...
+All libraries were found.
+Do you want to continue and create the dynamic libraries (y/n)?
+
+In this case, if you are a brave guy, try to create and install the libraries:
+since you need to be root to install the libraries press 'n' + [RETURN].
+Then enter the following command:
+
+sudo bash make_petsc_dylibs.bash
+
+you'll get the same message as before. Now type 'y' + [RETURN].
+
+WARNING: you gave no option (use 'make_petsc_dylibs.bash -h' for help)
+Checking the system (see './make_petsc_dylibs.log')...
+All libraries were found.
+Do you want to continue and create the dynamic libraries (y/n)? y
+Creating the directory 'make_petsc_dylibs_dir29071979'
+Creating 'libpetsc.dylib' from 'libpetsc.a'...
+Dynamic library was succesfully created and installed!
+Creating 'libpetscvec.dylib' from 'libpetscvec.a'...
+Dynamic library was succesfully created and installed!
+Creating 'libpetscmat.dylib' from 'libpetscmat.a'...
+Dynamic library was succesfully created and installed!
+Creating 'libpetscdm.dylib' from 'libpetscdm.a'...
+Dynamic library was succesfully created and installed!
+Creating 'libpetscksp.dylib' from 'libpetscksp.a'...
+Dynamic library was succesfully created and installed!
+Creating 'libpetscsnes.dylib' from 'libpetscsnes.a'...
+Dynamic library was succesfully created and installed!
+Creating 'libpetscts.dylib' from 'libpetscts.a'...
+Dynamic library was succesfully created and installed!
+Creating 'libmpiuni.dylib' from 'libmpiuni.a'...
+Dynamic library was succesfully created and installed!
+Deleting the directory 'make_petsc_dylibs_dir29071979'
+
+Now let's consider the not-lucky-case.
+You'll get a message saying that some of the needed libraries were not found.
+As before the script will ask you if you wish to continue anyway.
+Press 'n' + [RETURN]. You can also take a look at the created log-file:
+'make_shared_dylibs.log'. There you can see what libraries were not found.
+You should locate them. Let's show an example:
+
+mf@fire:~$ bash make_petsc_dylibs.bash
+WARNING: you gave no option (use 'make_petsc_dylibs.bash -h' for help)
+Checking the system (see './make_petsc_dylibs.log')...
+'libmpich.dylib' NOT FOUND
+'libpmpich.dylib' NOT FOUND
+Not all libraries were found.
+You can exit and specify new directory paths (try: 'make_petsc_dylibs.bash -h').
+Do you want to continue and create the dynamic libraries (y/n)? n
+
+Here we chose the command 'locate' to find the file 'libmpich.dylib'.
+Obviously you can locate the file with other programs.
+
+mf@fire:~$ sudo /usr/libexec/locate.updatedb
+Password:
+mf@fire:~$ locate libmpich.dylib
+/Users/mf/src/mpich-1.2.7p1/lib/shared/libmpich.dylib
+/Users/mf/src/mpich2-1.0.3/lib/libmpich.dylib
+/Users/mf/src/tmp/shared/libmpich.dylib
+/usr/local/mpich2/1.0.3/lib/libmpich.dylib
+
+(we updated the database of locate with the script 'locate.updatedb',
+since it was old). Now we know where the library is, we can pass this
+information to the script with the '-c' option
+(try 'make_shared_dylibs.bash -h' to get more info):
+
+mf@fire:~$ bash make_petsc_dylibs.bash -c=/usr/local/mpich2/1.0.3/lib
+Checking the system (see './make_petsc_dylibs.log')...
+All libraries were found.
+Do you want to continue and create the dynamic libraries (y/n)? 
+
+If more than one library was not found you can use many '-c' options.
+Your life will be harder if it happens that you obtain errors even if
+the script does not detect any missing library (mpich compiled with
+different options?).
+In this case you may want to modify the script 'old_make_petsc_dylib.bash'
+which is a simplified version of 'make_petsc_dylibs.bash' and should
+be easier to modify and understand.
+
+Maybe you'll need to change 'mpi_petsc/Makefile' to add the paths of
+the mpich library and the petsc library (if you used paths different
+from the ones I used in these NOTES).
+
+******
+
+Compiling our code:
+
+sh make-it.sh
+
+results in error message: 
+
+In file included from petsc_stubs.c:59:
+/usr/local/petsc/2.2.0/include/petsc.h:32:23: error: petscconf.h: No such file or directory
+
+
+
+We fix this (for now) by (if the kernel is 8.5):
+
+sudo ln -s /usr/local/petsc/2.2.0/bmake/darwin8.5.0/petscconf.h /usr/local/petsc/2.2.0/include
+
+Then things work. (fangohr 01/03/2006 and Matteo)
+
+*******************************************************************************
+11. Instaling ParMetis (v. 3.1)
+*******************************************************************************
+Recently (today is the 13th of March) the program started to require
+the presence of an additional library: ParMetis.
+To install it under Mac OS X, download the tarball from:
+http://www-users.cs.umn.edu/~karypis/metis/parmetis/files/ParMetis-3.1.tar.gz).
+Untar it with the usual command:
+
+  tar xzvf ParMetis-3.1.tar.gz
+
+Now enter the directory 'ParMetis-3.1' and edit the file 'Makefile.in'.
+You need only to change one line of this file and specify the directory
+where the compiler can find some C-headers.
+In particular try to locate the directory which contains the file 'malloc.h'.
+This is an example of what you can do:
+
+  locate malloc.h
+  ...
+  /usr/include/malloc/malloc.h
+  /usr/include/objc/malloc.h
+  /usr/include/sys/malloc.h
+  ...
+
+As you see, in my case this directory is '/usr/include/sys'.
+Add this directory in the include search path 'INCDIR' inside 'Makefile.in'.
+
+  *** File 'Makefile.in' ***
+  ...
+  ...
+  # Include directories for the compiler
+  INCDIR = -I/usr/include -I/usr/include/sys
+  ...
+  ...
+  *** End of file 'Makefile.in' ***
+
+Now start the compilation: simply type 'make' + [ENTER].
+
+------
+Inset: if you get an error message :CLOCKS_PER_SEC undefined when compiling timing.c:
+
+I have noticed this on a Mac OSX powerbook (Darwin max.local 8.5.0 Darwin Kernel Version 8.5.0). I have tracked this down to the following: there are two time.h headers defined. One of them in /usr/include, the other one in /usr/include/sys. We have to specify /usr/include/sys so that malloc.h is found. However, the time.h in /usr/include/sys does not define CLOCKS_PER_SEC. So what happens (I think) is that the compiler looks for time.h and (for some reason) finds first /usr/include/time.h. So the compiler is happy at that stage (but doesn't actually know what CLOCKS_PER_SEC is as this is defined in the other time.h. I have not found a satisfactory solution to this (you can modify makefile.in when the error message comes up to remove usr/include/sys from the INCDIRS, and then type make again. It is also not clear why this happens on this particular Mac OS X installation but not on the mac mini or the imac on which this has been tested. Hm. Hans 20/03/2006 11:00 
+
+-----------------------------
+
+The compilation creates the two files 'libmetis.a' and 'libparmetis.a'.
+Now you should copy them in the appropriate system directory:
+
+  sudo cp lib*metis.a /usr/local/lib
+
+And copy also the C-header file 'parmetis.h':
+
+  sudo cp parmetis.h /usr/local/include
+
+The final touch:
+
+  sudo ranlib /usr/local/lib/libmetis.a
+  sudo ranlib /usr/local/lib/libparmetis.a
+
+Now you should be able to compile all the modules of the program.
+
+*******************************************************************************
+10. Other useful tools
+*******************************************************************************
+Installing visual-python is now (21 September 2005) easy using
+fink. Just say 'fink install visual-py23' or 'fink install
+visual-py24'.
+
+
+*******************************************************************************
+Callback issues
+*******************************************************************************
+
+In various places, we use tricks to make C data accessible to
+OCaml. Occasionally, we are imposing restrictions on the user what he
+may or may not do with the data he receives in a callback.
+
+For example, Mpi_petsc.with_petsc_vector_as_bigarray vector (fun bigarray -> ...)
+MUST NEVER use the callback function to store away the bigarray (e.g. by writing to
+a reference which is reachable from the callback's closure).
+
+We have such restrictions that (at least some) arguments to a callback
+function MUST NOT leave the callback scope on:
+
+Mpi_petsc.with_petsc_vector_as_bigarray
+Mpi_petsc.setup_simple_timestepping fun_rhs
+Sundials.XXX
+(XXX Any others?)
+
+
+
+
+
+
+aptitude install python2.4 ocaml ocaml-findlib libextlib-ocaml-dev
+libcryptokit-ocaml-dev libocamlgsl-dev zlib1g-dev libqhull-dev 
+libmpich1.0-dev libparmetis-dev libsundials-serial-dev
+
+(* without sundials there is a petsc error! *)
+
+change the configuration file in the config directory as 
+
+PETSC_INCLUDE_PATH=/usr/lib/petscdir/2.3.2/include
+PETSC_LIBRARY_PATH=/usr/lib/petscdir/2.3.2/lib/linux-gnu-c-opt
+EXTRA_INCLUDE_PATH=/usr/lib/mpich/include
+
+(* only the 2.3.2 version is available in the repository of debian
+etch *)
+
+give the user the permission to write on /usr/local/lib/ocaml/3.09.2
+(* to create the directory mt19937 and mumag2 *)
+
+

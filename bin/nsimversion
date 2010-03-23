@@ -1,0 +1,21 @@
+#!/usr/bin/env nsim
+
+"""This utilitily will report the
+(i)   svn revision number of the code (based on nsim.svnversion.svnversion)
+(ii)  the nmag release (based on interface/nmag/RELEASE) if available and
+(iii) the distribution mode (based on interface/nmag/DISTMODE) if available.
+
+It will also report the paths for interface/nsim and interface/nmag.
+
+"""
+
+
+import nsim.versions
+print nsim.versions.get_nmag_release_dist_svn_string()
+print nsim.versions.get_nmag_paths_string()
+	
+	
+	
+	
+	
+	

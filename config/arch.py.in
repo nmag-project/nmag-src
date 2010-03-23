@@ -1,0 +1,11 @@
+# arch.py.in - Architecture information needed by nsim
+# The information is collected by autoconf (configure script)
+# which uses this file as a form to be filled.
+# The result is put in a file named 'arch.py'
+cc="@CC@"
+host_cpu="@host_cpu@"
+cflags="@CFLAGS@"
+sse_cflags="@SSE_CFLAGS@"
+arch_cflags="@ARCH_CFLAGS@"
+sizeof_int="@SIZEOF_INT@"
+

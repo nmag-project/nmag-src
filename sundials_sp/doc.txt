@@ -1,0 +1,233 @@
+
+05/06/2009 10:00-12:30 Constraints in micromagnetism
+====================================================
+
+:present: Thomas (speaker), Matteo, Andreas, Hans (notes)
+
+:location: Thomas' office, B25, Southampton
+
+Examples
+========
+
+* Ferri-magnetis, for example Dy2Fe2
+
+* Perdiodic boundary conditions
+
+PBC and Constraints
+===================
+
+* CVODE time integrator must operate on a set of truly independent degrees of freedom (DOFs)
+
+  This may work for RK integrators, but not for CVODE, because:
+ 
+  CVODE-Idea: have set of 
+
+    DOFS in 'convenient-for-us' basis  -> [coordinate transform to] 
+
+    equivalent set of DOFS in 'convenient-for-time integration'
+
+  Conceptually, this is a transformation to a basis of collective
+  excitations. Ideally, one wanted a transformation to normal modes,
+  but this is too expensive of course.
+
+  This is realised through the preconditioning and the use of the
+  Jacobian, but we don't need to worry about the implementation of
+  this.
+
+* Effect of duplication of DOFs with CVODE [this may be wrong as it purely from memory]: 
+
+  CVODE tries to determine 'stiffness' of various collective
+  motions: 
+
+  - assume M(r_a) = M(r_b) due to PBC
+  
+  - CVODE does not know about this identity (Can it be taught about this? We don't think so.)
+
+  - CVODE probes: How stiff is the system when forcing M(r_a) to point
+    in a different direction from M(r_b)? Of course it is very stiff
+    (infinitely so, but it doesn't know).
+
+* To use CVODE for these constraint systems, we need a reduction from
+  the full vector Y (with duplicate DOFs) to y (with independent
+  DOFs): Y->y.
+
+* We like to have Y available for interpolation, integration etc, so
+  we need to map backward and forward from y to Y and from y to Y.
+
+Other (non-PBC) constraints: Dy/Fe system
+=========================================
+
+Constraint is: \vec{M}_Dy = -gamma \vec{M}_Fe
+
+The transformation Y->y is an algebraic equation from 6 to 3
+components.
+
+However, we prefer to describe the interaction between Dy and Fe with
+an inter-species exchange energy of the type: E_local_interspecies =
+alpha*M_Dy*M_Fe.
+
+Other example: odd periodicity
+==============================
+
+Imagine we simulate only an eight of a sphere, and sow this together
+with itself to have a 'virtual' sphere of which only simulate 1/8
+independently.
+
+Conventional approach to dealing with holonomic skleronomic boundary conditions
+===============================================================================
+
+Take equations of motion (EOM) -> find Lagrangian to derive the
+EOM. Then rewrite in other coordinate system, and derive the EOM
+again. 
+
+However, this doesn't work here
+
+Problem: m = alpha m x m + beta (m x (m x n))
+
+due to                     ^dissipative term!
+
+
+
+How many degrees of freedom are we talking about for DyFe? Start with 6, but come to 3.
+
+Naive way to deal with constraints (but effective)
+==================================================
+
+Imagine a wind-powered train moving on a circular track: track tangent
+and wind direction are generally non-parallel (direction of motion is
+constrained by the track).
+
+Constraint is C(\vec{x}) = 0 such that grad C != 0 where C=0. For
+example, C(\vec{x}) = x_1^2+x_2^2-R^2
+
+To know where the train is going, we 
+
+1. compute \dot{\vec{x}}(x,t), assuming there were no constraints
+   (i.e. follow the wind).
+
+2. This violates constraints. But by how much?
+
+   Answer:     \dot{\vec{x}}*grad C(\vec{x})
+           G = ----------------------------- * grad C(\vec{x})
+                           (grad C)^2
+
+3. \dot{\vec{y}}(y,t) = \dot{\vec{x}}(x,t) - G
+
+   where G is the correction term, and \vec{\dot{y}} is the correct direction of motion
+
+
+Translate this to our situation
+-------------------------------
+
+Using this method, there is a problem about applying
+constraints. There may be misaligment between sets of algebraic
+constraints, and it depends in which order we apply the
+constraints. [A picture or more detail would be good here XXX].
+
+Here: preferred coordinate system [all vectors, greeks are scalars]:
+
+      e1 = m, e2 = m x n, e3 = m x m x n
+
+      We consider M_Dy as a derived quantity so we express the dynamics in
+      terms of m = M_Fe, h = H_Fe^total.
+
+      In this special coordinate system, the quadratic algebraic
+      constraint reduces to:
+
+      e1 x \dot{m} = 0  ,i.e. velocity has no component in direction 
+
+      we still do get modifications to the dynamics from the
+      constraints related to the dysprosium
+
+Example: for magnetisations m_1 and m_2 (c_1 and c_2 scalars as well)
+
+\dot{m}_1 = alpha_1(t) e_2(t) + beta_2(t) e_3(t) + c_1(t) e_2(t) + d_1(t) e_3(t)
+
+\dot{m}_2 = alpha_2(t) e_2(t) + beta_2(t) e_3(t) - c_2(t) e_2(t) - d_2(t) e_3(t)
+
+            where the first two terms are the LLG, and the latter two corrections
+
+Constraints:
+
+\dot{m}_x_1 - \lambda \dot{m}_x_2 = 0
+\dot{m}_y_1 - \lambda \dot{m}_y_2 = 0
+\dot{m}_z_1 - \lambda \dot{m}_z_2 = 0,
+
+i.e.
+
+m_2 = lambda m_1
+
+
+Strategy for right-hand-side (RHS) function evaluation
+======================================================
+
+0. Given a reduced DOF y vector: y -> Y
+
+1. Y -> compute auxiliary fields like H_total
+
+2. (Y, aux_fields) -> compute constraint gradients G
+
+3. (Y, aux_fields) -> compute \dot{Y}_unconstrained
+
+4. (\dot{Y}_unconstrained, G) -> \dot{Y}_constrained=\dot{Y}
+
+5. \dot{Y} -> \dot{y}
+
+Strategy for setting up the full Jacobian in the presence of constraints \tilde{J}_Y
+====================================================================================
+
+We need to discern between Jacobian J_y (for reduced y) and Jacobian_Y
+(for full Y).
+
+Use \tilde to denote the constraint expressions/variables
+
+\partial \tilde{J}^y_km: \delta \tilde{\dot{Y}}_k    \delta \dot{Y}_k
+                         ------------------------ =  ------------------------ + corrections
+			 \delta \tilde{\dot{Y}}_m    \delta \tilde{\dot{Y}}_m
+
+Nomenclature:
+
+c_n \sim c_n(Y) : constraint function n
+
+       	 	  \partial c_n
+c_{n,m}         : ------------ (Y)
+		  \partial Y_m
+
+Gamma_n(Y)	: 1/ (sum_m c_{n,m}(Y)*c_{n,m}(Y)    
+
+Note: things simplify considerably when the |grad c_n| = 1 (because
+then Gamma_n = 1). We keep this general here, even though classic
+micromagnetism would allow us to ignore that.
+
+Corrections:
+
+          \partial
+  \sum_n  ------------ ( - \dot{Y}_l(Y) c_{n,l}(Y) c_{n,k}(Y) Gamma(Y) )
+          \partial Y_m
+
+
+= [drop Y dependencies] =
+
+ -\sum_n ( J^Y_lm    c_{n,l}  c_{n,k} Gamma_n 
+          +\dot{Y}_l c_{n,lm} c_{n,n} Gamma_n
+	  +\dot{Y}_l c_{n,l} c_{n,km} Gamma_n     	  
+	  +\dot{Y}_l c_{n,l} c_{n,k} Gamma_n,m )
+
+Annoying that we need J^Y_lm.
+
+
+
+Note that sundials can determine the Jacobian itself. Do we know efficient this is?
+
+
+
+Strategy for y -> Y -> y
+========================
+
+[to be populated]
+
+
+Strategy for populating \tilde{J}_y when given \tilde{J}_Y
+==========================================================
+
+[to be populated]

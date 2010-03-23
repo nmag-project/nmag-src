@@ -1,0 +1,7 @@
+# Specifications for the "nlog" library:
+requires = "unix"
+description = "Logging facilities (developed for nsim but work standalone)"
+version = "0.1"
+browse_interfaces = " Nlog "
+archive(byte) = "nlog.cma"
+archive(native) = "nlog.cmxa"

@@ -1,0 +1,145 @@
+(* (C) 2009 Dr. Thomas Fischbacher
+   Vanilla sundials CVODE time integration:
+
+   Setting up the Korteweg-de-Vries equation:
+
+   y,t = -6y*y,x - y,xxx
+
+   Coefficients for 3rd x-derivative:
+        1 -2 1
+     -1 2 -1
+    -----------
+     -1 3 -3 1
+*)
+
+#use "topfind";;
+#require "bigarray";;
+#require "sundials_sp";;
+#require "mpi_petsc";;
+#require "graphics";;
+#require "unix";;
+
+let time_integrator ~delta_x y_initial = 
+  let len = Array.length y_initial in
+  let inv_2step = 1.0/.(2.0*.delta_x) in
+  let inv_2step3 = inv_2step**3.0 in
+  let fun_rhs ~time ~y ~ydot =
+    let ddd = Printf.printf "fun_rhs T=%8.3f\n%!" time in
+    let () =
+      for i=0 to len-1 do
+	let il = if i=0 then len-1 else i-1
+	and ir = if i=len-1 then 0 else i+1
+	and illl = if i<=2 then len+i-3 else i-3
+	and irrr = if i>=len-3 then i-len+3 else i+3
+	in
+	let dy_by_dx = (y.{ir}-.y.{il})*.inv_2step in
+	let dy_by_dxxx = (-.y.{illl}+.3.0*.y.{il}-.3.0*.y.{ir}+.y.{irrr})*.inv_2step3 in
+	  ydot.{i} <- -6.0*.y.{i}*.dy_by_dx -. dy_by_dxxx
+      done
+    in
+      0
+  in
+  let fun_fill_jacobian ~jacobian ~y ~ydot ~time =
+    let () =
+      for i=0 to len-1 do
+	let il = if i=0 then len-1 else i-1
+	and ir = if i=len-1 then 0 else i+1
+	and illl = if i<=2 then len+i-3 else i-3
+	and irrr = if i>=len-3 then i-len+3 else i+3
+	in
+	let dy_by_dx = (y.{ir}-.y.{il})*.inv_2step in
+	  begin
+	    Mpi_petsc.matrix_inc jacobian i i    (-6.0*.dy_by_dx);
+	    Mpi_petsc.matrix_inc jacobian i il   ( 6.0*.inv_2step*.y.{i});
+	    Mpi_petsc.matrix_inc jacobian i ir   (-6.0*.inv_2step*.y.{i});
+	    Mpi_petsc.matrix_inc jacobian i illl ( 1.0*.inv_2step3);
+	    Mpi_petsc.matrix_inc jacobian i il   (-3.0*.inv_2step3);
+	    Mpi_petsc.matrix_inc jacobian i ir   ( 3.0*.inv_2step3);
+	    Mpi_petsc.matrix_inc jacobian i irrr (-1.0*.inv_2step3);
+	  end
+      done
+    in
+      ()
+  in
+    Sundials_sp.cvode_setup_vanilla 
+      ~name:"KdV"
+      ~fun_fill_jacobian
+      ~y_initial
+      ~fun_rhs ()
+;;
+
+let visualize ?(ysize=400) v_result =
+  let xsize = Bigarray.Array1.dim v_result.(0) in
+  let delay s =
+    let _ = Unix.select [] [] [] s in ()
+  in
+  let () = Graphics.open_graph "" in
+  let () = Graphics.set_window_title "Evolution" in
+  let () = Graphics.resize_window xsize ysize in
+  let ymin_max = [|1e307;-1e307|] in
+  let () = Array.iter
+    (fun ba_y ->
+       let len = Bigarray.Array1.dim ba_y in
+	 for i=0 to len-1 do
+	   let y=ba_y.{i} in
+	   let () = (if y > ymin_max.(1) then ymin_max.(1) <- y else ()) in
+	   let () = (if y < ymin_max.(0) then ymin_max.(0) <- y else ()) in
+	     ()
+	 done
+    ) v_result
+  in
+  let yrange = ymin_max.(1)-.ymin_max.(0) in
+  let draw_frame n =
+    let () = delay 0.1 in
+    let () = Graphics.clear_graph () in
+    let v = v_result.(n) in
+    let ypos y = int_of_float(((y-.ymin_max.(0))/.yrange)*.(float_of_int ysize))
+    in
+      for i=0 to (Bigarray.Array1.dim v)-1-1 do
+	Graphics.moveto i (ypos v.{i});
+	Graphics.lineto i (ypos v.{i+1});
+      done
+  in
+  let () =
+    for n=0 to Array.length v_result-1 do
+      draw_frame n
+    done
+  in
+  let () = delay 5.0 in
+    Graphics.close_graph()
+;;
+
+let ti_demo () =
+  let amplitude=0.001 in
+  let pi = 4.0*.atan 1.0 in
+  let delta_x=0.01 in
+  let nr_steps = 1000 in
+  let x_len = delta_x*.(float_of_int nr_steps) in
+  let ti =
+    time_integrator
+      ~delta_x
+      (* Let us use a simple sine wave: *)
+      (Array.init nr_steps
+	 (fun n ->
+	    let x = delta_x*.(float_of_int n) in
+	      amplitude*.((sin(2.0*.pi*.x/.x_len))**2.0) +.
+		0.2*.amplitude*.(sin(2.0*.pi*.x/.x_len))
+	 ))
+  in
+  let nr_time_steps=200 in
+  let dt = 0.001 in
+  let v_result =
+    Array.init nr_time_steps 
+      (fun _ -> Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout nr_steps)
+  in
+  let () =
+    for n = 0 to nr_time_steps-1 do
+      Printf.printf "TIME STEP %4d...\n%!" n;
+      ignore(Sundials_sp.cvode_advance ti (dt*.(float_of_int n)) v_result.(n) 100000)
+    done
+  in
+    visualize v_result
+;;
+
+
+let () = ti_demo();;

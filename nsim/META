@@ -1,0 +1,7 @@
+# Specifications for the "bem3d" library:
+requires = "snippets mesh fem bem3d ccpla nsim_grammars nlog sundials_sp nsimconf"
+description = "3d FEM simulator NSIM"
+version = "0.1"
+browse_interfaces = " Nsim "
+archive(byte) = "nsim.cma"
+archive(native) = "nsim.cmxa"

@@ -1,0 +1,7 @@
+# Specifications for the "snippets" library:
+requires = "unix str bigarray"
+description = "Snippets"
+version = "0.1"
+browse_interfaces = " Snippets "
+archive(byte) = "snippets.cma"
+archive(native) = "snippets.cmxa"

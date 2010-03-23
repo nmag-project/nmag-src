@@ -1,0 +1,7 @@
+# Specifications for the "mumag" library:
+requires = "snippets mesh fem bem3d ccpla nsim"
+description = "Micromagnetism module"
+version = "0.1"
+browse_interfaces = " Mumag "
+archive(byte) = "mumag.cma"
+archive(native) = "mumag.cmxa"

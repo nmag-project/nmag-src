@@ -1,0 +1,8 @@
+# Specifications for the "algorithms" library:
+requires = ""
+description = "A Collection of generally useful algorithms and data structures"
+version = "0.1"
+directory = "/usr/local/lib/ocaml/algorithms"
+browse_interfaces = " Algorithms "
+archive(byte) = "algorithms.cma"
+archive(native) = "algorithms.cmxa"

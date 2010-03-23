@@ -1,0 +1,7 @@
+# Specifications for the "nsim_ddpla" library:
+requires = "mpi_petsc bigarray unix nsimconf pycaml mpi_petsc ddpla pyddpla mesh fem"
+description = "Nsim Extensions to the Dependency Driven Parallel Linear Algebra"
+version = "0.1"
+browse_interfaces = " nsim_ddpla "
+archive(byte) = "nsim_ddpla.cma"
+archive(native) = "nsim_ddpla.cmxa"

@@ -1,0 +1,365 @@
+#!/usr/bin/env nsim
+
+import sys,optparse,string,os
+
+def parse_command_line(argvs):
+    usage="usage: %s [OPTIONS] datafile [COLS]\n\n(C) University of Southampton, United Kingdom, 2006-.\n\n" % (sys.argv[0])+\
+           """The Nmag (http://nmag.soton.ac.uk) postprocessing tool to extract COLumns from ndt files.
+
+    If no COLS are given, then the program lists all columns in the datafile,
+    preceeded by the number of the column.
+
+    If COLS are specified, then only the data in these columns is sent to
+    stdout.
+
+    COLS can be specified in two ways:
+
+     - either by the index of the column (i.e. "0" for the first coloumn, etc)
+
+     - or by the name of the coloumn (this is the string in the first
+       row heading this column).
+
+       Note that it is sufficient to provide a part of the name of the
+       column, as long as this name is unique. (You will get an error message
+       if it is not unique.)
+
+       Example: to extract from a OOMMF odt file, the iterations
+       against the stages, one could use 'ncol --odt Iteration Mx'
+       although the proper column name for the iterations is
+       Oxs_TimeDriver::Iteration, and the proper name for Mx is
+       Oxs_TimeDriver::Mx.
+
+    The user can specify as many columns as they like.
+    Use option -l to obtain the last row for all the stages
+    (this is equivalent of using "-last-of stage")
+""" 
+
+    version="$Header$"
+
+    parser = optparse.OptionParser(usage=usage,version=version)
+
+    parser.add_option("--scale", dest="scale", 
+                      help="scale col1 by factor1, col2 by factor 2 etc", 
+                      metavar='"{col1:factor1,col2:factor2,col3:factor3}"')
+    parser.add_option("--last-of", dest="last_of",
+                      help="Select only the rows where 'column' changes.",
+                      metavar='"column"')
+    parser.add_option("-l", action="store_true", dest="last_of_stage",
+                      help="Select only the last row for each stage (i.e. typically the relaxed state)")
+    parser.add_option("--mod", action="store", dest="mod",
+                      help="Compute the magnitude of given field, i.e. '--mod H_demag' computes sqrt(H_demag_0^2+H_demag_1^2+H_demag_2^2). More than one field can be provided (comma separated) but there must be no spaces between the fields. (I.e. '--mod m_Py,H_ext'). These modulus entries will be printed last (after any other COLS that have been provided), and in the order given in the '--mod' switch. ",metavar='"field"')
+
+    parser.add_option("--odt", action="store_true", dest="odt",
+                      help="Expect to process odt file (as produced by OOMMF, see http://math.nist.gov/oommf/ and http://math.nist.gov/oommf/doc/userguide12a3/userguide/Data_Table_File_Format_ODT.html).")
+
+    (options, arguments) = parser.parse_args(argvs)
+
+
+    if len(arguments) < 2:
+        print "You need to provide a file name to process"
+        print "Try '-h' to read the help."
+        sys.exit(0)
+
+    return options,arguments
+
+
+
+def line_adjust(line):
+    """strip off learding # and trailing newline"""
+    start = 0
+    if line[0] == '#':
+        start = 1
+    return line[start:-1]
+
+
+
+
+def readlines_oommf(filename,options,lines=None):
+    """lines can be a list of integer indices in which case
+    only the corresponding lines are read and returned in a list.
+    The trailing newline is stripped off for all lines.
+    Commented lines (lines starting with #) are uncommented.
+
+    This function reads the OOMMF file, and converts it into a ndt format.
+    """
+
+    def OOMMFkeywords_to_whitespace_separated_strings(line):
+        neutral = 1
+        in_keyword = 2
+        state = neutral
+        new_line = ''
+        for c in line:
+            #print "c=%s, new_line=%s" % (c,new_line)
+            if c == '{':
+                assert state==neutral,"Found two openining curly braces in OOMMF file. Why? '%s'" % line
+                state = in_keyword
+            elif c == '}':
+                assert state==in_keyword,"Found two closing curly braces in OOMMF file. Why? '%s'" % line
+                state = neutral
+                new_line += ' ' 
+            elif c in [' ','\t','\n']: #white space
+                if c == ' ':
+                    if state == in_keyword:
+                        new_line +='_'
+                    else:
+                        new_line +=' '
+                elif c in ['\t','\n']:
+                    assert state == neutral, "Found tab or newline but seems to be in keyword. Why? '%s'" % line
+                    pass
+            else:    #normal text in keyword
+                new_line +=c
+        return new_line
+
+
+    f = open(filename,'r')
+    oommf_lines = f.readlines()
+    f.close()
+
+    oommf_lines = [line for line in oommf_lines if line[0:2]!='##'] #remove comments
+
+    oommf_lines = [line for line in oommf_lines if line[0:5]!='# ODT'] #remove comments
+    
+    oommf_lines = [line for line in oommf_lines if line[0:7]!='# Title'] #remove comments
+
+    oommf_lines = [line for line in oommf_lines if line[0:13]!='# Table Start'] #remove comments
+
+    oommf_lines = [line for line in oommf_lines if line[0:11]!='# Table End'] #remove comments
+
+    #same sanity checks:
+    nr_col_headers = 0
+    nr_unit_headers = 0
+
+    ndt_lines = []
+
+    for line in oommf_lines:
+        if line[0:10] == '# Columns:':
+            nr_col_headers += 1
+            ndt_lines.append(OOMMFkeywords_to_whitespace_separated_strings(line[10:]))
+        elif line[0:8] == '# Units:':
+            nr_unit_headers += 1
+            
+            ndt_lines.append(line[8:])
+        else:
+            ndt_lines.append(line)
+
+        if nr_col_headers > 1:
+            raise StandardError,"The odt file '%s' has more than one row starting with '# Columns'. This is not supported." % filename
+        if nr_unit_headers > 1:
+            raise StandardError,"The odt file '%s' has more than one row starting with '# Units'. This is not supported." % filename
+            
+    if lines: #read only selected lines
+        returnlines = []
+        for j in lines:
+            returnlines.append(ndt_lines[j])
+    else: #read whole file
+        returnlines = ndt_lines
+
+    returnlines = map(line_adjust, returnlines)
+
+    return returnlines
+
+
+def readlines(filename, options, lines=None):
+    """lines can be a list of integer indices in which case
+    only the corresponding lines are read and returned in a list.
+    The trailing newline is stripped off for all lines.
+    Commented lines (lines starting with #) are uncommented.
+    """
+
+    if options.odt == True:
+        return readlines_oommf(filename,options,lines)
+
+    f = open(filename,'r')
+    if lines: #read only selected lines
+        datalines = []
+
+        for i in range(max(lines)+1):
+            datalines.append(line_adjust(f.readline()))
+
+        returnlines = []
+        for j in lines:
+            if datalines[j] == '':  #have reached EOF
+                break
+            else:
+                returnlines.append(datalines[j])
+    else: #read whole file
+        returnlines = f.readlines()
+        #strip off \n at the end
+        returnlines = map(line_adjust, returnlines)
+    f.close()
+    return returnlines
+
+def print_header(filename,options):
+
+    name_lineind = 0
+    unit_lineind = 1
+    example_lineid = [2]
+
+    if options.odt:
+        formattoken = "%35s " #OOMMF keywords are long
+    else:
+        formattoken = "%13s "
+
+    show_lines  = [name_lineind,unit_lineind]+example_lineid
+
+    #print "show_lines is ",show_lines
+
+    lines = readlines(filename,options,show_lines)
+
+    #print "len(lines)=",len(lines)
+
+    bits = map(string.split,lines)
+
+    ncolumns = len(bits[0])
+
+    for i in range(ncolumns):
+        print "%2d:" % i,
+        for j in show_lines:
+            #if len(bits) <= j:
+            #    print "Warning skipping j=%d " % (j)
+            #else:
+            try:
+                print formattoken % bits[j][i],
+            except IndexError:
+                #print "lmissing item i=%d, j=%d" % (i,j)
+                #print "bits are",bits[0]
+                #print "units are",bits[1]
+                print "Warning, item %d in line %d missing" % (i,j)
+        print
+    return None
+
+def print_cols(filename, cols, scale_dic, options, last=None, startline=2, formattoken="%13s "):
+    lines = readlines(filename,options)
+    bits = map(string.split,lines)
+
+    #print "found %d lines" % len(lines)
+
+    #create dictionary of title
+    title_d = {}
+    for i,name in enumerate(bits[0]):
+        if name == "#time": 
+            name = "time"
+        title_d[name]=i
+
+    #convert strings (titles of colums, and integer strings) in cols
+    #to index integers
+    def get_col_index(col,multiple_results_okay=False):
+        try:
+            return int(col)
+        except ValueError,msg1:
+            if title_d.has_key(col):
+                return title_d[col]
+            else:
+                candidates = []
+                for title in title_d:
+                    if col in title: candidates.append(title)
+                if len(candidates) == 1:
+                    return title_d[candidates[0]]
+                elif len(candidates) == 0:
+                    msg = "Can't deal with COL token '%s'.\n" % col
+                    msg += " Not an integer, and not a column header\n"
+                    msg += " (col headers are %s)\n" % str(title_d.keys())
+                    raise ValueError,msg
+                elif len(candidates) > 1:
+                    if  multiple_results_okay:
+                        #raise NotImplementedError,"candidates=%s" % candidates
+                        return [ title_d[candidate] for candidate in candidates]
+                    else:
+                        msg = "There are %d columns headers which contain " \
+                            "the string '%s'. They are:\n%s\n" \
+                            "Please select among one of them!" \
+                            % (len(candidates), col, candidates)
+                        raise ValueError,msg
+
+    #if required, prepare computation of moduli:
+    actions=[]
+    if options.mod:
+
+        def make_modulus_closures(clos_intcols):
+            def modulus_closure(bits,i):
+                values = [float(bits[i][id]) for id in clos_intcols]
+                #print values
+                values2= [v*v for v in values]
+                #print values2
+                result = math.sqrt(sum(values2))
+                print formattoken % result,
+                #print "I am a closure, my clos_intcols are %s" % str(clos_intcols)
+            return modulus_closure
+
+
+        import math
+        names = options.mod.split(',')
+        #print "--mod names are %s" % names
+        for i in range(len(names)):
+            if names[i][-1] != '_':
+                names[i] = names[i]+'_' #this makes sure we exclude cols like maxangle_m_Py when the name is m_Py
+
+        #define closures 
+
+        for name in names:
+            clos_intcols = tuple(get_col_index(name,multiple_results_okay=True))
+            #print "clos_intcols for name=%s are %s" % (name, clos_intcols)
+            modulus_closure = make_modulus_closures(clos_intcols)
+            actions.append(modulus_closure)
+
+    stage_col = None
+    stage_val = None
+    if last != None:
+        stage_col = get_col_index(last)
+        stage_val = bits[startline][stage_col]
+
+    intcols   = [get_col_index(col) for col in cols]
+
+    #now do the work and ouput the data
+    for i in range(startline,len(lines)):
+        skip_row = False
+        if stage_col != None:
+            #stage_val = bits[i][stage_col]
+            if i+1 < len(lines):
+                next_stage_val = bits[i+1][stage_col]
+                if stage_val == next_stage_val:
+                    skip_row = True
+                stage_val = next_stage_val
+        if not skip_row:
+            for col in intcols:
+                value = bits[i][col]
+                if scale_dic.has_key(col):
+                    value = "%13g" % (float(value) * scale_dic[col])
+                print formattoken % value,
+            for action in actions:
+                #print "calling action with id",id(action)
+                action(bits,i)
+
+            print
+
+
+options,arguments = parse_command_line(sys.argv)
+filename = arguments[1]
+
+#If given filename exists, use that
+if os.path.exists(filename):
+    pass
+#otherwise try to append _dat.ndt
+elif os.path.exists(filename+'_dat.ndt'):
+    filename = filename+'_dat.ndt'
+else:
+    raise ValueError,"Input file '%s' does not exist" % filename
+
+
+cols = arguments[2:]
+
+if options.scale:
+    scale_dic = eval(options.scale)
+else:
+    scale_dic = {}
+
+last = None
+if options.last_of_stage == True:
+    last = "stage" 
+if options.last_of:
+    last = options.last_of
+
+if cols == []: #no cols given
+    print_header(filename,options)
+else:
+    bits = print_cols(filename,cols, scale_dic, options=options, last=last)

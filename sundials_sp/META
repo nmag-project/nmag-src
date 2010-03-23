@@ -1,0 +1,7 @@
+# Specifications for the "sundials_sp" library:
+requires = "snippets mpi_petsc bigarray unix"
+description = "Simple sundials interface for time integration, serial+parallel variant"
+version = "0.1"
+browse_interfaces = " Sundials_sp "
+archive(byte) = "sundials_sp.cma"
+archive(native) = "sundials_sp.cmxa"

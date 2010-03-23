@@ -1,0 +1,137 @@
+Note: this is a log of things I tried - and hopefully resolved if
+problems occurred.
+
+=== Trying to initialize petsc ===
+
+# Petsc.init [|"-foo"; "-bar"|] "Test" "Hello";;
+DDD caml_petsc_init: 2 args!
+DDD argv[0]=-foo
+DDD argv[1]=-bar
+DDD PRE PETSC-INIT
+DDD PRE PETSC-PUSH-ERROR-HANDLER
+DDD POST PETSC-PUSH-ERROR-HANDLER
+- : bool = true
+
+# Petsc.init [|"-foo"; "-bar"|] "Test" "Hello";;
+- : bool = false
+
+# Petsc.init [||] "Test" "Hello";;
+DDD caml_petsc_init: 0 args!
+DDD PRE PETSC-INIT
+Segmentation fault
+
+*** NOTE:
+
+Initialization seems to work, but it's petsc's fault (sic!) that it
+shows pretty bad behaviour when it is given an empty argv (a situation
+which never occurs in C!)
+
+=== Trying to start the python interpreter ===
+
+tf@ouija:~/talks/ocaml/petsc-example$ ./petscaml.top
+        Objective Caml version 3.08.3
+
+# Pycaml.pyrun_interactiveloop(0,"-");;
+>>> 2+3
+5
+>>> 
+- : int = 0
+# 
+
+=== Trying to initialize Petsc - this time with extra checks in place! ===
+
+# Petsc.init [||] "Test" "Hello";;
+Exception:
+Petsc_error.Petsc_caml_interface_exn
+ "Refusing to pass empty argv to Petsc - it would SEGV!".
+
+...pretty nice, I'd say!
+
+=== Creating a petsc vector ===
+
+# let v0 = Petsc.vec_create "solution" 1000;;
+val v0 : Petsc.vec = <abstr>
+# v0;;
+- : Petsc.vec = <abstr>
+
+# let v1 = Petsc.vec_create "solution" 1000000000;;
+val v1 : Petsc.vec = <abstr>
+
+# let v2 = Petsc.vec_create "solution" (-3);;
+val v2 : Petsc.vec = <abstr>
+
+Note: it seems as if petsc were not too bright with internal consistency checks.
+
+XXX Perhaps, I should catch that in the interface!
+
+Addendum: changed the argument order. It is much more reasonable for
+currying purposes to have it this way:
+
+# Petsc.init [|"hello"|] "" "";;
+- : bool = true
+# let v0 = Petsc.vec_create 1000 "solution";;
+val v0 : Petsc.vec = <abstr>
+
+=== Creating a matrix without initializing petsc first ===
+
+tf@ouija:~/talks/ocaml/petsc-example$ ./petscaml.top
+        Objective Caml version 3.08.3
+
+# Petsc.matrix_create 10 10 "mm";;
+Segmentation fault
+
+XXX The interface could easily catch this as well!
+
+=== Creating a matrix ===
+
+tf@ouija:~/talks/ocaml/petsc-example$ ./petscaml.top
+        Objective Caml version 3.08.3
+
+# Petsc.init [|"foo"|] "" "";;
+- : bool = true
+# Petsc.matrix_create 10 10 "mm";;
+- : Petsc.matrix = <abstr>
+
+That's also fine, isn't it?
+
+=== Setting & getting matrix elements ===
+
+tf@ouija:~/talks/ocaml/petsc-example$ ./petscaml.top
+        Objective Caml version 3.08.3
+
+# Petsc.init [|"foo"|] "" "";;
+- : bool = true
+# let m = Petsc.matrix_create 10 10 "M";;
+val m : Petsc.matrix = <abstr>
+# Petsc.matrix_get m 0 0;;
+Segmentation fault
+tf@ouija:~/talks/ocaml/petsc-example$ ./petscaml.top
+        Objective Caml version 3.08.3
+
+# Petsc.init [|"foo"|] "" "";;
+- : bool = true
+# let m = Petsc.matrix_create 10 10 "M";;
+val m : Petsc.matrix = <abstr>
+# Petsc.matrix_set m 0 0 1.0;;
+- : unit = ()
+# Petsc.matrix_get m 0 0;;
+Segmentation fault
+tf@ouija:~/talks/ocaml/petsc-example$ 
+
+Another example, with slightly modified code:
+
+# Petsc.matrix_get m 2 2;;
+DDD PETSC ERROR (73/1 - Not for unassembled matrix) - THROWING EXN!
+DDD PETSC ERROR (59/1 - Caught signal number 11 SEGV:
+PETSC ERROR: Segmentation Violation, probably memory access out of range
+PETSC ERROR: Try option -start_in_debugger or -on_error_attach_debugger to
+PETSC ERROR: determine where problem occurs
+PETSC ERROR: compile, link, and run with BOPT=g or g_c++ or g_complex
+PETSC ERROR: to get more information on the crash.
+) - THROWING EXN!
+Segmentation fault
+
+Oh dear. We cannot throw an OCaml exception from within a Petsc error handler!
+
+Or, alternatively, our throwing code is broken...
+

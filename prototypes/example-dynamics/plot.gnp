@@ -1,0 +1,15 @@
+set term postscript color enhanced eps
+set out "plot.eps"
+
+MA_m(A_m) = A_m*1e-6
+ns(s) = s*1e9
+
+set title "Example: dynamics"
+set xlabel "Time (ns)"
+set ylabel "<M_i>/M_{sat}"
+
+plot [] [] \
+  "run.dat" u (ns($1)):5 t "x-component" w l, \
+         "" u (ns($1)):6 t "y-component" w l, \
+         "" u (ns($1)):7 t "z-component" w l 
+

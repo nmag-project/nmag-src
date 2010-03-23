@@ -1,0 +1,6 @@
+name = "pqueue"
+version = "0.1"
+description = "Flexible Priority Queue (and some applications)"
+requires = ""
+archive(byte) = "pqueue.cma"
+archive(native) = "pqueue.cmxa"

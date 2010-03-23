@@ -1,0 +1,7 @@
+# Specifications for the "nsim_fem" library:
+requires = "snippets mesh mpi_petsc qhull nsim_grammars fastfields sundials_sp"
+description = "Putting Nsim FEM elements on a mesh"
+version = "0.1"
+browse_interfaces = " Nsim_fem "
+archive(byte) = "nsim_fem.cma"
+archive(native) = "nsim_fem.cmxa"

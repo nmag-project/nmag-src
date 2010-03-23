@@ -1,0 +1,42 @@
+
+Note:
+
+In publications, one frequently wants to include graphics. Typically,
+those will be postscript graphics.
+
+One fundamental problem is that such graphics usually are provided as
+encapsulated postscript (which per se is re-scalable), but often were
+derived from pixel graphics (which are not, and furthermore tend to
+eat up insane amounts of space, especially when there are many of
+them).
+
+Thus, it sould be useful if we could just produce
+tailored-to-the-application postscript code from some geometric
+scenarios.
+
+Example: we have a 3d mesh.
+
+(1) Determine all triangles in the mesh
+
+(2) But throw away those which appear twice (i.e. are not a surface!)
+
+(3) Order surface triangles by distance from the viewpoint
+
+(4) Do an orthogonal projection to 2d
+
+(5) For every triangle, draw the outline and fill it with white.
+
+(Idea: define a function draw-triangle which will
+
+setrgbcolor to white
+newpath moveto lineto lineto closepath fill
+setrgbcolor to black
+newpath moveto lineto lineto closepath stroke
+
+and use 
+
+ 6 array aload
+
+to pack triangle corners into an array.
+
+)

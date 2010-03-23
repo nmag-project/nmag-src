@@ -1,0 +1,14 @@
+set term postscript color enhanced eps
+set out "plot.eps"
+
+MA_m(A_m) = A_m*1e-6
+
+set title "Example: hysteresis"
+set xlabel "Applied field, x component (10^6 A/m)"
+set ylabel "<M_x>/M_{sat}"
+
+plot [] [-1.1:1.1] \
+  "run.dat" u (MA_m($2)):5 t "" w lp
+#  "" u (MA_m($2)):6 t "" w l, \ # y component
+#  "" u (MA_m($2)):7 t "" w l # z component
+

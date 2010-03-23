@@ -1,0 +1,430 @@
+Unpublished changes:
+
+
+
+
+
+New Features
+
+* Support of Hierarchical Matrix compression for Boundary element matrix. See
+  example in documentation for details, and `Knittel et al 105, 07D542 (2009)
+  <http://link.aip.org/link/?JAPIAU/105/07D542/1>`__, `postprint pdf
+  <http://www.soton.ac.uk/~fangohr/publications/postprint/Knittel_etal_JAP_105_07D542_2009.pdf>`__). 
+
+Bugfixes/Improvements
+
+* Minor improvements manual (Example 1 and 2, nmagpp, mayavi, 6170, updated MPI section)
+
+* Updated plot.dat and plots for Example Hysteresis loop for thin disk to fix
+  documentation bug (thanks to Weiwei Wang for spotting this, 6326).
+
+* The time stopping criteria are now more faithfully respected. A new optional
+  argument, 'exact_tstop', has been added to 'Simulation.advance_time' and to
+  'Simulation.set_params' to give more freedom to the time integrator, in case
+  performance is a concern and exact time-stopping is not really needed.
+
+* Updated packages to their latest stable release in the compile from source.
+  We are now using: Sundials 2.3.0, HDF5 1.6.10, Python 2.6.4, pytables 2.1.2,
+  NumPy 1.3.0, IPython 0.10. 
+
+* The regression tests can now be called with three different targets (6430):
+
+  make check : runs all fast tests (should complete in less than 5
+  minutes). This is a good test to run after compiling nmag (from source).
+
+  make checkmpi   : runs mpi-related checks
+
+  make checkslow  : runs tests that take longer (order of hours)
+
+  make checkall   : run all tests together  
+
+  (Previously, the mpi tests were part of target 'check'.)
+
+----------------------------------
+
+Interface changes;
+
+* We stop providing a Debian package for this release. The from source
+  compile works out of the box on Deian systems.
+
+
+
+
+
+
+Release 0.1 beta (6163) 30 March 2009
+=====================================
+
+Bugfixes:
+
+* Fixed bug that resulted in simulation hanging when running in MPI
+  mode (6039)
+
+* Solved error in regression test (test_gmsh1_0_import.py). The error
+  was in the test code, not in the conversion code. (5987)
+
+
+New Features:
+
+* New functionality: Zhang-Li spin torque coupling term for uniform
+  current densities added and documented. (6133)
+
+Improvements:
+
+* Reduced memory footprint (by approx 7% for the problem in manual/example2) 
+  (6098)
+
+* Documented ``load_m_from_h5file`` (6041) and ``save_restart_file`` (6096)
+
+* Document LLG equation of motion (new subsection in section
+  Background), and llg_gamma_G parameter in MagMaterials (6014)
+
+* Added more ``save=`` usage examples for hysteresis() and relax()
+  functions (6096) in documentation of hysteresis command.
+
+* Added MPI-regression tests (6031)
+
+* tidied up file tree (removing out-dated examples, etc) (6059)
+
+* Added mpi debug function nmag.mpi_hello() (6068)
+
+* Allow to switch on debug messages from slaves (usually switched off) 
+  using --slavelog
+
+* Adding release date to output of nsimversion (6153)
+
+Interface change:
+
+* Configuration files (RUNID_*.conf) are now only written when the
+  --dumpconf switch is provided (6093)
+
+
+
+Release 0.1 beta (5962) 20 November 2008
+========================================
+
+Bugfixes/Improvements/New Features
+----------------------------------
+
+* New feature: Can read finite element meshes produced with Gmsh using
+  the new ``--gmsh`` switch for the ``nmeshimport`` tool. (5924)
+
+* Added more regression tests
+
+* Fixed bug that stopped simulations where two magnetic domains touch
+  each other (5886)
+
+* Fixed bug that didn't allow to have different (potentially
+  unrelated) simulation objects in the same nmag-program (5956)
+
+* Fixed bug that (sometimes) stopped the --restart mechanism 
+  to continue interrupted hysteresis loop calculations (5907)
+
+* Fixed bug that prevented ``sim.get_subfield_positions`` and
+  ``sim.get_subfield_sites()`` from working. (5933)
+
+
+
+Release 0.1 beta (5878) 13 October 2009
+=======================================
+
+Bugfixes/Improvements/New Features
+----------------------------------
+
+* bugfix: reinitialisation used to reset the stage_time and stage_step
+  counters. This is now fixed and is done explicitly in the hysteresis method.
+  This functionality is needed to study systems where the applied field
+  changes in time (5848).
+
+* bugfix: allow from source compilation on (K)Ubuntu 8.04. The bug is
+  with the Petsc library 2.3.2. We have upgraded the Petsc library to
+  2.3.3 in the compile from source installation, which resolves the
+  problem (5851). 
+
+* bugfix: reading Gambit meshes works without warnings (5852).
+
+* bugfix: A missing ``.petsc`` file in the user's home directory
+  resulted in an error message when nsim was started. This did create
+  the missing file, so all is fine the next time nsim is
+  called. Revision (5853) fixes this.
+
+* Improvement: Split hysteresis example in tutorial into two
+  examples. The first can be used to play around with thecommand andto
+  quickly complete a simulation. The second allows to compare the
+  resulting hysteresis loop with an analytical prediction (5876).
+
+* minor improvements in makefile for installation from source (5859).
+
+
+
+
+
+
+Release 0.1 beta (5787) 2 September 2008
+========================================
+
+Bugfixes/Improvements/New Features
+----------------------------------
+
+* bugfix: disabled diagnostic debug code that caused segfault for large meshes
+  (over 130,000 volume elements)
+
+* bugfix: including documentation for
+  Simulation.get_subfield_average() in manual
+
+* nmeshipmort has slightly improved error reporting when attempting to
+  import an unknown mesh format
+
+
+
+
+Release 0.1 beta (5787) 8 August 2008
+=====================================
+
+Bugfixes/Improvements/New Features
+----------------------------------
+
+* We have a new distribution mode using VMWare's vmplayer. This is
+  particularly attractive to MS Windows users. This is at a very early
+  stage and and we invite feedback from early adaptors.
+
+* Updated the Knoppix CD to the most recent version, and to include the 
+  Netgen mesh generator.
+
+* ncol can now process OOMMF's odt files (use --odt switch)
+
+* Bugfix: the previous debian package could only execute on CPUs with sse2 extension.
+
+* Bugfix: fixed	embarrassing bug that appeared with the last release
+  (printing of applied field brakes when first component is zero).
+
+Interface change
+----------------
+
+* removed support for thermal fluctuations. There appeared to be no
+  up-take of this feature, and maintaining this (while developing the
+  code further, parallelising it and making faster and leaner) was
+  unnecessarily binding resources.
+
+
+Release 0.1 beta (5734) 1 August 2008
+=====================================
+
+
+Bug fixes/Improvements/New Features
+-----------------------------------
+
+* Reduced memory requirements by approximately 20% (due to better
+  compression of sparse matrices)
+
+* Updated code working with hdf5 files to be compatible with pytables
+  version 1 and 2 (no immediate effect on user if using compile from
+  source, but allows to link to existing pytables2). By default we
+  are still using pytables1 (but expect to switch at some point in the
+  future, which should be transparent to users).
+  
+* Change from numpy 1.0.1 to 1.1.0. in compile from source distribution.
+
+* More detailed progress reporting in nmagpp (useful if data files
+  become large, i.e. a GB and more).
+
+* More detailed progress report in setup phase.
+
+* More detailed progress reporting in hysterises/relax commands.
+
+* Made compile from source work for Mac OS X 10.5 (Leopard)
+
+* Introduced unit and regression tests.
+
+
+
+
+Release 0.1 beta (5531) 2 June 2008
+===================================
+
+Bug fixes/Improvements/New Features
+-----------------------------------
+
+* The current release, distribution mode, svn release number and
+  location of the nmag-python libraries are provided (to stdout and
+  logfile) when a simulation object is created. 
+
+* Re-designed and implemented calculation of the Jacobi matrix: The
+  new approach 
+
+  - slightly more computation time is spent during the main simulation
+    whenever the Jacobian needs to be re-computed
+
+  - the setup phase takes (notably) less time.
+
+  - simulations with the new approach need about 30% less memory 
+
+* Matrix setup is now parallised.
+
+* Documented the use of MPI in the manual to carry out parallel runs.
+
+* Bugfix: Code now working with MPICH2.
+
+* Bugfix: The compilation from source works (again) for Mac OS X.
+
+* Switched to pvode (the parallel solver for time integration) by default.
+  Updated timestepper tolerances section accordingly.
+
+* Feature enhancement: can save spatially resolved fields using the
+  save_data command in any order (previsouly, it was possible to stick
+  to the same set of saved fields for every saved timestep). 
+
+* Update of manual in several places (including recommendation how to
+  cite nmag in FAQ).
+
+* A number of (smaller) bugfixes.
+
+  
+Interface changes
+-----------------
+
+* The use of ``row`` for the analyses of nmag's ``_dat.h5`` data files
+  has been superseeded with the use of ``id``s (see explanation in
+  manual).
+
+  This has the following side effect: the nmagpp command labels vtk
+  file using the mask NAME-00XX.vtk where XX is an increasing
+  number. This used to be the 'row' number for saved fields. Because
+  it is now possible to save any fields in any order, the value of XX
+  is now replaced with the unique id of a saved configuration. This
+  also allows easier identification of a saved configuration with an
+  entry in the ndt file (via the id).
+
+* nmagpp used to have a switch ``--field`` which allowed to choose
+  *one* field that should be dumped (``--dump``) or converted to vtk
+  files (``--vtk``). The functionality has now been extended so that
+  *a list of fields* can be given, such as ``nmagpp --fields
+  m,phi,H_demag --vtk myvtkfiles.vtk
+  mysimulation_dat.h5``. Consequently, the switch has been renamed
+  from ``--field`` to ``--fields``.
+
+
+
+
+
+Release 0.1 beta (5259) 30 January 2008
+=======================================
+
+Bug fixes/Improvements
+----------------------
+
+* changed for parallel execution to use of pvode (rather than cvode
+  before). Results in performance increase for MPI runs.
+
+Interface changes
+-----------------
+
+* None
+
+
+
+New features
+------------
+
+None
+
+
+
+Release 0.1 beta (5259) 30 January 2008
+=======================================
+
+Bug fixes/Improvements
+----------------------
+
+* ticket 126: Calculation of exchange energy, demag energy, Zeeman
+  energy and total energy had wrong sign; now working correctly.
+
+* increased speed of setup phase slightly.
+
+
+Interface changes
+-----------------
+
+* Have changed version of mpich in tarball distribution. Used to be
+  mpich2.0 but is mpich1.0 from now on (to be consistent with debian
+  packages). Users who have older tarballs and want to use MPI
+  execution, need to obtain a new tarball to update (updating the
+  nsim-core is not sufficient).
+
+
+New features
+------------
+
+None
+
+
+
+Release 0.1 beta (4947) 20 December 2007
+========================================
+
+
+Bug fixes/Improvements
+----------------------
+* ticket 101: Setting anisotropy=nmag.uniaxial_anisotropy(K1=0) in MagMaterial
+  produces an error message;
+* ticket 103: When starting from a zero torque configuration the simulation
+  proceeds up to the maximum time (which is 1 s) and here it stops:
+  now an appropriate error message is displayed.
+* ticket 97: Unrecognized architecture causes compilation failure in the
+  bem3d module: now the architecture flag will be empty if the architecture
+  detection fails.
+* changeset:4919 reduced setup time by approx 1/3 through faster setup
+  of operators (apart from H_exch and Jabobi). Further speed up reduces setup time
+  to half the original value.
+* new section on sundials tolerances in manual guided tour.
+
+Interface changes
+-----------------
+
+None.
+
+
+New features
+------------
+
+* Writing sundials performance data in log file (_cvode.log)
+
+* added setting of CVODE tolerances as function of stopping_dm_dt
+  (needs to be tested and documented), currently switched off by
+  default.
+
+
+
+
+Release 0.1 beta (4785) 27 November 2007
+========================================
+
+
+Bug fixes/Improvements
+----------------------
+
+* improved renderening of bitmaps (figures and equations) in html
+  documentation (4754)
+
+* install from tar ball was broken (pkgs in wrong directory)
+
+
+Interface changes
+-----------------
+
+
+New features
+------------
+
+* added mini tutorial on micromagnetic simulations to manual
+
+* new tool nmeshsort
+
+
+
+
+Release 0.1 beta (4625) 2 November 2007
+=======================================
+
+
+First release

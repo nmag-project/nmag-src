@@ -1,0 +1,9 @@
+# Specifications for the "field_scope" library:
+requires = "snippets unix pycaml voodoo lablgtk2 lablgtk2.init lablgtk2.gtkgl fem_element mpi_petsc fastfields timestep mumag pyfem"
+description = "Field_scope"
+version = "0.1"
+#directory = "^"
+directory = "/usr/local/lib/ocaml/field_scope"
+browse_interfaces = " Field_scope "
+archive(byte) = "field_scope.cma"
+archive(native) = "field_scope.cmxa"

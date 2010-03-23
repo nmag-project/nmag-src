@@ -1,0 +1,7 @@
+# Specifications for the "nsim_anisotropy" library:
+requires = "snippets mesh fem hlib"
+description = "Anisotropy functions for nsim"
+version = "0.1"
+browse_interfaces = " Nsim_Anisotropy "
+archive(byte) = "nsim_anisotropy.cma"
+archive(native) = "nsim_anisotropy.cmxa"

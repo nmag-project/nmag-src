@@ -1,0 +1,21 @@
+#use "topfind";;
+#require "fastfields";;
+
+open Fastfields;;
+
+let c_f1 = 
+  c_register_field
+"printf(\"Eval at %f %f %f\\n\",position[0],position[1],position[2]);fflush(stdout);
+result[0]=position[0]+100.0;
+result[1]=position[1]+200.0;
+result[2]=position[2]+300.0;
+return 1;"
+;;
+
+let f1 = c_field_evaluator_mapping_float_array_to_float_array 3 c_f1;;
+
+let _ =
+  let x = f1 [|1.0;2.0;3.0|] in
+  Printf.printf "Result: %f - %f - %f\n%!" x.(0) x.(1) x.(2);;
+
+at_exit(Fastfields.finish);;

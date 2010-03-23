@@ -1,0 +1,7 @@
+# Specifications for the "mesh" library:
+requires = "bigarray snippets qhull mt19937 gsl nlog"
+description = "General simplicial Meshing"
+version = "0.1"
+browse_interfaces = " Mesh "
+archive(byte) = "mesh.cma"
+archive(native) = "mesh.cmxa"

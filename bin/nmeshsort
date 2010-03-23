@@ -1,0 +1,213 @@
+#!/usr/bin/env python
+
+#Giuliano Bordignon, part of the nmag package.
+
+
+import sys
+import numpy as N
+import math, types
+
+def read_file(filename):
+
+    try:
+        f=open( filename, "r" )
+        lines = f.readlines()
+        f.close()
+    except:
+        print "The file %s cannot be opened\n" %filename
+        sys.exit()
+
+    return lines
+
+def extract_data(lines):
+
+    mesh_variables = lines[1].split()
+
+    points_nr = int( mesh_variables[6] )
+    simplices_nr = int( mesh_variables[9] )
+    surfaces_nr = int( mesh_variables[12] )
+    periodic_nr = int( mesh_variables[15])
+
+    # read points
+    points = []
+    for i in range(points_nr):
+        vals = [float(val) for val in lines[3+i].split()]
+
+        # region the simplex belongs to
+        points.append(vals)
+
+
+    #read tetraedra
+    simplices_indices = []
+    
+    #keep track of the subdomain to which tetraeders belong
+    simplices_regions = []
+
+    for i in range(simplices_nr):
+        vals = [int(val) for val in lines[3+points_nr+1+i].split()]
+
+        # region the simplex belongs to
+        simplices_regions.append(vals[0])
+
+        # indices of nodes in each simplex
+        simplices_indices.append(vals[1:])
+
+
+    # read surfaces
+    surfaces = []
+    for i in range(surfaces_nr):
+        vals = [int(val) for val in lines[3+points_nr+1+simplices_nr+1+i].split()]
+
+        # region the simplex belongs to
+        surfaces.append(vals)
+    
+    # read periodic points
+    periodic_pts = []
+    for i in range(periodic_nr):
+        vals = [int(val) for val in lines[3+points_nr+1+simplices_nr+1+surfaces_nr+1+i].split()]
+
+        # region the simplex belongs to
+        periodic_pts.append(vals)
+
+    return points, simplices_indices, simplices_regions, periodic_pts
+
+def sort_points(points, axis):
+    """sort points along the given axis (quick implementation)"""
+
+    mapping = {}
+
+    dim = len(points[0])
+
+    if axis not in range(dim):
+
+        print "The direction (second argument) must be within the dimension of the space!"
+        sys.exit(1)
+
+    if axis not in range(dim):
+        print "\nThe direction (second argument) must be within the dimension of the space!\n"
+        sys.exit(1)
+
+    # create a numpy array out of the points list
+    points_arr = N.array( map(lambda pt:N.array(pt), points))
+
+    # array of sorted indices along the given axis
+    sort_indices = points_arr[:,axis].argsort(axis=0)
+
+    # extract the x component of the points 
+    x_comp = points_arr[:,0].reshape(-1,1) # column vector
+
+    # sort the x component of the points according to sort_indices
+    sorted_pts = x_comp[sort_indices]
+
+    # add the other axes to the sorted 'partial' points
+    for d in range(1,dim):
+        
+        next_comp = points_arr[:,d].reshape(-1,1) # column vector
+        sorted_pts = N.hstack((sorted_pts,next_comp[sort_indices]))
+
+    # create the mapping between new and old positions
+    for i,s in zip(range(len(sort_indices)),sort_indices):
+        mapping[s] = i
+
+    return sorted_pts, mapping 
+
+def sort_simplices(simplices, mapping):
+    """sort simplices indices according to mapping used for points"""
+    
+    new_simplices = map( lambda sx: [mapping[pt_ix] for pt_ix in sx],  simplices) 
+
+    return new_simplices
+
+def sort_periodic(periodic,mapping):
+    """sort periodic indices according to mapping used for points"""
+
+    new_periodic = map( lambda per: [mapping[pt_ix] for pt_ix in per],  periodic) 
+
+    return new_periodic
+
+def write_file(new_points, new_simplices, new_regions, new_periodic):
+    """
+    function that writes a string containing all the information of an nmesh file
+    """
+    points_nr = len(new_points)
+    simplices_nr = len(new_simplices)
+    periodic_nr = len(new_periodic)
+    new_file_string = ""
+    new_file_string += "# PYFEM mesh file version 1.0\n# dim = %d 	 nodes = %d 	 simplices = %d 	 surfaces = 0 	 periodic = %d\n" %(len(new_points[0]),points_nr,simplices_nr,periodic_nr)
+    
+    new_file_string += str(points_nr)+"\n"
+    
+    for point in new_points:
+    
+        for comp in point:
+            new_file_string += "\t%25.12f " % comp
+        new_file_string += "\n"    
+    
+    new_file_string += str(simplices_nr)+"\n"
+    
+    for (reg, ind) in zip(new_regions, new_simplices):
+        new_file_string += "\t%6d " % (reg)
+        for i in ind:
+            new_file_string += "%d\t" % i
+        new_file_string += "\n"
+        
+    new_file_string += "0\n"
+    
+    new_file_string += str(periodic_nr)+"\n"
+    
+    for per in new_periodic:
+        new_file_string += "\t"
+        for comp in per:
+            new_file_string += "%d " % comp
+        new_file_string += "\n"    
+    
+    return new_file_string
+
+def print_usage():
+    print """
+    Usage: nmeshsort meshfile axis newfile\n
+    with:
+         * meshfile:            original ascii nmesh file
+         
+         * axis:                axis over which the sorting takes place
+
+         * newfile:             name of the file with the new sorted mesh
+         
+    Example: 3D mesh to be sorted along the z-axis
+
+             nmeshsort meshfile 2 newfile
+    
+         """
+    sys.exit(0)
+
+if len(sys.argv)==1:
+    print_usage()
+
+if len (sys.argv)<3:
+    print "You need to provide 3 arguments (have only received %d)" % (len(sys.argv)-1)
+    print "Call %s without arguments to get help" % sys.argv[0]
+    sys.exit(1)
+
+filename = sys.argv[1]
+direction = int(sys.argv[2])
+newfile = sys.argv[3]
+
+
+data_string = read_file(filename)
+#check that this is ascii version
+token="# PYFEM mesh file version 1.0"
+if data_string[0][0:len(token)]!=token:
+    print "Only works with ASCII nmesh files (first line should read '%s')" \
+          % token
+    print "Stopping here"
+    sys.exit(1)
+
+points, simplices_indices, simplices_regions, periodic_pts = extract_data(data_string)
+new_points,mapping = sort_points(points,direction)
+new_simplices = sort_simplices(simplices_indices,mapping)
+new_periodic = sort_periodic(periodic_pts,mapping)
+
+newmesh = write_file(new_points, new_simplices, simplices_regions, new_periodic)
+f=open( newfile, "w" )
+f.write(newmesh)
+f.close()

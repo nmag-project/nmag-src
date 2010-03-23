@@ -1,0 +1,796 @@
+#!/usr/bin/env nsim
+
+import optparse,sys,types
+
+import nbase
+nbase._need_to_run_configure=False
+nbase.conf.set('run_dir',".")
+
+import nmesh
+
+import logging
+logging.getLogger('').setLevel(logging.INFO)
+logging.getLogger('memory').setLevel(logging.INFO)
+
+#silence ocaml's memory reports:
+import ocaml
+ocaml.nlog_setLogLevel('nmesh.ocaml',logging.WARN)
+ocaml.nlog_setLogLevel('nfem.ocaml',logging.WARN)
+
+##not used yet
+#we store some data we have computed (to avoid computing it twice)
+data= {}
+data['wait_for_keypress_at_end']=False
+
+
+def memory_report(tag):
+    t,vmem,rss = ocaml.time_vmem_rss()
+    logging.getLogger('memory').log(15,"Memory report: T=  %f VMEM=   %d KB RSS=   %d KB %s" % (t,int(vmem),int(rss),tag))
+
+def histogram(a,bins,range=None,new=True):
+    """wrapper around numpy.histogram to deal with the different versions of numpy.histogram.
+
+    histogram.numpy returns (a,b) where a is the list of length n of the counts for each bin
+    and b is
+     in numpy version 1.0 and 1.1: a list of length n of the left bin edge and
+     in numpy version 1.2 and above: a list of length n+1 with all the bin edges (i.e. including the right losing edge).
+
+    Starting from version 1.1, a warning about this is printed, unless we use the extra parameter 'new=True' to switch
+    to the new behaviour.
+
+    However, numpy 1.0 will not know about the 'new' parameter: for this reason we need the if-statement below.
+
+    (fangohr 30/07/2008)
+    """
+    
+    import numpy
+    v1,v2,v3 = map(int,numpy.__version__.split('.'))
+    logging.log(15,'Using numpy version %s = %s' % (numpy.__version__,[v1,v2,v3]))
+    if v1 == 1 and v2==0:
+        ret = numpy.histogram(a,bins=bins,range=range)
+        return ret 
+    else:
+        ret = numpy.histogram(a,bins=bins,range=range,new=new)
+        return ret 
+
+    
+
+def parse_command_line(argvs):
+    usage="usage: %prog [options] nmeshfile [outputfile]\n\n(C)"+\
+           "University of Southampton, United Kingdom, 2005,2006.\n"+\
+           "The NMESH PostProcessing (nmeshpp) tool."
+
+    version="$Header$"
+
+    parser = optparse.OptionParser(usage=usage,version=version)
+
+    parser.add_option("--quality","-q",help="provide some data on the quality of the mesh",\
+                      action="store_true",dest="quality")
+    parser.add_option("--a0","-a",help="provide some data on the \
+    variation of a0",action="store_true",dest="a0")
+
+    parser.add_option("--histogram-bins",help="how many bins to use for histograms (default=%default)",\
+                      dest="histogram_bins",metavar='bins',default=10,type='int')
+    parser.add_option("--info","-i",help="display some data about the mesh",action="store_true",\
+                      dest="info")
+
+    parser.add_option("--vtk","-v",help="convert nmesh to vtk file",action="store_true",dest="vtk")
+
+    scale_doc = """scale point positions by S. S can be (i) a scalar [all components of
+point coordinates will be multiplied by that number] or (ii) a list
+with length equal to the number of components of each point
+coordinate. This allows, for example, to scale with 2 only in
+z-direction using '--scale [1,1,2]'"""
+    
+    parser.add_option("--scale","-S",help=scale_doc,action="store",dest="scale",metavar="S")
+
+    parser.add_option("--vtkquality","-Q",help="show bad simplices with mayavi",action="store_true",\
+                      dest="vtkquality")
+
+    parser.add_option("--vtkqualitymax",help="how many bad simplices to show (default=%default)",\
+                      dest="vtkqualitymax",default=100,type='int',metavar='max')
+
+    parser.add_option("--checkconsistency",help="check consistency of the mesh\
+    (flying points or broken mesh)",action="store_true",dest="checkconsistency")
+
+    parser.add_option("--magpar","-m",help="convert mesh to AVS file (extension should be .inp)",\
+                      action="store_true",dest="magpar")
+
+    parser.add_option("--vis-surfaces","-s",help="visualise surfaces of mesh using Visual Python",\
+                      action="store_true",dest="vis_surfaces")
+
+    parser.add_option("--connectivityplot",help="create file (png/eps/ps/svg) with connectivity \
+    matrix. Filename needs to be specified. Fileformat is chosen from extension of filename.",\
+                      action="store",dest="connectivityplot")
+
+    parser.add_option("--reordernodes",help="Reorder nodes using parmetis to make connectivity \
+    matrix more diagonal. (Not idempotent.) Need to provide name for reordered mesh file.",\
+                      dest='reordernodes',action='store_true')
+    
+    parser.add_option("--loglevel","-l",metavar="level",help="verbosity level (stdout): \
+    critical|error|warn|info|debug|INT.",dest='loglevel')
+
+    parser.add_option("--data2files",metavar="filenamebase",help="Quality and edge length \
+    analysis data will be saved in files",dest='data2filesbasename')
+
+    parser.add_option("--refine","-r",metavar="level",help="Refine a given mesh according \
+    to the given level; the refined mesh is built in a way that the edge of each simplex in\
+    the coarse mesh is divided by the refinement level. The levels can be any integer>=2 \
+    in 2D and only level=2 in 3D.",dest='refine')
+
+    parser.add_option("--convert","-c",help="Convert input mesh file to output mesh file. Typically used to change from ASCII nmesh to hdf5 nmesh files. Use extension 'nmesh' for ascii and 'h5' for hdf5 files. HDF5 files are stored in compressed binary and therefore smaller.",action="store_true",dest="convert")
+
+
+    parser.add_option("--partitioning",help="create vtk file that shows how the nodes are distributed over cpus. If NP is int, equal distribution of nodes. if NP is list of ints, then the cpu0 takes all nodes from index 0 to the first entry of thelist, cpu1 takes all indices from first list entry to second list entry, etc. Need to provide filename for output file. ", action="store",metavar="NP",dest="partitioning_np")
+
+    (options, arguments) = parser.parse_args(argvs)
+
+    return options,arguments
+
+
+
+def do_create_vtk_file(mesh,options,outfile):
+    
+    logging.info("Convert lists into vtkdata structure")
+	
+    vtkdata = nmesh.visual.mesh2vtk(mesh.tolists(),VTKonly=True,body_numbers=True,node_numbers=True)
+
+    logging.info("Writing data to '%s'" % outfile)
+    nmesh.visual.save_vtk(vtkdata, outfile,format='binary',directory='.')
+
+
+def do_vis_surfaces(mesh,options,radius=0.01):
+    try:
+        import visual
+    except ImportError,msg:
+        logging.critical("Need Visual Python for --vis-surface")
+        logging.critical("(http://www.vpython.org/)")
+        logging.critical("Exception is ImportError, %s" % msg)
+        raise ImportError,msg
+
+    visual_objects = []
+    x = mesh.points
+
+    #this only makes sense for 3d meshes:
+    if 1 >= mesh.dim or mesh.dim >=4:
+        raise ValueError,"--vis-surface can only deal with meshes in 3d and 2d"
+
+    if mesh.dim == 3:
+        for surface in mesh.surfaces:
+            link1 = surface[0:2]
+            link2 = surface[1:3]
+            link3 = [surface[2],surface[0]]
+
+            links = [link1,link2,link3]
+
+            for link in links:
+                point1 = visual.vector(x[link[0]])
+                point2 = visual.vector(x[link[1]])
+                axis=point2-point1
+                pos=point1
+
+                visual_objects.append(visual.cylinder(pos=pos, axis=axis, radius=radius))
+    elif mesh.dim == 2:
+        for surface in mesh.surfaces:
+            link = surface
+            point1 = visual.vector(x[link[0]])
+            point2 = visual.vector(x[link[1]])
+            axis=point2-point1
+            pos=point1
+
+            visual_objects.append(visual.cylinder(pos=pos, axis=axis, radius=radius))
+        
+    data['wait_for_keypress_at_end']=True
+
+
+def do_create_magpar_file(mesh,options,outfile):
+    logging.info("Writing data to '%s'" % outfile)
+    nmesh.export.magpar_ucd(mesh, outfile)
+
+def _nr_simplices(mesh):
+    return len( mesh.simplices )
+
+def _nr_surfaces(mesh):
+    return len( mesh.surfaces )
+
+def _nr_points(mesh):
+    return len( mesh.points )
+
+
+##working but not used
+#def _unique_list( a ):
+#    d={}
+#    for elem in a:
+#        d[elem]=None
+#    keys = d.keys()
+#    keys.sort()
+#    return keys
+
+def do_info(mesh):
+    def _unique_points( a ):
+        import types
+        d={}
+        for elem in a:
+            if type(elem)==types.ListType:
+                for elem2 in elem:
+                    d[elem2]=None
+            else:
+                d[elem]=None
+        keys = d.keys()
+        keys.sort()
+        return keys
+        
+    dim = mesh.dim
+    print "====== Info output: ========================================================"
+    print "%5d-dimensional mesh" % dim
+    nr_simplices = _nr_simplices(mesh)
+    memory_report("-")
+    print "%5d volume elements (%dd)" % (nr_simplices,dim)
+    memory_report("-")
+    nr_surfaces = _nr_surfaces(mesh)
+    print "%5d surface elements (%dd)" % (nr_surfaces,dim-1)
+    memory_report("-")
+    nr_points = _nr_points(mesh)
+    print "%5d points" % nr_points
+    memory_report("-")
+    
+    print "%5d simplex regions (%s)" % (len(_unique_points(mesh.simplicesregions)),str(_unique_points(mesh.simplicesregions)))
+    memory_report("-")
+
+    print "%5d point regions (%s)" % (len(_unique_points(mesh.pointsregions)),str(_unique_points(mesh.pointsregions)))
+    memory_report("-")
+
+    print "%5d region volumes (%s)" % (len(mesh.regionvolumes),str(mesh.regionvolumes))
+    memory_report("-")
+
+    nr_boundary_points =  len(filter( lambda x : len(x)==2,mesh.pointsregions))   
+    bem_size = round(nr_boundary_points**2 *8 / 1024./1024.)
+
+    print "%5d boundary points (-> BEM size<=%5.0dMB)" \
+          % (nr_boundary_points, bem_size)
+
+    total_periodic_points = sum(map(len,mesh.periodicpointindices))
+    periodic_points = len(mesh.periodicpointindices)
+    mirage_points = total_periodic_points-periodic_points
+
+    print "%5d periodic points (mirage=%d, total=%d)" % (periodic_points,
+    	       		       		   	         mirage_points,
+							 total_periodic_points)
+
+
+    #work out raw memory requirements for this mesh
+    floatsize = 8
+    intsize = 4
+    mem_points = dim*nr_points*floatsize
+    mem_surfaces = dim*nr_surfaces*intsize
+    mem_simplices = (dim+1)*nr_simplices*intsize
+    mem_volregion = 1*nr_simplices*intsize
+    mem_pointregion = 1*nr_points*intsize
+    mem_mesh = mem_points+mem_surfaces+mem_simplices+mem_volregion+mem_pointregion
+
+    logging.getLogger('').log(15,
+                              "Minimum memory requirements of this mesh: %.2f MB" \
+                              % (float(mem_mesh)/1024./1024.))
+
+    try:
+        import numpy
+        a0s=_compute_a0_mod( mesh )
+        print "a0: average=%f, std=%f, min=%f, max=%f" % (numpy.average(a0s),
+                                                          numpy.std(a0s),a0s.min(),a0s.max())
+    except ImportError:
+        pass
+
+def _star_plot(value,range,maxstars,char='*'):
+    """Given a value, a range=(min,max) of values, and the maximum number of stars requested
+    (for value==max), this function returns a string consisting out of stars to represent 'value'.
+
+    Note: to emphasise any values >0, we will always round up."""
+    stars = float(value)/(range[1]-range[0])*maxstars
+    return int(stars+1-1e-8)*char
+
+def _compute_a0_mod( mesh ):
+    if data.has_key('a0'):
+        return data['a0']
+    else:
+        import numpy
+        links = numpy.array(mesh.links)
+        assert len(links)>0,"Need at least one link (=2 points)"
+        points= numpy.array(mesh.points)
+        linkvectors = numpy.take(points,links[:,1],axis=0)-numpy.take(points,links[:,0],axis=0)
+
+        a0_mod_vec=numpy.sqrt(numpy.sum(linkvectors**2,axis=1))
+        data['a0']=a0_mod_vec
+    return data['a0']
+
+def do_a0(mesh,options):
+    import numpy
+    a0s = _compute_a0_mod( mesh )
+    count_a0, bins = histogram(a0s,bins=options.histogram_bins)
+
+    if options.data2filesbasename:
+        f=open(options.data2filesbasename+'.a0','w')
+        for bin,value in zip(bins,count_a0):
+            f.write('%f %d\n' % (bin,value))
+        f.close()
+
+      
+    probability_a0 = count_a0 / float(len(a0s))
+    
+    print "====== a0 output: ==========================================================="
+    #Outpu data:
+    dbin = bins[1]-bins[0]
+    print "[a0   interval] counts = probability"
+    for i in range(len(count_a0)):
+        lbin=bins[i]
+        print "[% 6.3f-%6.3f] %6d =%5.2f%% %s" % (lbin,lbin+dbin,count_a0[i],probability_a0[i]*100,
+                                                  _star_plot(probability_a0[i],(0,probability_a0.max()),40))
+
+    print
+    print "average   a0: <a0>   = %f" % (numpy.average(a0s))
+    print "stand dev a0: <a0^2> = %f^2" % (numpy.std(a0s))
+    print "min and max :        =(%f,%f)" % (a0s.min(),a0s.max())
+
+def do_quality(mesh,options):
+    #This is the volume element meshinfo structure in meshinfo[2][2]:
+    #'Simplex info (points-coords,((circumcirc center,cc radius),(ic center,ic radius),region))
+
+    #And here is one example (2d mesh):
+    #([51, 61, 62],
+    # ([3.0407746222387044, 1.7944092331307016], 0.21872919737937571),
+    # ([3.0943442752565029, 1.8555501724490762], 0.094259340076866718),
+    # 2)
+
+    #find number of dimensions, simplices and surfaces simplices
+    dim = mesh.dim
+    nr_vol_simplices = _nr_simplices(mesh)
+    nr_sur_simplices  = _nr_surfaces(mesh)
+
+    try:
+        import numpy
+    except ImportError,msg:
+        print "Need numpy to compute histograms."
+        raise ImportError,msg
+    from numpy import array
+
+    #work out volume element histogram
+    ic_radii_vol=array(map(lambda a : a[2][1], mesh.tolists()[2][2]))
+    cc_radii_vol=array(map(lambda a : a[1][1], mesh.tolists()[2][2]))
+    quality_vol = ic_radii_vol/cc_radii_vol*dim
+
+    counts_vol,leftbinedges = histogram(quality_vol,range=(0,1),bins=options.histogram_bins)
+
+    if options.data2filesbasename:
+        f=open(options.data2filesbasename+'.quality','w')
+        for bin,value in zip(leftbinedges,counts_vol):
+            f.write('%f %d\n' % (bin,value))
+        f.close()
+    
+    #from IPython.Shell import IPShellEmbed
+
+    #ipshell = IPShellEmbed()
+
+    #ipshell() # this call anywhere in your program will start IPython
+
+
+    
+    probability_vol = counts_vol/float(nr_vol_simplices)
+
+    if False: #surface element quality data is not yet provided by nmesh.tolists()
+        ic_radii_sur=array(map(lambda a : a[2][1], mesh.tolists()[4][2]))
+        cc_radii_sur=array(map(lambda a : a[1][1], mesh.tolists()[4][2]))
+        quality_sur = ic_radii_sur/cc_radii_sur*(dim-1)
+        counts_sur,leftbinedges = histogram(quality_sur,range=(0,1),bins=options.histogram_bins)
+        probability_sur = counts_sur/float(nr_sur_simplices)
+
+    #output data:
+    dbin = 1.0/options.histogram_bins
+    print "====== Quality output: ======================================================"
+
+    print "[qual interval] counts = probability"
+
+    for i in range(len(counts_vol)): 
+        lbin=leftbinedges[i]
+        print "[% 6.3f-%6.3f] %6d =%5.2f%% %s" % (lbin,lbin+dbin,counts_vol[i],probability_vol[i]*100,
+                                                  _star_plot(probability_vol[i],(0,probability_vol.max()),40))
+
+def do_vtkquality(mesh,options):
+
+    print "====== VTKQUALITY: =========================================================="
+    print "WARNING: This has been hacked together without much thought (fangohr 26/09/2006 23:29)"
+    print "   We call mayavi directly; this may not be a good choice. Or it may be. Time will"
+    print "   have to tell. In any case, don't rely on this feature in scripts for now!"
+    
+    # now order the mesh by it's quality and display the worst options.vtkqualitymax elements only
+    vtkData, points, simplices, simplexIndices, icradii, ccradii = nmesh.visual.mesh2vtk(mesh.tolists(), VTKonly=False)
+
+    # calculate the quality metric
+    in2circ = nmesh.visual.findRatios(icradii, ccradii, factor=mesh.dim)
+
+    meshinfo = mesh.tolists()
+
+    # order the mesh by this metric
+    meshinfo = nmesh.visual.order_mesh(meshinfo, data=in2circ)
+    #meshinfo = nmesh.visual.order_mesh(meshinfo, axis = 2)
+
+    import mayavi
+    v= mayavi.mayavi()
+
+    # display this information and open the ExtractUnstructuredGrid filter
+    nmesh.visual.solid_in2circ(meshinfo, myv = v)
+    #v = nmesh.visual.show_bodies_mayavi(mesh)
+
+    f = v.load_filter('ExtractUnstructuredGrid',0)
+
+    # set the cellMin and cellMax appropriately and then display the filter
+    # configuration dialog box for the user
+    f.fil.SetCellClipping(1)
+    f.fil.SetCellMaximum(options.vtkqualitymax)
+    f.fil.SetCellMinimum(0)
+    f.renwin.Render()
+
+    # superimpose a wireframe to show the outline of the solid
+    dvm = v.get_current_dvm()
+    mm2 = dvm.add_module_mgr_gui()        # add a new module_manager
+    outline = v.load_module('SurfaceMap',0)
+    outline.mapper.SetScalarVisibility(0)
+    outline.actor.GetProperty().SetRepresentationToWireframe()
+    outline.renwin.Render()
+
+    # load dialog box
+    f.configure()
+
+    data['wait_for_keypress_at_end']=True
+
+
+def do_scale_coordinates(mesh,options,outfile,scalevector):
+
+    logging.debug("scale vector is %s" % str(scalevector))
+    
+    points = mesh.points
+
+    assert len(points[0])==len(scalevector)
+
+    for i in range(len(points)):
+        points[i] = map( lambda a,b: a*b, points[i],scalevector)
+
+    logging.debug("Creating new mesh instance with  modified coordinates")
+    mesh = nmesh.mesh_from_points_and_simplices(points,mesh.simplices,mesh.simplicesregions)
+    logging.info("Saving mesh with modified coordinates to '%s'" % outfile)
+    mesh.save(outfile)
+    return None
+    
+
+
+def do_checkconsistency(mesh):
+
+    dim = mesh.dim
+    check_mesh = []
+
+    def retrieve_check(pos):
+        if check_mesh[pos]:
+            return "ok"
+        else:
+            return "ko" 
+
+    def extract_pts_from_surface(surface):
+        surf = surface[0]
+        surf.sort()
+        return surf
+
+    def extract_pts_from_simplex(simplex):
+        sx = simplex[0]
+        sx.sort() 
+        return sx
+
+    # check that each point belongs at least
+    # to one of the simplices
+
+    logging.info( "checking points ...")
+    points_in_simplices = []
+
+    meshinfo = mesh.tolists()
+    
+    for sx_ix in range(_nr_simplices(mesh)): 
+        sx = meshinfo[2][2][sx_ix]
+        for pt_ix in sx:
+            if pt_ix not in points_in_simplices:
+               points_in_simplices.append(pt_ix)
+
+    check_mesh.append(len( points_in_simplices) != _nr_points(mesh))
+
+    # check that each (N-1)-dim simplex belonging to
+    # a N-dim simplex have a partner (each face is shared
+    # by two simplices or it is on the boundary)
+
+    logging.info("checking mesh ...")
+    faces = []
+    simplices = map(extract_pts_from_simplex,meshinfo[2][2])
+    for sx in simplices:
+        for i in range(dim+1):
+            face = sx[:i] + sx[(i+1):]
+            faces.append(face)
+
+    faces.sort()
+    surfaces = map(extract_pts_from_surface,meshinfo[4][2])
+
+    single_face = []
+    for face in (faces):
+        if faces.count(face) != 2:
+            single_face.append(face)
+
+    check_mesh.append(True)
+    for face in (single_face):
+        if surfaces.count(face) == 0:
+            check_mesh[1] = False
+        
+    print "====== Check consistency output: ====================================================="
+    print "Mesh points: %s" % (retrieve_check(0))
+    print "Mesh consistency: %s" % (retrieve_check(1))
+
+
+
+
+def do_refine(mesh,options,outfile):
+    logging.info("About to refine mesh")	
+    
+    coarse_mesh=mesh.raw_mesh
+    level = int(options.refine)
+    if level<2:
+        raise ValueError,"The level must be >= 2 for a 2D mesh and 2 for a 3D mesh."
+    if mesh.dim	== 2:
+        (fine_mesh,coarse_fine_info)=ocaml.finer_mesh_from_coarse_mesh(level,coarse_mesh)
+    elif mesh.dim == 3:
+	if level != 2:
+            raise ValueError,"The level must be 2 for a 3D mesh."
+        else: 
+            (fine_mesh,coarse_fine_info)=ocaml.finer_mesh_from_coarse_mesh(int(options.refine),coarse_mesh)
+
+    logging.info("Saving refined mesh to '%s' (warning: is text-based mesh format)" % outfile)
+    #(fangohr 28/03/2007): just note that we cannot save h5 file 
+    #meshes here. Need to wrap up ocaml mesh into python mesh
+    #and then use 'mesh.save()'. 
+    #Refined meshes tend to be large, so writing them compressed is 
+    #important.
+    ocaml.mesh_writefile(outfile,fine_mesh)
+
+
+def do_connectivityplot(mesh,options,filename):
+    import pylab
+    import numarray
+    import os
+    fileformats = ['png','eps','ps','svg']
+    filenameext = os.path.basename(filename).split('.')[-1]
+    if filenameext in fileformats:
+        pass #all is well
+    else:
+        logging.warn("Connectivity plot: Don't know fileformat '%s' (extension of '%s') -- will save as png." % (filenameext,filename))
+        filename=filename+'.png'
+    n=len(mesh.points)
+    c = numarray.zeros(shape=(n,n),typecode=numarray.Bool)
+    for (i,j) in mesh.links:
+        c[i,j]=True
+        c[j,i]=True
+    pylab.matshow(c,cmap=pylab.cm.gray)
+    pylab.savefig(filename)
+
+
+def do_partitioning_np(mesh,np,outfile):
+
+    def smaller_than_listentry_index(item,list_):
+        assert len(list_) > 0, "Need non-empty input list"
+        if item < list_[0]:
+            return 0
+        for i in range(1,len(list_)):
+            if list_[i-1] <= item < list_[i]:
+                return i
+        return len(list_)
+        
+            
+
+    #number of points
+    n = len(mesh.points)
+
+    pdata = []
+    if type(np) == types.IntType:
+
+        #now split for np processors:
+        import math
+        ni = int(math.ceil( float(n) / np ))
+        nlast = n - ni*(np-1)
+
+        logging.info("Using %d cpus with %d points on cpus 0 to %d, and %d points on cpu %d."\
+                  % (np,ni,np-1-1,nlast,np))
+
+        assert nlast <= ni,"Something wrong with calculation of node distribution"
+
+
+        for i in range(np-1):
+            data_value = 1.0*i
+            pdata.extend( [data_value] * ni )
+            logging.info("%d nodes on processor %d" % (ni,i))
+        pdata.extend( [1.0*(np-1)] * nlast )
+        logging.info("%d nodes on processor %d" % (nlast,np-1))
+
+        assert len(pdata) == n,"Internal error, len(pdata)=%d, but n=%d" % \
+               (len(pdata),n)
+
+    elif type(np) == types.ListType:
+        #for i in range(n):
+        #    pdata.append(smaller_than_listentry_index(i,np))
+	for cpu_id in range(len(np)):
+	    for i in range(np[cpu_id]):
+		pdata.append(cpu_id)
+
+	assert len(pdata)==n,"Number of nodes in mesh=%d and number of nodes in partition=%d disagree" % (n,len(pdata))
+    else:
+        raise NotImplementedError,"Can only deal with int or list of ints"
+        
+    import nfem.visual
+    vtk = nfem.visual._vtk_createVtkData(mesh.points,mesh.simplices,pdata,'cpu_id <>')
+    vtk.tofile(outfile,format='ascii')
+
+    #from IPython.Shell import IPShellEmbed
+    #ipshell = IPShellEmbed([])
+    #ipshell() # this call anywhere in your program will start IPython
+    logging.info("Written partitioning data into '%s'." % outfile)
+
+
+#main program
+options,arguments = parse_command_line(sys.argv)
+
+if options.loglevel:
+    logging.getLogger('').setLevel(nbase.loglevel_int_of_string(options.loglevel))
+
+logging.debug("Options   are: '%s'" % str(options))
+logging.debug("Arguments are: '%s'" % str(arguments))
+
+outfile = None
+outfile_feature = None
+
+if len(arguments) == 0:
+    raise ValueError,"Don't know what this means (expect at least one arguments which is the program name)"
+elif len(arguments) == 1:
+    raise ValueError,"Need filename of nmesh file to process (use '-h' for help)"
+elif len(arguments) in [2,3]:
+    infile = arguments[1]
+    logging.debug("input file name is '%s'" % infile)
+
+if len(arguments) == 3:
+    outfile = arguments[2]
+    logging.debug("output file name is '%s'" % outfile)
+    
+if len(arguments) >= 4:
+    print "Arguments are:",arguments
+    print "Options   are:",options
+    raise ValueError,"It appears you are passing more arguments than I can handle."
+
+#check whether we need to reorder the mesh
+if options.reordernodes:
+    do_reorder = True
+    logging.info("Will reorder mesh when reading (using parmetis)")
+else:
+    do_reorder = False
+
+
+#now process any requests
+def check_and_tag_outfile(feature):
+    global outfile,outfile_feature
+    if outfile==None:
+        raise ValueError,"No output file name has been provided (for feature '%s')." % feature
+    if outfile_feature:
+        raise ValueError,"Outfile is used already for feature '%s'" % outfile_feature
+    outfile_feature = feature
+    logging.debug("Will use outfile='%s' for feature '%s'" % (outfile,outfile_feature))
+
+logging.info("Reading data from nmesh file '%s'" % infile)
+mesh = nmesh.load(infile,reorder=do_reorder)
+
+if options.vtk:
+    check_and_tag_outfile('--vtk')
+    do_create_vtk_file(mesh,options,outfile)
+
+
+if options.magpar:
+    check_and_tag_outfile('--magpar')
+    if outfile[-4:] != '.inp':
+        logging.warn("Mesh file for magpar should end with extension '.inp'")
+    do_create_magpar_file(mesh,options,outfile)
+
+if options.scale:
+    check_and_tag_outfile('--scale')
+    a=eval(options.scale)
+    if type(a) in [types.FloatType,types.IntType]:
+        scalevec = [a]*mesh.dim
+
+    elif type(a) in [types.ListType]:
+        #got list
+        if len(a) != mesh.dim:
+            msg = "Scale factor is '%s', i.e. %d dimensional but mesh is %d dimensional.\n" % (options.scale,len(a),mesh.dim)
+            msg += "Scale factor needs to be (i) a scalar or (ii) a list with length == mesh.dim"      
+            raise ValueError, msg
+        scalevec = a
+        
+    do_scale_coordinates(mesh,options,outfile,scalevec)
+
+
+   
+
+if options.refine:
+    check_and_tag_outfile('--refine')
+    do_refine(mesh,options,outfile)
+
+if options.info:
+    do_info(mesh)
+
+   
+if options.quality:
+    do_quality(mesh,options)
+
+if options.connectivityplot:
+    do_connectivityplot(mesh,options,options.connectivityplot)
+
+if options.a0:
+    do_a0(mesh,options)
+
+if options.vtkquality:
+    do_vtkquality(mesh,options)
+
+if options.checkconsistency:
+    do_checkconsistency(mesh)
+
+if options.vis_surfaces:
+    do_vis_surfaces(mesh,options)
+
+if data['wait_for_keypress_at_end']:
+    raw_input("Press return to continue")
+
+if options.reordernodes:
+    check_and_tag_outfile("--reordernodes")
+    logging.info("Writing re-orderd mesh to '%s'." % outfile)
+    mesh.save(outfile)
+
+if options.convert:
+    check_and_tag_outfile("--convert")
+    logging.info("Writing mesh to '%s'." % outfile)
+    mesh.save(outfile)
+
+if options.partitioning_np:
+    np = options.partitioning_np
+    check_and_tag_outfile("--partitioning")
+
+    #if np is int, this is the number of cpus
+
+    #if np is list of node ids, the cpu 0 should take all indices from
+    #0 to np[0], cpu 1 all indices from np[0] to np[1], ... and cpu[n]
+    #all nodes from np[n-1] to the maximum index.
+    #
+    #The np list is therefore a list of indices that indicate where the
+    #next cpu starts.
+    #
+    np_int = None
+    np_list = None
+
+    try:
+        np_int = int( np )
+    except ValueError:
+        #could be that np is list
+        np_list = eval(np)
+        if type(np_list) != types.ListType:
+            raise ValueError,\
+                  "partitioning argument should be int or list of ints but is '%s'" % np
+    if np_int:
+        logging.info("Writinging vtk file showing partitioning %d cpus to '%s'."\
+                     % (np_int,outfile))
+        np_data = np_int
+    else:
+        assert np_list,"Internal Error"
+        logging.info("Writing vtk file showing partitioning for %s to '%s'."\
+                     % (np_list,outfile))
+        np_data = np_list
+
+    
+    do_partitioning_np(mesh,np_data,outfile)
+
+if outfile_feature == None and outfile!=None:
+    logging.warn("Outfile name provided but not used ('%s')" % outfile)
+

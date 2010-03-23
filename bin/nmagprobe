@@ -1,0 +1,16 @@
+#!/home/mf/mumag/nsim/bin/nsim
+# Copyright (C) 2010 University of Southampton
+# Authors: Matteo Franchin
+
+import sys
+
+# Prevent the Nmag module from doing a regular setup.
+# We just want to setup the logging 
+import nsim.setup
+nsim.setup.setup_one(do_features=True,
+                     do_logging=True, log_to_console_only=True)
+nsim.setup.setup_complete()
+
+import nmag.h5probe
+nmag.h5probe.main('nmagprobe', sys.argv)
+

@@ -1,0 +1,8 @@
+# Specifications for the "qhull" library:
+requires = ""
+description = "Qhull interface for Delaunay triangulation"
+version = "0.1"
+browse_interfaces = " Qhull "
+archive(byte) = "qhull.cma"
+archive(native) = "qhull.cmxa"
+linkopts="-cclib -lqhull"

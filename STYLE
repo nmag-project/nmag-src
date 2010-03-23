@@ -1,0 +1,15 @@
+Introduction
+============
+
+This document describe the stylistic choices which the Nsim developers are
+trying to follow.
+ 
+
+Abbreviations used in the code
+==============================
+
+LAM: Linear Algebra Machine
+CCPLA: Centrally Coordinated Parallel Linear Algebra
+TS: TimeStepper
+SWEX: Site-Wise EXecutor
+

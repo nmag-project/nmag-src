@@ -1,0 +1,23 @@
+#!$NMAGROOTDIR$/pyfem3/pyfem3
+# Copyright (C) 2010 University of Southampton
+
+import os, sys
+nmag_root_dir = "$NMAGROOTDIR$"
+
+nmag_library_path = os.path.join(nmag_root_dir, "interface")
+sys.path.insert(0, nmag_library_path)
+
+from nsim.setup import setup
+options, arguments = setup(argv=sys.argv[1:], warn_about_py_ext=False)
+sys.argv = arguments
+
+if len(arguments) > 0:
+    execfile(arguments[0])
+
+else:
+    # Better to use ipython from nsim.snippets rather than the one in nmag.
+    # Indeed, importing nmag, causes a lot of other modules to be imported
+    # which can result in slow startup of the shell on older machines.
+    import nsim.snippets
+    nsim.snippets.ipython()
+

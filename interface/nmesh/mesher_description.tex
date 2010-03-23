@@ -1,0 +1,299 @@
+%======================================================================
+% P R E A M B L E
+%======================================================================
+\documentclass[12pt,twoside]{article}
+%----------------------------------------------------------------------
+% Reprocess only those files which have changed recently:
+% \includeonly{intro,creating,commands}
+%----------------------------------------------------------------------
+% Create a listing in the log of all files needed to process this document
+\listfiles
+%----------------------------------------------------------------------
+% Non-standard packages I am using (things I ve written, borrowed, etc.):
+%\usepackage{} % ... note that old .sty files can be included here
+% Standard LaTeX2e packages I am using (as seen in "The LaTeX Companion"):
+\usepackage[dvips]{graphicx}
+% ... if you want to include encapsulated postscript figures
+\usepackage{makeidx}
+% ... if you want an index
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{subfigure}
+% ... if you need lots of math symbols
+\usepackage[dvips=true,bookmarks=true]{hyperref}
+% ... only needed for PDF generation
+\usepackage{epsfig}
+%----------------------------------------------------------------------
+\makeindex
+% activate index-making
+%----------------------------------------------------------------------
+% The following command sets "1.2" as the line spacing throughout the
+% thesis for readability (optional).
+\renewcommand{\baselinestretch}{1.2}
+%----------------------------------------------------------------------
+% Reset page margins properly for doublesided pages
+\setlength{\marginparwidth}{0pt}
+\setlength{\marginparsep}{0pt}
+\setlength{\oddsidemargin}{0.125in}
+\setlength{\evensidemargin}{0.125in}
+\setlength{\textwidth}{6.375in}
+\raggedbottom
+%----------------------------------------------------------------------
+% My own command and environment definitions:
+\newcommand{\om}[1]{(\texttt{#1})}
+%\newcommand{\om}[1]{}
+
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.75}
+
+\newcommand{\program}[1]{\textbf{#1}} % program names in bold text
+\newcommand{\exten}[1]{\texttt{#1}} % file extensions in bold text
+% (use caps)
+\newcommand{\cmmd}[1]{\textbackslash\texttt{#1}} % command name in tt font
+\renewcommand{\d}{\textrm{d}} % integration varable
+
+\newcommand{\beq}{\begin{equation}} % begin equation
+\newcommand{\eeq}{\end{equation}} % end equation
+\newcommand{\enviro}[1]{\texttt{#1}} % environment name in tt font
+\newcommand{\eg}{\textit{e.g.},} % some Latin abreviations in italic
+\newcommand{\ie}{\textit{i.e.},} \newcommand{\etc}{\textit{etc}.\@}
+
+\newcommand{\mat}[1]{\ensuremath{\mathcal{#1}}} % matrix names in
+% uppercase caligraphic
+\newcommand{\vect}[1]{\ensuremath{\mathit{#1}}} % vector names in math
+% italic
+\newcommand{\rv}[1]{\ensuremath{\mathbf{#1}}} % math bold for random
+% variables 
+\newcommand{\degg}[1]{\mbox{\raisebox{3pt}{$\circ$}\hspace{-.5pt}#1}}
+% command to produce a degree sign. Example: \degg[C] gives degrees Celcius
+
+\newenvironment{definition}[1]{\begin{quote}\emph{#1}:}{\end{quote}}
+% Provides indented formal definition and emphasizes the word.
+% e.g. \begin{definition}{Reliability} ... \end{definition}
+
+\newenvironment{where}[1]% Equation symbol lists
+{\begin{list}{}%
+{\renewcommand{\makelabel}[1]{\hfill\textnormal{##1 =}}%
+\settowidth{\labelwidth}{\textnormal{#1 =}}%
+\setlength{\leftmargin}{\labelwidth}%
+\addtolength{\leftmargin}{\labelsep}%
+\setlength{\itemsep}{-\parsep}}}%
+{\end{list}}
+
+%\nofiles
+
+% Example:
+% \begin{where}{where $E$}
+% \item[where $E$] least squares error term;
+% \item[$w$] weighting factor associated with each measured variable.
+% \end{where}
+
+%======================================================================
+% L O G I C A L D O C U M E N T
+%======================================================================
+\begin{document}
+%----------------------------------------------------------------------
+% FRONT MATERIAL
+%----------------------------------------------------------------------
+\pagestyle{empty}
+%\include{titlepage}
+%\include{titlepage}
+% Title page, declaration, borrowers  page, abstract, acknowlegements,
+% dedication, table of contents, list of tables, list of figures
+
+%----------------------------------------------------------------------
+% MAIN BODY
+%----------------------------------------------------------------------
+% Put the document title and page numbers in the header
+%\pagestyle{myheadings}
+%\tableofcontents
+\pagestyle{plain}
+%\listoffigures
+%\listoftables
+%\newpage
+% Put title on left & chapter heading goes on right by default
+%\markboth{\LaTeX\ for Thesis and Large Documents}
+% Go to normal sized type
+\normalsize
+% Chapters
+% Include your "sub" source files here (must have extension .tex)
+% change the page numbering style to arabic
+\pagenumbering{arabic}
+%\include{main}
+%\include{introduction} %
+%\include{theory_micromagnetism} %
+%\include{numerical_methods} %
+%\include{square_rings} %
+%\include{2d_antidots} %
+%\include{mesh_generation} %
+%\include{AMR} %
+%\include{summary} %
+%----------------------------------------------------------------------
+% END MATERIAL
+%----------------------------------------------------------------------
+%% Appendices
+%\appendix
+%% Designate with \appendix declaration which just changes numbering style
+%% from here on
+
+%% Glossary
+%% You could use a \begin{description} ... \end{description} for this
+%\include{glossary}
+
+%% Bibliography
+%% If done using the BibTeX program, use
+%\bibliographystyle{unsrt} % sorted alphabetically, labeled with numbers
+%\bibliography{reportbib} % names file keylatex.bib as my bibliography file
+%% OR, do it "by hand" inside a "thebibliography" enivironment
+
+% Index % Put a \makeindex command in the Preamble if you use
+% MakeIndex program
+% and put
+%\printindex % here
+% OR, do it "by hand" inside \begin{theindex} ... \end{theindex}
+%----------------------------------------------------------------------
+%======================================================================
+
+The mesher algorithm is composed of two parts. In the first one
+\om{pyfem.ml}, directly coupled to the python interface, the various
+objects that can be defined in python (ellipsoids, frustums, boxes)
+are translated in a form suitable to be handled by the mesher
+itself \om{bc\_ellipsoid, bc\_frustum, bc\_box}. An object is
+represented by a function that has value $> 0$ in its interior
+and $< 0$ in the exterior. Any geometrical transformation
+(rotation, scaling, shift) on the object is expressed as an affine
+transformation on the coordinates defining the kernel of the function
+and the union, intersection and difference of objects are defined with the
+operators $\min$, $\max$ and function inversion. Together with the
+bounding box, these functions are stored in the fem\_geometry
+data structure. A further function\om{,the callback one} , which will
+be passed to the driver and executed every n steps, is defined at this
+initial stage, and its arguments are the piece number, the iteration
+number and the mesh structure. The piece number is the position of the
+object in the list of objects to mesh and the mesh structure has been
+defined in the nmesh manual. The driver and the fem\_geometry are
+passed to the function \om{mesh\_boundaries\_and\_objects} which
+initialize the mesh generation. The default values of the parameters used in the
+generation are stored in the mdefaults data structure, and optional
+mobile points, fixed points or periodicity along some direction are
+passed as well to the function \om{mesh\_boundaries\_and\_objects}.
+%########################### add cache name ######################
+%########################### add density ######################
+Depending on the status of the periodic boundary flags, this function
+performs two operations. If the periodic boundaries are selected, it
+calls the function \om{mesh\_periodic\_outer\_box} which, for every
+`periodic' axis of the space, creates a one dimensional mesh and
+copies the resulting points to all the edges of the boundary box
+along that axis. These points are then set as immobile and passed to the
+next function, \om{mesh\_it\_work,} which would be directly called if
+periodic boundaries are not specified. This function iterates over all
+the objects and for each creates a mesh. The procedure is as follows:
+for each of the pieces the function \om{add\_meshdata\_of\_piece\_nr} is
+called with the number of piece, the list of simplices and coordinates
+so far and the list of immobile points as arguments. This function
+returns new lists of simplices and coordinates as well as a new list
+of immobile points. When also the last piece is meshed, the function
+\om{mesh\_from\_pieces\_meshdata} is called. The function
+\om{add\_meshdata\_of\_piece\_nr} contains the function \om{mesh\_a\_piece},
+which is called passing a random generator, the driver, mobile
+and immobile points so far, the data from the fem\_geometry data
+structure, the mesher default parameters and the chosen value of the
+rod length. This functions return a status which can be
+Mesh\_Engine\_Finished\_Step\_Limit\_Reached or
+Mesh\_Engine\_Finished\_Force\_Equilibrium\_Reached, and a mesh. The
+status identifies the reason way the mesher stopped, while the partial
+mesh is `completed' \om{through the mesh\_grow\_bookkeping\_data
+  function,} with informations about which simplices are within its
+boundary and which nodes are on the boundary, seen as immobile
+from this point on. When the iteration on these
+\om{add\_meshdata\_of\_piece\_nr} calls is finished, the call to
+\om{mesh\_from\_pieces\_meshdata} creates the final mesh through
+the function \om{mesh\_from\_known\_delaunay} and returns it to the
+function \om{ \_py\_mesh\_bodies\_raw} which is called from python.
+Going back to the function \om{mesh\_a\_piece} called for each of the
+objects to mesh, its design is the following. The geometry of the
+object passed with \om{fem\_geometry} data structure is extracted as
+a boundary conditions function and a corrected density function (
+defined as 0 outside the object). Depending on the choice to use a
+back-reference to an object already defined that we want to reproduce
+(possibly transformed) or a brand new object, the function
+\om{make\_meshgen\_engine} is called with different arguments. In the
+first case the same or transformed points present in its reference are
+used as starting points for the mesh relaxation, in the second case a
+set of random points is generated for the same purpose. If in the
+python script some mobile points are passed as argument to the
+function \om{mesh\_bodies\_raw}, these are used instead of the random
+generated ones. The call to the function \om{make\_meshgen\_engine}
+starts a new set of operations which is the core of the mesher, and
+returns an engine status which is interpreted by the driver as
+previously explained.  The operations defined on a mesh are the
+following: extract\_mesh, retriangulate, mirror\_simplices, change\_points,
+determine\_forces, time\_step and do\_command. The handling of these
+functions is performed by the engine. The extract\_mesh function is
+the last operation and what it does is to retriangulate the final set
+of points and return the mesh with all the information about its
+geometry. The retriangulate function uses the current set of points to
+obtain a series of simplices which are divided in relevant and
+irrelevant \om{through the simplex\_classificator}: the first ones are
+subject to neighbour and shape forces, the second ones to ad-hoc
+forces that try to correct possible problems in the relevant
+simplices. The mirror\_simplices function is designed 
+to work only in the 2D and 3D cases so far. In 2D the algorithm, given a
+simplex, separates the points on the boundaries from those immobiles
+and in the interior of the object \om{filter\_points} and if the number
+of boundary points is equal to (dim-1) and the internal point is
+unique, this one is mirrored with respect to the plane defined by the
+two boundary points \om{node\_action\_2D}. If an immobile point is
+present in the simplex, such mirroring doesn't occur. In the 3D case,
+the algorithm separates the points as well \om{filter\_points} and for
+all the couples of boundary points a new point is inserted at half-way
+between those \om{node\_action\_3D\_all}. In both 2D and 3D the surfaces
+interested by a mirroring are progressively stored in a hashtable
+\om{mirror\_on\_surfaces\_htb} so that possible problems related to the
+density of points is avoided. The change\_points function takes an
+array of status associated to each node and depending on that 
+a node is left unchanged \om{Do\_Nothing\_With\_Point}, deleted
+\om{Delete\_Point} or a new point is inserted in a random position
+\om{add\_random\_point\_close\_to} around the node itself. The insertion
+of points is performed such that the status \om{Boundary, Immobile,
+  Mobile} of each of the already present nodes is unchanged. 
+The function determine\_forces is the one where most of the numerical
+computation is performed. For each simplex among the relevant ones a
+neighbour force expands the points in order to fill all the space,
+acting along the connections between the points, a shape force tries
+to keep the simplex as regular as possible, and a volume force tries
+to keep the volume as ideal as possible. All these forces are
+described in the nmesh manual. In the determine\_forces function the
+simplices with a volume/ideal volume ratio smaller than a \om{0.1}
+threshold and where the distance between one of its points and the
+plane defined by all the others is smaller than a \om{0.2} second
+threshold are defined as slivers. Inside this function the irrelevant
+simplices are used to correct the imperfections of the relevant
+simplices. This is done using a force that acts on the nodes of the
+irrelevant simplices and push them towards the centre of mass of the
+irrelevant simplex. A further force tries to reduce the volume of the
+slivers pushing their nodes towards the centre of mass of the sliver. 
+The neighbour force is used as one of the conditions to insert or
+delete a node of the mesh, that is if the sum of moduli of the
+neighbour forces on the node is smaller than a \om{0.02} threshold a
+node is inserted with probability 20\%. Another parameter used to
+insert or delete a point is the voronoi volume associated to each
+node, which is defined in the nmesh manual and whose value is passed
+to the controller. At this point the controller input is also updated
+with the informations about the largest force in the mesh, which is
+used in the equation of the next time step, as explained in the nmesh
+manual. The time\_step function set the new position of the nodes,
+where the boundary nodes are moved in a way such that the value of
+each of the boundary conditions on the node must be $<=$ to the
+present values. Some of the nodes could move outside the object, and a
+\om{\_enforce\_boundary\_conditions} function provides to move them back
+on the closest boundary. At this point also the information on the
+largest relative movement since last triangulation is updated.
+The function do\_command associates the status of the controller to one
+of the functions just described and the engine function checks for the
+any request from the driver (to execute a callback function), any
+stopping condition from the updated status of the and eventually calls
+the do\_command function if none of the stopping conditions are met.     
+
+\end{document}

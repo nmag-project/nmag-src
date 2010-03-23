@@ -1,0 +1,7 @@
+# Specifications for the "bem3d" library:
+requires = "snippets mesh fem hlib"
+description = "3d FEM Boundary Element Matrix functions"
+version = "0.1"
+browse_interfaces = " Bem3d "
+archive(byte) = "bem3d.cma"
+archive(native) = "bem3d.cmxa"

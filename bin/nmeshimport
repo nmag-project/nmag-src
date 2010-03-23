@@ -1,0 +1,131 @@
+#!/usr/bin/env nsim
+
+import optparse,sys,types
+
+import nbase
+nbase._need_to_run_configure=False
+nbase.conf.set('run_dir',".")
+
+import nmesh
+
+import logging
+logging.getLogger('').setLevel(logging.INFO)
+
+#silence nmesh's Nlog:
+import ocaml
+ocaml.nlog_setLogLevel('nmesh.ocaml',logging.WARN)
+ocaml.nlog_setLogLevel('nfem.ocaml',logging.WARN)
+
+
+
+def parse_command_line(argvs):
+    usage="usage: %prog OPTIONS INPUTFILE NMESHFILE\n\n(C) University of Southampton, United Kingdom, 2005,2006.\n"+\
+           "The NMESH IMPORTing tool."
+
+    version="$Header$"
+
+    parser = optparse.OptionParser(usage=usage,version=version)
+
+    parser.add_option("--netgen",help="convert from netgen neutral mesh to nmesh file",action="store_true",dest="netgen")
+
+    parser.add_option("--gambit",help="convert from gambit neutral mesh to nmesh file (CONTRIBUTED)",action="store_true",dest="gambit")
+
+    parser.add_option("--gmsh",help="convert from gmsh 1.0 mesh format to nmesh file (EXPERIMENTAL)",action="store_true",dest="gmsh")
+
+    parser.add_option("--loglevel","-l",metavar="level",
+                      help="verbosity level (stdout): critical|error|warn|info|debug|INT.",
+                      dest='loglevel')
+
+    (options, arguments) = parser.parse_args(argvs)
+
+    return options,arguments
+
+
+def from_netgen(infile,options):
+    points,simplices_indices, simplices_regions = nmesh.importtools.ReadMeshFromNetgenNeutral( infile )
+
+    the_mesh = nmesh.mesh_from_points_and_simplices(points = points,
+                                                    simplices_indices = simplices_indices,
+                                                    simplices_regions = simplices_regions,
+	                                            periodic_point_indices = [],
+                                                    initial = 1)
+
+    return the_mesh
+
+
+def from_gambit(infile,options):
+
+    points,simplices_indices,simplices_regions = nmesh.importtools.ReadMeshFromGambitNeutral(infile)
+
+    the_mesh = nmesh.mesh_from_points_and_simplices(points = points,
+                                                    simplices_indices = simplices_indices,
+                                                    simplices_regions = simplices_regions,
+						    periodic_point_indices = [],
+                                                    initial = 1)
+    return the_mesh
+
+
+def from_gmsh(infile,options):
+
+    points,simplices_indices,simplices_regions = nmesh.importtools.ReadMeshFromGmesh(infile)
+
+    the_mesh = nmesh.mesh_from_points_and_simplices(points = points,
+                                                    simplices_indices = simplices_indices,
+                                                    simplices_regions = simplices_regions,
+						    periodic_point_indices = [],
+                                                    initial = 0)
+    return the_mesh
+
+
+
+#main program
+mesh = None
+
+options,arguments = parse_command_line(sys.argv)
+
+if options.loglevel:
+    logging.getLogger('').setLevel(nbase.loglevel_int_of_string(options.loglevel))
+
+logging.debug("Options   are: '%s'" % str(options))
+logging.debug("Arguments are: '%s'" % str(arguments))
+
+if len(arguments) == 0:
+    raise ValueError,"Don't know what this means (expect at "+\
+          "least one arguments which is the program name)"
+elif len(arguments) == 1:
+    raise ValueError,"Need filename of input file to process (use '-h' for help)"
+elif len(arguments) == 2:
+    raise ValueError,"Need filename of output (nmesh) file to write (use '-h' for help)"
+elif len(arguments) == 3:
+    infile = arguments[1]
+    logging.debug("input file name is '%s'" % infile)
+    outfile = arguments[2]
+    logging.debug("output file name is '%s'" % outfile)
+elif len(arguments) >= 4:
+    print "Arguments are:",arguments
+    print "Options   are:",options
+    raise ValueError,"It appears you are passing more arguments than I can handle."
+
+
+
+if options.netgen:
+    mesh=from_netgen(infile,options)
+elif options.gambit:
+    mesh=from_gambit(infile,options)
+elif options.gmsh:
+    mesh=from_gmsh(infile,options)
+else:
+    msg = "You need to specify an OPTION (see -h). Currently only "+\
+          "'--netgen' and '--gambit' and '--gmsh' is supported"
+    raise ValueError,msg
+
+
+
+if mesh:
+    logging.info("Saving nmesh object to file '%s'." % outfile)
+    mesh.save(outfile)
+else:
+    logging.warn("Can't write outputfile: No data to save found. Why")
+
+
+logging.debug("All done.")

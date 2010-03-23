@@ -1,0 +1,7 @@
+# Specifications for the "ddpla" library:
+requires = "mpi_petsc bigarray unix nsimconf"
+description = "Dependency Driven Parallel Linear Algebra"
+version = "0.1"
+browse_interfaces = " ddpla "
+archive(byte) = "ddpla.cma"
+archive(native) = "ddpla.cmxa"

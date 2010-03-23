@@ -1,0 +1,2 @@
+#!/bin/sh
+echo "nmesh has been removed. Use 'nsim' instead."

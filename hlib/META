@@ -1,0 +1,7 @@
+# Specifications for the "hlib" library:
+requires = "bigarray"
+description = "Simple hlib interface for time integration"
+version = "0.1"
+browse_interfaces = " Hlib "
+archive(byte) = "hlib.cma"
+archive(native) = "hlib.cmxa"

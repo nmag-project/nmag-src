@@ -1,0 +1,10 @@
+
+It seems as if OCaml's weak hash table feature would not work as
+expected. We can cook up examples where we lose entries which do not
+seem to be properly finalized (...but Gc.finalise also seems to behave
+a bit strange anyway...), but disappear nevertheless from the weak
+hash table EVEN THOUGH they are still being referenced!
+
+This is very strange, indeed. Maybe it has to do with us wrapping up
+stuff in python pills, but that should not be an issue, actually!
+

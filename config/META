@@ -1,0 +1,7 @@
+# Specifications for the "nsimconf" library:
+requires = "bigarray"
+description = "Nsimconf"
+version = "0.1"
+browse_interfaces = " Nsimconf "
+archive(byte) = "nsimconf.cma"
+archive(native) = "nsimconf.cmxa"

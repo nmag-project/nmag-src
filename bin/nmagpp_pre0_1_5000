@@ -1,0 +1,810 @@
+#!/usr/bin/env nsim
+
+import sys
+msg="""---------------------------------------------------------------------------
+
+Warning: this (%s) is a copy of the nmagpp executable as it 
+was before release 0.1-5500. After that, the _dat.h5 files can be
+written in more flexible ways, and accordingly we have redesigned
+nmagpp. This involved a change of the user interface of nmagpp.
+
+All users are encouraged to move to the new nmagpp (most will probably
+not even notice the difference). Please contact the mailing list
+nmag-users@lists.soton.ac.uk for further assistence if required.
+
+To be absolute sure that nobody is left in the rain, we provide this
+old version (but will remove it in the future).
+
+This program will continue in 10 seconds.
+
+(fangohr 30/05/2008)
+---------------------------------------------------------------------------
+""" % sys.argv[0]
+
+print msg
+
+import time
+time.sleep(10)
+
+import optparse,sys,types,os
+
+import logging
+log = logging
+logging.getLogger('').setLevel(logging.INFO)
+
+import nfem.hdf5_v01
+import nfem.visual
+
+from nsim.si_units import SI
+
+import numpy
+
+def parse_range_string(rangestring):
+    #convert range string into list
+    try:
+        rangelist = eval(options.range_)
+    except StandardError,msg:
+        doc = "Something went wrong when parsing your '--range' string.\n"
+	doc +="The code that couldn't be parsed is '%s'.\n" % options.range_
+        doc +="You need to specify working Python code. Some examples are:\n"
+        doc +="--range 17            #will select 17\n"
+        doc +='--range "range(5,10)" #will select [5,6,7,8,9]\n'
+        doc +='--range "[2,5,10,42]" #will select [2,5,10,42]\n'
+        doc +='--range "range(10)+[20,25,31,42]" #...\n'
+	doc +='The error message is:"%s"' % str(msg)
+        raise StandardError,doc
+    if type(rangelist)== types.IntType:
+        rangelist = [rangelist]
+    return rangelist
+
+def parse_fields_string(fieldstring): 
+
+    """Receive string from command
+    line (such as "phi,m" or [phi,m] or ["phi","m"]) and return list
+    of field strings such as ['phi','m']
+    """
+
+    log.debug("parse_fields_string: input '%s'" % fieldstring)
+    #We allow square brackets and parentheses, i.e. acceptable field specifications are [m,phi] or (m,phi)
+    fields = fieldstring.lstrip('[').rstrip(']').lstrip('(').rstrip(')').split(',')
+    #strip off any single or double quotes
+    fields = map( lambda field : field.lstrip("'"), fields)
+    fields = map( lambda field : field.rstrip("'"), fields)
+    fields = map( lambda field : field.lstrip('"'), fields)
+    fields = map( lambda field : field.rstrip('"'), fields)
+
+    log.debug("parse_fields_string: converted to list: fields='%s'" % fields)
+
+    msg = """ You have specified a field LIST: '%s'. Currently only
+operation on a single field is supported.  
+
+Note that the conversion to vtk will convert all fields in the data
+file if no field parameter is used (in case this is what you want).""" % fields
+
+    if len (fields) > 1:
+       raise ValueError,msg
+
+    return fields
+    
+def get_unit_obj_and_si_conversionfactor( f, si_unit, output_unit ):
+    """Return unit (Physical) Object and SI scaling factor for SI/su units
+
+    :Parameters:
+      `f` : hd5 file handler
+        The open hdf5 file.
+
+      `si_unit` : Physical Object
+        The SI unit of the data (i.e. for distances, this is always SI(1,'m'))
+
+      `output_unit` : either 'si' or 'su'
+        If ``si`` is chosen then data is expressed in SI units and the scaling factor is 1.0.
+
+        If ``su`` is chosen, then the data is expressed in simulation
+        units that correspond to the SI unit provided. The scaling
+        factor is the number that needs to be multiplied with the SI
+        unit value to obtain the simulation unit value.
+
+    :Returns:
+      (unit,si_conversion_factor)
+        where unit is a ``Physical`` object and ``si_conversion_factor`` is a float.
+
+    """
+    if output_unit == 'si':
+        unit = si_unit
+        si_conversion_factor = 1.0
+    elif output_unit == 'su':
+        #get simulation units 
+        from nsim.su_units import SimulationUnits
+        su = nfem.hdf5_v01.get_su_units(f)
+        unit = su.conversion_factor_of(si_unit)
+        si_conversion_factor = su.of(si_unit)
+    else:
+        raise StandardError,"output_unit=%s -- internal error" % output_unit
+
+    return unit,si_conversion_factor
+
+
+def _unit_conversion_helper( fieldname, subfieldname, sidata, sibase, output_unit, options):
+    """Helping function to do conversion of fields into si or su units.
+
+    This is called repeatedly (twice by vtk writing routine, once by dump_ascii).
+
+    In future, we may provide extra scaling instructions via commond line
+    parameters and could deal with those here.
+
+    :Parameters:
+
+     `data` : numpy array
+        The data (in SI units)
+
+     `sibase` : SI object
+        This is the fundamential dimension for the units for this
+        field. For example, for distances this would be SI(1,'m').
+
+     `options` : optparse-options object
+        This is the options object as obtained from optparse
+        (By passing this potentiall complex object down here, we can easily
+         extend functionality.)
+         This is not currently used but maybe later (for example to
+         scale particular field/subfield in a given way.)
+
+    :Returns:
+      `data` : numpy array
+         scaled to users wishes (usually SI or simulation units)
+
+      `unit` : SI object
+         providing the multiplyer for the data to get to SI units
+
+    """
+
+    unit,factor=get_unit_obj_and_si_conversionfactor( fh, sibase, output_unit )
+
+    data = sidata*factor
+
+    return data,unit
+
+def _unit_meshposition_conversion_helper(fh, options, supos):
+    """
+
+    :Parameters:
+      `fh` : filehandler
+        for the hdf5 files
+
+     `supos` : numpy array
+        mesh coordinates in simulation units
+
+     `options` : optparse-options object
+        This is the options object as obtained from optparse.
+        In particular, this contains the 'posfactor' option if given
+        by the user which we use to express the mesh coordinates
+        accordingly (i.e. in units of this posfactor times metre).
+    """
+    #this is the unit length associated with the stored mesh,
+    #i.e. this length multiplied by the mesh coordinates gives metres.
+
+    mesh_unit_length = nfem.hdf5_v01.get_mesh_unit(fh).value
+
+    if options.posfactor:
+        log.debug("Scaling mesh coordinates such that mesh"+\
+                  "coordinate*%g is the position in metres" %\
+                  (float(options.posfactor)))
+        #if the user proides a posfactor, then
+        posunit = SI(options.posfactor,'m')
+        if float(options.posfactor) == 0.0:
+            raise "--posunit has to be non-zero"
+        #convert coordinates into meters, and then divide by posfactor
+        pos = supos * mesh_unit_length / float(options.posfactor)
+    else:
+        #otherwise return raw coordinates untouched
+        posunit = SI(mesh_unit_length,'m')
+        pos = supos
+
+    return pos, posunit
+
+
+def dump_field_ascii_1_ts(fh,field,tsrow,output_unit,options):
+    """The name stands for DUMP (one) FIELD in ASCII for 1 TimeStep.
+
+    :Parameters:
+      `fh` : filehandler
+        the hdf5 file
+
+      `field`: string
+        name of the field
+
+      `tsrow` : (row,time,time_unit,step,stage)
+        metadata for this time step
+
+      `output_unit` : string ('si' or 'su')
+        whether to output field data in si or su units
+
+      `options` : options object from optparse
+        (providing flexibility in passing more options to output
+        functions).
+
+    """
+
+    def str_list_as_vec(li):
+        if type(li) in [types.IntType,types.FloatType]:
+            return "%12g" % li
+        elif len(li) == 1:
+            return "%12g" % li
+        else:
+            return '('+" ".join(map(lambda x :"%12g" % x, li))+' )'
+    
+            
+    row,uid,sitime,step,stage = tsrow
+
+    #######
+
+    table = fh.getNode(fh.root.data.fields,field)
+
+    dofnames = [name for name in table.colnames if not name in ['time','step','stage','id']]
+
+    for dofname in dofnames:
+        #positions come in simulation units (su), data in si
+        supos,sidata,site = nfem.hdf5_v01.get_dof_row_data(fh,field,dofname,row)
+
+        print "field    : %s" % field
+        print "subfield : %s" % dofname
+
+        time_si_unit = nfem.hdf5_v01.get_time_unit(fh)
+        time,time_unit = _unit_conversion_helper( 'time', 'time', sitime, time_si_unit, output_unit, options)
+
+        print "time     : %g * %s" % (time,time_unit)
+        print "id       : %d" % (uid)
+        print "step     : %d" % (step)	
+        print "stage    : %d" % (stage)
+        
+        #get si_unit for this dof 
+        sibase = eval(nfem.hdf5_v01.get_units_by_dofname(fh)[dofname])
+        data,unit = _unit_conversion_helper( field, dofname, sidata, sibase, output_unit, options)
+
+	print "field unit: %s" % (str(unit))
+        
+        #The mesh is the only data type not (necessarily) stored in SI
+        #units. We also leave it to the user to decide in what units to
+        #express it (--posunit).
+        #Here we go:
+
+        pos, posunit = _unit_meshposition_conversion_helper(fh,
+                                                            options,
+                                                            supos)
+
+
+	print "position unit: %s" % (str(posunit))
+
+        print "row: %d" % row
+        print "#Start (index in h5 table, dofsite, pos, data)"
+        
+        assert sitime == table[row].field('time'),"Internal error in nmagpp"
+        assert len(data) == len(pos), "len(pos) and len(data) doesn't match"
+
+	def site_id(s):
+            if type(s) == types.IntType: # defensive coding, we actually expect a 1-tuple,
+                                         # but we allow this to be given as an int.
+                return "%d" % s
+            elif len(s) == 1:
+                return "%d" % s
+            else:
+                return '('+",".join(map(lambda x :"%d" % x, s))+')'
+
+        for i,dofsite,point,datum in map(None,range(len(pos)),site,pos,data):
+            print "%4d %10s %s %s" % (i,site_id(dofsite),str_list_as_vec(point),str_list_as_vec(datum))
+        print "#End"
+
+
+def dump_field_ascii(fh,field,tsl,output_unit,options):
+    log.debug("dump_field_ascii: Entering for field=%s" % str(field))
+    for tsl_item in tsl:
+        dump_field_ascii_1_ts(fh,field,tsl_item,output_unit,options)
+
+
+def parse_command_line(argvs):
+    usage="""
+
+    %prog [options] nsimfile_dat.h5 [outputfile]
+
+    (C) University of Southampton, United Kingdom, 2005,2006,2007
+
+    The NMAG PostProcessing (nmagpp) tool.
+
+
+    Overview
+    --------
+
+
+
+    Outputunits
+    -----------
+
+     - default is that fields are exported (to vtk file and screen) in SI units
+
+     - positions (of mesh nodes) are exported as provided by the user
+
+     - positions can be expressed in any unit using the --posunit option
+
+     - fields can be expressed in simulation units using the --su switch.
+
+    """
+
+    version="$Header$"
+
+    parser = optparse.OptionParser(usage=usage,version=version)
+
+    parser.add_option("--field",help="choose which field to operate on  (default is 'm')",action='store',dest="field")
+
+    parser.add_option("--timesteplist","-l",help="dump time step list (available data stored)",action="store_true",dest="tsl")
+
+    parser.add_option("--fieldlist",help="dump field list (available fields)",action="store_true",dest="fl")
+
+    parser.add_option("--vtk","-v",help="convert field to vtk file",action="store",dest="vtk",metavar="FILENAME.vtk")
+
+    parser.add_option("--vtkascii",help="write vtk file as ascii file (default is binary)",\
+		       action="store_true",dest="vtkascii",default=False)
+
+    parser.add_option("--su",help="express data in simulation units (default is SI)",action="store_true",dest="su",default=False)
+
+    parser.add_option("--range",help="select range of rows to process (makes only sense for one field)",action="store",dest="range_")
+
+    parser.add_option("--dump",help="dump (ascii) selected time steps (rows) for field",action="store_true",dest="dumpascii")
+
+    parser.add_option("--missing", "-m", help="Create the output files " \
+                      "only if they do not exist", action="store_true",
+                      dest="missing")
+
+    parser.add_option("--posunit",help="express positions in multiplies of FACTOR metres (overrides --su and --si for the positions)",action="store",dest="posfactor",metavar="FACTOR")
+    
+    parser.add_option("--loglevel",type="string",metavar="LEVEL",\
+                      help="verbosity level (root logger): critical|error|warn|info|info2|debug",\
+                      action="store",dest="loglevel")
+
+    (options, arguments) = parser.parse_args(argvs)
+
+    return options,arguments
+
+
+def get_steplist_for_field(f,field):
+
+    try:
+        fieldtable = f.getNode(f.root.data.fields,field)
+    except tables.NoSuchNodeError,msg:
+        nmag_msg = "No field '%s' in file '%s'." % (field,f.filename)
+        log.error(nmag_msg)
+        log.debug("Original error message (pytables) is '%s'" % msg)
+
+        fieldlist,doflist = nfem.hdf5_v01.get_available_fields(f)
+        log.error("Available fields are %s" % str(fieldlist))
+        import sys
+        sys.exit(1)
+
+    #time_units = eval(getattr(fieldtable.attrs,"time_units"))
+    times = fieldtable.cols.time[:]
+    rows = range(len(times))
+    steps = fieldtable.cols.step[:]
+    try:
+        uids = fieldtable.cols.id[:]
+    except AttributeError,msg:
+	log.log(15,"Old-style h5 file, no 'id' data saved. Populate with fake entries (-1)")
+	uids = [-1]*len(rows)
+
+    stages = fieldtable.cols.stage[:]
+    return rows,uids,times,steps,stages
+
+def get_timesteps_for_field(f,field):
+    """I expect this to retire soon (Hans 18/03/07)"""
+
+    raise "IThoughtThisIsNotInUseMyError","Hans" #put this in again (fangohr 28/05/2008)
+
+    fieldtable = f.getNode(f.root.data.fields,field)
+    #time_units = eval(getattr(fieldtable.attrs,"time_units"))
+    times = fieldtable.cols.time[:]
+    tsl = []
+    for i,time in enumerate(times):
+        tsl.append((i,time))
+    return tsl,time_units      #could also say 'fieldtable.cols.time[:]'
+
+
+def do_dump_tsl(f,output_unit,field):
+    """Print Time Step List for given field"""
+
+    print "Available time steps for field '%s' are" % field
+    formattoken = "%5s %5s %15s %10s %10s"
+    rows,uids,time,steps,stages = get_steplist_for_field(f,field)
+    time_si_unit = nfem.hdf5_v01.get_time_unit(fh)	
+
+    unit,factor=get_unit_obj_and_si_conversionfactor( f, time_si_unit, output_unit )
+    unit_str=unit.dens_str()
+
+    print formattoken % ('row','id',('time %s' % unit_str),'step','stage')
+    for row,uid,time,step,stage in map(None,rows,uids,time,steps,stages):
+        print formattoken % ("%d" % row, "%d" % uid, "%g" % (time*factor),\
+                             "%d" % step, "%d" % stage)
+
+
+def short_list(mylist,maxitem=10, formattoken="%2d "):
+    """print list mylist, with formattoken for each element, but print at most maxitem elements"""
+
+    msg = ""
+    if len(mylist) < maxitem:
+       for item in mylist:
+       	   msg += formattoken % item
+
+    else:
+	for item in mylist[0:maxitem]:
+	   msg += formattoken  % item
+	msg += " ... "
+	for item in mylist[-3:]:
+       	   msg += formattoken  % item
+    return msg
+
+def do_dump_field_list(f):
+    """Print fields available in file"""
+
+    ids_by_fieldname = nfem.hdf5_v01.get_saved_ids_by_fieldname(f)
+
+    for fieldname in ids_by_fieldname:
+       	print "field %10s (ids=%s)" % (fieldname,short_list(ids_by_fieldname[fieldname]))
+
+
+
+def fields2vtkfile( fh, fieldnames, vtkfilename, id, output_unit,
+                    options, replace=True):
+    """ Currently, scalar and vector data on 2d and 3d meshes is supported.
+
+        Optional extra arguments are:
+
+        :Parameters:
+
+          `fh` : filehandler
+            for hdf5 file
+
+          `fieldnames` : list of string
+            names of fields to be written to vtk file
+
+          `id` : integer
+	    The unique identifier for the configuration to be saved.
+
+          `output_unit` : 'su' or 'si'
+            how to express field data (simulation units or SI units)
+
+          `options` : options object from optparse
+            (providing flexibility in passing more options to output
+            functions).
+            In particular, this provides ``options.posfactor`` to scale
+            coordinates if requested by user.
+	    It also provides ``options.vtkascii`` (bool) which, if true, 
+            will result in the vtk file written as an ascii file
+            (default is binary)
+
+          `replace`  : bool
+            Replace the file, if it exists.
+            If replace=False and the file exists, the function
+            silently returns.
+    """
+
+    if replace and os.path.exists(vtkfilename):
+        log.debug("fields2vtkfile: File '%s' exists: exiting!" % vtkfilename)
+        return
+
+    if options.vtkascii==True:
+	format = 'ascii'
+    else:
+        format = 'binary'
+
+    log.debug("fields2vtkfile(): Entering, vtkfilename = '%s'" % vtkfilename)
+    log.debug("fields2vtkfile(): Fieldlist is %s" % str(fieldnames))
+    log.debug("fields2vtkfile(): id is  %s" % id)
+
+    #check that fields are of the right type
+    if type(fieldnames) != types.ListType:
+        fieldlist = [fieldnames]
+    else:
+        fieldlist = fieldnames
+    if len(fieldlist) == 0:
+        raise ValueError, "No field received"
+
+    supoints = fh.root.mesh.points.read()
+
+    points, posunit = _unit_meshposition_conversion_helper(fh,
+                                                           options,
+                                                           supoints)
+    points = points.tolist()
+
+    log.debug("Number of points in mesh=%d" % len(points))
+
+    simplices = fh.root.mesh.simplices.read().tolist()
+    log.debug("Number of simplices in mesh=%d" % len(simplices))
+
+    #check dimensionality of the mesh
+    if len(points[0])==2:
+        log.debug("mesh is 2d")
+        mesh_dim = 2
+    elif len(points[0])==3:
+        log.debug("mesh is 3d")
+        mesh_dim = 3
+    else:
+        log.debug("mesh is 1d")
+        mesh_dim = 1
+
+    #assume that 'fieldlist' is a list of FEM fields.
+    #First, create the following data structure.
+    #dof_to_process = [field, dof, dim]
+    dof_to_process = []
+
+    maxind_by_dofname = dict(nfem.hdf5_v01.get_maxind_by_dofname(fh))
+
+
+    log.debug("Original fieldlist: %s" % fieldlist)
+
+    #reorder field list so that magnetisation comes first. This will
+    #make it the default field in Mayavi.
+    m_fields = []
+    M_fields = []	
+    other_fields = []
+
+    for fieldname in fieldlist:
+	if fieldname[0:1] == 'm':
+	  m_fields.append(fieldname)
+	elif fieldname[0:1] == 'M':
+	  M_fields.append(fieldname)
+        else:
+          other_fields.append(fieldname)
+ 
+    #now sort each of the field lists alphabetically and join
+    M_fields.sort()
+    m_fields.sort()
+    other_fields.sort()
+
+    fieldlist = m_fields+M_fields+other_fields
+
+    log.debug("Sorted fieldlist (M,m,other): %s" % fieldlist)	
+
+    for field in fieldlist:
+        #learn about dof in this field:
+        table = fh.getNode(fh.root.data.fields,field)
+
+        #which dofnames belong to this field?
+        dofnames = [colname for colname in table.colnames if not colname in ['time','step','stage','id']]
+
+        for dofname in dofnames:
+            maxind = eval(maxind_by_dofname[dofname])
+
+            #print "maxind",maxind
+            #print "len(maxind)",len(maxind)
+            #print "dofname",dofname
+            #print maxind_by_dofname
+                
+            if len(maxind)>1:
+                raise NfemValueError,"Can only deal with scalar and vector data at the moment (no tensor data)."
+            if len(maxind)==0:
+                dim = 1 #this is a scalar
+            elif len(maxind)==1:
+                if maxind[0] ==2: #this is a 2d vector
+                    dim = 2
+                elif maxind[0] ==3: #this is a 3d vector
+                    dim = 3
+                else:
+                    raise NfemValueError,"Can only process vectors in 2 and 3 dimensions"
+            dof_to_process.append( (field, dofname, dim) )
+
+            log.debug("adding %s" % str(dof_to_process[-1]) )
+
+    #pyvtk requires us to create a vtk object and to give it the first
+    #dof at that time. For all subsequent dofs, we can add them one by one.
+    
+    #check that we have some dofs to process:
+    if len(dof_to_process)==0:
+        raise NfemUserError,"Have not found any degrees of freedom to process."
+
+    names = str(map(lambda a : a[1], dof_to_process))
+    log.info("About to write field(s) '%s' to %s" % (names,vtkfilename))
+
+    #create vtk object with first data set
+    field,dofname, dim = dof_to_process[0]
+
+    #Here we need to have the row per field name information
+    row = nfem.hdf5_v01.get_row(fh,field,id)
+    log.info("Extracting field %16s from %s at id=%d (that is row=%d), writing to %s" % (field,fh.filename,id,row,vtkfilename))
+    tmppos,sidata,tmpsite = nfem.hdf5_v01.get_dof_row_data_in_meshpoint_order(fh,field,dofname,row)
+
+    #check that this is first order basis functino data:
+    order_check = tmpsite[0]
+    if len(order_check) > 1:
+        raise ValueError,"Can only handle 1st order basis function data "\
+              "but (%s,%s) seems to be of order %d" % (field,dofname,order_check)
+
+    si_units_dict = nfem.hdf5_v01.get_units_by_dofname(fh)
+    si_unit = eval(si_units_dict[dofname])
+
+    data,unit = _unit_conversion_helper( field, dofname, sidata, si_unit, output_unit, options)
+    unit_str=unit.dens_str()
+
+    data = data.tolist()  #convert numpy array to list for pyvtk
+
+    vtk = nfem.visual._vtk_createVtkData(points,simplices,data,dofname+unit_str)
+    log.log(15,"Adding %d-dim field %s to %s" % (dim,dofname,vtkfilename))
+
+    #and then process all others
+    for dof in dof_to_process[1:]:
+        field,dofname,dim = dof
+	log.debug("About to process ",field,dofname)
+
+        #if only_dofname:
+        #    if dofname!=only_dofname:
+        #        continue
+        log.debug("Adding %d-dim dof %s to %s" % (dim,dofname,vtkfilename))
+
+	#Here we need to have the row per field name information (again)
+
+	row = nfem.hdf5_v01.get_row(fh,field,id)
+	log.info("Extracting field %16s from %s at id=%d (that is row=%d), writing to %s" % (field,fh.filename,id,row,vtkfilename))
+
+	tmppos,sidata,tmpsite = nfem.hdf5_v01.get_dof_row_data_in_meshpoint_order(fh,field,dofname,row)
+        si_unit = eval(si_units_dict[dofname])
+        data,unit = _unit_conversion_helper( field, dofname, sidata, si_unit, output_unit, options)
+        unit_str=unit.dens_str()
+	data = data.tolist()
+        vtk = nfem.visual._vtk_addPointdata(vtk,data,dofname+unit_str)
+
+    vtk.tofile(vtkfilename,format=format)
+
+
+
+
+#main program
+options,arguments = parse_command_line(sys.argv)
+
+logging.debug("Options   are: '%s'" % str(options))
+logging.debug("Arguments are: '%s'" % str(arguments))
+
+outfile = None
+outfile_feature = None
+
+if len(arguments) == 0:
+    raise ValueError,"Don't know what this means (expect at least one arguments which is the program name)"
+elif len(arguments) == 1:
+    raise ValueError,"Need filename of nmag data file to process (use '-h' for help)"
+elif len(arguments) in [2,3]:
+    infile = arguments[1]
+    logging.debug("input file name is '%s'" % infile)
+
+if len(arguments) == 3:
+    outfile = arguments[2]
+    logging.debug("output file name is '%s'" % outfile)
+    
+if len(arguments) >= 4:
+    print "Arguments are:",arguments
+    print "Options   are:",options
+    raise ValueError,"It appears you are passing more arguments than I can handle."
+
+#determine infile:
+#If given filename exists, use that
+if os.path.exists(infile):
+    pass
+#otherwise try to append _dat.h5
+elif os.path.exists(infile+'_dat.h5'):
+    infile = infile+'_dat.h5'
+else:
+    raise ValueError,"Input file '%s' does not exist" % infile
+
+log.log(15,"Input file is %s" % infile)
+
+#now process any requests
+def check_and_tag_outfile(feature):
+    global outfile,outfile_feature
+    if outfile==None:
+        raise ValueError,"No output file name has been provided (for feature '%s')." % feature
+    if outfile_feature:
+        raise ValueError,"Outfile is used already for feature '%s'" % outfile_feature
+    outfile_feature = feature
+    logging.debug("Will use outfile='%s' for feature '%s'" % (outfile,outfile_feature))
+
+
+if options.loglevel:
+    import nsim
+    nsim.logtools.setGlobalLogLevel( options.loglevel )
+
+tables = nfem.hdf5_v01.importtables()
+fh = tables.openFile(infile,'r')
+
+nfem.hdf5_v01.checktag(fh,'nsimdata','0.1')
+
+if options.field:
+    field = parse_fields_string(options.field)[0]
+    print "field is", field
+else:
+    field = 'm' #default
+
+log.log(15,"Chosen field is %s" % str(field))
+
+rows,uids,times,steps,stages = get_steplist_for_field(fh,field)
+
+timesteplist = zip(*(rows,uids,times,steps,stages ))
+
+#in what units should we produce output
+if options.su:
+    output_unit = 'su'
+    log.log(15,"Writing data in simulation units")
+else:
+    output_unit = 'si'
+    log.log(15,"Writing data in SI units")
+
+if options.tsl:
+    do_dump_tsl(fh,output_unit,field=field)
+
+if options.fl:
+    do_dump_field_list(fh)
+
+if options.range_:
+    user_range = parse_range_string(options.range_)
+    #reduce available time steps to what user requested
+
+    #if a single int is provided, then parse separately as it may be a negative index 
+    if len(user_range)==1 and type(user_range[0])== types.IntType:
+        timesteplist = [timesteplist[user_range[0]]]
+    else:
+        #else: take list of available time steps and filter out those that have been provided by the user.
+        timesteplist = [(row,uid,time,step,stage) for row,uid,time,step,stage in timesteplist if row in user_range]
+
+    logging.log(15,"Time steps are "+str([row for row,uid,time,step,stage in timesteplist]))
+
+if options.dumpascii:
+    dump_field_ascii(fh,field,timesteplist,output_unit,options)
+
+if options.vtk:
+    #what fields?
+    if options.field: #if this has been specified
+        fields = options.field
+	fields = parse_fields_string(options.field)
+    else:
+        #otherwise, include all fields
+        fields = fh.root.etc.metadatafields[:].field("fieldname").tolist()
+
+    logging.debug("main: fields received are '%s'" % fields)
+
+    #this list of fields may contain some fields more than once (because
+    #fh.root.etc.metadatafields[:] has one row per subfield, and several
+    #subfields may belong to the same field.
+    #
+    #It is also possible that the user provides (accidentally?) the same field twice.
+    #
+    #In any case, we need to get rid of these duplicate entries:
+    duplicate_fields=fields
+    fields=[]
+    for field in duplicate_fields:
+        if not field in fields: fields.append(field)
+
+    logging.debug("main: fields to be converted to vtk are %s" % str(fields))
+
+    if len(timesteplist)>1:
+
+        fields_by_id = nfem.hdf5_v01.get_saved_fields_by_id(fh)
+
+        for row,uid,time,step,stage in timesteplist:
+            filename=options.vtk
+            if filename.endswith(".vtk"):
+                filename = filename[:-4]
+            filename = "%s-%04d.vtk" % (filename,uid)
+
+	    ### Here we need to pass a list of tuples with fieldnames and rows because we might be saving
+	    ### different rows for different fields.
+
+	    fields_to_save = []
+	    for field in fields:
+	    	if field in fields_by_id[uid]: #if the field has been saved
+		   fields_to_save.append(field)
+
+            fields2vtkfile(fh, fields_to_save, filename, uid, 
+                           output_unit, options, replace=options.missing)
+    else:
+        fields2vtkfile(fh, fields_by_id[uid], options.vtk, timesteplist[1],
+                       output_unit, options, replace=options.missing)
+
+
+
+
+
+
+if outfile_feature == None and outfile!=None:
+    logging.warn("Outfile name provided but not used ('%s')" % outfile)
