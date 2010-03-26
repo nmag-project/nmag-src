@@ -41,11 +41,13 @@ function allsrc_dev_compose {
   
   mkdir $TEMPDIR && cd $TEMPDIR && \
   msg "Checking out the all-source build system..." && \
-  $VC_CHECKOUT $REPOS_NSIM_DIST nmag >> $LOG_FILE && \
+  $VC_CHECKOUT $REPOS_NSIM_DIST dist >> $LOG_FILE && \
+  (cd dist/src && make hierarchy) && \
+  mv dist/src nmag && rm -rf dist && \
   msg "Checking out the nsim repository..." && \
-  $VC_CHECKOUT $REPOS_NSIM_MAIN/$ALLSRC_NSIM_BRANCH nsim >> $LOG_FILE && \
+  $VC_CHECKOUT $REPOS_NSIM_MAIN nsim >> $LOG_FILE && \
   msg "Unpacking required packages in pkg directory" && \
-  mv nsim nmag/ && \
+  mv nsim nmag/ &&
   untar_pkg_file $LOG_FILE
   SUCCESS=$?
   mv $LOG_FILE $STARTING_DIR
