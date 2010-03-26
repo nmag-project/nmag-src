@@ -64,10 +64,10 @@ function allsrc_dev_compose {
   fi
 }
 
-function remove_svn_stuff {
+function remove_hg_stuff {
   TARGET="$1"
-  echo "Entering $TARGET and removing .svn directories..."
-  (cd $TARGET && FILES_TO_REMOVE=`find . -name ".svn"` && \
+  echo "Entering $TARGET and removing .hg directories..."
+  (cd $TARGET && FILES_TO_REMOVE=`find . -type d -name ".hg"` && \
    rm -rf $FILES_TO_REMOVE)
 }
 
@@ -78,7 +78,7 @@ function cleanup_allsrc_for_dist {
 }
 
 function allsrc_compose {
-  (allsrc_dev_compose "$1" "$2" && remove_svn_stuff "$1" && \
+  (allsrc_dev_compose "$1" "$2" && remove_hg_stuff "$1" && \
    cleanup_allsrc_for_dist "$1")
 }
 
@@ -86,8 +86,10 @@ function allsrc_compose {
 allsrc_dev_compose 'nmag-0.1' 'trunk'
 #allsrc_compose 'nmag-0.1' 'trunk'
 
-echo "Exit status $?"
-exit
+EXIT_STATUS=$?
+echo "Exit status $EXIT_STATUS"
+exit $EXIT_STATUS
+
 TAR_SVNEXCLUDE=--anchored --exclude=*.svn --exclude=*/*.svn --exclude=*/*/*.svn --exclude=*/*/*/*.svn --exclude=*/*/*/*/*.svn --exclude=*/*/*/*/*/*.svn --exclude=nmag/nsim/obsolete --exclude=nmag/nsim/interface/nmesh/doc --exclude=nmag/nsim/interface/nmeshlj/doc --exclude=nmag/nsim/devel
 
 tarballs: fetchtrunk installation-system nsim
