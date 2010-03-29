@@ -391,6 +391,7 @@ def setup(argv=None, do_features=True, do_logging=True,
                   % ocaml.get_nsim_sundials_library_path())
 
         nr_cpus = ocaml.petsc_mpi_nr_nodes()
+        log.info("Nmag micromagnetic simulator")
         log.info("Runid is '%s'" % (pyfeatures.get('etc', 'runid')))
         log.info("Using %d CPUs" % (nr_cpus))
 

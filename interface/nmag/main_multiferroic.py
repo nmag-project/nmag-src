@@ -29,7 +29,7 @@ from   nsim.when       import every, at, never
 from   nsim.sets       import vector_set, float_set
 from   nsim.colwriter  import ColDescriptor, ColWriter
 from   nsim.vectools   import *
-from   nsim.snippets   import ipython
+from   nsim.shell      import ipython
 from   anisotropy      import *
 from   simulation_core import SimulationCore
 from   hlib            import default_hmatrix_setup, HMatrixSetup

@@ -1,23 +1,37 @@
 #!$NMAGROOTDIR$/bin/nsim
+# Nmag micromagnetic simulator
 # Copyright (C) 2010 University of Southampton
+# Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
+#
+# WEB:     http://nmag.soton.ac.uk
+# CONTACT: nmag@soton.ac.uk
+#
+# LICENSE: GNU General Public License 2.0
+#          (see <http://www.gnu.org/licenses/>)
 
-import os, sys
+def copy_global_local_frames():
+    from sys import _getframe as getframe
+    calling_frame = getframe(1)
+    del getframe
+    frames = (calling_frame.f_globals.copy(), calling_frame.f_locals.copy())
+    for frame in frames:
+        for name in ['copy_global_local_frames']:
+            frame.pop(name)
+    return frames
+
+locals, globals = copy_global_local_frames()
+
+# The following line is written by the top Makefile and should be updated
+# whenever the bin dir is moved
 nmag_root_dir = "$NMAGROOTDIR$"
 
+# First we should teach Python where to look for the nsim modules
+import os, sys
 nmag_library_path = os.path.join(nmag_root_dir, "interface")
 sys.path.insert(0, nmag_library_path)
 
-from nsim.setup import setup
-options, arguments = setup(argv=sys.argv[1:], warn_about_py_ext=False)
-sys.argv = arguments
-
-if len(arguments) > 0:
-    execfile(arguments[0])
-
-else:
-    # Better to use ipython from nsim.snippets rather than the one in nmag.
-    # Indeed, importing nmag, causes a lot of other modules to be imported
-    # which can result in slow startup of the shell on older machines.
-    import nsim.snippets
-    nsim.snippets.ipython()
+# Now we launch the program
+import sys
+from nsim.shell import main
+main(sys.argv, use_ipython=True, locals=locals, globals=globals)
 

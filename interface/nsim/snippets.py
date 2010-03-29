@@ -165,20 +165,6 @@ def funky_wait(wait, dt=0.2):
         waited_so_far += dt
     print 
 
-def ipython(globals=None, locals=None):
-    """Interactive python prompt (see `Example: IPython`_)."""
-    #We use an embedded ipython session (http://ipython.scipy.org/doc/manual/node9.html)
-    #to inspect the current state. The calling_frame magic is necessary to get the context
-    #of the place where this ipython() function is called (and not where IPShellEmded([])
-    #is invoked.
-    calling_frame = sys._getframe(1)
-    if globals == None:
-	globals = calling_frame.f_globals
-    if locals == None:
-	locals = calling_frame.f_locals
-    from IPython.Shell import IPShellEmbed
-    IPShellEmbed([])(local_ns=locals, global_ns=globals)
-
 #def get_main_program_path():
 #    """Returns a tuple (PATH,NAME) where PATH is the full path name of
 #    the directory in which the main Python program file lives, and
