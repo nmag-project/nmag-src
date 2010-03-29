@@ -777,7 +777,7 @@ let parsed_eqn_ccode (local_tensors,vv_lhs_rhs) =
 	(aconcat "\n            +"
 	   (Array.map
 	      (fun (coeff,factors) ->
-		 Printf.sprintf "(%f)%s" coeff
+		 Printf.sprintf "(%g)%s" coeff
 		   (aconcat ""
 		      (Array.map
 			 (fun factor ->

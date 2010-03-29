@@ -280,11 +280,13 @@ def nmag_lam(timestepper,
                     coeff_str = ""
                     if coeff_value != 1.0:
                         coeff_str = "(%s) * " % coeff
+                        # coeff_str = "(%g) * " % float(coeff_value)
                     term = preprocess.preprocess(template_term, param)
                     terms.append("%s%s" % (coeff_str, term))
 
             lhs = preprocess.preprocess(template_lhs, param)
             equation = lhs + concat_terms.join(terms)
+
             if len(equation.strip()) > 0:
                 equations.append(equation)
         return prefix + concat.join(equations) + postfix
@@ -711,12 +713,6 @@ H_multiferroic_$MAT$(i) <-
         lam_vectors["v_H_multiferroic"]=nlam.lam_vector(name="v_H_multiferroic",mwe_name="H_multiferroic")
         lam_vectors["v_Electric_ext"]=nlam.lam_vector(name="v_Electric_ext",mwe_name="Electric_ext")
 
-        lam_local["local_H_multiferroic"]=nlam.lam_local("local_H_multiferroic",
-                                                         aux_args=intensive_params,
-                                                         field_mwes=[mwe_Electric_ext,
-                                                                     mwe_grad_m],
-                                                         equation=eq_H_multiferroic)
-
     #Sequential jacobian (i.e. not MPI)
     lam_jacobi={"jacobian":nlam.lam_jplan("jacobian", # name
                                           "dmdt",
@@ -989,6 +985,10 @@ H_multiferroic_$MAT$(i) <-
                                  "v_Electric_ext",
                                  "v_grad_m"],
                                 []],
+                               # DDD Debug Multiferroic Code
+                               ["DEBUG","Electric_ext","v_Electric_ext",6],
+                               ["DEBUG","grad_m","v_grad_m",18],
+                               ["DEBUG","H_multiferroic","v_H_multiferroic",6],
                                ["TSTOP","H_multiferroic"]
                                ])
 
