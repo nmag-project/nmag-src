@@ -1,4 +1,4 @@
-#!$NMAGROOTDIR$/pyfem3/pyfem3
+#!$NMAGROOTDIR$/bin/nsim
 # Copyright (C) 2010 University of Southampton
 
 import os, sys
