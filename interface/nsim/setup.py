@@ -84,6 +84,10 @@ def generate_cmdline_parser():
     parser.add_option('--loglevel',  '-l', help=help,
                       type='string', metavar='LEVEL')
 
+    help = 'log to console only'
+    parser.add_option('--nologfile', help=help,
+                      dest='nologfile', action='store_true')
+
     help = 'remove all existing data files for this simulation script'
     parser.add_option('--clean', help=help,
                       dest='clean', action='store_true')
@@ -290,6 +294,11 @@ def setup(argv=None, do_features=True, do_logging=True,
         if cmdline_parser == None:
             cmdline_parser = generate_cmdline_parser() 
         (options, arguments) = cmdline_parser.parse_args(argv)
+
+        # Deal here with some of the command line args
+        if options.nologfile:
+            log_to_console_only = True
+
         task_done['cmdline'] = True
 
     # We would like now to setup the ocaml and python feature objects.
@@ -355,6 +364,16 @@ def setup(argv=None, do_features=True, do_logging=True,
     if do_cmdline:
         cmdline_to_pyfeatures(options, arguments)
 
+        # We rename the files here for two reasons:
+        # - we have to do it before the log file is created
+        #   (before the 'do_logging' section)
+        # - we have to do it after the command line has been parsed
+        #   (and only if the command line has been parsed?), after the config
+        #   file has been read and we hence know what is the name of the log
+        #   file.
+        if pyfeatures.get('nmag', 'clean', raw=True):
+            nsim.snippets.rename_old_files([logfilename])
+
     # We are now ready to setup the logger
     global log
     log = logging.getLogger('nsim')
@@ -402,12 +421,6 @@ def setup(argv=None, do_features=True, do_logging=True,
             time.sleep(1)
 
         task_done['welcome'] = True
-
-    # If the simulation has been run before, then we rename the old log file
-    # (this is the last thing we do: we don't want to do this in case there is a
-    # command line parsing error, for example)
-    if do_cmdline and pyfeatures.get('nmag', 'clean', raw=True):
-        nsim.snippets.rename_old_files([logfilename])
 
     return (options, arguments)
 
