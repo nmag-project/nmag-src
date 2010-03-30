@@ -53,7 +53,11 @@ def partial_traceback(start_tb=0):
         etype, value, tb = sys.exc_info()
         tb = sys.exc_info()[2]
         tb_chain = traceback_chain(tb)
-        return ''.join(format_exception(etype, value, tb_chain[start_tb]))
+        if start_tb < len(tb_chain):
+            my_tb = tb_chain[start_tb]
+        else:
+            my_tb = tb
+        return ''.join(format_exception(etype, value, my_tb))
 
     finally:
         etype = value = tb = None

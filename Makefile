@@ -26,7 +26,8 @@ PYTHON=python
 NSIM_DEB = $(ROOT)/bin/nsim_debug
 NSIM_RAW_EXE = $(ROOT)/bin/nsim-raw
 NSIM_EXE=bin/nsim
-NSIM_PYTEST = $(ROOT)/bin/pytest_nsim
+PYTEST_EXE=/usr/bin/py.test
+NSIM_PYTEST = $(ROOT)/bin/nsim --nologfile $(PYTEST_EXE) --
 NSIM_EXE1CPU = $(ROOT)/bin/nsim-1cpu
 PYFEM = $(ROOT)/pyfem3/pyfem3
 NMESHPP = $(ROOT)/bin/nmeshpp
@@ -174,13 +175,13 @@ $(NSIM_EXE): $(NSIM_RAW_EXE) bin/nsim.in
 	sed -e 's|\$$NMAGROOTDIR\$$|$(ROOT)|g' bin/nsim.in > $@ || rm $@
 	chmod u+x $@
 
-$(NSIM_PYTEST): $(NSIM_EXE)
-	rm -f $(NSIM_PYTEST)
-	echo "#!/bin/sh" > $(NSIM_PYTEST)
-	if [ -f config/exports.sh ]; then cat config/exports.sh >> $(NSIM_PYTEST); fi
-	echo "export PYTHONPATH=$(ROOT)/interface:\$$PYTHONPATH" >> $(NSIM_PYTEST)
-	echo $(PYFEM)" $(ROOT)/tests/pytest_main.py \$$*" >> $(NSIM_PYTEST)
-	chmod u+x $(NSIM_PYTEST)
+#$(NSIM_PYTEST): $(NSIM_EXE)
+#	rm -f $(NSIM_PYTEST)
+#	echo "#!/bin/sh" > $(NSIM_PYTEST)
+#	if [ -f config/exports.sh ]; then cat config/exports.sh >> $(NSIM_PYTEST); fi
+#	echo "export PYTHONPATH=$(ROOT)/interface:\$$PYTHONPATH" >> $(NSIM_PYTEST)
+#	echo $(PYFEM)" $(ROOT)/tests/pytest_main.py \$$*" >> $(NSIM_PYTEST)
+#	chmod u+x $(NSIM_PYTEST)
 
 $(NSIM_EXE1CPU): $(PYFEM)
 	rm -f $(NSIM_EXE1CPU)
@@ -209,9 +210,6 @@ nsim: interface/nsim/svnversion.py $(NSIM_EXE) \
 doc:
 	cd interface/nmag/manual; make 
 
-#nmesh2vtk:
-#	chmod u+x $(NMESH2VTK)
-#
 nmesh2pp:
 	chmod u+x $(NMESHPP)
 
@@ -231,20 +229,20 @@ clean: config/configuration.inc
 
 mrproper: libuninstall clean
 
-check: $(NSIM_PYTEST)
+check:
 	@echo "Testing all reasonably fast tests".
 	@echo "Skipping tests with name test_slow* and test_mpi*".
-	$(NSIM_PYTEST) -k -test_slow@-test_mpi@-test_hlib
+	$(NSIM_PYTEST) -k "-test_slow -test_mpi -test_hlib"
 
-checkslow: $(NSIM_PYTEST)
+checkslow:
 	$(NSIM_PYTEST) -k test_slow
 
-checkmpi: $(NSIM_PYTEST)
+checkmpi:
 	$(NSIM_PYTEST) -k test_mpi
 
-checkhlib: $(NSIM_PYTEST)
+checkhlib:
 	$(NSIM_PYTEST) -k test_hlib
 
-checkall: $(NSIM_PYTEST)
+checkall:
 	$(NSIM_PYTEST) 
 
