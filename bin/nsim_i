@@ -1,0 +1,6 @@
+#!/bin/sh
+echo "'nsim_i' has been removed. You should rather use just 'nsim'."
+echo "'nsim' tries to use IPython if it is installed on your system."
+echo "If you don't want to use IPython, then you should use 'nsim-raw'"
+exit 1
+
