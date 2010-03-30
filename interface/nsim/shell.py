@@ -39,6 +39,25 @@ def ipython(globals=None, locals=None):
     from IPython.Shell import IPShellEmbed
     IPShellEmbed([])(local_ns=locals, global_ns=globals)
 
+def traceback_chain(tb):
+    """Returns the list of traceback objects chained with tb."""
+    chain = []
+    while tb is not None:
+        chain.append(tb)
+        tb = tb.tb_next
+    return chain
+
+def partial_traceback(start_tb=0):
+    try:
+        from traceback import format_exception
+        etype, value, tb = sys.exc_info()
+        tb = sys.exc_info()[2]
+        tb_chain = traceback_chain(tb)
+        return ''.join(format_exception(etype, value, tb_chain[start_tb]))
+
+    finally:
+        etype = value = tb = None
+ 
 def main(args, locals=None, globals=None, use_ipython=True):
     from nsim.setup import setup
     options, arguments = setup(argv=args[1:], warn_about_py_ext=False)
@@ -46,7 +65,24 @@ def main(args, locals=None, globals=None, use_ipython=True):
 
     if len(arguments) > 0:
         # Execute a file
-        execfile(arguments[0], globals, locals)
+        try:
+            execfile(arguments[0], globals, locals)
+
+        except SystemExit, exit_status:
+            import logging
+            log = logging.getLogger('')
+            log.warn("SystemExit with exit_status=%s" % exit_status)
+            sys.exit(exit_status)
+
+        except:
+            # We now take the traceback, show it on the screen and also put
+            # it into the log file, so that we record the reason for the
+            # interruption
+            tb_msg = partial_traceback(1)
+            import logging
+            log = logging.getLogger('')
+            log.error("Exit on exception:\n%s" % tb_msg)
+            sys.exit(1)
 
     else:
         # Run the interactive loop

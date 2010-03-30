@@ -1,4 +1,4 @@
-#!/usr/bin/env nsim
+#!/usr/bin/env nsim-raw
 
 """This utilitily will report the
 (i)   svn revision number of the code (based on nsim.svnversion.svnversion)

@@ -1,4 +1,4 @@
-#!/usr/bin/env nsim
+#!/usr/bin/env nsim-raw
 # Copyright (C) 2010 University of Southampton
 # Authors: Matteo Franchin
 

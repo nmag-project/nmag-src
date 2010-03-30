@@ -24,13 +24,11 @@ MODULES = pyfem3 config mt19937 snippets qhull fastfields pycaml nlog mesh mpi_p
 ROOT = ${PWD}
 PYTHON=python
 NSIM_DEB = $(ROOT)/bin/nsim_debug
-NSIM_EXE = $(ROOT)/bin/nsim
-NSIM_EXE_NG=bin/nsim.ng
+NSIM_RAW_EXE = $(ROOT)/bin/nsim-raw
+NSIM_EXE=bin/nsim
 NSIM_PYTEST = $(ROOT)/bin/pytest_nsim
 NSIM_EXE1CPU = $(ROOT)/bin/nsim-1cpu
-NSIM_EXEi = $(ROOT)/bin/nsim_i
 PYFEM = $(ROOT)/pyfem3/pyfem3
-IPYFEM = $(ROOT)/pyfem3/ipyfem3
 NMESHPP = $(ROOT)/bin/nmeshpp
 # ---------
 
@@ -49,7 +47,7 @@ include config/common.inc
 
 all: local-deps nsim nmesh2pp
 
-debug: local-deps deps.pyfem3_debug $(NSIM_EXE) $(NSIM_EXE_NG) $(NSIM_EXEi) \
+debug: local-deps deps.pyfem3_debug $(NSIM_RAW_EXE) $(NSIM_EXE) \
   $(NSIM_DEB) nmesh2pp
 
 config/configuration.inc: config/configure.py
@@ -168,17 +166,13 @@ deps.pyfem3_debug: pyfem3/deps deps.mt19937 deps.snippets deps.qhull deps.fastfi
 	 make -f Makefile.debug libinstall deps) >$(LOG) 2>&1
 	touch deps.pyfem3_debug
 
-$(NSIM_EXE_NG): $(PYFEM) bin/nsim.in
-	sed -e 's|\$$NMAGROOTDIR\$$|$(ROOT)|g' bin/nsim.in > $@ || rm $@
-	chmod u+x $@	
+$(NSIM_RAW_EXE): $(NSIM_RAW_EXE).in $(PYFEM)
+	sed -e 's|\$$NMAGROOTDIR\$$|$(ROOT)|g' $(NSIM_RAW_EXE).in > $@ || rm $@
+	chmod u+x $(NSIM_RAW_EXE)
 
-$(NSIM_EXE): $(PYFEM)
-	rm -f $(NSIM_EXE)
-	echo "#!/bin/sh" > $(NSIM_EXE)
-	if [ -f config/exports.sh ]; then cat config/exports.sh >> $(NSIM_EXE); fi
-	echo "export PYTHONPATH=$(ROOT)/interface:\$$PYTHONPATH" >> $(NSIM_EXE)
-	echo $(PYFEM)" \$$*" >> $(NSIM_EXE)
-	chmod u+x $(NSIM_EXE)
+$(NSIM_EXE): $(NSIM_RAW_EXE) bin/nsim.in
+	sed -e 's|\$$NMAGROOTDIR\$$|$(ROOT)|g' bin/nsim.in > $@ || rm $@
+	chmod u+x $@
 
 $(NSIM_PYTEST): $(NSIM_EXE)
 	rm -f $(NSIM_PYTEST)
@@ -188,7 +182,6 @@ $(NSIM_PYTEST): $(NSIM_EXE)
 	echo $(PYFEM)" $(ROOT)/tests/pytest_main.py \$$*" >> $(NSIM_PYTEST)
 	chmod u+x $(NSIM_PYTEST)
 
-
 $(NSIM_EXE1CPU): $(PYFEM)
 	rm -f $(NSIM_EXE1CPU)
 	echo "#!/bin/sh" > $(NSIM_EXE1CPU)
@@ -196,19 +189,6 @@ $(NSIM_EXE1CPU): $(PYFEM)
 	echo "export PYTHONPATH=$(ROOT)/interface:\$$PYTHONPATH" >> $(NSIM_EXE1CPU)
 	echo "taskset 0x00000001 "$(PYFEM)" \$$*" >> $(NSIM_EXE1CPU)
 	chmod u+x $(NSIM_EXE1CPU)
-
-$(IPYFEM): $(PYFEM)
-	rm -f $(IPYFEM)
-	cp $(PYFEM) $(IPYFEM)
-
-
-$(NSIM_EXEi): $(IPYFEM)
-	rm -f $(NSIM_EXEi)
-	echo "#!/bin/sh" > $(NSIM_EXEi)
-	if [ -f config/exports.sh ]; then cat config/exports.sh >> $(NSIM_EXEi); fi
-	echo "export PYTHONPATH=$(ROOT)/interface:\$$PYTHONPATH" >>$(NSIM_EXEi)
-	echo $(IPYFEM)" \$$*" >> $(NSIM_EXEi)
-	chmod u+x $(NSIM_EXEi)
 
 $(NSIM_DEB):
 	echo "export PYTHONPATH=$(ROOT)/interface:\$$PYTHONPATH" > $(NSIM_DEB)
@@ -223,8 +203,8 @@ $(NSIM_DEB):
 interface/nsim/svnversion.py:
 	echo "svnversion = '"$$(svnversion -n .)"'" > interface/nsim/svnversion.py
 
-nsim: interface/nsim/svnversion.py $(NSIM_EXE) $(NSIM_EXE_NG) \
-  $(NSIM_EXE1CPU) $(NSIM_EXEi) $(NSIM_PYTEST)
+nsim: interface/nsim/svnversion.py $(NSIM_EXE) \
+  $(NSIM_EXE1CPU) $(NSIM_PYTEST)
 
 doc:
 	cd interface/nmag/manual; make 
@@ -242,8 +222,7 @@ libuninstall: config/configuration.inc
 	done
 
 clean: config/configuration.inc
-	rm -f deps.*
-	rm -f $(NSIM_EXE) $(NSIM_EXE_NG) $(NSIM_EXEi) $(NSIM_DEB) $(IPYFEM) $(NSIM_PYTEST)
+	rm -f depsrm -f $(NSIM_RAW_EXE) $(NSIM_EXE) $(NSIM_DEB) $(NSIM_PYTEST)
 	list='$(MODULES)'; \
 	for subdir in $$list; do \
 	  test "$$subdir" = . || (cd $$subdir && make mrproper); \
@@ -268,6 +247,4 @@ checkhlib: $(NSIM_PYTEST)
 
 checkall: $(NSIM_PYTEST)
 	$(NSIM_PYTEST) 
-
-
 
