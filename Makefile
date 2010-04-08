@@ -175,14 +175,6 @@ $(NSIM_EXE): $(NSIM_RAW_EXE) bin/nsim.in
 	sed -e 's|\$$NMAGROOTDIR\$$|$(ROOT)|g' bin/nsim.in > $@ || rm $@
 	chmod u+x $@
 
-#$(NSIM_PYTEST): $(NSIM_EXE)
-#	rm -f $(NSIM_PYTEST)
-#	echo "#!/bin/sh" > $(NSIM_PYTEST)
-#	if [ -f config/exports.sh ]; then cat config/exports.sh >> $(NSIM_PYTEST); fi
-#	echo "export PYTHONPATH=$(ROOT)/interface:\$$PYTHONPATH" >> $(NSIM_PYTEST)
-#	echo $(PYFEM)" $(ROOT)/tests/pytest_main.py \$$*" >> $(NSIM_PYTEST)
-#	chmod u+x $(NSIM_PYTEST)
-
 $(NSIM_EXE1CPU): $(PYFEM)
 	rm -f $(NSIM_EXE1CPU)
 	echo "#!/bin/sh" > $(NSIM_EXE1CPU)
@@ -205,7 +197,7 @@ interface/nsim/svnversion.py:
 	echo "svnversion = '"$$(svnversion -n .)"'" > interface/nsim/svnversion.py
 
 nsim: interface/nsim/svnversion.py $(NSIM_EXE) \
-  $(NSIM_EXE1CPU) $(NSIM_PYTEST)
+  $(NSIM_EXE1CPU)
 
 doc:
 	cd interface/nmag/manual; make 
@@ -220,7 +212,7 @@ libuninstall: config/configuration.inc
 	done
 
 clean: config/configuration.inc
-	rm -f depsrm -f $(NSIM_RAW_EXE) $(NSIM_EXE) $(NSIM_DEB) $(NSIM_PYTEST)
+	rm -f depsrm -f $(NSIM_RAW_EXE) $(NSIM_EXE) $(NSIM_DEB)
 	list='$(MODULES)'; \
 	for subdir in $$list; do \
 	  test "$$subdir" = . || (cd $$subdir && make mrproper); \
