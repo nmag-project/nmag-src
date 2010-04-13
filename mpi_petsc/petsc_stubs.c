@@ -3205,15 +3205,18 @@ CAMLprim value caml_petsc_ts_set_type(value ml_ts, value ml_tstype)
 
   switch(int_tstype)
     {
-    case 0:
-      tstype=TS_EULER;
-      break;
-    case 1:
-      tstype=TS_BEULER;
-      break;
-    case 2:
-      tstype=TS_PSEUDO;
-      break;
+#if PETSC_VERSION_GE(3, 1, 0)
+    /* PETSc people changed interface from v 3.0 to v 3.1:
+     * TS_EULER etc were renamed to TSEULER...
+     */
+    case 0: tstype=TSEULER; break;
+    case 1: tstype=TSBEULER; break;
+    case 2: tstype=TSPSEUDO; break;
+#else
+    case 0: tstype=TS_EULER; break;
+    case 1: tstype=TS_BEULER; break;
+    case 2: tstype=TS_PSEUDO; break;
+#endif
     case 3:
       /* tstype=TS_PVODE; XXX NOTE: does not work with petsc2.3.1! Crazy stuff... */
       exit(1);
