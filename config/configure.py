@@ -233,13 +233,13 @@ configs["mpi-includedir"] = (
   std_inc_paths+['/usr/include/mpi']
 )
 
-configs["petsc-libdir"] = (
+configs["petsc-libdir"] = [
   "Path containing the library files for petsc",
   "PETSC_LIBRARY_PATH",
   "PETSC",
-  ["petsc", "petscvec", "petscmat", "petscksp", "petscts", "petscsnes", "petscdm"],
+  ["petscvec", "petscmat", "petscksp", "petscts", "petscsnes", "petscdm"],
   std_lib_paths + ["/usr/lib/petscdir/2.3.2/lib/linux-gnu-c-real-opt"]
-)
+]
 
 configs["petsc-includedir"] = (
   "Path containing the C-headers files for petsc",
@@ -286,6 +286,7 @@ other_opts = [
   ("libdir=", "Path to be used when searching for all the libraries"),
   ("includedir=", "Path to be used when searching for all the headers"),
   ("full-lib-name", "Use 'path/libname.so' instead of '-Lpath -lname'"),
+  ("with-single-petsc-lib", "Link only against libpetsc (PETSc > 3.1)"),
   ("cflags=", "CFLAGS to use (override automatically detected values)")
 ]
 
@@ -331,6 +332,10 @@ if '-h' in recognized_opts or '--help' in recognized_opts:
 if '--full-lib-name' in recognized_opts:
     use_full_lib_path = True
     processed_opts['--full-lib-name'] = None
+
+if '--with-single-petsc-lib' in recognized_opts:
+    configs['petsc-libdir'][3] = ['petsc']
+    processed_opts['--full-lib-name'] = True
 
 # Default assumption is that the user does not provide CFLAGS via a --cflags option:
 CFLAGS=None 
