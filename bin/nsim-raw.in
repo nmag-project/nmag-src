@@ -15,7 +15,7 @@ RT="$NMAGROOTDIR$"
 export PYTHONPATH=$RT/interface:$PYTHONPATH
 
 # Check whether the ldflags.bash file exists.
-# This files sets environment variables so that all the libraries
+# This file sets environment variables so that all the libraries
 # required by nsim are found.
 if [ -f $RT/bin/ldflags.bash ]; then
   . $RT/bin/ldflags.bash

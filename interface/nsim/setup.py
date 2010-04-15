@@ -49,6 +49,15 @@ task_done = {'completed': False,
 # command line of the nsim executable
 cmdline_parser = None
 
+def get_interface_path():
+    """
+    Get the absolute path where the Nsim Python interface is located
+    (this is the directory containing the directories nsim, nmag, nmesh, ...
+    which contain the implementation of the corresponding modules).
+    """
+    nsim_module_path = os.path.split(os.path.realpath(nsim.__file__))[0]
+    return os.path.split(nsim_module_path)[0]
+
 def tune(act_as_library=False):
     """This function can be used to tune the way the setup is done (remember
     that the setup is done by the function ``setup`` define in this same
@@ -410,7 +419,7 @@ def setup(argv=None, do_features=True, do_logging=True,
                   % ocaml.get_nsim_sundials_library_path())
 
         nr_cpus = ocaml.petsc_mpi_nr_nodes()
-        log.info("Nmag micromagnetic simulator")
+        log.info("Nsim simulator")
         log.info("Runid is '%s'" % (pyfeatures.get('etc', 'runid')))
         log.info("Using %d CPUs" % (nr_cpus))
 

@@ -784,12 +784,12 @@ E_total_$MAT$ <- E_demag_$MAT$ + E_exch_$MAT$ + E_ext_$MAT$ + E_anis_$MAT$%s;
                   "update_dmdt":nlam.lam_program("update_dmdt",
                                                  commands=[["TSTART","update_dmdt"],
                                                            ["GOSUB", "set_dm_dcurrent"],
-                                                           ["CALLPY", pre_rhs_funs],
+                                                           #["CALLPY", pre_rhs_funs],
                                                            ["GOSUB", "update_H_total"],
                                                            ["SITE-WISE-IPARAMS","local_dmdt",fields_for_dmdt,[]],
                                                            # ["DEBUG","dm/dt","v_dmdt",6],
                                                            # ["DEBUG","dm","v_m",6],
-                                                           ["CALLPY", post_rhs_funs],
+                                                           #["CALLPY", post_rhs_funs],
                                                            ["TSTOP","update_dmdt"]]),
                   "debug_m":nlam.lam_program("debug_m",
                                                  commands=[["DEBUG","dm/dt","v_dmdt",6],
@@ -980,7 +980,7 @@ if(have_Temperature && have_H_therm_$MAT$)
             nlam.lam_program("init_m_inv_sqrtvol",\
                  commands=[["CFBOX","m","v_m_inv_sqrtvol"],
                            ["PW-SQRT","v_m_inv_sqrtvol"]])
-        
+
         lam_programs["update_dmdt_Heun"]=\
             nlam.lam_program("update_dmdt_Heun",\
              commands=[["TSTART","update_dmdt_Heun"],

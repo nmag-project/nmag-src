@@ -165,6 +165,16 @@ def funky_wait(wait, dt=0.2):
         waited_so_far += dt
     print 
 
+from subprocess import Popen, PIPE, STDOUT
+
+def exec_cmd(cmd_args):
+    """Execute cmd_args[0] passing cmd_args[1:] as command line arguments.
+    Returns a tuple (output, exit_status).
+    """
+    p = Popen(cmd_args, stdout=PIPE, stderr=STDOUT)
+    output = p.communicate()[0]
+    return (output, p.returncode)
+
 #def get_main_program_path():
 #    """Returns a tuple (PATH,NAME) where PATH is the full path name of
 #    the directory in which the main Python program file lives, and
