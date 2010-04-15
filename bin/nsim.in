@@ -1,4 +1,4 @@
-#!$NMAGROOTDIR$/bin/nsim-raw
+#!/bin/bash $NMAGROOTDIR$/bin/nsim-raw
 # Nmag micromagnetic simulator
 # Copyright (C) 2010 University of Southampton
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
@@ -9,20 +9,7 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
-# The following line is written by the top Makefile and should be updated
-# whenever the bin dir is moved
-nmag_root_dir = "$NMAGROOTDIR$"
-
-# First we should teach Python where to look for the nsim modules
-from sys import argv, path
-from os.path import join
-nmag_library_path = join(nmag_root_dir, "interface")
-path.insert(0, nmag_library_path)
-
-# Clean the current namespace
-del nmag_library_path, path, nmag_root_dir, join
-
-# Now we launch the program
+from sys import argv
 from nsim.shell import main
 main(argv, use_ipython=True, locals=locals(), globals=globals())
 
