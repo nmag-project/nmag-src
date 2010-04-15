@@ -237,7 +237,7 @@ configs["petsc-libdir"] = [
   "Path containing the library files for petsc",
   "PETSC_LIBRARY_PATH",
   "PETSC",
-  ["petscvec", "petscmat", "petscksp", "petscts", "petscsnes", "petscdm"],
+  ["petsc", "petscvec", "petscmat", "petscksp", "petscts", "petscsnes", "petscdm"],
   std_lib_paths + ["/usr/lib/petscdir/2.3.2/lib/linux-gnu-c-real-opt"]
 ]
 
