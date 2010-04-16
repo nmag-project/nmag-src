@@ -256,7 +256,7 @@ class Model:
         for region in self.region_materials:
             for mat in region:
                 logger.info("Processing material '%s'" % mat.name)
-            
+
                 if not all_materials.has_key(mat.name):
                     elem_name = "%s_%s" % (name, mat.name)
                     elem = ocaml.make_element(elem_name, shape, self.dim, 1)

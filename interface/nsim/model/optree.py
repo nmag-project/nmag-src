@@ -7,7 +7,7 @@ def _find_next_quant(s, pos=0):
     end_pos = s.find("}", start_pos + 2)
     if end_pos < 0:
         raise ValueError("Error while parsing '%s': '${' without '}'" % s)
-    return (s[start_pos+2:end_pos], end_pos + 1)
+    return (s[start_pos+2:end_pos], (start_pos, end_pos))
 
 def _parse_quant(s):
     if "(" in s:
@@ -15,14 +15,12 @@ def _parse_quant(s):
         end_pos = s.find(")")
         if end_pos < 0:
             raise ValueError("Error while parsing '%s': '(' without ')'" % s)
-        indices = s[start_pos+1:end_pos]
-        rank = indices.count(",") + 1
         indices = [idx_str.strip()
-                   for idx_str in indices.split(",")]
-        return (s[:start_pos], ("tensor%d" % rank, indices))
+                   for idx_str in s[start_pos+1:end_pos].split(",")]
+        return (s[:start_pos], indices)
 
     else:
-        return (s, ("tensor0", []))
+        return (s, [])
 
 # At the moment we implement a hybrid parsed/nonparsed tree.
 # One day, we may have Python to parse operator strings and to generate
@@ -111,17 +109,52 @@ class UnparsedNode(UnaryNode):
             if quant_str_pos == None:
                 break
 
-            quant_str, pos = quant_str_pos
-            quant_name, quant_type = _parse_quant(quant_str)
+            quant_str, (_, pos) = quant_str_pos
+            quant_name, quant_indices = _parse_quant(quant_str)
             if d.has_key(quant_name):
-                prev_quant_type = d[quant_name]
-                if quant_type != prev_quant_type:
+                prev_rank = len(d[quant_name])
+                if len(quant_indices) != prev_rank:
                     raise ValueError("Found '%s' both used as %s and %s"
                                      % (quant_name,
                                         prev_quant_type, quant_type))
 
             else:
-                d[quant_name] = quant_type
+                d[quant_name] = quant_indices
+
+    def to_str(self, op_context):
+        s = self.value
+        pos = 0
+        out_s = ""
+        while True:
+            quant_str_pos = _find_next_quant(s, pos)
+            if quant_str_pos == None:
+                break
+
+            quant_str, (start_pos, end_pos) = quant_str_pos
+            out_s += s[pos:start_pos]
+            pos = end_pos + 1
+            quant_name, quant_indices = _parse_quant(quant_str)
+            if op_context.inouts_dict.has_key(quant_name):
+                q = op_context.inouts_dict[quant_name]
+                if q.def_on_mat and not op_context.for_material:
+                    raise ValueError("'%s' is a quantity defined on material "
+                                     "but this operator expression is not "
+                                     "summed over materials. Please use "
+                                     "the OverMat construct." % quant_name)
+            else:
+                raise ValueError("'%s' has not been found in the list of "
+                                 "input/output quantities for this operator"
+                                 % quant_name)
+
+            if True:
+                quant_name = "%s_Py" % quant_name
+            if len(quant_indices) > 0:
+                out_s += "%s(%s)" % (quant_name, ", ".join(quant_indices))
+            else:
+                out_s += quant_name
+
+        out_s += s[pos:]
+        return out_s 
 
     # Propagate documentation
     get_used_quants.__doc__ = Node.get_used_quants.__doc__
@@ -186,6 +219,17 @@ class MulNode(BinaryNode):
     # Propagate documentation
     is_zero.__doc__ = UnaryNode.is_zero.__doc__
     is_one.__doc__ = UnaryNode.is_one.__doc__
+
+class OperatorContext:
+    def __init__(self, inputs=[], outputs=[]):
+        self.for_material = None
+        self.inputs = inputs
+        self.outputs = outputs
+        inouts = inputs + outputs
+        self.inouts = inouts
+        self.inouts_dict = {}
+        for q in inouts:
+            self.inouts_dict[q.name] = q
 
 class OverMat(UnaryNode):
     def __init__(self):
