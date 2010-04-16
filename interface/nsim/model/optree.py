@@ -32,7 +32,7 @@ class Node:
     def __init__(self):
         pass
 
-    def __str__(self):
+    def to_str(self, op_context):
         return "<Node>"
 
     def is_zero(self):
@@ -51,6 +51,12 @@ class Node:
           carried out in such a case."""
         return False
 
+    def simplify(self):
+        """Simplify the operator parse tree and return the simplified version.
+        Simplify applies rules such as 0 + a = a, 1*a = a, 0*a = 0, etc.
+        """
+        self._not_implemented()
+
     def get_used_quants(self, d):
         """Fills the given dictionary 'd' with the quantities used inside the
         operator expression."""
@@ -64,7 +70,10 @@ class UnaryNode(Node):
         Node.__init__(self)
         self.value = value
 
-    def __str__(self):
+    def simplify(self):
+        return self.__class__(self.value)
+
+    def to_str(self, op_context):
         return str(self.value)
 
     def get_used_quants(self, d):
@@ -76,8 +85,13 @@ class BinaryNode(Node):
         self.left = left
         self.right = right
 
-    def __str__(self):
-        return "%s (?) %s" % (self.left, self.right)
+    def simplify(self):
+        return self.__class__(self.left, self.right)
+
+    def to_str(self, op_context):
+        l = self.left.to_str(op_context)
+        r = self.right.to_str(op_context)
+        return "%s (?) %s" % (l, r)
 
     def get_used_quants(self, d):
         if self.left != None:
@@ -124,14 +138,18 @@ class QuantNode(UnaryNode):
     is_one.__doc__ = UnaryNode.is_one.__doc__
 
 class SumNode(BinaryNode):
-    def __str__(self):
+    def simplify(self):
         l, r = (self.left, self.right)
         if l.is_zero():
-            return str(r)
+            return r.simplify()
         elif r.is_zero():
-            return str(l)
+            return l.simplify()
         else:
-            return "%s + %s" % (l, r)
+            return self.__class__(l.simplify(), r.simplify())
+
+    def to_str(self, op_context):
+        return "%s + %s" % (self.left.to_str(op_context),
+                            self.right.to_str(op_context))
 
     def is_zero(self):
         return self.left.is_zero() and self.left.is_zero()
@@ -142,14 +160,18 @@ class SumNode(BinaryNode):
     is_zero.__doc__ = UnaryNode.is_zero.__doc__
 
 class MulNode(BinaryNode):
-    def __str__(self):
+    def simplify(self):
         l = self.left
         if l.is_zero():
-            return str(l)
+            return l.simplify()
         elif l.is_one():
-            return str(self.right)
+            return self.right.simplify()
         else:
-            return "(%s)*%s" % (l, self.right)
+            return self.__class__(self.left.simplify(), self.right.simplify())
+
+    def to_str(self, op_context):
+        return "(%s)*%s" % (self.left.to_str(op_context),
+                            self.right.to_str(op_context))
 
     def is_zero(self):
         return self.left.is_zero() or self.left.is_zero()
@@ -164,3 +186,19 @@ class MulNode(BinaryNode):
     # Propagate documentation
     is_zero.__doc__ = UnaryNode.is_zero.__doc__
     is_one.__doc__ = UnaryNode.is_one.__doc__
+
+class OverMat(UnaryNode):
+    def __init__(self):
+        pass
+
+    def to_str(self, op_context):
+        return "<Node>"
+
+    def is_zero(self):
+        return False
+
+    def is_one(self):
+        return False
+
+    def get_used_quants(self, d):
+        self._not_implemented()
