@@ -9,6 +9,10 @@ import ocaml
 import nmag
 from nsim import linalg_machine as nlam
 
+__all__ = ['Constant', 'SpaceField', 'TimeField', 'SpaceTimeField',
+           'OperatorComp',
+           'Model']
+
 logger = logging.getLogger('nsim')
 
 #-----------------------------------------------------------------------------
@@ -76,24 +80,10 @@ class SpaceTimeField(Quantity):
     def _specialised_init(self):
         self.type_str = "SpaceTimeField"
 
-# Operations between Quantity-es
-class SUM:
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
-
-    def result(self):
-        pass
-
-class MUL:
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
-
 #-----------------------------------------------------------------------------
 
 class Computation:
-    """Basically a black box which takes some quantities as input and produces
+    """A black box which takes some quantities as input and produces
     some quantities as output."""
 
     def __init__(self, input=None, output=None):
@@ -112,6 +102,12 @@ class EquationComp(Computation):
         self.type_str = "EquationComp"
 
 class OperatorComp(Computation):
+    def __init__(self, operator_tree, running_indices=None,
+                 input=None, output=None):
+        Computation.__init__(self, input=input, output=output)
+        self.running_indices = running_indices
+        self.operator_tree = operator_tree
+
     def _specialised_init(self):
         self.type_str = "OperatorComp"
         self.allow_incongruent_shapes = False
@@ -155,12 +151,11 @@ class OperatorComp(Computation):
         raise ValueError("Cannot find field '%s' in the list of input or "
                          "output fields." % quant_str)
 
- 
 class CCodeComp(Computation):
     def _specialised_init(self):
         self.type_str = "CCodeComp"
 
-       
+
 
 
 
@@ -198,7 +193,7 @@ def _extended_properties_by_region(region_materials, min_region=-1,
         k=h.keys()
         k.sort()
         return k
-    
+
     srk = sorted_keys(pbr)
 
     result = [(k, sorted_keys(pbr[k])) for k in srk]
@@ -207,7 +202,7 @@ def _extended_properties_by_region(region_materials, min_region=-1,
  
 #-----------------------------------------------------------------------------
 
-class PhysModel:
+class Model:
     def __init__(self, name, mesh, region_materials, min_region=-1,
                  properties_by_region=[]):
         # Just save the relevant stuff
@@ -236,6 +231,9 @@ class PhysModel:
         self.built = False
 
     def add_quantity(self, quant):
+        """Add the given quantity 'quant' to the current physical model.
+        If 'quant' is a list, then add all the elements of the list, assuming
+        they all are Quantity objects."""
         if isinstance(quant, types.ListType):
             quants = quant
         else:
@@ -247,6 +245,9 @@ class PhysModel:
                 self.quants_by_type[quant.type_str].append(quant)
             except KeyError:
                 self.quants_by_type[quant.type_str] = [quant]
+
+    def add_operator(self, op):
+        pass
 
     def _build_elems_on_material(self, name, shape):
         # Build the 'all_materials' dictionary which maps a material name to
@@ -344,9 +345,17 @@ class PhysModel:
         return mwe
 
     def _build_lam(self):
-        simulation_prefix = "xxx"
         intensive_params = []
+
+        # Build LAM vector dictionary
         vectors = {}
+        for mwe_name in self.mwes:
+            vec_name = "v_%s" % mwe_name
+            assert not vectors.has_key(vec_name), \
+                   "Duplicate definition of vector '%s'" % vec_name
+            vectors[vec_name] = nlam.lam_vector(name=vec_name,
+                                                mwe_name=mwe_name)
+
         operators = {}
         bems = {}
         ksps = {}
@@ -356,7 +365,7 @@ class PhysModel:
         timesteppers = {}
         debugfile = None
 
-        lam = nlam.make_lam(simulation_prefix,
+        lam = nlam.make_lam(self.name,
                             intensive_params=intensive_params,
                             mwes=self.mwes.values(),
                             vectors=vectors.values(),
@@ -393,7 +402,6 @@ class PhysModel:
         # Now build all the MWEs
         for field_quant in field_quants:
             self._build_mwe(field_quant.name)
-
 
         self._build_lam()
 
