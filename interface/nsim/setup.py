@@ -49,14 +49,32 @@ task_done = {'completed': False,
 # command line of the nsim executable
 cmdline_parser = None
 
+def get_root_path(relative_path=None):
+    """
+    Get the absolute path where the Nsim Python executable is located.
+    """
+    p = os.path.join(os.path.split(nsim.__file__)[0], "..", "..")
+    if relative_path != None:
+        p = os.path.join(p, *relative_path)
+    return os.path.realpath(p)
+
+    nsim_module_path = os.path.split(os.path.realpath(nsim.__file__))[0]
+    return os.path.split(nsim_module_path)[0]
+
 def get_interface_path():
     """
     Get the absolute path where the Nsim Python interface is located
     (this is the directory containing the directories nsim, nmag, nmesh, ...
     which contain the implementation of the corresponding modules).
     """
-    nsim_module_path = os.path.split(os.path.realpath(nsim.__file__))[0]
-    return os.path.split(nsim_module_path)[0]
+    return get_root_path(['interface'])
+
+def get_exec_path(executable='nsim'):
+    """Return the full path to the given executable of the Nsim package."""
+    return get_root_path(['bin', executable])
+
+# Get the full path of the nsim executable
+nsim_exec_path = get_exec_path('nsim')
 
 def tune(act_as_library=False):
     """This function can be used to tune the way the setup is done (remember
