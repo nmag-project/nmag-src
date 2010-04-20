@@ -1,5 +1,9 @@
 import exceptions
 
+__all__ = ['Node', 'UnaryNode', 'BinaryNode',
+           'UnparsedNode', 'QuantityNode', 'SumNode', 'MulNode',
+           'OverMatNode', 'OperatorContext']
+
 def _find_next_quant(s, pos=0):
     start_pos = s.find("${", pos)
     if start_pos < 0:
@@ -75,7 +79,7 @@ class UnaryNode(Node):
         return str(self.value)
 
     def get_used_quants(self, d):
-        pass
+        return d
 
 class BinaryNode(Node):
     def __init__(self, left, right):
@@ -96,6 +100,7 @@ class BinaryNode(Node):
             self.left.get_used_quants(d)
         if self.right != None:
             self.right.get_used_quants(d)
+        return d
 
     # Propagate documentation
     get_used_quants.__doc__ = Node.get_used_quants.__doc__
@@ -121,6 +126,8 @@ class UnparsedNode(UnaryNode):
             else:
                 d[quant_name] = quant_indices
 
+        return d
+
     def to_str(self, op_context):
         s = self.value
         pos = 0
@@ -140,14 +147,14 @@ class UnparsedNode(UnaryNode):
                     raise ValueError("'%s' is a quantity defined on material "
                                      "but this operator expression is not "
                                      "summed over materials. Please use "
-                                     "the OverMat construct." % quant_name)
+                                     "OverMatNode." % quant_name)
+                if q.def_on_mat:
+                    quant_name += "_" + op_context.for_material
             else:
                 raise ValueError("'%s' has not been found in the list of "
                                  "input/output quantities for this operator"
                                  % quant_name)
 
-            if True:
-                quant_name = "%s_Py" % quant_name
             if len(quant_indices) > 0:
                 out_s += "%s(%s)" % (quant_name, ", ".join(quant_indices))
             else:
@@ -159,7 +166,7 @@ class UnparsedNode(UnaryNode):
     # Propagate documentation
     get_used_quants.__doc__ = Node.get_used_quants.__doc__
 
-class QuantNode(UnaryNode):
+class QuantityNode(UnaryNode):
     def is_zero(self):
         return self.value == 0.0
 
@@ -221,7 +228,9 @@ class MulNode(BinaryNode):
     is_one.__doc__ = UnaryNode.is_one.__doc__
 
 class OperatorContext:
-    def __init__(self, inputs=[], outputs=[]):
+    def __init__(self, tree=None, inputs=[], outputs=[],
+                 running_indices=[]):
+        self.tree = tree
         self.for_material = None
         self.inputs = inputs
         self.outputs = outputs
@@ -231,10 +240,10 @@ class OperatorContext:
         for q in inouts:
             self.inouts_dict[q.name] = q
 
-class OverMat(UnaryNode):
-    def __init__(self):
-        pass
+    def to_str(self):
+        return self.tree.to_str(self)
 
+class OverMatNode(UnaryNode):
     def to_str(self, op_context):
         return "<Node>"
 
@@ -244,5 +253,17 @@ class OverMat(UnaryNode):
     def is_one(self):
         return False
 
+    def to_str(self, op_context):
+        if op_context.for_material != None:
+            raise ValueError("Recursive usage of OverMatNode: OverMatNode "
+                             "should be used only once!")
+        ss = []
+        for mat_name in ['Py']:
+            op_context.for_material = mat_name
+            ss.append(self.value.to_str(op_context))
+
+        op_context.for_material = None
+        return " + ".join(ss)
+
     def get_used_quants(self, d):
-        self._not_implemented()
+        return self.value.get_used_quants(d)

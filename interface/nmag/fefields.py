@@ -171,7 +171,7 @@ def set_fielddata_from_numpyarray(field, subfieldname, data,
                           normalise=normalise)
 
 def flexible_set_fielddata(field, subfieldname, data, pos_unit_length,
-	                   scale_factor=1.0, normalise=False):
+                           scale_factor=1.0, normalise=False):
     """A function that can set lam fields, delegating to various
     subfunctions depending on the type of the data provided. This
     functions is not meant to be called directly from the nmag user

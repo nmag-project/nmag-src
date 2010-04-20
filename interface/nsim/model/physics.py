@@ -9,76 +9,10 @@ import ocaml
 import nmag
 from nsim import linalg_machine as nlam
 
-__all__ = ['Constant', 'SpaceField', 'TimeField', 'SpaceTimeField',
-           'OperatorComp',
+__all__ = ['OperatorComp',
            'Model']
 
 logger = logging.getLogger('nsim')
-
-#-----------------------------------------------------------------------------
-
-"""
-There are four types of Quantity:
- - Constant: just a number which does not change in space nor in time
- - SpaceField: a vector field, which changes in space but not continuously
-     in time. It can, however, change abruptly in time (it is piecewise
-     constant in time;
- - TimeField: a number which changes continuously in time;
- - SpaceTimeField: a vector field which changes continuously in space and
-     time.
-"""
-
-class Quantity:
-    """ddd"""
-
-    def __init__(self, name, shape=[], value=None, is_primary=True,
-                 def_on_material=False):
-        self.type = None
-        self.type_str = "Quantity"
-        self.name = name
-        self.shape = shape
-        self.value = None
-        self.is_primary = is_primary
-        self.def_on_mat = def_on_material
-        self._specialised_init()
-
-    def _specialised_init(self):
-        raise NotImplementedError("This class is not meant to be used like "
-                                  "this. You should use one of the derived "
-                                  "classes.")
-
-    def set_value(self, value):
-        if self.value != None:
-            raise ValueError("The initial value of the %s has been already "
-                             "set." % self.type_str)
-        self.value = value
-
-    def is_always_zero(self):
-        """Return whether the Quantity is a constantly and uniformly zero."""
-        return False
-
-    def depend_on(self, quants_list):
-        pass
-
-class Constant(Quantity):
-    def _specialised_init(self):
-        self.type_str = "Constant"
-
-    def is_always_zero(self):
-        return float(self.value) == 0.0
-    is_always_zero.__doc__ = Quantity.is_always_zero.__doc__
-
-class SpaceField(Quantity):
-    def _specialised_init(self):
-        self.type_str = "SpaceField"
-
-class TimeField(Quantity):
-    def _specialised_init(self):
-        self.type_str = "TimeField"
-
-class SpaceTimeField(Quantity):
-    def _specialised_init(self):
-        self.type_str = "SpaceTimeField"
 
 #-----------------------------------------------------------------------------
 
@@ -247,7 +181,15 @@ class Model:
                 self.quants_by_type[quant.type_str] = [quant]
 
     def add_operator(self, op):
-        pass
+        """Add the given ..."""
+        if isinstance(op, types.ListType):
+            ops = op
+        else:
+            ops = [op]
+
+        for op in ops:
+            self.all_computations.append(op)
+
 
     def _build_elems_on_material(self, name, shape):
         # Build the 'all_materials' dictionary which maps a material name to
