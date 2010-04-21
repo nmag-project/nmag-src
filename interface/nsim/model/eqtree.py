@@ -1,7 +1,11 @@
 
 __all__ = ['LocalEqnNode', 'LocalAndRangeDefsNode',
            'NumTensorNode', 'NumTensorsNode', 'IntsNode',
-           'IxRangeNode']
+           'IxRangeNode', 'AssignmentNode',
+           'NumIndexNode', 'VarIndexNode', 'IndicesNode',
+           'TensorSumNode', 'TensorProductNode',
+           'SignedTensorAtomNode',
+           'ParenthesisNode', 'TensorNode', 'FunctionNode']
 
 class Node:
     def __init__(self, node_type, children=[], data=None):
@@ -60,3 +64,51 @@ class IntsNode(ListNode):
 class IxRangeNode(ListNode):
     def __init__(self, copy_from=None):
         ListNode.__init__(self, "IxRange", copy_from=copy_from)
+
+class AssignmentNode(ListNode):
+    def __init__(self, copy_from=None):
+        ListNode.__init__(self, "Assignment", copy_from=copy_from)
+
+class NumIndexNode(Node):
+    def __init__(self, value):
+        Node.__init__(self, "NumIndex", value)
+
+class VarIndexNode(Node):
+    def __init__(self, value):
+        Node.__init__(self, "VarIndex", value)
+
+class IndicesNode(ListNode):
+    def __init__(self, copy_from=None):
+        ListNode.__init__(self, "Indices", copy_from=copy_from)
+
+
+class TensorSumNode(ListNode):
+    def __init__(self, copy_from=None):
+        ListNode.__init__(self, "TensorSum", copy_from=copy_from)
+
+class TensorProductNode(ListNode):
+    def __init__(self, copy_from=None):
+        ListNode.__init__(self, "TensorProduct", copy_from=copy_from)
+
+class SignedTensorAtomNode(Node):
+    def __init__(self, value, sign=1.0):
+        Node.__init__(self, "SignedTensorAtom", (value,), data=float(sign))
+
+    def sign(self, s):
+        self.data *= s
+
+class FloatNode(Node):
+    def __init__(self, value):
+        Node.__init__(self, "Number", data=float(value))
+
+class ParenthesisNode(Node):
+    def __init__(self, content):
+        Node.__init__(self, "Parenthesis", (content,))
+
+class TensorNode(Node):
+    def __init__(self, name, arg=None):
+        Node.__init__(self, "Tensor", (name, arg))
+
+class FunctionNode(Node):
+    def __init__(self, name, arg=None):
+        Node.__init__(self, "Function", (name, arg))

@@ -14,7 +14,7 @@ tokens = ('INT', 'FLOAT', 'STRING',
           'ASSIGN', 'LOCAL', 'RANGE',
           'LPAREN', 'RPAREN', 'LBRACKET','RBRACKET',
           'PLUS', 'MINUS', 'TIMES', 'DIVIDE',
-          'COLON','COMMA', 'SEMICOLON', 'EOF' )
+          'COLON','COMMA', 'SEMICOLON' )
 
 # Tokens
 t_STRING = r'[a-zA-Z_][a-zA-Z0-9_]*'
@@ -63,13 +63,12 @@ import ply.lex as lex
 lex.lex()
 
 def p_parse_localeqn(t):
-    """parse_localeqn :
-                      | local_and_range_defs"""
+    """parse_localeqn : local_and_range_defs assignments"""
     lt = len(t)
     if lt == 1:
         t[0] = LocalEqnNode()
     else:
-        t[0] = LocalEqnNode(t[1], None) #t[2])
+        t[0] = LocalEqnNode(t[1], t[2])
 
 def p_local_and_range_defs(t):
     """local_and_range_defs :
@@ -99,7 +98,7 @@ def p_num_tensors(t):
 
 def p_num_tensor(t):
     """num_tensor : STRING
-                  | STRING LPAREN ints RPAREN"""
+                  | STRING LPAREN int_indices RPAREN"""
     lt = len(t)
     if lt == 2:
         t[0] = NumTensorNode(name=t[1])
@@ -107,10 +106,10 @@ def p_num_tensor(t):
         assert lt == 5
         t[0] = NumTensorNode(name=t[1], indices=t[3])
 
-def p_ints(t):
-    """ints :
+def p_int_indices(t):
+    """int_indices :
             | INT
-            | ints COMMA INT"""
+            | int_indices COMMA INT"""
     lt = len(t)
     if lt == 1:
         t[0] = IntsNode()
@@ -132,10 +131,10 @@ def p_ix_ranges(t):
     else:
         assert lt == 6
         t[0] = t[1].add((t[3], t[5]))
-'''
+
 def p_assignments(t):
-    """assignments:
-                  | assignments lvalue ASSIGN tensor_term SEMICOLON"""
+    """assignments :
+                   | assignments lvalue ASSIGN tensor_sum SEMICOLON"""
     lt = len(t)
     if lt == 1:
         t[0] = AssignmentNode()
@@ -144,135 +143,99 @@ def p_assignments(t):
         t[0] = t[1].add((t[2], t[4]))
 
 def p_lvalue(t):
-    """lvalue: var_tensor  {$1}
-             | STRING      {($1,[||])}"""
-    if type(t[1]) == str:
-        return t[1]
-    elif lt == 4:
-        return (t[1], [])
+    """lvalue : tensor"""
+    t[0] = t[1]
 
-def p_var_tensor(t):
-    """var_tensor: STRING
-                 | STRING LPAREN indices_or_vars RPAREN"""
+def p_tensor(t):
+    """tensor : STRING
+              | STRING LPAREN indices RPAREN"""
+    lt = len(t)
+    if lt == 2:
+        t[0] = TensorNode(name=t[1])
+    else:
+        assert lt == 5
+        t[0] = TensorNode(name=t[1], arg=t[3])
+
+def p_indices(t):
+    """indices :
+               | index
+               | indices COMMA index"""
     lt = len(t)
     if lt == 1:
-        return (t[1], [])
+        t[0] = IndicesNode()
+    elif lt == 2:
+        t[0] = IndicesNode().add(t[1])
     else:
         assert lt == 4
-        return (t[1], t[3])
+        t[0] = t[1].add(t[3])
 
-def p_indices_or_vars(t):
-    """indices_or_vars:
-       | {[]}
-       | index_or_var {[$1]}
-       | index_or_var COMMA indices_or_vars {$1::$3}"""
-    lt = len(t)
-    if lt == 1:
-        return []
-    elif lt == 4:
-        return [(t[1], t[3])]
+def p_index(t):
+    """index : INT
+             | STRING"""
+    if type(t[1]) == int:
+        t[0] = NumIndexNode(t[1])
     else:
-        assert lt == 6
-        return [(t[1], t[3])] + t[5]
-
-def p_index_or_var(t):
-    """index_or_var:
-       | INT  {IX_int $1}
-       | STRING  {IX_var $1}"""
-    lt = len(t)
-    if lt == 1:
-        return []
-    elif lt == 4:
-        return [(t[1], t[3])]
-    else:
-        assert lt == 6
-        return [(t[1], t[3])] + t[5]
-
-def p_tensor_term(t):
-    """tensor_term:
-       | LPAREN tensor_term RPAREN {$2}
-       | tensor_sum {$1}"""
+        t[0] = VarIndexNode(t[1])
 
 def p_tensor_sum(t):
-    """tensor_sum:
-       | tensor_product {Tensor_sum [$1]}
-       | tensor_product sign_tensor_sum {let Tensor_sum x = $2 in Tensor_sum ($1::x)}
-       | sign_tensor_sum {$1}"""
-
-def p_sign_tensor_sum(t):
-    """sign_tensor_sum:
-       | {Tensor_sum []}
-       | SIGN tensor_product sign_tensor_sum {if $1 = 1.0
-                                            then
-                                              let Tensor_sum s = $3 in Tensor_sum ($2::s)
-                                            else
-                                              Tensor_product [(Tensor_float (-1.0));
-                                                              let Tensor_sum s = $3 in Tensor_sum ($2::s)]
-                                            }"""
+    """tensor_sum : tensor_product
+                  | tensor_sum sign tensor_product"""
+    lt = len(t)
+    if lt == 2:
+        t[0] = TensorSumNode().add(t[1])
+    else:
+        assert lt == 4
+        t[0] = t[1].add((t[2], t[3]))
 
 def p_tensor_product(t):
-    """tensor_product:
-       | tensor_factor  {Tensor_product [$1]}
-       | tensor_factor STAR tensor_product {let Tensor_product x = $3 in Tensor_product ($1::x)}"""
+    """tensor_product : signed_tensor_atom
+                      | tensor_product TIMES signed_tensor_atom
+                      | tensor_product DIVIDE signed_tensor_atom"""
+    lt = len(t)
+    if lt == 2:
+        t[0] = TensorProductNode().add(t[1])
+    else:
+        assert lt == 4
+        t[0] = t[1].add((t[2], t[3]))
+
+def p_sign(t):
+    """sign : PLUS
+            | MINUS"""
+    if t[1] == '+':
+        t[0] = 1
+    else:
+        assert t[0] == '-'
+        t[0] = -1
+
+def p_signed_tensor_atom(t):
+    """signed_tensor_atom : tensor_atom
+                          | sign signed_tensor_atom"""
+    lt = len(t)
+    if lt == 2:
+        t[0] = SignedTensorAtomNode(t[1])
+    else:
+        assert lt == 3
+        t[0] = t[2].sign(t[1])
 
 # XXX TODO: change function and tensor argument parentheses: tensors use []
 # indexing, functions use ()!
-def p_tensor_factor(t):
-    """tensor_factor:
-       | FLOAT          {Tensor_float $1}
-       | var_tensor     {Tensor_varindexed $1}
-       | STRING LBRACKET tensor_term RBRACKET {Tensor_func ($1,$3)}
-       | LPAREN tensor_term RPAREN {$2}"""
-'''
-
-"""
-def x():
-  # Parsing rules
-
-  precedence = ( ('left','PLUS','MINUS'), ('left','TIMES','DIVIDE'), ('right','UMINUS'), )
-
-  # dictionary of names
-  names = { }
-
-  def p_statement_assign(t):
-      'statement : NAME EQUALS expression'
-      names[t[1]] = t[3]
-
-  def p_statement_expr(t):
-      'statement : expression'
-      print t[1]
-
-  def p_expression_binop(t):
-      '''expression : expression PLUS expression
-                    | expression MINUS expression
-                    | expression TIMES expression
-                    | expression DIVIDE expression'''
-      if t[2] == '+' : t[0] = t[1] + t[3]
-      elif t[2] == '-': t[0] = t[1] - t[3]
-      elif t[2] == '*': t[0] = t[1] * t[3]
-      elif t[2] == '/': t[0] = t[1] / t[3]
-
-  def p_expression_uminus(t):
-      'expression : MINUS expression %prec UMINUS'
-      t[0] = -t[2]
-
-  def p_expression_group(t):
-      'expression : LPAREN expression RPAREN'
-      t[0] = t[2]
-
-  def p_expression_number(t):
-      'expression : NUMBER'
-      t[0] = t[1]
-
-  def p_expression_name(t):
-      'expression : NAME'
-      try:
-          t[0] = names[t[1]]
-      except LookupError:
-          print "Undefined name '%s'" % t[1]
-          t[0] = 0
-
-"""
+def p_tensor_atom(t):
+    """tensor_atom : INT
+                   | FLOAT
+                   | LPAREN tensor_sum RPAREN
+                   | STRING LPAREN indices RPAREN
+                   | STRING LBRACKET tensor_sum RBRACKET"""
+    lt = len(t)
+    if lt == 2:
+        assert isinstance(t[1], (int, float))
+        t[0] = FloatNode(t[1].value)
+    elif lt == 4:
+        t[0] = ParenthesisNode(t[2])
+    elif lt == 5:
+        if isinstance(t[3], IndicesNode):
+            t[0] = TensorNode(name=t[1], arg=t[3])
+        else:
+            t[0] = FunctionNode(name=t[1], arg=t[3])
 
 def p_error(t):
     try:
@@ -286,6 +249,5 @@ yacc.yacc()
 s = """%range j:3;
 H_total_MAT(j) <- H_ext(j) + H_exch_MAT(j) + H_anis_MAT(j);"""
 
-s = """%range j:3, k:2;%local m(3), q(4, 5);"""
 print yacc.parse(s)
 
