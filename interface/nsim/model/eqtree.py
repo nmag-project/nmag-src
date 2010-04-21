@@ -54,35 +54,6 @@ class Node:
         else:
             return self.fmt.stringify(self.children)
 
-    def debug(self):
-        data = self.data
-        children = self.children
-        if data == None:
-            data = []
-        if children == None:
-            children = []
-        print "INSPECTING", self.node_type
-        raw_input()
-        print ("%s has %d nodes and %d data items"
-               % (self.node_type,  len(children), len(data)))
-        for i, c in enumerate(children):
-            if c == None:
-                print "CHILD %d: is None" % i
-
-            else:
-                print "CHILD %d: %s" % (i, c.node_type)
-
-        print
-        for i, c in enumerate(children):
-            if c == None:
-                continue
-
-            try:
-                print "CHILD %d: type %s" % (i, str(type(c)))
-                c.debug()
-            except:
-                print "Error: back to", self.node_type
-
     def add(self, l):
         self.children.append(l)
         return self
@@ -109,14 +80,17 @@ class Node:
                 return c.simplify(quantities)
 
         simplified_children = [simplify(c) for c in self.children]
-        return self.__class__(simplified_children, self.data)
+        new_obj = self.__class__()
+        new_obj.children = simplified_children
+        new_obj.data = self.data
+        return new_obj
 
 class UnaryNode(Node):
     node_type = "UnaryNode"
     fmt = plain_list_formatter
 
-    def __init__(self, value):
-        Node.__init__(self, data=value)
+    def __init__(self, data=[], children=[]):
+        Node.__init__(self, children=children, data=data)
 
     def __str__(self):
         return self.fmt.stringify([self.data])
@@ -217,7 +191,7 @@ class TensorProductNode(AssocOpNode):
 class SignedTensorAtomNode(Node):
     node_type = "SignedTensorAtom"
 
-    def __init__(self, value, sign=1.0):
+    def __init__(self, value=None, sign=1.0):
         Node.__init__(self, value, data=float(sign))
 
     def sign(self, s):
@@ -234,22 +208,17 @@ class SignedTensorAtomNode(Node):
 class FloatNode(UnaryNode):
     node_type = "Number"
 
-    def __init__(self, value):
+    def __init__(self, value=0.0):
         UnaryNode.__init__(self, float(value))
 
-class ParenthesisNode(Node):
+class ParenthesisNode(ListNode):
     node_type = "Parenthesis"
-
-    def __init__(self, content):
-        Node.__init__(self, (content,))
-
-    def __str__(self):
-        return "(%s)" % self.children[0]
+    fmt = default_list_formatter
 
 class TensorNode(Node):
     node_type = "Tensor"
 
-    def __init__(self, name, arg=None):
+    def __init__(self, name="?", arg=None):
         Node.__init__(self, arg, data=name)
 
     def __str__(self):
@@ -261,7 +230,7 @@ class TensorNode(Node):
 class FunctionNode(Node):
     node_type = "Function"
 
-    def __init__(self, name, arg=None):
+    def __init__(self, name="?", arg=None):
         Node.__init__(self, arg, data=name)
 
     def __str__(self):

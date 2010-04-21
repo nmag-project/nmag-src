@@ -2,6 +2,7 @@ from eqparser import parse
 
 def test_consistency():
     strings = ["%range j:3, k:3; \nH_t(j) <- H_ext(j) - m*H_exch(j, 1) + m/H_anis(j);",
+               "%range j:3, k:3; \nH_t(j) <- H_ext(j) - (m*H_exch(j, 1) + m/H_anis(j))*x;",
                "\na <- b + c;",
                "\na <- 1.0*b*c;",
                "\na <- 1.0 - 1.0*b*c;",
