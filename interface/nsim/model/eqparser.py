@@ -66,7 +66,7 @@ def p_parse_localeqn(t):
     if lt == 1:
         t[0] = LocalEqnNode()
     else:
-        t[0] = LocalEqnNode(t[1], t[2])
+        t[0] = LocalEqnNode([t[1], t[2]])
 
 def p_local_and_range_defs(t):
     """local_and_range_defs :
@@ -99,15 +99,15 @@ def p_num_tensor(t):
                   | STRING LPAREN int_indices RPAREN"""
     lt = len(t)
     if lt == 2:
-        t[0] = NumTensorNode(name=t[1])
+        t[0] = NumTensorNode(None, t[1])
     else:
         assert lt == 5
-        t[0] = NumTensorNode(name=t[1], indices=t[3])
+        t[0] = NumTensorNode(t[3], t[1])
 
 def p_int_indices(t):
     """int_indices :
-            | INT
-            | int_indices COMMA INT"""
+                   | INT
+                   | int_indices COMMA INT"""
     lt = len(t)
     if lt == 1:
         t[0] = IntsNode()
@@ -125,20 +125,20 @@ def p_ix_ranges(t):
     if lt == 1:
         t[0] = IxRangeNode()
     elif lt == 4:
-        t[0] = IxRangeNode().add((t[1], t[3]))
+        t[0] = IxRangeNode().add2(None, (t[1], t[3]))
     else:
         assert lt == 6
-        t[0] = t[1].add((t[3], t[5]))
+        t[0] = t[1].add2(None, (t[3], t[5]))
 
 def p_assignments(t):
     """assignments :
                    | assignments lvalue ASSIGN tensor_sum SEMICOLON"""
     lt = len(t)
     if lt == 1:
-        t[0] = AssignmentNode()
+        t[0] = AssignmentsNode()
     else:
         assert lt == 6
-        t[0] = t[1].add((t[2], t[4]))
+        t[0] = t[1].add(AssignmentNode([t[2], t[4]]))
 
 def p_lvalue(t):
     """lvalue : tensor"""
@@ -180,10 +180,10 @@ def p_tensor_sum(t):
                   | tensor_sum sign tensor_product"""
     lt = len(t)
     if lt == 2:
-        t[0] = TensorSumNode().add((None, t[1]))
+        t[0] = TensorSumNode().add2(t[1], None)
     else:
         assert lt == 4
-        t[0] = t[1].add((t[2], t[3]))
+        t[0] = t[1].add2(t[3], t[2])
 
 def p_tensor_product(t):
     """tensor_product : signed_tensor_atom
@@ -191,10 +191,10 @@ def p_tensor_product(t):
                       | tensor_product DIVIDE signed_tensor_atom"""
     lt = len(t)
     if lt == 2:
-        t[0] = TensorProductNode().add((None, t[1]))
+        t[0] = TensorProductNode().add2(t[1], None)
     else:
         assert lt == 4
-        t[0] = t[1].add((t[2], t[3]))
+        t[0] = t[1].add2(t[3], t[2])
 
 def p_sign(t):
     """sign : PLUS
