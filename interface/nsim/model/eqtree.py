@@ -42,7 +42,7 @@ class UnaryNode(Node):
         self.fmt1 = plain_list_formatter
 
     def __str__(self):
-        return self.fmt1.stringify(self.children)
+        return self.fmt1.stringify([self.data])
 
 class ListNode(Node):
     def __init__(self, node_type, copy_from=None, num_lists=1, data=None):
@@ -85,8 +85,8 @@ class LocalAndRangeDefsNode(ListNode):
     def __init__(self, copy_from=None):
         ListNode.__init__(self, "LocalAndRangeDefs",
                           copy_from=copy_from, num_lists=2)
-        self.fmt1 = ListFormatter("", ";", ", ")
-        self.fmt2 = ListFormatter("", ";", ", ")
+        self.fmt1 = ListFormatter("", "; ", ", ")
+        self.fmt2 = ListFormatter("", "; ", ", ")
 
     def add_local(self, l):
         return self.add(l, list_idx=0)
@@ -117,7 +117,7 @@ class IntsNode(ListNode):
 class IxRangeNode(ListNode):
     def __init__(self, copy_from=None):
         ListNode.__init__(self, "IxRange", copy_from=copy_from)
-        self.fmt1 = ListFormatter("", "", "; ")
+        self.fmt1 = ListFormatter("", "", ", ")
 
     def __str__(self):
         return self.fmt1.stringify(["%s:%s" % ir for ir in self.children[0]])
@@ -133,11 +133,11 @@ class AssignmentNode(ListNode):
 
 class NumIndexNode(UnaryNode):
     def __init__(self, value):
-        UnaryNode.__init__(self, "NumIndex", value)
+        UnaryNode.__init__(self, "NumIndex", data=value)
 
 class VarIndexNode(UnaryNode):
     def __init__(self, value):
-        UnaryNode.__init__(self, "VarIndex", value)
+        UnaryNode.__init__(self, "VarIndex", data=value)
 
 class IndicesNode(ListNode):
     def __init__(self, copy_from=None):
@@ -173,10 +173,12 @@ class FloatNode(UnaryNode):
     def __init__(self, value):
         UnaryNode.__init__(self, "Number", data=float(value))
 
-class ParenthesisNode(UnaryNode):
+class ParenthesisNode(Node):
     def __init__(self, content):
         Node.__init__(self, "Parenthesis", (content,))
-        self.fmt1 = ListFormatter("(", ")")
+
+    def __str__(self):
+        return "(%s)" % self.children[0]
 
 class TensorNode(Node):
     def __init__(self, name, arg=None):
