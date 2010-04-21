@@ -5,7 +5,7 @@ __all__ = ['LocalEqnNode', 'LocalAndRangeDefsNode',
            'NumIndexNode', 'VarIndexNode', 'IndicesNode',
            'TensorSumNode', 'TensorProductNode',
            'SignedTensorAtomNode',
-           'ParenthesisNode', 'TensorNode', 'FunctionNode']
+           'FloatNode', 'ParenthesisNode', 'TensorNode', 'FunctionNode']
 
 class ListFormatter:
     def __init__(self, open_str="[", close_str="]", separator=", "):
@@ -35,6 +35,9 @@ class Node:
 
     def __repr__(self):
         return self.__str__()
+
+    def simplify(self, quantities):
+        return self
 
 class UnaryNode(Node):
     def __init__(self, node_type, children=[], data=None):
@@ -148,7 +151,7 @@ class TensorSumNode(AssocOpNode):
     def __init__(self, copy_from=None):
         ListNode.__init__(self, "TensorSum", copy_from=copy_from)
         self.fmt1 = ListFormatter("", "", " + ")
-        self.ops = {None: '', '+': ' + ', '-': ' - '}
+        self.ops = {None: '', 1.0: ' + ', -1.0: ' - '}
 
 class TensorProductNode(AssocOpNode):
     def __init__(self, copy_from=None):
@@ -157,10 +160,11 @@ class TensorProductNode(AssocOpNode):
 
 class SignedTensorAtomNode(Node):
     def __init__(self, value, sign=1.0):
-        Node.__init__(self, "SignedTensorAtom", (value,), data=float(sign))
+        Node.__init__(self, "SignedTensorAtom", [value], data=float(sign))
 
     def sign(self, s):
         self.data *= s
+        return self
 
     def __str__(self):
         if self.data == 1.0:

@@ -8,10 +8,6 @@ from eqtree import *
 
 __all__ = ['lexer', 'parser', 'parse']
 
-#| '-'? ['0'-'9']* '.' ['0'-'9']+ (['e' 'E'] '-'? ['0'-'9']+)? as lxm { FLOAT(float_of_string lxm) }
-#| '-'? ['0'-'9']+ ['e' 'E'] '-'? ['0'-'9']+ as lxm { FLOAT(float_of_string lxm) }
-#| eof            { EOF }
-
 tokens = ('INT', 'FLOAT', 'STRING',
           'ASSIGN', 'LOCAL', 'RANGE',
           'LPAREN', 'RPAREN', 'LBRACKET','RBRACKET',
@@ -36,7 +32,7 @@ t_COLON = r':'
 t_SEMICOLON = r';'
 
 def t_FLOAT(t):
-    r'\d*[.]\d+'
+    r'\d*[.]\d+([eE]-?\d+)?|\d+[eE]-?\d+'
     try:
         t.value = float(t.value)
     except ValueError:
@@ -45,7 +41,7 @@ def t_FLOAT(t):
     return t
 
 def t_INT(t):
-    r'[-]?\d+'
+    r'\d+'
     try:
         t.value = int(t.value)
     except ValueError:
@@ -203,7 +199,11 @@ def p_tensor_product(t):
 def p_sign(t):
     """sign : PLUS
             | MINUS"""
-    t[0] = t[1]
+    if t[1] == '+':
+        t[0] = 1.0
+    else:
+        assert t[1] == '-'
+        t[0] = -1.0
 
 def p_signed_tensor_atom(t):
     """signed_tensor_atom : tensor_atom
@@ -227,7 +227,7 @@ def p_tensor_atom(t):
     lt = len(t)
     if lt == 2:
         if isinstance(t[1], (int, float)):
-            t[0] = FloatNode(t[1].value)
+            t[0] = FloatNode(t[1])
         else:
             t[0] = TensorNode(name=t[1])
     elif lt == 4:
