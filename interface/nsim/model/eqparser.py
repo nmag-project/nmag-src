@@ -6,6 +6,8 @@
 
 from eqtree import *
 
+__all__ = ['lexer', 'parser', 'parse']
+
 #| '-'? ['0'-'9']* '.' ['0'-'9']+ (['e' 'E'] '-'? ['0'-'9']+)? as lxm { FLOAT(float_of_string lxm) }
 #| '-'? ['0'-'9']+ ['e' 'E'] '-'? ['0'-'9']+ as lxm { FLOAT(float_of_string lxm) }
 #| eof            { EOF }
@@ -60,7 +62,7 @@ def t_error(t):
 
 # Build the lexer
 import ply.lex as lex
-lex.lex()
+lexer = lex.lex(lextab='localeqn_lextab')
 
 def p_parse_localeqn(t):
     """parse_localeqn : local_and_range_defs assignments"""
@@ -182,7 +184,7 @@ def p_tensor_sum(t):
                   | tensor_sum sign tensor_product"""
     lt = len(t)
     if lt == 2:
-        t[0] = TensorSumNode().add(t[1])
+        t[0] = TensorSumNode().add((None, t[1]))
     else:
         assert lt == 4
         t[0] = t[1].add((t[2], t[3]))
@@ -193,7 +195,7 @@ def p_tensor_product(t):
                       | tensor_product DIVIDE signed_tensor_atom"""
     lt = len(t)
     if lt == 2:
-        t[0] = TensorProductNode().add(t[1])
+        t[0] = TensorProductNode().add((None, t[1]))
     else:
         assert lt == 4
         t[0] = t[1].add((t[2], t[3]))
@@ -201,11 +203,7 @@ def p_tensor_product(t):
 def p_sign(t):
     """sign : PLUS
             | MINUS"""
-    if t[1] == '+':
-        t[0] = 1
-    else:
-        assert t[0] == '-'
-        t[0] = -1
+    t[0] = t[1]
 
 def p_signed_tensor_atom(t):
     """signed_tensor_atom : tensor_atom
@@ -222,13 +220,16 @@ def p_signed_tensor_atom(t):
 def p_tensor_atom(t):
     """tensor_atom : INT
                    | FLOAT
-                   | LPAREN tensor_sum RPAREN
+                   | STRING
                    | STRING LPAREN indices RPAREN
-                   | STRING LBRACKET tensor_sum RBRACKET"""
+                   | STRING LBRACKET tensor_sum RBRACKET
+                   | LPAREN tensor_sum RPAREN"""
     lt = len(t)
     if lt == 2:
-        assert isinstance(t[1], (int, float))
-        t[0] = FloatNode(t[1].value)
+        if isinstance(t[1], (int, float)):
+            t[0] = FloatNode(t[1].value)
+        else:
+            t[0] = TensorNode(name=t[1])
     elif lt == 4:
         t[0] = ParenthesisNode(t[2])
     elif lt == 5:
@@ -244,10 +245,8 @@ def p_error(t):
         print "Syntax error at '%s'" % t
 
 import ply.yacc as yacc
-yacc.yacc()
+parser = yacc.yacc(tabmodule='localeqn_parsetab',
+                   debugfile='localeqn_parser.out')
 
-s = """%range j:3;
-H_total_MAT(j) <- H_ext(j) + H_exch_MAT(j) + H_anis_MAT(j);"""
-
-print yacc.parse(s)
-
+def parse(s):
+    return parser.parse(s, lexer=lexer)
