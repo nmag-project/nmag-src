@@ -21,13 +21,18 @@ def test_consistency():
 
 def test_simplify():
     print "Test that simplification works"
-    strings = [("a <- 0*(b + c);", "a <- 0.0;"),
+    strings = [("a <- 0;", "a <- 0.0;"),
+               ("a <- 0*(b + c);", "a <- 0.0;"),
                ("a <- 1*(b + c);", "a <- (b + c);"),
                ("a <- 2*(b + c);", "a <- 2.0*(b + c);"),
                ("a <- 2*(b + c)*2.5;", "a <- 5.0*(b + c);"),
                ("a <- 2*(b + c)*2.5/5.0;", "a <- (b + c);"),
                ("a <- 1*(1*b + c*1)*1/1;", "a <- (b + c);"),
-               ("a <- 1*(1*b + c*1)*0/1;", "a <- 0.0;"),]
+               ("a <- 1*(1*b + c*1)*0/1;", "a <- 0.0;"),
+               ("a <- (2);", "a <- 2.0;"),
+               ("a <- 1*(0.5 + b - (5 - 4)/2);", "a <- b;"),
+               ("a <- -1*-1;", "a <- 1.0;"),
+               ("a <- --1;", "a <- 1.0;"),]
     for string, result in strings:
         my_result = str(parse(string).simplify()).replace("\n", "")
         assert my_result == result, ("Simplified of '%s' is '%s', but '%s' "

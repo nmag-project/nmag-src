@@ -26,17 +26,17 @@ plain_list_formatter = ListFormatter("", "", ", ")
 minimal_list_formatter = ListFormatter("", "", "")
 
 class Node:
-    '''Generic class for a node of the local_eqn parser.
+    """Generic class for a node of the local_eqn parser.
     All the derived classes have to agree on one convention:
     self.children should be just a list of objects of type Node or of any
     other derived class. Alternatively they can just be None.
     All non-Node objects should go into self.data.
     This allows to easily write routines to go throughout the tree.
-    '''
+    """
 
     node_type = "Node"
     fmt = ListFormatter()
-    prefix_in_str = True
+    prefix_in_str = False
 
     def __init__(self, children=[], data=[]):
         if not isinstance(children, collections.Sequence):
@@ -55,10 +55,12 @@ class Node:
             return self.fmt.stringify(self.children)
 
     def add(self, l):
+        """Add l as one subnode."""
         self.children.append(l)
         return self
 
     def add2(self, l, d):
+        """Add one subnode l with the associated data d."""
         self.children.append(l)
         if self.data == None:
             self.data = [d]
@@ -66,29 +68,34 @@ class Node:
             self.data.append(d)
         return self
 
+    def get_inner_item(self):
+        """If the container has just one item, return that, otherwise return
+        None."""
+        return None
+
     def is_float(self, quantities=None):
-        '''Return True when the method 'as_float' can be used successfully.'''
+        """Return True when the method 'as_float' can be used successfully."""
         return False
 
     def as_float(self, quantities=None):
-        '''If the node is a constant floating point number, then return its
-        value, otherwise raise an exception.'''
+        """If the node is a constant floating point number, then return its
+        value, otherwise raise an exception."""
         raise ValueError("%s node cannot be converted to float."
                          % self.node_type)
 
     def is_zero(self, quantities=None):
-        '''Whether the node is constantly and uniformly equal to zero.
-        Used only in optimisations (it is safe to return always False).'''
+        """Whether the node is constantly and uniformly equal to zero.
+        Used only in optimisations (it is safe to return always False)."""
         return False
 
     def is_one(self, quantities=None):
-        '''Whether the node is constantly and uniformly equal to one.
-        Used only in optimisations (it is safe to return always False).'''
+        """Whether the node is constantly and uniformly equal to one.
+        Used only in optimisations (it is safe to return always False)."""
         return False
 
     def simplify(self, quantities=None):
-        '''Simplify the parse tree using algebraic rules such as
-        0*(...) -> 0 and similar ones.'''
+        """Simplify the parse tree using algebraic rules such as
+        0*(...) -> 0 and similar ones."""
         def simplify(c):
             if c == None:
                 return None
@@ -111,9 +118,41 @@ class UnaryNode(Node):
     def __str__(self):
         return self.fmt.stringify([self.data])
 
+    def get_inner_item(self):
+        return self
+
 class ListNode(Node):
     node_type = "ListNode"
-    prefix_in_str = False
+
+    def get_inner_item(self):
+        if len(self.children) == 1:
+            return self.children[0].get_inner_item()
+        else:
+            return None
+
+    def is_float(self, quantities=None):
+        c = self.get_inner_item()
+        if c != None:
+            return c.is_float(quantities=quantities)
+        return Node.is_float(self, quantities=quantities)
+
+    def as_float(self, quantities=None):
+        c = self.get_inner_item()
+        if c != None:
+            return c.as_float(quantities=quantities)
+        return Node.as_float(self, quantities=quantities)
+
+    def is_zero(self, quantities=None):
+        c = self.get_inner_item()
+        if c != None:
+            return c.is_zero(quantities=quantities)
+        return Node.is_zero(self, quantities=quantities)
+
+    def is_one(self, quantities=None):
+        c = self.get_inner_item()
+        if c != None:
+            return c.is_one(quantities=quantities)
+        return Node.is_one(self, quantities=quantities)
 
 class AssocOpNode(ListNode):
     node_type = "AssocOpNode"
@@ -125,16 +164,22 @@ class AssocOpNode(ListNode):
             s += "%s%s" % (self.ops[op], term)
         return s
 
-class LocalEqnNode(ListNode):
+    def get_inner_item(self):
+        if len(self.data) == 1 and self.data[0] == None:
+            return self.children[0].get_inner_item()
+        else:
+            return None
+
+class LocalEqnNode(Node):
     fmt = ListFormatter("", "", "\n")
     node_type = "LocalEqn"
 
-class LocalAndRangeDefsNode(ListNode):
+class LocalAndRangeDefsNode(Node):
     node_type = "LocalAndRangeDefs"
 
     def __init__(self):
-        ListNode.__init__(self)
-        self.children = [ListNode(), ListNode()]
+        Node.__init__(self)
+        self.children = [Node(), Node()]
         self.children[0].fmt = self.children[1].fmt = \
           ListFormatter("", "; ", ", ")
 
@@ -155,21 +200,21 @@ class LocalAndRangeDefsNode(ListNode):
             s += "%%range %s; " % r
         return s
 
-class NumTensorNode(ListNode):
+class NumTensorNode(Node):
     node_type = "NumTensor"
 
     def __str__(self):
         return "%s(%s)" % (self.data, self.children[0])
 
-class NumTensorsNode(ListNode):
+class NumTensorsNode(Node):
     node_type = "NumTensors"
     fmt = plain_list_formatter
 
-class IntsNode(ListNode):
+class IntsNode(Node):
     node_type = "Ints"
     fmt = plain_list_formatter
 
-class IxRangeNode(ListNode):
+class IxRangeNode(Node):
     node_type = "IxRange"
     fmt = plain_list_formatter
 
@@ -177,11 +222,11 @@ class IxRangeNode(ListNode):
         return self.fmt.stringify(["%s:%s" % ir
                                    for ir in self.data])
 
-class AssignmentNode(ListNode):
+class AssignmentNode(Node):
     node_type = "Assignment"
     fmt = ListFormatter("", ";", " <- ")
 
-class AssignmentsNode(ListNode):
+class AssignmentsNode(Node):
     node_type = "Assignments"
     fmt = minimal_list_formatter
 
@@ -191,7 +236,7 @@ class NumIndexNode(UnaryNode):
 class VarIndexNode(UnaryNode):
     node_type = "VarIndex"
 
-class IndicesNode(ListNode):
+class IndicesNode(Node):
     node_type = "Indices"
     fmt = plain_list_formatter
 
@@ -199,6 +244,42 @@ class TensorSumNode(AssocOpNode):
     node_type = "TensorSum"
     fmt = ListFormatter("", "", " + ")
     ops = {None: '', 1.0: ' + ', -1.0: ' - '}
+
+    def simplify(self, quantities=None):
+        # We go through the operands, exclude the zeros and sum the constants
+        # together.
+        new_children = []
+        new_data = []
+        constant_sum = 0.0
+        for operand, op in zip(self.children, self.data):
+            new_operand = operand.simplify(quantities=quantities)
+            if new_operand.is_float(quantities=quantities):
+                v = new_operand.as_float(quantities=quantities)
+                if op in [1.0, None]:
+                    constant_sum += v
+                else:
+                    assert op == -1.0
+                    constant_sum -= v
+
+            elif not new_operand.is_zero(quantities=quantities):
+                new_children.append(new_operand)
+                new_data.append(op)
+
+        if constant_sum != 0.0 or len(new_children) == 0:
+            if len(new_data) > 0 and new_data[0] == None:
+                new_data[0] = 1.0
+            new_children.insert(0, FloatNode(constant_sum))
+            new_data.insert(0, None)
+
+        else:
+            if len(new_data) > 0 and new_data[0] == 1.0:
+                new_data[0] = None
+
+        assert(len(new_data) == len(new_children))
+        new_obj = TensorSumNode()
+        new_obj.children = new_children
+        new_obj.data = new_data
+        return new_obj
 
 class TensorProductNode(AssocOpNode):
     node_type = "TensorProduct"
@@ -268,6 +349,12 @@ class SignedTensorAtomNode(Node):
             assert self.data == -1.0
             return "-%s" % self.children[0]
 
+    def get_inner_item(self):
+        if self.data == 1.0:
+            return self.children[0].get_inner_item()
+        else:
+            return None
+
     def is_float(self, quantities=None):
         return self.children[0].is_float(quantities=quantities)
 
@@ -303,7 +390,14 @@ class ParenthesisNode(ListNode):
     node_type = "Parenthesis"
     fmt = default_list_formatter
 
-class TensorNode(Node):
+    def simplify(self, quantities=None):
+        simplified = ListNode.simplify(self, quantities=quantities)
+        inner_item = simplified.get_inner_item()
+        if isinstance(inner_item, (FloatNode, TensorNode)):
+            return inner_item
+        return simplified
+
+class TensorNode(UnaryNode):
     node_type = "Tensor"
 
     def __init__(self, name="?", arg=None):
@@ -315,7 +409,7 @@ class TensorNode(Node):
         else:
             return "%s(%s)" % (self.data, self.children[0])
 
-class FunctionNode(Node):
+class FunctionNode(UnaryNode):
     node_type = "Function"
 
     def __init__(self, name="?", arg=None):
@@ -326,3 +420,5 @@ class FunctionNode(Node):
             return self.data[0]
         else:
             return "%s[%s]" % (self.data, self.children[0])
+
+
