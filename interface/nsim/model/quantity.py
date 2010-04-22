@@ -42,12 +42,20 @@ class Quantity:
         self.is_primary = is_primary
         self.def_on_mat = def_on_material
 
-    def set_value(self, value, where=None):
+    def set_value(self, value, material=None):
         """Sets the quantity to the given value"""
         if self.value != None:
             raise ValueError("The initial value of the %s has been already "
                              "set." % self.type_str)
         self.value = value
+
+    def is_constant(self):
+        """Whether the field is a constant."""
+        return False
+
+    def as_constant(self, material=None):
+        raise NotImplementedError("Method as_constant is not implemented for "
+                                  "Quantity of type %s." % self.type_str)
 
     def is_always_zero(self):
         """Return whether the Quantity is constantly and uniformly zero."""
@@ -61,14 +69,51 @@ class Quantity:
 class Constant(Quantity):
     type_str = "Constant"
 
-    def is_always_zero(self):
-        return float(self.value) == 0.0
+    def set_value(self, value, material=None):
+        if self.def_on_mat:
+            if self.value == None:
+                self.value = {}
+            if material == None:
+                self.value = {None: value}
+            else:
+                assert type(material) == str, \
+                  ("Optional argument of Constant.set_value should be either "
+                   "a string or None (the latter to set the constant on "
+                   "every material).")
+                if self.value.has_key(None):
+                    self.value = {material: value}
+                else:
+                    self.value[material] = value
 
-    def is_always_one(self):
-        return float(self.value) == 1.0
+        else:
+            assert material == None, \
+              ("The Constant is not defined per material and hence the "
+               "optional argument material of Constant.set_value should "
+               "not be set to any value other than None.")
+            self.value = value
 
-    is_always_zero.__doc__ = Quantity.is_always_zero.__doc__
-    is_always_one.__doc__ = Quantity.is_always_one.__doc__
+    def is_constant(self):
+        return True
+
+    def as_constant(self, material=None, in_units=True):
+        if self.value == None:
+            raise AttributeError("The Quantity initial value has not been "
+                                 "set, yet!")
+
+        if material == None:
+            assert self.def_on_mat == False, \
+              ("This field is defined per material! as_constant then "
+               "requires you to specify the material.")
+            v = self.value
+
+        else:
+            v = self.value[material]
+
+        if in_units:
+            return float(v/self.units)
+
+        else:
+            return v
 
 class SpaceField(Quantity):
     type_str = "SpaceField"
@@ -83,6 +128,7 @@ class Quantities:
     def __init__(self, quants):
         self.all_quants = []
         self.quant_by_type = {}
+        self.quant_by_name = {}
         self.add_quantity(quants)
 
     def add_quantity(self, quant):
@@ -96,7 +142,17 @@ class Quantities:
 
         for quant in quants:
             self.all_quants.append(quant)
+
             try:
                 self.quant_by_type[quant.type_str].append(quant)
             except KeyError:
                 self.quant_by_type[quant.type_str] = [quant]
+
+            if self.quant_by_name.has_key(quant.name):
+                raise ValueError("Quantities.add_quantity: found duplicate "
+                                 "entry with name '%s'." % quant.name)
+            self.quant_by_name[quant.name] = quant
+
+    def get(self, name):
+        """Return the quantity with the given name."""
+        return self.quant_by_name[name]

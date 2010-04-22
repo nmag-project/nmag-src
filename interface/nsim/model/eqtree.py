@@ -434,7 +434,11 @@ class TensorNode(UnaryNode):
         # constant - just simplify the tensor with such constant.
         # For example, if pi(i, j) is a tensor which turns out to be always
         # equal to 3.14, then we just have to substitute pi(i, j) -> 3.14
-        tensor_name = self.data
+        if context != None:
+            q = context.quantities.get(self.data)
+            if q.is_constant():
+                return FloatNode(q.as_constant(material=context.material,
+                                               in_units=True))
         return Node.simplify(self, context=context)
 
 class FunctionNode(UnaryNode):

@@ -55,7 +55,8 @@ def test_simplify():
 
 def test_simplify_quantities():
     from quantity import Constant, SpaceField, Quantities
-    gamma = Constant("gamma", def_on_material=True)
+    gamma = Constant("gamma", def_on_material=False)
+    gamma.set_value(0.0)
     m = SpaceField("m", [3], def_on_material=True)
     H_ext = SpaceField("H_ext", [3])
     context = SimplifyContext(quantities=Quantities([gamma, m, H_ext]))
