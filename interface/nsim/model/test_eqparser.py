@@ -55,13 +55,14 @@ def test_simplify():
 
 def test_simplify_quantities():
     from quantity import Constant, SpaceField, Quantities
-    gamma = Constant("gamma", def_on_material=False)
-    gamma.set_value(0.0)
+    zero = Constant("zero", def_on_material=False, value=0.0)
+    gamma = Constant("gamma", def_on_material=False, value=1.23)
+
     m = SpaceField("m", [3], def_on_material=True)
     H_ext = SpaceField("H_ext", [3])
-    context = SimplifyContext(quantities=Quantities([gamma, m, H_ext]))
-    strings = [("m(0) <- -gamma*(m(1)*H_ext(2) - m(2)*H_ext(1));",
-                "")]
+    context = SimplifyContext(quantities=Quantities([gamma, m, H_ext, zero]))
+    strings = [("m(0) <- -zero*(m(1)*H_ext(2) - m(2)*H_ext(1));",
+                "m(0) <- 0.0;")]
     for string, result in strings:
         parse_tree = parse(string).simplify(context=context)
         my_result = str(parse_tree).replace("\n", "")

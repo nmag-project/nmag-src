@@ -437,6 +437,8 @@ class TensorNode(UnaryNode):
         if context != None:
             q = context.quantities.get(self.data)
             if q.is_constant():
+                assert self.children == [None], \
+                  "Vector Constant quantities are not supported, yet!"
                 return FloatNode(q.as_constant(material=context.material,
                                                in_units=True))
         return Node.simplify(self, context=context)
