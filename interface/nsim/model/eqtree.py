@@ -66,13 +66,29 @@ class Node:
             self.data.append(d)
         return self
 
+    def is_float(self, quantities=None):
+        '''Return True when the method 'as_float' can be used successfully.'''
+        return False
+
+    def as_float(self, quantities=None):
+        '''If the node is a constant floating point number, then return its
+        value, otherwise raise an exception.'''
+        raise ValueError("%s node cannot be converted to float."
+                         % self.node_type)
+
     def is_zero(self, quantities=None):
+        '''Whether the node is constantly and uniformly equal to zero.
+        Used only in optimisations (it is safe to return always False).'''
         return False
 
     def is_one(self, quantities=None):
+        '''Whether the node is constantly and uniformly equal to one.
+        Used only in optimisations (it is safe to return always False).'''
         return False
 
     def simplify(self, quantities=None):
+        '''Simplify the parse tree using algebraic rules such as
+        0*(...) -> 0 and similar ones.'''
         def simplify(c):
             if c == None:
                 return None
@@ -188,6 +204,53 @@ class TensorProductNode(AssocOpNode):
     node_type = "TensorProduct"
     ops = {None: '', '*': '*', '/': '/'}
 
+    def simplify(self, quantities=None):
+        # First let's look for zeros in the factors of the multiplication
+        # If one of the factors is zero, then we just return the float 0.0
+        # We otherwise include the factor in the simplified one, but only if
+        # it is not one.
+        new_children = []
+        new_data = []
+        constant_factor = 1.0
+        for factor, op in zip(self.children, self.data):
+            new_factor = factor.simplify(quantities=quantities)
+            if new_factor.is_zero(quantities=quantities):
+                if op == '/':
+                    raise ValueError("Found division by zero during "
+                                     "simplification")
+                return FloatNode(0.0)
+
+            elif new_factor.is_float(quantities=quantities):
+                v = new_factor.as_float(quantities=quantities)
+                if op in ['*', None]:
+                    constant_factor *= v
+                else:
+                    assert op == '/'
+                    constant_factor /= v
+
+            elif not new_factor.is_one(quantities=quantities):
+                new_children.append(new_factor)
+                new_data.append(op)
+
+        insert_factor = (constant_factor != 1.0)
+        # We can omit the factor when it is one and is followed by a
+        # multiplicative term
+        omit_prefactor = (constant_factor == 1.0
+                          and len(new_data) >= 1
+                          and new_data[0] in [None, '*'])
+        if omit_prefactor:
+            new_data[0] = None
+
+        else:
+            new_children.insert(0, FloatNode(constant_factor))
+            new_data.insert(0, None)
+
+        assert(len(new_data) == len(new_children))
+        new_obj = TensorProductNode()
+        new_obj.children = new_children
+        new_obj.data = new_data
+        return new_obj
+
 class SignedTensorAtomNode(Node):
     node_type = "SignedTensorAtom"
 
@@ -205,11 +268,36 @@ class SignedTensorAtomNode(Node):
             assert self.data == -1.0
             return "-%s" % self.children[0]
 
+    def is_float(self, quantities=None):
+        return self.children[0].is_float(quantities=quantities)
+
+    def as_float(self, quantities=None):
+        return self.data*self.children[0].as_float(quantities=quantities)
+
+    def is_zero(self, quantities=None):
+        return self.children[0].is_zero(quantities=quantities)
+
+    def is_one(self, quantities=None):
+        return (self.data == 1.0
+                and self.children[0].is_one(quantities=quantities))
+
 class FloatNode(UnaryNode):
     node_type = "Number"
 
     def __init__(self, value=0.0):
         UnaryNode.__init__(self, float(value))
+
+    def is_zero(self, quantities=None):
+        return self.data == 0.0
+
+    def is_one(self, quantities=None):
+        return self.data == 1.0
+
+    def is_float(self, quantities=None):
+        return True
+
+    def as_float(self, quantities=None):
+        return self.data
 
 class ParenthesisNode(ListNode):
     node_type = "Parenthesis"
