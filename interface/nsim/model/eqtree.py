@@ -1,4 +1,13 @@
-import collections, types
+# Nmag micromagnetic simulator
+# Copyright (C) 2010 University of Southampton
+# Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
+#
+# WEB:     http://nmag.soton.ac.uk
+# CONTACT: nmag@soton.ac.uk
+#
+# AUTHOR(S) OF THIS FILE: Matteo Franchin
+# LICENSE: GNU General Public License 2.0
+#          (see <http://www.gnu.org/licenses/>)
 
 __all__ = ['LocalEqnNode', 'LocalAndRangeDefsNode',
            'NumTensorNode', 'NumTensorsNode', 'IntsNode',
@@ -7,6 +16,8 @@ __all__ = ['LocalEqnNode', 'LocalAndRangeDefsNode',
            'TensorSumNode', 'TensorProductNode',
            'SignedTensorAtomNode',
            'FloatNode', 'ParenthesisNode', 'TensorNode', 'FunctionNode']
+
+import collections, types
 
 class ListFormatter:
     def __init__(self, open_str="[", close_str="]", separator=", "):
@@ -24,6 +35,15 @@ class ListFormatter:
 default_list_formatter = ListFormatter("(", ")", ", ")
 plain_list_formatter = ListFormatter("", "", ", ")
 minimal_list_formatter = ListFormatter("", "", "")
+
+class SimplifyContext:
+    def __init__(self, quantities=None, material=None):
+        self.quantities = quantities
+        self.material = material
+        self.simplify_tensors = True
+        self.simplify_parentheses = True
+        self.simplify_sums = True
+        self.simplify_products = True
 
 class Node:
     """Generic class for a node of the local_eqn parser.
@@ -73,34 +93,34 @@ class Node:
         None."""
         return None
 
-    def is_float(self, quantities=None):
+    def is_float(self, context=None):
         """Return True when the method 'as_float' can be used successfully."""
         return False
 
-    def as_float(self, quantities=None):
+    def as_float(self, context=None):
         """If the node is a constant floating point number, then return its
         value, otherwise raise an exception."""
         raise ValueError("%s node cannot be converted to float."
                          % self.node_type)
 
-    def is_zero(self, quantities=None):
+    def is_zero(self, context=None):
         """Whether the node is constantly and uniformly equal to zero.
         Used only in optimisations (it is safe to return always False)."""
         return False
 
-    def is_one(self, quantities=None):
+    def is_one(self, context=None):
         """Whether the node is constantly and uniformly equal to one.
         Used only in optimisations (it is safe to return always False)."""
         return False
 
-    def simplify(self, quantities=None):
+    def simplify(self, context=None):
         """Simplify the parse tree using algebraic rules such as
         0*(...) -> 0 and similar ones."""
         def simplify(c):
             if c == None:
                 return None
             else:
-                return c.simplify(quantities)
+                return c.simplify(context=context)
 
         simplified_children = [simplify(c) for c in self.children]
         new_obj = self.__class__()
@@ -130,29 +150,29 @@ class ListNode(Node):
         else:
             return None
 
-    def is_float(self, quantities=None):
+    def is_float(self, context=None):
         c = self.get_inner_item()
         if c != None:
-            return c.is_float(quantities=quantities)
-        return Node.is_float(self, quantities=quantities)
+            return c.is_float(context=context)
+        return Node.is_float(self, context=context)
 
-    def as_float(self, quantities=None):
+    def as_float(self, context=None):
         c = self.get_inner_item()
         if c != None:
-            return c.as_float(quantities=quantities)
-        return Node.as_float(self, quantities=quantities)
+            return c.as_float(context=context)
+        return Node.as_float(self, context=context)
 
-    def is_zero(self, quantities=None):
+    def is_zero(self, context=None):
         c = self.get_inner_item()
         if c != None:
-            return c.is_zero(quantities=quantities)
-        return Node.is_zero(self, quantities=quantities)
+            return c.is_zero(context=context)
+        return Node.is_zero(self, context=context)
 
-    def is_one(self, quantities=None):
+    def is_one(self, context=None):
         c = self.get_inner_item()
         if c != None:
-            return c.is_one(quantities=quantities)
-        return Node.is_one(self, quantities=quantities)
+            return c.is_one(context=context)
+        return Node.is_one(self, context=context)
 
 class AssocOpNode(ListNode):
     node_type = "AssocOpNode"
@@ -245,23 +265,23 @@ class TensorSumNode(AssocOpNode):
     fmt = ListFormatter("", "", " + ")
     ops = {None: '', 1.0: ' + ', -1.0: ' - '}
 
-    def simplify(self, quantities=None):
+    def simplify(self, context=None):
         # We go through the operands, exclude the zeros and sum the constants
         # together.
         new_children = []
         new_data = []
         constant_sum = 0.0
         for operand, op in zip(self.children, self.data):
-            new_operand = operand.simplify(quantities=quantities)
-            if new_operand.is_float(quantities=quantities):
-                v = new_operand.as_float(quantities=quantities)
+            new_operand = operand.simplify(context=context)
+            if new_operand.is_float(context=context):
+                v = new_operand.as_float(context=context)
                 if op in [1.0, None]:
                     constant_sum += v
                 else:
                     assert op == -1.0
                     constant_sum -= v
 
-            elif not new_operand.is_zero(quantities=quantities):
+            elif not new_operand.is_zero(context=context):
                 new_children.append(new_operand)
                 new_data.append(op)
 
@@ -285,7 +305,7 @@ class TensorProductNode(AssocOpNode):
     node_type = "TensorProduct"
     ops = {None: '', '*': '*', '/': '/'}
 
-    def simplify(self, quantities=None):
+    def simplify(self, context=None):
         # First let's look for zeros in the factors of the multiplication
         # If one of the factors is zero, then we just return the float 0.0
         # We otherwise include the factor in the simplified one, but only if
@@ -294,22 +314,22 @@ class TensorProductNode(AssocOpNode):
         new_data = []
         constant_factor = 1.0
         for factor, op in zip(self.children, self.data):
-            new_factor = factor.simplify(quantities=quantities)
-            if new_factor.is_zero(quantities=quantities):
+            new_factor = factor.simplify(context=context)
+            if new_factor.is_zero(context=context):
                 if op == '/':
                     raise ValueError("Found division by zero during "
                                      "simplification")
                 return FloatNode(0.0)
 
-            elif new_factor.is_float(quantities=quantities):
-                v = new_factor.as_float(quantities=quantities)
+            elif new_factor.is_float(context=context):
+                v = new_factor.as_float(context=context)
                 if op in ['*', None]:
                     constant_factor *= v
                 else:
                     assert op == '/'
                     constant_factor /= v
 
-            elif not new_factor.is_one(quantities=quantities):
+            elif not new_factor.is_one(context=context):
                 new_children.append(new_factor)
                 new_data.append(op)
 
@@ -355,18 +375,18 @@ class SignedTensorAtomNode(Node):
         else:
             return None
 
-    def is_float(self, quantities=None):
-        return self.children[0].is_float(quantities=quantities)
+    def is_float(self, context=None):
+        return self.children[0].is_float(context=context)
 
-    def as_float(self, quantities=None):
-        return self.data*self.children[0].as_float(quantities=quantities)
+    def as_float(self, context=None):
+        return self.data*self.children[0].as_float(context=context)
 
-    def is_zero(self, quantities=None):
-        return self.children[0].is_zero(quantities=quantities)
+    def is_zero(self, context=None):
+        return self.children[0].is_zero(context=context)
 
-    def is_one(self, quantities=None):
+    def is_one(self, context=None):
         return (self.data == 1.0
-                and self.children[0].is_one(quantities=quantities))
+                and self.children[0].is_one(context=context))
 
 class FloatNode(UnaryNode):
     node_type = "Number"
@@ -374,24 +394,24 @@ class FloatNode(UnaryNode):
     def __init__(self, value=0.0):
         UnaryNode.__init__(self, float(value))
 
-    def is_zero(self, quantities=None):
+    def is_zero(self, context=None):
         return self.data == 0.0
 
-    def is_one(self, quantities=None):
+    def is_one(self, context=None):
         return self.data == 1.0
 
-    def is_float(self, quantities=None):
+    def is_float(self, context=None):
         return True
 
-    def as_float(self, quantities=None):
+    def as_float(self, context=None):
         return self.data
 
 class ParenthesisNode(ListNode):
     node_type = "Parenthesis"
     fmt = default_list_formatter
 
-    def simplify(self, quantities=None):
-        simplified = ListNode.simplify(self, quantities=quantities)
+    def simplify(self, context=None):
+        simplified = ListNode.simplify(self, context=context)
         inner_item = simplified.get_inner_item()
         if isinstance(inner_item, (FloatNode, TensorNode)):
             return inner_item
@@ -405,9 +425,17 @@ class TensorNode(UnaryNode):
 
     def __str__(self):
         if self.children[0] == None:
-            return self.data[0]
+            return self.data
         else:
             return "%s(%s)" % (self.data, self.children[0])
+
+    def simplify(self, context=None):
+        # We should go through the quantities, find this one and - if it is
+        # constant - just simplify the tensor with such constant.
+        # For example, if pi(i, j) is a tensor which turns out to be always
+        # equal to 3.14, then we just have to substitute pi(i, j) -> 3.14
+        tensor_name = self.data
+        return Node.simplify(self, context=context)
 
 class FunctionNode(UnaryNode):
     node_type = "Function"
@@ -420,5 +448,3 @@ class FunctionNode(UnaryNode):
             return self.data[0]
         else:
             return "%s[%s]" % (self.data, self.children[0])
-
-

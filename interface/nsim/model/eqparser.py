@@ -1,8 +1,18 @@
-# -----------------------------------------------------------------------------
-# calc.py
+# Nmag micromagnetic simulator
+# Copyright (C) 2010 University of Southampton
+# Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
 #
-# A simple calculator with variables -- all in one file.
-# -----------------------------------------------------------------------------
+# WEB:     http://nmag.soton.ac.uk
+# CONTACT: nmag@soton.ac.uk
+#
+# AUTHOR(S) OF THIS FILE: Matteo Franchin
+# LICENSE: GNU General Public License 2.0
+#          (see <http://www.gnu.org/licenses/>)
+
+"""Provides a function to parse an equation of motion and return a tree
+representation of the equation which can be used to simplify the equation,
+examine the quantities involved in the equation and finally rewrite it as
+text."""
 
 from eqtree import *
 

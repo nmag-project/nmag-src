@@ -1,3 +1,14 @@
+# Nmag micromagnetic simulator
+# Copyright (C) 2010 University of Southampton
+# Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
+#
+# WEB:     http://nmag.soton.ac.uk
+# CONTACT: nmag@soton.ac.uk
+#
+# AUTHOR(S) OF THIS FILE: Matteo Franchin
+# LICENSE: GNU General Public License 2.0
+#          (see <http://www.gnu.org/licenses/>)
+
 """
 There are four types of Quantity:
  - Constant: just a number which does not change in space nor in time
@@ -15,24 +26,21 @@ hence be set, etc.
 
 __all__ = ['Constant', 'SpaceField', 'TimeField', 'SpaceTimeField']
 
+import collections
+
 class Quantity:
     """ddd"""
 
-    def __init__(self, name, shape=[], value=None, is_primary=True,
-                 def_on_material=False):
-        self.type = None
-        self.type_str = "Quantity"
+    type_str = "Quantity"
+
+    def __init__(self, name, shape=[], value=None, units=1.0,
+                 is_primary=True, def_on_material=False):
         self.name = name
         self.shape = shape
-        self.value = None
+        self.value = value
+        self.units = units
         self.is_primary = is_primary
         self.def_on_mat = def_on_material
-        self._specialised_init()
-
-    def _specialised_init(self):
-        raise NotImplementedError("This class is not meant to be used like "
-                                  "this. You should use one of the derived "
-                                  "classes.")
 
     def set_value(self, value, where=None):
         """Sets the quantity to the given value"""
@@ -45,26 +53,50 @@ class Quantity:
         """Return whether the Quantity is constantly and uniformly zero."""
         return False
 
-    def depend_on(self, quants_list):
-        pass
+    def is_always_one(self):
+        """Return whether the Quantity is constantly and uniformly equal
+        to one."""
+        return False
 
 class Constant(Quantity):
-    def _specialised_init(self):
-        self.type_str = "Constant"
+    type_str = "Constant"
 
     def is_always_zero(self):
         return float(self.value) == 0.0
+
+    def is_always_one(self):
+        return float(self.value) == 1.0
+
     is_always_zero.__doc__ = Quantity.is_always_zero.__doc__
+    is_always_one.__doc__ = Quantity.is_always_one.__doc__
 
 class SpaceField(Quantity):
-    def _specialised_init(self):
-        self.type_str = "SpaceField"
+    type_str = "SpaceField"
 
 class TimeField(Quantity):
-    def _specialised_init(self):
-        self.type_str = "TimeField"
+    type_str = "TimeField"
 
 class SpaceTimeField(Quantity):
-    def _specialised_init(self):
-        self.type_str = "SpaceTimeField"
+    type_str = "SpaceTimeField"
 
+class Quantities:
+    def __init__(self, quants):
+        self.all_quants = []
+        self.quant_by_type = {}
+        self.add_quantity(quants)
+
+    def add_quantity(self, quant):
+        """Add the given quantity 'quant' to the current Quantities instance.
+        If 'quant' is a list, then add all the elements of the list, assuming
+        they all are Quantity objects."""
+        if isinstance(quant, collections.Sequence):
+            quants = quant
+        else:
+            quants = [quant]
+
+        for quant in quants:
+            self.all_quants.append(quant)
+            try:
+                self.quant_by_type[quant.type_str].append(quant)
+            except KeyError:
+                self.quant_by_type[quant.type_str] = [quant]

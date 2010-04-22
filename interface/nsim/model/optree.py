@@ -1,3 +1,14 @@
+# Nmag micromagnetic simulator
+# Copyright (C) 2010 University of Southampton
+# Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
+#
+# WEB:     http://nmag.soton.ac.uk
+# CONTACT: nmag@soton.ac.uk
+#
+# AUTHOR(S) OF THIS FILE: Matteo Franchin
+# LICENSE: GNU General Public License 2.0
+#          (see <http://www.gnu.org/licenses/>)
+
 import exceptions
 
 __all__ = ['Node', 'UnaryNode', 'BinaryNode',
@@ -161,7 +172,7 @@ class UnparsedNode(UnaryNode):
                 out_s += quant_name
 
         out_s += s[pos:]
-        return out_s 
+        return out_s
 
     # Propagate documentation
     get_used_quants.__doc__ = Node.get_used_quants.__doc__

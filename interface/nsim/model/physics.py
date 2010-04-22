@@ -1,3 +1,14 @@
+# Nmag micromagnetic simulator
+# Copyright (C) 2010 University of Southampton
+# Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
+#
+# WEB:     http://nmag.soton.ac.uk
+# CONTACT: nmag@soton.ac.uk
+#
+# AUTHOR(S) OF THIS FILE: Matteo Franchin
+# LICENSE: GNU General Public License 2.0
+#          (see <http://www.gnu.org/licenses/>)
+
 """
 Module which allows to define in a high-level way the physics to be simulated
 by the Nsim package.
@@ -120,7 +131,7 @@ def _extended_properties_by_region(region_materials, min_region=-1,
             add_prop(nr_region,m.name)
             for p in m.properties:
                 add_prop(nr_region,p)
-                
+
     # Now that we initialized these hashes, map them back to lists:
 
     def sorted_keys(h):
@@ -133,7 +144,7 @@ def _extended_properties_by_region(region_materials, min_region=-1,
     result = [(k, sorted_keys(pbr[k])) for k in srk]
     logger.info("properties_by_region: %s" % repr(result))
     return result
- 
+
 #-----------------------------------------------------------------------------
 
 class Model:
@@ -156,7 +167,7 @@ class Model:
         self.all_material_names = [] # All different names of the materials
 
         self.elems_by_field = {}     # For each field: list of elems ordered
-                                     # per region 
+                                     # per region
         self.prototype_elems = []    # List of the prototype elements
         self.sibling_elems = {}
         self.properties_by_region = properties_by_region
@@ -175,7 +186,7 @@ class Model:
 
         for quant in quants:
             self.all_quantities.append(quant)
-            try: 
+            try:
                 self.quants_by_type[quant.type_str].append(quant)
             except KeyError:
                 self.quants_by_type[quant.type_str] = [quant]

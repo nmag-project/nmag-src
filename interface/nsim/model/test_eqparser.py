@@ -1,4 +1,16 @@
+# Nmag micromagnetic simulator
+# Copyright (C) 2010 University of Southampton
+# Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
+#
+# WEB:     http://nmag.soton.ac.uk
+# CONTACT: nmag@soton.ac.uk
+#
+# AUTHOR(S) OF THIS FILE: Matteo Franchin
+# LICENSE: GNU General Public License 2.0
+#          (see <http://www.gnu.org/licenses/>)
+
 from eqparser import parse
+from eqtree import SimplifyContext
 
 def test_consistency():
     print "Testing that parsed tree can be translated to original string"
@@ -22,6 +34,7 @@ def test_consistency():
 def test_simplify():
     print "Test that simplification works"
     strings = [("a <- 0;", "a <- 0.0;"),
+               ("abc <- def;", "abc <- def;"),
                ("a <- 0*(b + c);", "a <- 0.0;"),
                ("a <- 1*(b + c);", "a <- (b + c);"),
                ("a <- 2*(b + c);", "a <- 2.0*(b + c);"),
@@ -40,11 +53,24 @@ def test_simplify():
                                      % (string, my_result, result))
         print "passed"
 
+def test_simplify_quantities():
+    from quantity import Constant, SpaceField, Quantities
+    gamma = Constant("gamma", def_on_material=True)
+    m = SpaceField("m", [3], def_on_material=True)
+    H_ext = SpaceField("H_ext", [3])
+    context = SimplifyContext(quantities=Quantities([gamma, m, H_ext]))
+    strings = [("m(0) <- -gamma*(m(1)*H_ext(2) - m(2)*H_ext(1));",
+                "")]
+    for string, result in strings:
+        parse_tree = parse(string).simplify(context=context)
+        my_result = str(parse_tree).replace("\n", "")
+        assert my_result == result, ("Simplified of '%s' is '%s', but '%s' "
+                                     "is expected."
+                                     % (string, my_result, result))
+        print "passed"
+
+
 if __name__ == "__main__":
-    #p = parse("%range j:35; a <- b;")
-    #print p
-    #p.debug()
-    #import sys
-    #sys.exit(0)
     test_consistency()
     test_simplify()
+    test_simplify_quantities()
