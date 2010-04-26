@@ -20,6 +20,9 @@ import ocaml
 import nmag
 from nsim import linalg_machine as nlam
 
+from computation import Computations, SimplifyContext
+from quantity import Quantities
+
 __all__ = ['Model']
 
 logger = logging.getLogger('nsim')
@@ -78,11 +81,10 @@ class Model:
         self.min_region = min_region
 
         # Things that get constructed when the object is "used"
+        self.computations = Computations()
+        self.quantities = Quantities()
 
-        self.all_quantities = []     # list of all added Quantity-es
-        self.quants_by_type = {}     # and here they are classified by type
-        self.all_computations = []   # list of all added Computation-s
-        self.comps_by_type = {}      # and here they are classified by type
+        self.intensive_params = []
 
         self.all_material_names = [] # All different names of the materials
 
@@ -99,28 +101,11 @@ class Model:
         """Add the given quantity 'quant' to the current physical model.
         If 'quant' is a list, then add all the elements of the list, assuming
         they all are Quantity objects."""
-        if isinstance(quant, types.ListType):
-            quants = quant
-        else:
-            quants = [quant]
+        return self.quantities.add(quant)
 
-        for quant in quants:
-            self.all_quantities.append(quant)
-            try:
-                self.quants_by_type[quant.type_str].append(quant)
-            except KeyError:
-                self.quants_by_type[quant.type_str] = [quant]
-
-    def add_operator(self, op):
-        """Add the given ..."""
-        if isinstance(op, types.ListType):
-            ops = op
-        else:
-            ops = [op]
-
-        for op in ops:
-            self.all_computations.append(op)
-
+    def add_computation(self, c):
+        """Add the a computation (Computation object) to the model."""
+        return self.computations.add(c)
 
     def _build_elems_on_material(self, name, shape):
         # Build the 'all_materials' dictionary which maps a material name to
@@ -217,6 +202,27 @@ class Model:
         self.mwes[name] = mwe
         return mwe
 
+    def _build_operators(self):
+        return {}
+
+    def _build_equations(self):
+        eqs = self.computations._by_type.get('Equation', [])
+        simplify_context = \
+          SimplifyContext(quantities=self.quantities,
+                          material=self.all_material_names)
+        equation_dict = {}
+        for eq in eqs:
+            logger.info("Building equation %s" % eq.name)
+            eq_text = eq.get_text(context=simplify_context)
+            mwes_for_eq = eq.get_inouts()
+            equation_dict[eq.name] = \
+              nlam.lam_local(eq.name,
+                             aux_args=self.intensive_params,
+                             field_mwes=mwes_for_eq,
+                             equation=eq_text)
+
+        return equation_dict
+
     def _build_lam(self):
         intensive_params = []
 
@@ -229,10 +235,10 @@ class Model:
             vectors[vec_name] = nlam.lam_vector(name=vec_name,
                                                 mwe_name=mwe_name)
 
-        operators = {}
+        operators = self._build_operators()
         bems = {}
         ksps = {}
-        operations = {}
+        equations = self._build_equations()
         jacobi = {}
         programs = {}
         timesteppers = {}
@@ -245,7 +251,7 @@ class Model:
                             operators=operators.values(),
                             bem_matrices=bems.values(),
                             ksps=ksps.values(),
-                            local_operations=operations.values(),
+                            local_operations=equations.values(),
                             jacobi_plans=jacobi.values(),
                             programs=programs.values(),
                             timesteppers=timesteppers.values(),
@@ -256,9 +262,9 @@ class Model:
     def build(self):
         # I'm keeping the same order of execution that we were using in the
         # old nmag_lam.py source
-        field_quants = self.quants_by_type.get('SpaceField', [])
-        field_quants += self.quants_by_type.get('SpaceTimeField', [])
-        param_quants = self.quants_by_type.get('TimeField', [])
+        field_quants = self.quantities._by_type.get('SpaceField', [])
+        field_quants += self.quantities._by_type.get('SpaceTimeField', [])
+        param_quants = self.quantities._by_type.get('TimeField', [])
 
         # Extended properties by region
         self.ext_pbr = \

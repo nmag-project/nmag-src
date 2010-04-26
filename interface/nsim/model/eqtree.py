@@ -17,7 +17,7 @@ __all__ = ['LocalEqnNode', 'LocalAndRangeDefsNode',
            'SignedTensorAtomNode',
            'FloatNode', 'ParenthesisNode', 'TensorNode', 'FunctionNode']
 
-import collections, types
+import collections, types, copy
 
 class ListFormatter:
     def __init__(self, open_str="[", close_str="]", separator=", "):
@@ -44,6 +44,27 @@ class SimplifyContext:
         self.simplify_parentheses = True
         self.simplify_sums = True
         self.simplify_products = True
+
+default_simplify_context = SimplifyContext()
+
+def _sc(context):
+    """If a simplify-context is None, then the default context should be used.
+    This function facilitate the implementation of such a concept. Let's see
+    how:
+
+      x = _sc(context).simplify_tensors
+
+    replaces:
+
+      if context == None:
+          x = default_simplify_context.simplify_tensors
+      else:
+          x = context.simplify_tensors
+    """
+    if context != None:
+        return context
+    else:
+        return default_simplify_context
 
 class Node:
     """Generic class for a node of the local_eqn parser.
@@ -125,8 +146,21 @@ class Node:
         simplified_children = [simplify(c) for c in self.children]
         new_obj = self.__class__()
         new_obj.children = simplified_children
-        new_obj.data = self.data
+        new_obj.data = copy.copy(self.data)
         return new_obj
+
+    def get_inputs_and_outputs(self):
+        """Traverse the parse tree to collect inputs and outputs
+        quantities."""
+        inputs = []
+        outputs = []
+        self._collect_quantities(inputs, outputs, parsing='root')
+        return (inputs, outputs)
+
+    def _collect_quantities(self, inputs, outputs, parsing):
+        for child in self.children:
+            if child != None:
+                child._collect_quantities(inputs, outputs, parsing)
 
 class UnaryNode(Node):
     node_type = "UnaryNode"
@@ -245,6 +279,12 @@ class IxRangeNode(Node):
 class AssignmentNode(Node):
     node_type = "Assignment"
     fmt = ListFormatter("", ";", " <- ")
+
+    def _collect_quantities(self, inputs, outputs, parsing):
+        assert parsing == 'root'
+        assert len(self.children) == 2
+        self.children[0]._collect_quantities(inputs, outputs, 'inputs')
+        self.children[1]._collect_quantities(inputs, outputs, 'outputs')
 
 class AssignmentsNode(Node):
     node_type = "Assignments"
@@ -436,6 +476,8 @@ class ParenthesisNode(ListNode):
 
     def simplify(self, context=None):
         simplified = ListNode.simplify(self, context=context)
+        if not _sc(context).simplify_parentheses:
+            return simplified
         inner_item = simplified.get_inner_item()
         if isinstance(inner_item, (FloatNode, TensorNode)):
             return inner_item
@@ -446,18 +488,18 @@ class TensorNode(UnaryNode):
     special_tensors = {"eps":None}
 
     def __init__(self, name="?", arg=None):
-        Node.__init__(self, arg, data=name)
+        Node.__init__(self, arg, data=(name, name))
 
     def __str__(self):
         if self.children[0] == None:
-            return self.data
+            return self.data[0]
         else:
-            return "%s(%s)" % (self.data, self.children[0])
+            return "%s(%s)" % (self.data[0], self.children[0])
 
     def simplify(self, context=None):
         # First, let's check whether this is a special tensor. If that is the
         # case, then we should just treat it specially.
-        if self.special_tensors.has_key(self.data):
+        if self.special_tensors.has_key(self.data[0]):
             return Node.simplify(self, context=context)
 
         # We should go through the quantities, find this one and - if it is
@@ -465,7 +507,7 @@ class TensorNode(UnaryNode):
         # For example, if pi(i, j) is a tensor which turns out to be always
         # equal to 3.14, then we just have to substitute pi(i, j) -> 3.14
         if context != None:
-            q = context.quantities.get(self.data)
+            q = context.quantities.get(self.data[1])
             if q.is_constant():
                 assert self.children == [None], \
                   "Vector Constant quantities are not supported, yet!"
@@ -475,10 +517,22 @@ class TensorNode(UnaryNode):
                 if (context.material != None
                     and q.is_defined_on_material(context.material)):
                     tensor_node = Node.simplify(self, context=context)
-                    tensor_node.data += "_%s" % context.material
+                    tensor_node.data[0] += "_%s" % context.material
                     return tensor_node
 
         return Node.simplify(self, context=context)
+
+    def _collect_quantities(self, inputs, outputs, parsing):
+        name = self.data[1]
+        if self.special_tensors.has_key(name):
+            return
+        if parsing == "inputs":
+            qs_list = inputs
+        else:
+            assert parsing == "outputs"
+            qs_list = outputs
+        if not name in qs_list:
+            qs_list.append(name)
 
 class FunctionNode(UnaryNode):
     node_type = "Function"

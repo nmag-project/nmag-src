@@ -12,7 +12,7 @@
 import collections
 
 class Group:
-    def __init__(self, objs):
+    def __init__(self, objs=[]):
         self._all = []
         self._by_type = {}
         self._by_name = {}

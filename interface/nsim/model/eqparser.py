@@ -249,10 +249,11 @@ def p_tensor_atom(t):
             t[0] = FunctionNode(name=t[1], arg=t[3])
 
 def p_error(t):
-    try:
-        print "Syntax error at '%s'" % t.value
-    except:
-        print "Syntax error at '%s'" % t
+    if hasattr(t, 'value'):
+        info = " (token='%s', value='%s')" % (str(t), t.value)
+    else:
+        info = " (token='%s')" % str(t)
+    raise ValueError("Syntax error when parsing equation%s." % info)
 
 import ply.yacc as yacc
 parser = yacc.yacc(tabmodule='localeqn_parsetab',
