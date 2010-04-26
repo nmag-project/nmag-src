@@ -428,6 +428,8 @@ def nmag_lam(timestepper,
                         concat=";\n\n",
                         postfix=";\n\n")
 
+    print eq_rhs_full
+    raw_input()
  
     template_eq_rhs_jacobi_ts1 = """
 dmdt_$MAT$(i) <-

@@ -250,6 +250,30 @@ class AssignmentsNode(Node):
     node_type = "Assignments"
     fmt = minimal_list_formatter
 
+    def simplify(self, context=None):
+        # This node is responsible for expanding the equation for all the
+        # materials: transforming one equation in 'm' into many equations in
+        # 'm_material1', 'm_material2', etc.
+        if context != None and context.material != None:
+            material = context.material
+            if isinstance(material, str):
+                material_list = [material]
+            else:
+                material_list = material
+
+            eqs = self.children
+            expanded_assignments = AssignmentsNode()
+            for material_name in material_list:
+                context.material = material_name
+                for eq in eqs:
+                    expanded_assignments.add(eq.simplify(context=context))
+
+            context.material = material
+            return expanded_assignments
+
+        else:
+            return Node.simplify(self, context=context)
+
 class NumIndexNode(UnaryNode):
     node_type = "NumIndex"
 
@@ -419,6 +443,7 @@ class ParenthesisNode(ListNode):
 
 class TensorNode(UnaryNode):
     node_type = "Tensor"
+    special_tensors = {"eps":None}
 
     def __init__(self, name="?", arg=None):
         Node.__init__(self, arg, data=name)
@@ -430,6 +455,11 @@ class TensorNode(UnaryNode):
             return "%s(%s)" % (self.data, self.children[0])
 
     def simplify(self, context=None):
+        # First, let's check whether this is a special tensor. If that is the
+        # case, then we should just treat it specially.
+        if self.special_tensors.has_key(self.data):
+            return Node.simplify(self, context=context)
+
         # We should go through the quantities, find this one and - if it is
         # constant - just simplify the tensor with such constant.
         # For example, if pi(i, j) is a tensor which turns out to be always
@@ -441,6 +471,13 @@ class TensorNode(UnaryNode):
                   "Vector Constant quantities are not supported, yet!"
                 return FloatNode(q.as_constant(material=context.material,
                                                in_units=True))
+            else:
+                if (context.material != None
+                    and q.is_defined_on_material(context.material)):
+                    tensor_node = Node.simplify(self, context=context)
+                    tensor_node.data += "_%s" % context.material
+                    return tensor_node
+
         return Node.simplify(self, context=context)
 
 class FunctionNode(UnaryNode):

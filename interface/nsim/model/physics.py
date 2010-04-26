@@ -20,89 +20,9 @@ import ocaml
 import nmag
 from nsim import linalg_machine as nlam
 
-__all__ = ['OperatorComp',
-           'Model']
+__all__ = ['Model']
 
 logger = logging.getLogger('nsim')
-
-#-----------------------------------------------------------------------------
-
-class Computation:
-    """A black box which takes some quantities as input and produces
-    some quantities as output."""
-
-    def __init__(self, input=None, output=None):
-        self.type_str = "Computation"
-        self.input = input
-        self.output = output
-        self._specialised_init()
-
-    def _specialised_init(self):
-        raise NotImplementedError("The class %s is not meant to be used "
-                                  "directly. You should rather use one of "
-                                  "the derived classes." % self.type_str)
-
-class EquationComp(Computation):
-    def _specialised_init(self):
-        self.type_str = "EquationComp"
-
-class OperatorComp(Computation):
-    def __init__(self, operator_tree, running_indices=None,
-                 input=None, output=None):
-        Computation.__init__(self, input=input, output=output)
-        self.running_indices = running_indices
-        self.operator_tree = operator_tree
-
-    def _specialised_init(self):
-        self.type_str = "OperatorComp"
-        self.allow_incongruent_shapes = False
-        self.seen_indices = {}
-
-    def _parse_quant_str(self, quant_str):
-        """Parse the given Quantity string representation and return the
-        a tuple of (quantity name, list of index variables)."""
-        if "(" in quant_str:
-            field_s, indices_s = quant_str.split("(", 1)
-            indices_s = indices_s.strip()
-            assert indices_s[-1] == ")", ("Index specification in '%s' "
-              "should end with a final parenthesis" % quant_str)
-            indices_s = indices_s[:-1]
-            indices = [i_s for i_s in indices_s.split(",")]
-
-        else:
-            field_s = quant_str
-            indices = []
-
-        return (field_s, indices)
-
-    def _check_quant_str(self, quant_str):
-        """Check the given Quantity string representation and take note about
-        the indices and how they are used (basically, infer the index ranges).
-        """
-        name, indices = self._parse_quant_str(quant_str)
-        for q in self.input + self.output:
-            if q.name == name:
-                for i, idx_name in enumerate(indices):
-                    cur_shape = self.seen_indices.get(idx_name, None)
-                    new_shape = q.shape[i]
-                    if (not allow_incongruent_shapes
-                        and cur_shape != None
-                        and cur_shape != new_shape):
-                        raise ValueError("Found incongruency in range for "
-                                         "index variable %s." % idx_name)
-                    self.seen_indices[idx_name] = new_shape
-                return q
-
-        raise ValueError("Cannot find field '%s' in the list of input or "
-                         "output fields." % quant_str)
-
-class CCodeComp(Computation):
-    def _specialised_init(self):
-        self.type_str = "CCodeComp"
-
-
-
-
 
 #-----------------------------------------------------------------------------
 

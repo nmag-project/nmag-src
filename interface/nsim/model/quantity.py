@@ -42,6 +42,15 @@ class Quantity:
         self.is_primary = is_primary
         self.def_on_mat = def_on_material
 
+    def is_defined_on_material(self, material):
+        """Return True if the quantity is defined on the specified material,
+        False if that is not the case and None if the quantity is not defined
+        on a per-material basis."""
+        if self.def_on_mat:
+            return True
+        else:
+            return None
+
     def set_value(self, value, material=None):
         """Sets the quantity to the given value"""
         if self.value != None:
@@ -107,7 +116,10 @@ class Constant(Quantity):
             v = self.value
 
         else:
-            v = self.value[material]
+            if self.def_on_mat:
+                v = self.value[material]
+            else:
+                v = self.value
 
         if in_units:
             return float(v/self.units)
