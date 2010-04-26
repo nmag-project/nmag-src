@@ -224,8 +224,6 @@ class Model:
         return equation_dict
 
     def _build_lam(self):
-        intensive_params = []
-
         # Build LAM vector dictionary
         vectors = {}
         for mwe_name in self.mwes:
@@ -245,7 +243,7 @@ class Model:
         debugfile = None
 
         lam = nlam.make_lam(self.name,
-                            intensive_params=intensive_params,
+                            intensive_params=self.intensive_params,
                             mwes=self.mwes.values(),
                             vectors=vectors.values(),
                             operators=operators.values(),

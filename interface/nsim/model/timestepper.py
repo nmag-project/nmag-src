@@ -9,13 +9,9 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
-"""
-Module which allows to define in a high-level way the physics to be simulated
-by the Nsim package.
-"""
+__all__ = ['Timestepper']
 
-from quantity import *
-from physics import *
-from optree import *
-from computation import *
-from timestepper import *
+class Timestepper:
+    def __init__(self, name):
+        self.name = name
+
