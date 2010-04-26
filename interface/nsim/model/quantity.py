@@ -27,6 +27,7 @@ hence be set, etc.
 __all__ = ['Constant', 'SpaceField', 'TimeField', 'SpaceTimeField']
 
 import collections
+from group import Group
 
 class Quantity:
     """ddd"""
@@ -136,35 +137,5 @@ class TimeField(Quantity):
 class SpaceTimeField(Quantity):
     type_str = "SpaceTimeField"
 
-class Quantities:
-    def __init__(self, quants):
-        self.all_quants = []
-        self.quant_by_type = {}
-        self.quant_by_name = {}
-        self.add_quantity(quants)
-
-    def add_quantity(self, quant):
-        """Add the given quantity 'quant' to the current Quantities instance.
-        If 'quant' is a list, then add all the elements of the list, assuming
-        they all are Quantity objects."""
-        if isinstance(quant, collections.Sequence):
-            quants = quant
-        else:
-            quants = [quant]
-
-        for quant in quants:
-            self.all_quants.append(quant)
-
-            try:
-                self.quant_by_type[quant.type_str].append(quant)
-            except KeyError:
-                self.quant_by_type[quant.type_str] = [quant]
-
-            if self.quant_by_name.has_key(quant.name):
-                raise ValueError("Quantities.add_quantity: found duplicate "
-                                 "entry with name '%s'." % quant.name)
-            self.quant_by_name[quant.name] = quant
-
-    def get(self, name):
-        """Return the quantity with the given name."""
-        return self.quant_by_name[name]
+class Quantities(Group):
+    pass

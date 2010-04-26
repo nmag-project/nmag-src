@@ -12,6 +12,7 @@
 __all__ = ['Equation', 'Operator', 'CCode', 'LAMCode', 'Computations']
 
 import eqparser
+from group import Group
 
 class Computation:
     """A computation can be regarded as a black box which takes some
@@ -92,12 +93,5 @@ class CCode(Computation):
 class LAMCode(Computation):
     type_str = "LAMCode"
 
-class Computations:
-    def __init__(self, comps=[]):
-        self.all_comps = []
-        self.by_type = {}
-        self.by_name = {}
-        self.add_quantity(comps)
-
-    def add_computation(self):
-        pass
+class Computations(Group):
+    pass
