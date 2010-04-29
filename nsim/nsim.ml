@@ -7,7 +7,7 @@
 
  [X] Remove Debugging Output
  [X] New parallel timestepper must take and report sub-specialist timings
- [X] Check setting timestepper KSP defaults (such as InitialGuessNonzero), 
+ [X] Check setting timestepper KSP defaults (such as InitialGuessNonzero),
       introduce parameter tweaking functions
  [ ] Provide derive_me for localeqn (so that we can also add H_anis)
  [ ] Add sequential brother of the lam-integrated timestepper.
@@ -37,14 +37,14 @@ let sundials_path fullpath =
   (* given the fullpath (i.e. path and filename) (typically from
   nsimconf) we return it as is, unless the environment variable
   NSIM_SUNDIALS_PATH has been defined. If this is defined, we take
-  NSIM_SUNDIALS_PATH as the directory, and append the filename 
+  NSIM_SUNDIALS_PATH as the directory, and append the filename
   from the fullpath.
 
   This is needed for the debian installation of the software (in
   conjunction with the way we configure the whole package with
   nsimconf).  *)
   let (input_path,input_filename) = path_and_filename_of_fullpath fullpath in
-  let directory= 
+  let directory=
     try Unix.getenv "NSIM_SUNDIALS_PATH" with | Not_found -> input_path
   in Printf.sprintf "%s/%s" directory input_filename
 ;;
@@ -80,7 +80,7 @@ let rec invalidate x =
     let () = x.ien_is_uptodate <- false in
     let () = Array.iter invalidate x.ien_depends_on in
       ()
-  else 
+  else
     (* Do not redo the entire tree in case we are already
        classified as being invalidated. If we did this,
        we may end up walking the same tree multiple times
@@ -93,14 +93,14 @@ let rec invalidate x =
 
 
 
-type linalg_command =  
+type linalg_command =
   | LC_vec_distribute of string * string
   | LC_vec_collect of string * string
       (* NOTE: for these first two functions, the first string must designate
 	 NOT a parallel resource, but a master-local vector!
 
 	 XXX For now, the only master-local vectors will be
-	 linalg_machine params, but that may/should change!  
+	 linalg_machine params, but that may/should change!
       *)
   | LC_pvec_scale of string * float (* "p" meaning (potentially) "parrallel" *)
   | LC_pvec_pointwise of string * (int -> float -> float)
@@ -115,7 +115,7 @@ type linalg_command =
   | LC_vec_pointwise_mult of string * string * string
   | LC_cofield_to_field of string * string
   | LC_jplan_execute of string * (string array)
-  | LC_psolve of string * string * string 
+  | LC_psolve of string * string * string
   | LC_psite_wise_iparams of string * string array * string array
   | LC_gosub of string
   | LC_callext of (float -> unit)
@@ -130,10 +130,10 @@ type fun_derive_me =
     (int -> (* Desired target row *)
        ((int * int) * (float * string * int array) array) array);;
 
-type local_equations = 
+type local_equations =
     (Fem.dof_name * (float * Fem.dof_name array) array) array;;
 
-type jacobi_plan =  
+type jacobi_plan =
     ((int * int) * ((float * string * int array) array)) array array;;
 
 type las_op_matrix_spec =
@@ -163,7 +163,7 @@ type las_op_matrix_spec =
 *)
 
 (* Note: this is internal only: *)
-type las_dense_matrix = 
+type las_dense_matrix =
     BEM_PETSC of Ccpla.distributed_resource_handle
   | BEM_HLib of (Hlib.hmatrix * Mpi_petsc.vector * Mpi_petsc.vector)
 
@@ -261,8 +261,8 @@ type linalg_script =
      las_intensive_params: string array;
      las_mwes: string array; (* by name, must have exact matches below - XXX do we use that actually? *)
      las_internal_buffers: (string * string * Fem.dvss * bool * float) array;
-     (* (buffer_name, mwe_name,subfield_restr,is_field,initial_value). 
-	
+     (* (buffer_name, mwe_name,subfield_restr,is_field,initial_value).
+
 	Note that we internally do not use FEM_field/FEM_cofield, but just the buffers!
 	(Maybe that is a mistake?)
 	Later on, functions such as "get_field" will include checks for field/cofield!
@@ -292,9 +292,9 @@ type linalg_machine =
 	 This way, it is up to the user to provide and take care of
 	 data storage.
 
-	 NOTE: in principle, we could write mini-scripts based on 
+	 NOTE: in principle, we could write mini-scripts based on
 	 execute_on that implement get_field and get_cofield, so
-	 these operations are (strictly speaking) non-orthogonal. 
+	 these operations are (strictly speaking) non-orthogonal.
 	 For now, we keep them nevertheless, as having accessors
 	 for all the intermediate fields readily available is just
 	 so convenient...
@@ -305,7 +305,7 @@ type linalg_machine =
       get_iparam: string -> float;
       set_iparam: string -> float -> unit;
       set_ksp_tolerances: string -> (float option * float option * float option * int option) -> unit;
-      get_ksp_tolerances: string -> (float * float * float * int); 
+      get_ksp_tolerances: string -> (float * float * float * int);
       get_field: string -> float Fem.fem_field -> unit;
       get_cofield: string -> float Fem.fem_cofield -> unit;
       set_field: string -> float Fem.fem_field -> unit;
@@ -381,12 +381,12 @@ let make_par_timestepper_timings () =
 ;;
 
 (* The "parallel timestepper" resource, to be used as a NSIM_RES_timestepper *)
-type par_timestepper = 
+type par_timestepper =
     {
       pts_name: string;
       pts_timings: par_timestepper_timings;
       mutable pts_time_reached: float;
-      mutable pts_cvode: Sundials_sp.cvode option ref; 
+      mutable pts_cvode: Sundials_sp.cvode option ref;
       (* This is an option, as the CVode will only be initialized
 	 when we first set it from the physical vector.
 
@@ -397,11 +397,11 @@ type par_timestepper =
       mutable pts_set_initial_from_phys: ?initial_time:float -> ?rel_tol:float -> ?abs_tol:float -> unit -> unit;
       mutable pts_advance: ?exact_tstop:bool -> float -> int -> float;
       mutable pts_set_tolerances: (float option * float option * float option * int option) ->
-					   (float * float) -> unit; 
+					   (float * float) -> unit;
       mutable pts_timing_control: string -> (string*float*float) array;
       (*
       mutable pts_reinit: unit -> unit;
-	Note that we do not need a "reinitialize" function - the user can just again 
+	Note that we do not need a "reinitialize" function - the user can just again
 	call pts_set_initial_from_phys!
       *)
     }
@@ -422,7 +422,7 @@ type ('matrix) nsim_ccpla_resource =
 ;;
 
 type nsim_ccpla_opcode =
-  | NSIM_OP_swex_create of 
+  | NSIM_OP_swex_create of
       (string (* Name *)
        * string (* C code *)
        * ((string * int array * float array) array) (* fields, offsets, coords *)
@@ -433,7 +433,7 @@ type nsim_ccpla_opcode =
 	 DRES args: [|swex;params;field1;field2;...;cofield1;cofield2;...|]
       *)
   | NSIM_OP_mwes_create of string * ((float mwe_made_by array) option) * (float Fem.mesh_with_elements array option)
-      (* Note that we use different payloads on Master and Slave: 
+      (* Note that we use different payloads on Master and Slave:
 	 master just takes the original mwes, slaves build them
 	 from geometry information.
       *)
@@ -483,6 +483,20 @@ type nsim_ccpla_opcode =
   | NSIM_OP_hmatrix_mult of ((Hlib.hmatrix * Mpi_petsc.vector * Mpi_petsc.vector) * Mpi_petsc.vector * Mpi_petsc.vector) option
 ;;
 
+let nsim_opcode_to_string op =
+  match op with
+    NSIM_OP_swex_create _ -> "NSIM_OP_swex_create"
+  | NSIM_OP_swex _ -> "NSIM_OP_swex"
+  | NSIM_OP_mwes_create _ -> "NSIM_OP_mwes_create"
+  | NSIM_OP_vivificators_create _ -> "NSIM_OP_vivificators_create"
+  | NSIM_OP_vivificator_exec _ -> "NSIM_OP_vivificator_exec"
+  | NSIM_OP_jacobi_operators_create _ -> "NSIM_OP_jacobi_operators_create"
+  | NSIM_OP_fill_bem _ -> "NSIM_OP_fill_bem"
+  | NSIM_OP_make_timestepper _ -> "NSIM_OP_make_timestepper"
+  | NSIM_OP_init_timestepper _ -> "NSIM_OP_init_timestepper"
+  | NSIM_OP_advance_timestepper _ -> "NSIM_OP_advance_timestepper"
+  | NSIM_OP_hmatrix_mult _ -> "NSIM_OP_hmatrix_mult"
+;;
 
 (* NOTE: could be generalized to also allow
    delta(a,b, i,j) = 1/2*eps(a,b,p)*eps(i,j,p)
@@ -512,7 +526,7 @@ let special_tensor_delta2 ~ix_ranges indices =
 		    (* May want to modify/adjust this later on! *)
 		  else
 		    if v1=v2
-		      (* same name, hence this is just a combinatorical factor 
+		      (* same name, hence this is just a combinatorical factor
 			 (subtleties arise when the same index occurs yet
 			 another time in a product... We should prevent this,
 			 but actually neither can nor do at the moment...
@@ -625,7 +639,7 @@ let local_equation_normal_form ?(special_tensors=default_special_tensors) ~ix_ra
       (fun ix -> match ix with | IX_var n -> Some n | _ -> None)
       indices
   in
-  let ranges_of indices_to_fix = 
+  let ranges_of indices_to_fix =
     try
       Array.map
 	(fun name ->
@@ -659,7 +673,7 @@ let local_equation_normal_form ?(special_tensors=default_special_tensors) ~ix_ra
 		  fun_special ~ix_ranges indices
 		in
 		(* let () = Printf.printf "DDD local_eqn_normal_form special_tensor=%s extra_vi=%s relevant_entries=%s\n%!" stem (string_array_to_string (Array.of_list extra_varindices)) (String.concat ";" (Array.to_list (Array.map (fun (c,ff) -> Printf.sprintf "%f*%s" c (int_array_to_string (Array.of_list ff))) v_relevant_entries))) in *)
-		  Array.iter 
+		  Array.iter
 		    (fun (tensor_coeff,further_fixings) ->
 		       walk_contrib (coeff*.tensor_coeff)
 			 factors_done (* constant tensor is eliminated here! *)
@@ -683,14 +697,14 @@ let local_equation_normal_form ?(special_tensors=default_special_tensors) ~ix_ra
     in
     let (coeff,factors) = nf_term in
     let () = walk_contrib coeff [] (Array.to_list factors) fixed_indices in
-      map_hashtbl_to_array ~sorter:compare (fun factors coeff -> (coeff,factors)) ht_explicit_contribs 
+      map_hashtbl_to_array ~sorter:compare (fun factors coeff -> (coeff,factors)) ht_explicit_contribs
   in
   let nf1_rhs = nf1 rhs in
   let ((lhs_name:string),lhs_indices) = lhs in
   let lhs_open_indices = open_indices lhs_indices in
   let lhs_index_ranges = ranges_of lhs_open_indices in
   let r_result = ref [] in
-  let () = multifor lhs_index_ranges 
+  let () = multifor lhs_index_ranges
     (fun _ lhs_index_values ->
        let lhs_fixings = extend_index_fixings lhs_open_indices lhs_index_values [] in
        let lhs_fixed = fix_indices lhs_fixings lhs_indices
@@ -698,7 +712,7 @@ let local_equation_normal_form ?(special_tensors=default_special_tensors) ~ix_ra
        let rhs_fixed = array_join (Array.map (resolve_running_indices lhs_fixings) nf1_rhs) in
 	 r_result:= ((lhs_name,lhs_fixed),rhs_fixed)::(!r_result)
     )
-  in 
+  in
   let remap_dof (name,indices) =
     (name,Array.map (fun ix -> match ix with | IX_int n -> n | _ -> impossible()) indices)
   in
@@ -820,7 +834,7 @@ let localeqn_ccode str = parsed_eqn_ccode (parse_localeqn str);;
 (* For a given set of physical vectors containing primary fields, we
    have to determine the mapping to and from timestepper configuration
    vectors y, as well as the splitting of configuration vectors y.
-   
+
    This is tricky in the presence of periodic boundary conditions.
 *)
 
@@ -828,7 +842,7 @@ let layout_y_timestepper_from_primary_fields v_mwes_primary_fields =
   let vv_distrib = Array.map (fun mwe -> mwe.mwe_distribution) v_mwes_primary_fields in
     (* Evidently, we want to arrange y such that parallel distribution of the y vector
        matches parallel distribution of the mesh. This means that we have to describe
-       y-components by site. As we generally take sites to be in lexicographical 
+       y-components by site. As we generally take sites to be in lexicographical
        ordering, this will then automatically induce the distribution of the y-vector.
     *)
   let v_sites =
@@ -851,7 +865,7 @@ let layout_y_timestepper_from_primary_fields v_mwes_primary_fields =
 	 array_foreach_do_n v_mwes_primary_fields
 	   (fun nr_mwe mwe ->
 	      let v_dofs = try Hashtbl.find mwe.mwe_dofs_by_site site with | Not_found -> no_dofs in
-		array_foreach_do v_dofs 
+		array_foreach_do v_dofs
 		  (fun dof ->
 		     let dof_nr = dof.dof_nr in
 		     let machine = the_dof_machine mwe dof in
@@ -877,10 +891,10 @@ let layout_y_timestepper_from_primary_fields v_mwes_primary_fields =
     (nr_y_compts_by_machine, Array.of_list (List.rev !r_y_compts))
 ;;
 
-(* === BEGIN distributed Jacobian code === 
+(* === BEGIN distributed Jacobian code ===
 
 PTS: Parallel Time Stepper
- 
+
 
 *)
 
@@ -957,7 +971,7 @@ let pts_jacobi_derive_me__ddiffop v_mwes nr_mwe_le nr_mwe_ri mx =
 	 in
 	   Mpi_petsc.petsc_matrix_call_on_rows
 	     (* Note that for this to work properly, it is absolutely essential
-		that the site distribution employed for the Jacobian is the same 
+		that the site distribution employed for the Jacobian is the same
 		as that employed for the differential operators!
 	     *)
 	     mx
@@ -975,7 +989,7 @@ let pts_jacobi_derive_me__ddiffop v_mwes nr_mwe_le nr_mwe_ri mx =
 		  done)
     )
 ;;
-  
+
 
 (* Compute derivatives of functions which are polynomial in degrees of
    freedoms which live at the site under consideration only (and which do
@@ -1026,8 +1040,8 @@ let pts_jacobi_derive_me__localpolynomial ccpla v_mwes equation =
 	   (fun (coeff,other_factors) -> hashtbl_increase (+.) h other_factors coeff)
 	   li_summands
 	 in
-	   Hashtbl.add ht_normalized key 
-	     (array_filter 
+	   Hashtbl.add ht_normalized key
+	     (array_filter
 		(fun (c,_) -> c<>0.0)
 		(map_hashtbl_to_array ~sorter:(fun (_,f1) (_,f2) -> compare f1 f2)
 		   (fun factors coeff -> (coeff,factors)) h)))
@@ -1053,7 +1067,7 @@ let pts_jacobi_derive_me__localpolynomial ccpla v_mwes equation =
       ht
   in
     (* XXX "proofread" up to here. The whole thing is quite complicated.
-       
+
     *)
     fun
       ~fun_make_entry
@@ -1083,7 +1097,7 @@ let pts_jacobi_derive_me__localpolynomial ccpla v_mwes equation =
 		      Array.iter
 			(fun (coeff,v_factors) ->
 			   let nr_factors = Array.length v_factors in
-			   let v_factor_offset_indices = 
+			   let v_factor_offset_indices =
 			     Array.map (Hashtbl.find site_info_offset_by_dof_name) v_factors
 			   in
 			     if !(array_all_satisfy (fun ix -> -1 <> v_offsets.(ix)) v_factor_offset_indices)
@@ -1154,7 +1168,7 @@ let pts_jacobi_derive_me__localpolynomial ccpla v_mwes equation =
   array ->
   (float, 'd, 'e) Bigarray.Array1.t array -> 'b -> unit
 
-  where 
+  where
 
   * v_mwes: Vector (array) Mesh With ElementS. Needed to obtain
   site-related indices of the degrees of freedom that occur in the
@@ -1186,9 +1200,9 @@ let pts_jacobi_derive_me__localpolynomial ccpla v_mwes equation =
   degrees of freedom (i.e. 'm' in nmag) and the next one contains
   the degrees of freedom of the left hand side of the equation of
   motion (i.e. 'dm/dt' in nmag).
-  
+
   See also nmag_lam.py.
-  
+
   * local_equations: Equations of motion as returned by equation
   parser (see nsim_grammars/localeqn_parser.mly). The physics has
   to be specified such that equations of motion involve only
@@ -1196,9 +1210,9 @@ let pts_jacobi_derive_me__localpolynomial ccpla v_mwes equation =
   differential operators have to be computed beforehand (such as
   H_exch for nmag).
 
-  and this returns 
+  and this returns
 
-  * a function with signature 
+  * a function with signature
   (float, 'd, 'e) Bigarray.Array1.t array -> 'b -> unit,
   which is the vivificator.
 
@@ -1212,7 +1226,7 @@ let pts_jacobi_derive_me__localpolynomial ccpla v_mwes equation =
   vivificator which will (re-)populate the matrix with subsequent
   calls of the function of type 'b.
 
-  
+
   Design flaw:
 
   As it is right now we cannot do the derive_me_localpolynomial due
@@ -1243,7 +1257,7 @@ let pts_jacobi_vivificator
      factors of every summand. *)
     Array.fold_left
       (fun sf (_,v_poly) ->
-	 Array.fold_left 
+	 Array.fold_left
 	   (fun sf2 (coeff,v_dofs) -> max sf2 (Array.length v_dofs))
 	   sf v_poly)
       0
@@ -1252,7 +1266,7 @@ let pts_jacobi_vivificator
     (* let ddd = Printf.printf "LOCAL-EQN: MAX NR FACTORS: %d\n%!" local_eqns_max_nr_factors in *)
   let buf_factors_fields = Array.make local_eqns_max_nr_factors 0 in
   let buf_factors_offsets = Array.make local_eqns_max_nr_factors 0 in
-  let site_on_this_cpu site = 
+  let site_on_this_cpu site =
     (* return true or false depending on whether the given site has been allocated to this CPU *)
     match nr_cpu with
       | None -> true
@@ -1275,9 +1289,9 @@ let pts_jacobi_vivificator
                      in
                      (* ^ make sure this gets printed even when the line below
                         sends us into Nirvana. *)
-                       failwith "Broken mesh vertex distribution!" 
+                       failwith "Broken mesh vertex distribution!"
               in (this_cpu = (the_cpu 0 distrib.(0)))
-  in 
+  in
   let the_dof_nr_field_and_index_range =
   (* This hash table the_dof_nr_field_and_index_range maps a degree of
      freedom stem (such as 'H_exch_Py') to the index of the field in
@@ -1296,7 +1310,7 @@ let pts_jacobi_vivificator
   (* The the_dof_nr_mwe function will -- for a given DOF stem+indices
      (and its mwe) at a given site -- find the corresponding dof_nr
      index, or -1 if it doesn't exist.  Note: this all eventually should
-     be streamlined and combined with our SWEX techniques. 
+     be streamlined and combined with our SWEX techniques.
 
      This is long and complicated and could be improved. As long as
      you think it works okay, don't look.  *)
@@ -1315,7 +1329,7 @@ let pts_jacobi_vivificator
 	  in
 	  (* let () = Printf.printf "Leading DOF: %s wanted: %s\n%!" (dof_name_to_string leading_dof) dof_stem in *)
 	    if leading_dof_stem <> dof_stem
-	    then 
+	    then
 	      let step =
 		let (_,ixrange) =
 		  the_dof_nr_field_and_index_range leading_dof
@@ -1333,7 +1347,7 @@ let pts_jacobi_vivificator
 		 this should be refined.
 	      *)
 	      let rec seek_step1 offset =
-		let (_,dof_indices_this_site) = 
+		let (_,dof_indices_this_site) =
 		  the_dof_name mwe dofs_this_site.(offset)
 		in
 		  if dof_indices_this_site = dof_indices
@@ -1356,7 +1370,7 @@ let pts_jacobi_vivificator
     for nr_eqn=0 to Array.length local_equations-1 do
       (* let () = Printf.printf "[Node=%d] eqn=%d\n%!" myrank nr_eqn in *)
       let (eom_dof_lhs,eom_polynomial) = local_equations.(nr_eqn) in
-      let (nr_field_lhs, _) = 
+      let (nr_field_lhs, _) =
 	the_dof_nr_field_and_index_range eom_dof_lhs
       in
       let ix_lhs = the_dof_nr v_mwes.(nr_field_lhs) eom_dof_lhs site in
@@ -1386,7 +1400,7 @@ let pts_jacobi_vivificator
 	    done
 	  in
 	  (* let () = Printf.printf "[Node=%d] JVIV Done Summands\n%!" myrank in *)
-	    (if not !r_this_eqn_is_applicable 
+	    (if not !r_this_eqn_is_applicable
 	     then ()
 	     else
 	       (* Now, we can do the derivatives. *)
@@ -1444,9 +1458,9 @@ let pts_jacobi_vivificator
 (* === END distributed Jacobian code === *)
 
 let local_equations_to_c_code eom =
-  let dof_ccode (dof_stem,indices) = 
+  let dof_ccode (dof_stem,indices) =
     if Array.length indices=0
-    then dof_stem 
+    then dof_stem
     else
       Printf.sprintf "%s(%s)" dof_stem (String.concat "," (Array.to_list indices))
   in
@@ -1454,7 +1468,7 @@ let local_equations_to_c_code eom =
     Array.map
       (fun ((dof_stem,indices) as dof_name,contribs) ->
 	 let contrib_c_pieces =
-	   Array.map 
+	   Array.map
 	     (fun (coeff,factors) ->
 		Printf.sprintf "(%f)*%s"
 		  coeff
@@ -1472,6 +1486,9 @@ let local_equations_to_c_code eom =
 let time_in_rhs = ref 0.0;;
 
 let nsim_opcode_interpreter ccpla op v_distributed_resources =
+  let () = Printf.printf
+             "nsim_opcode_interpreter: executing %s\n%!"
+             (nsim_opcode_to_string op) in
   let comm = ccpla.ccpla_comm in
   match op with
     | NSIM_OP_swex_create (name,c_code,site_info_this_machine,defines) ->
@@ -1553,7 +1570,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 		      in
 		      let periodicity = Mpi_petsc.broadcast [||] 0 comm in
 		      let vdist = Mpi_petsc.broadcast [||] 0 comm in
-		      let mesh = 
+		      let mesh =
 			Mesh.mpi_meshgeom_to_mesh
 			  {
 			    mmg_dim=dim;
@@ -1564,7 +1581,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 			    mmg_vertex_distribution=vdist;
 			  }
 		      in
-			(* Now we face an awkward problem: some of our mwes are primary, 
+			(* Now we face an awkward problem: some of our mwes are primary,
 			   while others are not. Evidently, we have to generate the primary ones first.
 			   But as the derived ones are generated from primary ones, a two-stage process
 			   will suffice to make them all...
@@ -1572,12 +1589,12 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 		      let nr_mwes = Array.length v_madeby in
 		      let ht_mwe_by_name = Hashtbl.create 17 in
 		      let opt_mwes =
-			Array.map 
+			Array.map
 			  (fun madeby ->
 			     match madeby with
 			       | MWEMB_make_mwe (name,properties_by_region,regions,sx_to_el) ->
 				   (* let ddd = Printf.printf "DDD reconstructing mwe %s: regions %s\n%!" name (int_array_to_string regions) in *)
-				   let mwe = 
+				   let mwe =
 				     Fem.make_mwe
 				       name
 				       ~fun_outer_region:(fun nr_site pos -> regions.(nr_site))
@@ -1625,7 +1642,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	       let viv =
 		 Fem.ddiffop_vivified
 		   ~nr_cpu:(Mpi_petsc.comm_rank comm)
-		   ddiffop 
+		   ddiffop
 		   ?mwe_mid:opt_mwe_mid mwe_le mwe_ri
 	       in
 		 (name_this_viv,viv))
@@ -1639,7 +1656,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
             loginfo (* logdebug *)
 	      (Printf.sprintf "VMEM=%8.0f KB RSS=%8.0f KB vivifying..." mem.(0) mem.(1))
         in*)
-	let () = 
+	let () =
 	  (if Mpi_petsc.comm_rank comm =0 then
 	     logdebug (Printf.sprintf "NSIM_OP_vivificator_exec '%s'" name_viv)
 	   else ())
@@ -1662,7 +1679,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	    (if pos = -1
 	     then failwith "Fatal: could not find vivificator '%s' (known: %s)"
 	       name_viv (string_array_to_string (Array.map (fun (n,_) -> n) v_vivs)) else ())
-	  in 
+	  in
 	  let (_,viv) = v_vivs.(pos) in viv
 	in
 	let () = (if is_this_a_revivification then Mpi_petsc.matrix_zero_entries mx else ()) in
@@ -1677,7 +1694,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	let () = (if do_we_need_to_assemble_after then Mpi_petsc.matrix_assemble mx true else ()) in
 	  (* XXX NOTE: this does not work, as call_on_rows() will just flatly deny operating on non-local rows!
 	     let ddd =
-	     if name_viv = "bigbar_par_op_grad_phi_viv" 
+	     if name_viv = "bigbar_par_op_grad_phi_viv"
 	     then
 	     Mpi_petsc.petsc_matrix_call_on_rows mx
 	     (fun nr_row cols vals ->
@@ -1743,7 +1760,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
     | NSIM_OP_hmatrix_mult (opt_hmx_buffers) ->
 	let myrank = Mpi_petsc.comm_rank comm in
 	let (opt_hmx,buf_src,buf_dst) = match opt_hmx_buffers with
-	  | None -> 
+	  | None ->
 	      (* This should only happen for rank>0, i.e. not on the master node *)
 	      (None,Ccpla.vec_dummy,Ccpla.vec_dummy)
 	  | Some (mx,s,d) -> (Some mx,s,d)
@@ -1867,9 +1884,9 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	     directions for multisequential and physical y/ydot vectors:
 	  *)
 	let (ba_y_pv_lens,ba_y_pv_offsets) =
-	  let a_lens = Nsimconf.c_int_bigarray1_create mysize in	
-	  let a_offsets = Nsimconf.c_int_bigarray1_create mysize 
-	  in	
+	  let a_lens = Nsimconf.c_int_bigarray1_create mysize in
+	  let a_offsets = Nsimconf.c_int_bigarray1_create mysize
+	  in
 	    begin
 	      a_offsets.{0} <- Nsimconf.c_int_of_int 0;
 	      a_lens.{0} <- Nsimconf.c_int_of_int y_distribution.(0);
@@ -1921,8 +1938,8 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	       let () = Mpi_petsc.vector_assemble v_ms in
 		 v_ms)
 	    v_phys_pv
-	in	  
-	  (* Also, we need functions to distribute data between 
+	in
+	  (* Also, we need functions to distribute data between
 	     physical multisequential and parallel vectors:
 	  *)
 	let v_fun_phys_pv_to_msv =
@@ -2001,8 +2018,8 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	in
 	let fun_phys_msv_to_y_ydot_msv vec_y ~use_config_vectors () =
 	  let () = Mpi_petsc.vector_zero vec_y in
-	  let vecs_phys = 
-	    if use_config_vectors then 
+	  let vecs_phys =
+	    if use_config_vectors then
 	      Array.sub v_phys_msv 0 lts.lts_nr_primary_fields
 	    else
 	      Array.sub v_phys_msv lts.lts_nr_primary_fields (2*lts.lts_nr_primary_fields)
@@ -2124,12 +2141,12 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 		  (* let () = Printf.printf "DDD [Node=%d] get_precond - duplicate jacobian\n%!" myrank in *)
 		let mx = Mpi_petsc.matrix_duplicate true jacobian in
 		  (* let () = Printf.printf "DDD [Node=%d] get_precond - ksp_create\n%!" myrank in *)
-		let () = 
+		let () =
 		  begin
 		    Mpi_petsc.matrix_copy lts.lts_pc_same_nonzero_pattern jacobian mx;
 		    Mpi_petsc.matrix_scale mx (-.gamma);
 		    Mpi_petsc.matrix_add_identity mx 1.0;
-		  end 
+		  end
 		in
 		let ksp = Mpi_petsc.ksp_create
                             ~communicator:(Mpi_petsc.petsc_get_comm_world())
@@ -2170,7 +2187,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	in
 	  (* === CVODE RHS === *)
 	let cvode_fun_rhs (time,ba_y,ba_ydot) () =
-	  (* Here, y and ydot are being given to us as bigarrays 
+	  (* Here, y and ydot are being given to us as bigarrays
 	     (which contain part of a parallelized Sundials NVector)
 	  *)
 	  let t0 = Unix.gettimeofday() in
@@ -2251,7 +2268,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 			    done
 			  in
 			    *)
-			  let () = 
+			  let () =
 			    jacobi_vivificator
 			      ba_fields_msv
 			      jacobi_fun_make_entry
@@ -2282,7 +2299,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	      (* DDD *)
 	      (*
 	      Printf.printf "N%dJacobi Y: %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f ...\n%!" myrank ba_y.{0} ba_y.{1} ba_y.{2} ba_y.{3} ba_y.{4} ba_y.{5};
-	      Mpi_petsc.petsc_matrix_call_on_rows jacobian 
+	      Mpi_petsc.petsc_matrix_call_on_rows jacobian
 		(fun nr_row ba_indices ba_vals ->
 		   if nr_row mod 1000 = 0 then
 		     let nr_indices = Bigarray.Array1.dim ba_indices in
@@ -2413,7 +2430,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 		  let () = Sundials_sp.cvode_set_max_order cvode lts.lts_max_order in
 		  let () = Sundials_sp.cvode_set_max_num_steps cvode 100000000 in
 		  let () =
-		    Sundials_sp.cvode_setup_jacobi_times_vector_raw 
+		    Sundials_sp.cvode_setup_jacobi_times_vector_raw
 		      cvode
 		      cvode_fun_jacobi_times_vector
 		  in
@@ -2435,10 +2452,11 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 		in
 		  0.0
 	    | Some cvode ->
+                let () = Printf.printf "Timestepper advance\n%!" in
 		let result = ref None in
 		let () = Mpi_petsc.with_petsc_vector_as_bigarray y_final_pv
 		  (fun ba_final ->
-		     result :=	
+		     result :=
 		       Some (Sundials_sp.cvode_advance_ng
 			       ~comm:ccpla.ccpla_comm ~max_nr_steps ?exact_tstop
 			       cvode
@@ -2539,7 +2557,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	in
 	let par_timestepper =
 	  let cvode = ()
-	  in 
+	  in
 	    {pts_name = lts.lts_name;
 	     pts_timings = pts_timings;
 	     pts_time_reached = 0.0;
@@ -2566,12 +2584,12 @@ let nsim_swex_create ccpla name c_code v_field_mwes v_cofield_mwes aux_arg_names
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let the_swex = DRH name in
   (* let () = Printf.printf "DDD DRES swex: create finalizer for '%s'\n%!" name in *)
-  let () = Gc.finalise 
+  let () = Gc.finalise
     (fun drh ->
        (* let () = Printf.printf "DDD DRES swex: parfinalize '%s'\n%!" name in *)
        let () = ccpla.ccpla_pending_finalizations <- name::ccpla.ccpla_pending_finalizations
        in ()) the_swex
-  in 
+  in
   let () = master_process_queue ccpla in
     the_swex
 ;;
@@ -2580,9 +2598,9 @@ let nsim_swex_create ccpla name c_code v_field_mwes v_cofield_mwes aux_arg_names
 let nsim_mwes_create ccpla name mwes =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
   let cmds_create =
-    Array.init nr_nodes 
+    Array.init nr_nodes
       (fun n ->
-	 if n = 0 
+	 if n = 0
 	 then
 	   (* master will just take the mwes we have... *)
 	   DCOM_opcode ((NSIM_OP_mwes_create (name,None,Some mwes)),[||])
@@ -2596,12 +2614,12 @@ let nsim_mwes_create ccpla name mwes =
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let the_mwes = DRH name in
   (* let () = Printf.printf "DDD DRES mwes: create finalizer for '%s'\n%!" name in *)
-  let () = Gc.finalise 
+  let () = Gc.finalise
     (fun drh ->
        let () = Printf.printf "DDD DRES mwes: parfinalize '%s'\n%!" name in
        let () = ccpla.ccpla_pending_finalizations <- name::ccpla.ccpla_pending_finalizations
        in ()) the_mwes
-  in 
+  in
   let () = master_process_queue ccpla in
     the_mwes
 ;;
@@ -2616,12 +2634,12 @@ let nsim_vivificators_create ccpla name ~mwes ~vivificator_specs =
   in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let the_vivs = DRH name in
-  let () = Gc.finalise 
+  let () = Gc.finalise
     (fun drh ->
        let () = Printf.printf "DDD DRES vivificators: parfinalize '%s'\n%!" name in
        let () = ccpla.ccpla_pending_finalizations <- name::ccpla.ccpla_pending_finalizations
        in ()) the_vivs
-  in 
+  in
   let () = master_process_queue ccpla in
     the_vivs
 ;;
@@ -2637,12 +2655,12 @@ let nsim_jacobi_operators_create ccpla name ~jacobi_operator_names ~jacobi_drhs 
   in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let the_jops = DRH name in
-  let () = Gc.finalise 
+  let () = Gc.finalise
     (fun drh ->
        let () = Printf.printf "DDD DRES jacobi operators: parfinalize '%s'\n%!" name in
        let () = ccpla.ccpla_pending_finalizations <- name::ccpla.ccpla_pending_finalizations
        in ()) the_jops
-  in 
+  in
   let () = master_process_queue ccpla in
     the_jops
 ;;
@@ -2666,17 +2684,17 @@ let nsim_timestepper_create
   in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let the_timestepper = DRH name_ts in
-  let () = Gc.finalise 
+  let () = Gc.finalise
     (fun drh ->
        let () = Printf.printf "DDD DRES timestepper: parfinalize '%s'\n%!" name_ts in
        let () = ccpla.ccpla_pending_finalizations <- name_ts::ccpla.ccpla_pending_finalizations
        in ()) the_timestepper
-  in 
+  in
   let () = master_process_queue ccpla in
     the_timestepper
 ;;
 
-let nsim_execute_all_CPUs ccpla f = 
+let nsim_execute_all_CPUs ccpla f =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
   let commands = Array.make nr_nodes (DCOM_exec f) in
   let () = Queue.push commands !(ccpla.ccpla_queue) in
@@ -2727,7 +2745,7 @@ let make_linalg_machine
       (fun mwe ->
 	 match !(mwe.mwe_dof_funs_volumes)
 	 with
-	   | Some v -> Mpi_petsc.vector_pack v 
+	   | Some v -> Mpi_petsc.vector_pack v
 	   | _ -> impossible())
       relevant_mwes
   in
@@ -2747,7 +2765,7 @@ let make_linalg_machine
     let v_dummy = Mpi_petsc.vector_dummy() in
       Array.map
 	(fun (cseq_name,cseq_arg_fields,cseq_arg_cofields,cseq_cmds) ->
-	   Array.make 
+	   Array.make
 	     ((Array.length cseq_arg_fields)
 	      +(Array.length cseq_arg_cofields))
 	     v_dummy
@@ -2758,7 +2776,7 @@ let make_linalg_machine
     let (_,args_fields,args_cofields,_) = script.las_command_sequences.(nr_sequence) in
     let pos = array_position_if (fun (arg_name,_) -> name=arg_name) args_fields 0 in
       if pos>=0 then pos
-      else 
+      else
 	let pos = array_position_if (fun (arg_name,_) -> name=arg_name) args_cofields 0 in
 	  if pos>=0 then pos+(Array.length args_fields)
 	  else failwith (Printf.sprintf "make_linalg_machine: sequence %d, unknown argument '%s'" nr_sequence name)
@@ -2767,11 +2785,11 @@ let make_linalg_machine
       | None ->
 	  failwith
 "Note: the nsim core no longer supports sequential complation.
-While the purely sequential mode of execution offered some speed 
-gain due to simplified bookkeeping, maintaining two different 
+While the purely sequential mode of execution offered some speed
+gain due to simplified bookkeeping, maintaining two different
 versions of the opcode compiler turned out too much of a burden
 for limited manpower. So, this piece of code has been removed
-for now. (Also, while things are still in a state of flux and 
+for now. (Also, while things are still in a state of flux and
 have not settled down in their final form, having to do work
 twice for both compilers is not a good idea.)
 
@@ -2792,7 +2810,7 @@ Thomas Fischbacher, 13.05.2008
 	  in
 	  let () = reportmem "par_iparams" in
 	  let the_mwes =
-	    nsim_mwes_create ccpla 
+	    nsim_mwes_create ccpla
 	      (Printf.sprintf "%s$mwes" prefix)
 	      relevant_mwes
 	  in
@@ -2811,7 +2829,7 @@ Thomas Fischbacher, 13.05.2008
 	  in
 	  let effective_internal_buffers = Array.append script.las_internal_buffers additional_internal_buffers
 	  in
-	  let the_internal_buffers = 
+	  let the_internal_buffers =
 	    Array.mapi
 	      (fun nr_buffer (buffer_rel_name,mwe_name,opt_restr,_,initial_value) ->
 		 let mwe = get_mwe mwe_name in
@@ -2826,7 +2844,7 @@ Thomas Fischbacher, 13.05.2008
 		   ccpla.ccpla_vector_create buffer_abs_name distrib
 		 in
 		 let DRES_petsc_vector (_,_,p_v) = Hashtbl.find ccpla.ccpla_resources name in
-		 let () = 
+		 let () =
 		   (if initial_value = 0.0 then ()
 		    else
 		      begin
@@ -2852,7 +2870,7 @@ Thomas Fischbacher, 13.05.2008
 	    begin
 	      for n=0 to Array.length relevant_mwes-1 do
 		ccpla.ccpla_vector_distribute
-		  ~local_vectors:v_mwe_vols n 
+		  ~local_vectors:v_mwe_vols n
 		  (let (p,s) = the_internal_buffers.(nr_script_buffers+n) in p)
 	      done
 	    end
@@ -2865,18 +2883,18 @@ Thomas Fischbacher, 13.05.2008
 	      if pos = (-1) then failwith (Printf.sprintf "Could not find buffer '%s'" name)
 	      else pos
 	  in
-	  let get_pvec name = 
+	  let get_pvec name =
 	    let (v,_) =the_internal_buffers.(get_buffer_index name) in v
 	  in
-	  let get_svec name = 
+	  let get_svec name =
 	    let (_,v) =the_internal_buffers.(get_buffer_index name) in v
 	  in
-	  let v_viv_names = 
+	  let v_viv_names =
 	    Array.map
 	      (fun loms -> Printf.sprintf "%s$vivificator.%s" prefix loms.loms_name)
 	      script.las_op_matrices
 	  in
-	  let v_ddiffops = 
+	  let v_ddiffops =
 	    Array.map
 	      (fun loms -> ddiffop_from_string loms.loms_symbolic_operator)
 	      script.las_op_matrices
@@ -2901,7 +2919,7 @@ Thomas Fischbacher, 13.05.2008
 		 let mx_abs_name = Printf.sprintf "%s$op.%s" prefix loms.loms_name in
 		 let () =
 		   logdebug
-		     (Printf.sprintf "make_linalg_machine - making matrix '%s' op='%s'" 
+		     (Printf.sprintf "make_linalg_machine - making matrix '%s' op='%s'"
 			mx_abs_name loms.loms_symbolic_operator)
 		 in
 		 let ddiffop = v_ddiffops.(nr_loms) in
@@ -2950,7 +2968,7 @@ Thomas Fischbacher, 13.05.2008
 	    let () = master_process_queue ccpla in
 	      ()
 	  in
-	  let get_sparse_matrix name = 
+	  let get_sparse_matrix name =
 	    let pos = array_position_if (fun loms_spec -> loms_spec.loms_name=name)
 	      script.las_op_matrices 0
 	    in
@@ -2959,13 +2977,13 @@ Thomas Fischbacher, 13.05.2008
 	  in
 	  let () = reportmem "par_sparse_matrices" in
 	  let tmp_start_dense_matrices = Unix.gettimeofday() in
-	  let () = loginfo( Printf.sprintf "Starting to build dense matrices (BEM)" ) in 
-	  let () = loginfo2( Printf.sprintf "T=%.6f dense_matrices start" (tmp_start_dense_matrices)) in 
-	  let the_dense_matrices = 
+	  let () = loginfo( Printf.sprintf "Starting to build dense matrices (BEM)" ) in
+	  let () = loginfo2( Printf.sprintf "T=%.6f dense_matrices start" (tmp_start_dense_matrices)) in
+	  let the_dense_matrices =
 	    Array.map
 	      (fun ldms ->
 		 if ldms.ldms_hlib
-		 then 
+		 then
 		   let mwe = get_mwe ldms.ldms_mwe_name in
 		     (* Ugly code ahead: Somehow we seem not to have found the proper language yet
 			for this geometry stuff...
@@ -2986,9 +3004,9 @@ Thomas Fischbacher, 13.05.2008
 		       ~algorithm ~nfdeg ~nmin ~eta ~eps_aca ~eps ~p ~kmax
 		       ~geom_info
 		       (* ldms.ldms_inside_regions
-			  ldms.ldms_dof_name 
+			  ldms.ldms_dof_name
 		       *)
-		       ldms.ldms_dof_name 
+		       ldms.ldms_dof_name
 			  mwe
 		   in BEM_HLib hmx
 		 else
@@ -2996,7 +3014,7 @@ Thomas Fischbacher, 13.05.2008
 		   let mwe = get_mwe ldms.ldms_mwe_name in
 		   let (dof_stem,_) = ldms.ldms_dof_name in
 		   let (_,_,distrib) = boundary_shortvec_info dof_stem mwe ldms.ldms_boundary_spec in
-		   let mx = 
+		   let mx =
 		     ccpla.ccpla_matrix_create mx_abs_name "mpidense" distrib distrib
 		   in
 		   let cmds_bem =
@@ -3009,11 +3027,11 @@ Thomas Fischbacher, 13.05.2008
 	  in
 	  let () = master_process_queue ccpla in
 	  let tmp_end_dense_matrices = Unix.gettimeofday() in
-	  let () = loginfo2 (Printf.sprintf "T=%.6f dense_matrices end" tmp_end_dense_matrices) in 
-	  let () = loginfo (Printf.sprintf "Populating BEM took %f seconds" 
-			      (tmp_end_dense_matrices-. tmp_start_dense_matrices)) 
+	  let () = loginfo2 (Printf.sprintf "T=%.6f dense_matrices end" tmp_end_dense_matrices) in
+	  let () = loginfo (Printf.sprintf "Populating BEM took %f seconds"
+			      (tmp_end_dense_matrices-. tmp_start_dense_matrices))
 	  in
-	  let get_dense_matrix name = 
+	  let get_dense_matrix name =
 	    let pos = array_position_if (fun ldms_spec -> ldms_spec.ldms_name=name)
 	      script.las_dense_matrices 0
 	    in
@@ -3044,15 +3062,15 @@ Thomas Fischbacher, 13.05.2008
 		 let matnullspace =
 		   match ksp_spec.lks_nullspace with
 		     | None -> None
-		     | Some (has_constant,subfields) -> 
+		     | Some (has_constant,subfields) ->
 			 let mwe = get_ksp_mwe_ri ksp_spec.lks_name in
 			 let vecs =
 			   mwe_matnullspace_vectors
-			     ~fun_make_vector:(fun ~nr_vec:n -> 
-						 ccpla.ccpla_vector_create 
+			     ~fun_make_vector:(fun ~nr_vec:n ->
+						 ccpla.ccpla_vector_create
 						   (Printf.sprintf "%s_vnullspace_%d" ksp_spec.lks_name n)
 						   mwe.mwe_distribution)
-				~fun_add_entry:(fun v n x -> 
+				~fun_add_entry:(fun v n x ->
 						  (* NOTE: this is awkwardly inefficient, but
 						     as we have to do a hash lookup for every vec
 						     entry we set. But we do not use much time here
@@ -3066,7 +3084,7 @@ Thomas Fischbacher, 13.05.2008
 			   Some (has_constant,vecs)
 		 in
 		 let ksp =
-		   ccpla.ccpla_ksp_create 
+		   ccpla.ccpla_ksp_create
 		     ~tolerances:(ksp_spec.lks_rtol,ksp_spec.lks_atol,ksp_spec.lks_dtol,ksp_spec.lks_maxits)
 		     ?initial_guess_nonzero:ksp_spec.lks_initial_guess_nonzero
 		     (* XXX Disabled, as symbolic ILU does not work for parallelized matrices:
@@ -3080,7 +3098,7 @@ Thomas Fischbacher, 13.05.2008
 		   ksp)
 	      script.las_ksps
 	  in
-	  let get_ksp name = 
+	  let get_ksp name =
 	    let pos = array_position_if (fun ksp_spec -> ksp_spec.lks_name=name)
 	      script.las_ksps 0
 	    in
@@ -3121,7 +3139,7 @@ Thomas Fischbacher, 13.05.2008
 		   swex)
 	      script.las_swexs
 	  in
-	  let get_swex name = 
+	  let get_swex name =
 	    let pos = array_position_if (fun swex_spec -> swex_spec.lss_name=name)
 	      script.las_swexs 0
 	    in
@@ -3130,7 +3148,7 @@ Thomas Fischbacher, 13.05.2008
 	  in
 	  let () = reportmem "par_swexs" in
 	  let the_jplans = [||] in (* old relic *)
-	  let get_jplan name = 
+	  let get_jplan name =
 	    let pos = array_position_if (fun jplan_spec -> jplan_spec.ljps_name=name)
 	      script.las_jplans 0
 	    in
@@ -3222,7 +3240,7 @@ Thomas Fischbacher, 13.05.2008
 		  let distributed_resources =
 		    Array.init nr_drh
 		      (fun n ->
-			 if n=0 then get_swex name_swex 
+			 if n=0 then get_swex name_swex
 			 else if n=1 then intensive_params
 			 else if n <= 1+Array.length names_fields then
 			   get_pvec names_fields.(n-2)
@@ -3236,7 +3254,7 @@ Thomas Fischbacher, 13.05.2008
 		    (* XXX OBSOLETED!
 		       | LC_psite_wise (name_swex,names_fields,names_cofields,params) ->
 		       let drh_fields = Array.map get_pvec names_fields
-		       and drh_cofields = Array.map get_pvec names_cofields 
+		       and drh_cofields = Array.map get_pvec names_cofields
 		       and swex = get_swex name_swex in
 		       let drh_args = array_join [|[|swex|];drh_fields;drh_cofields|] in
 		       [|Array.make nr_nodes
@@ -3244,7 +3262,7 @@ Thomas Fischbacher, 13.05.2008
 		       ((NSIM_OP_swex (Array.length drh_fields,params)),
 		       drh_args))|]
 		    *)
-	      | LC_gosub name_stem -> 
+	      | LC_gosub name_stem ->
 		  (* Note: this works even though we "fake" a DRH here because the DRH only serves to
 		     "hold on to" the distributed resource "script". This, however, also is done by
 		     the execute_on function of the lam, so as long as the LAM is around, we do not
@@ -3257,7 +3275,7 @@ Thomas Fischbacher, 13.05.2008
 		  |]
               | LC_callext fn ->
                   [|Array.make nr_nodes (DCOM_rec_master (fun () -> fn !time_in_rhs));|]
-	      | LC_debug_printvec_1cpu (title,name,max_len) -> 
+	      | LC_debug_printvec_1cpu (title,name,max_len) ->
 		  (* When executing in parallel, we do not print the vector data, as we would have
 		     to collect it first. We do, however, at least send out a message which debug
 		     statement we encountered.
@@ -3323,7 +3341,7 @@ Thomas Fischbacher, 13.05.2008
 	  let () = logdebug (Printf.sprintf "DDD make_linalg_machine #8") in
 	  let compiled_sequences =
 	    Array.mapi
-	      (fun nr_sequence (seq_raw_name,_,_,seq) -> 
+	      (fun nr_sequence (seq_raw_name,_,_,seq) ->
 		 let () = logdebug (Printf.sprintf "make_linalg_machine: compiling sequence '%s'" seq_raw_name) in
 		 let seq_name = Printf.sprintf "%s$commseq.%s" prefix seq_raw_name in
 		 let cseq =
@@ -3353,13 +3371,13 @@ Thomas Fischbacher, 13.05.2008
 		     (fun (name,_,_,_) -> lts.lts_name_seq_velocities=name)
 		     script.las_command_sequences 0
 		 in
-		 let () = 
+		 let () =
 		   (if nr_seq = (-1)
 		    then
 		      failwith
 			(Printf.sprintf "Unknown velocity command sequence '%s' (known: %s)"
 			   lts.lts_name_seq_velocities
-			   (string_array_to_string 
+			   (string_array_to_string
 			      (Array.map (fun (n,_,_,_) -> n) script.las_command_sequences)))
 		    else ())
 		 in
@@ -3370,14 +3388,14 @@ Thomas Fischbacher, 13.05.2008
 		   (fun (pfd_type,pfd_data) -> if pfd_type = "OPERATOR" then Some pfd_data else None)
 		   lts.lts_phys_field_derivs
 	       in
-	       let jacobi_op_drhs = 
+	       let jacobi_op_drhs =
 		 Array.map get_sparse_matrix jacobi_op_names
 	       in
 	       let () =
 		 Array.iter
 		   (fun drh -> ts_remember_drhs := drh :: !ts_remember_drhs) jacobi_op_drhs
-	       in  
-	       let jacobi_operators = 
+	       in
+	       let jacobi_operators =
 		 nsim_jacobi_operators_create ccpla
 		   (Printf.sprintf "%s$jops.%s" prefix lts.lts_name)
 		   jacobi_op_names jacobi_op_drhs
@@ -3414,7 +3432,7 @@ Thomas Fischbacher, 13.05.2008
 	    let nr_seq =
 	      array_position_if (fun (name,_,_,_) -> seq_name=name) script.las_command_sequences 0 in
 	    let this_cseq_arg_vectors=cseq_arg_vectors.(nr_seq) in
-	    let () = 
+	    let () =
 	      (if nr_seq = (-1)
 	       then failwith (Printf.sprintf "Unknown command sequence '%s'" seq_name)
 	       else ())
@@ -3446,10 +3464,10 @@ Thomas Fischbacher, 13.05.2008
 		      else if not is_field then failwith (Printf.sprintf "get_field: Not a field: '%s'" field_name)
 		      else ())
 	    in
-	      (if do_get 
-	       then ccpla.ccpla_vector_collect 
+	      (if do_get
+	       then ccpla.ccpla_vector_collect
 	       else ccpla.ccpla_vector_distribute)
-		~local_vectors:[|v_target|] 0 
+		~local_vectors:[|v_target|] 0
 		(let (v,_) = the_internal_buffers.(buf_ix) in v)
 	  in
 	  let fun_get_set_cofield do_get cofield_name (FEM_cofield (mwe_target,restr_target,v_target) as the_cofield) =
@@ -3460,10 +3478,10 @@ Thomas Fischbacher, 13.05.2008
 		      else if not is_field then failwith (Printf.sprintf "get_cofield: Not a cofield: '%s'" cofield_name)
 		      else ())
 	    in
-	      (if do_get 
-	       then ccpla.ccpla_vector_collect 
+	      (if do_get
+	       then ccpla.ccpla_vector_collect
 	       else ccpla.ccpla_vector_distribute)
-		~local_vectors:[|v_target|] 0 
+		~local_vectors:[|v_target|] 0
 		(let (v,_) = the_internal_buffers.(buf_ix) in v)
 	  in
 	  let master_iparams = ccpla.ccpla_iparams intensive_params in
@@ -3509,20 +3527,20 @@ Thomas Fischbacher, 13.05.2008
 		(DCOM_opcode ((NSIM_OP_advance_timestepper (exact_tstop, t_final, maxsteps)),[|drh_pts|]))
 	    in
 	    let () = Queue.push cmds !(ccpla.ccpla_queue) in
-	    let () = master_process_queue ccpla in 
+	    let () = master_process_queue ccpla in
 	      (* Bad hack: should not resolve distributed resource handle (drh) on master, 24 Jan 2008 *)
 	    let (DRH pts_name) = drh_pts in
 	    let DRES_opdata ((NSIM_RES_timestepper pts),_) = Ccpla.ccpla_get_resource ccpla pts_name in
-	      pts.pts_time_reached 
+	      pts.pts_time_reached
 	  in
 	  let fun_timestepper_get_cvode name =
 	    let drh_pts = get_timestepper name in
 	      (* Bad hack: should not resolve distributed resource handle (drh) on master, 24 Jan 2008 *)
 	    let (DRH pts_name) = drh_pts in
 	    let DRES_opdata ((NSIM_RES_timestepper pts),_) = Ccpla.ccpla_get_resource ccpla pts_name in
-	      match !(pts.pts_cvode) with 
+	      match !(pts.pts_cvode) with
 		| None -> failwith "time stepper was not initialised yet"
-		| Some cvode -> cvode 
+		| Some cvode -> cvode
 	  in
 	  let fun_timestepper_timings name cmd =
 	    let drh_pts = get_timestepper name in

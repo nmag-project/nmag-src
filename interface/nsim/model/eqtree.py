@@ -283,8 +283,8 @@ class AssignmentNode(Node):
     def _collect_quantities(self, inputs, outputs, parsing):
         assert parsing == 'root'
         assert len(self.children) == 2
-        self.children[0]._collect_quantities(inputs, outputs, 'inputs')
-        self.children[1]._collect_quantities(inputs, outputs, 'outputs')
+        self.children[0]._collect_quantities(inputs, outputs, 'outputs')
+        self.children[1]._collect_quantities(inputs, outputs, 'inputs')
 
 class AssignmentsNode(Node):
     node_type = "Assignments"

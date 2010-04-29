@@ -10,7 +10,7 @@
    about one single point of execution (= on the master). This is much more
    natural, in particular in conjunction with interactive scripting.
 
-   ocamlc -I ../snippets/ -I ../mpi_petsc -i ccpla.ml 
+   ocamlc -I ../snippets/ -I ../mpi_petsc -i ccpla.ml
 
    make mrproper libuninstall libinstall; cd ../ccpla/;make mrproper top
 
@@ -30,7 +30,7 @@
 (* pla = parallelized linear algebra *)
 
 (* Note: we must work with a parallel-linalg-command-queue buffer.
-   
+
    Command sequences are entered into this queue buffer and issued ONLY from there.
 
    Rationale: suppose master is working on execution of a sequence,
@@ -42,7 +42,7 @@
    employ a queue, as they do not have to deal with similar
    out-of-band async issues(?)
 
-   Note: we also get async issues with slave->master back-communication. 
+   Note: we also get async issues with slave->master back-communication.
    I suppose we should just use a different communicator for that then(?)
 
    Note: the design decision to use a global reference to store the pla_context
@@ -84,21 +84,21 @@ type drh = distributed_resource_handle;; (* only here, for abbreviation *)
 (* Note ad DRHs: Distributed commands will contain DRHs to refer to
    entities, so that a registered distributed script on the master will
    hold on to the relevant objects (matrices, vectors) through the DRHs
-   in the script. When this is transferred to the slaves, we make use 
+   in the script. When this is transferred to the slaves, we make use
    of the property that finalizers are not serialized - so on the slaves,
    we do not encounter any DRHs with finalizer magic associated to them...
 *)
 
 type ('opcode_type,'opdata_type) distributed_resource =
-      DRES_petsc_vector of 
+      DRES_petsc_vector of
 	string * (  Nsimconf.c_int_bigarray1 (* lengths *)
 		  * Nsimconf.c_int_bigarray1 (* offsets *))
 	* Mpi_petsc.vector
 	(* arrays tell us node-local sizes and offsets,
 	   which is essential to know for scattering/gathering data!
 	*)
-    | DRES_petsc_vector_multiseq of string * Mpi_petsc.vector 
-	(* A "multi-sequential" vector is a vector where every node has a full copy 
+    | DRES_petsc_vector_multiseq of string * Mpi_petsc.vector
+	(* A "multi-sequential" vector is a vector where every node has a full copy
 	   of all the data. We employ these e.g. for rebuilding the Jacobi matrices,
 	   and later on as well for operator middle fields.
 	*)
@@ -125,7 +125,7 @@ and ('opcode_type,'opdata_type) distributed_command =
 	(* NOTE: the two opcodes above have the problem that they have to refer to
 	   the master vector through an implicit index number.
 	   This may be awkward in some situations.
-	   
+
 	   So, we try a new design, which may eventually supersede the old one:
 	   (At present, we employ it for setting up the Jacobian.)
 
@@ -267,7 +267,7 @@ let dres_type res =
 
 let dres_get_vector res =
   match res with
-    | DRES_petsc_vector (_,_,v) -> v  
+    | DRES_petsc_vector (_,_,v) -> v
     | other_res ->
 	let failstring = "Expected a petsc_vector, got a "^(dres_type other_res) in
 	failwith failstring
@@ -284,7 +284,7 @@ let dres_get_vector_lengths_offsets res =
 
 let dres_get_vector_multiseq res =
   match res with
-    | DRES_petsc_vector_multiseq (_,vms) -> vms  
+    | DRES_petsc_vector_multiseq (_,vms) -> vms
     | other_res ->
 	let failstring = "Expected a petsc_vector_multiseq, got a "^(dres_type other_res) in
 	failwith failstring
@@ -303,7 +303,7 @@ let dres_get_matrix res =
 
 let dres_get_ksp res =
   match res with
-    | DRES_petsc_ksp (_,ksp) -> ksp  
+    | DRES_petsc_ksp (_,ksp) -> ksp
     | other_res ->
 	let failstring = "Expected a petsc_ksp, got a "^(dres_type other_res) in
 	failwith failstring
@@ -311,7 +311,7 @@ let dres_get_ksp res =
 
 let dres_get_matnullspace res =
   match res with
-    | DRES_petsc_matnullspace (_,mns) -> mns  
+    | DRES_petsc_matnullspace (_,mns) -> mns
     | other_res ->
 	let failstring = "Expected a petsc_matnullspace, got a "^(dres_type other_res) in
 	failwith failstring
@@ -319,7 +319,7 @@ let dres_get_matnullspace res =
 
 let dres_get_parameters res =
   match res with
-    | DRES_parameters (_,prs) -> prs  
+    | DRES_parameters (_,prs) -> prs
     | other_res ->
 	let failstring = "Expected parameters, got a "^(dres_type other_res) in
 	failwith failstring
@@ -327,7 +327,7 @@ let dres_get_parameters res =
 
 let dres_get_sequence res =
   match res with
-    | DRES_sequence (_,seq) -> seq  
+    | DRES_sequence (_,seq) -> seq
     | other_res ->
 	let failstring = "Expected a sequence, got a "^(dres_type other_res) in
 	failwith failstring
@@ -335,7 +335,7 @@ let dres_get_sequence res =
 
 let dres_get_opdata res =
   match res with
-    | DRES_opdata (od,_) -> od  
+    | DRES_opdata (od,_) -> od
     | other_res ->
 	let failstring = "Expected an opdata, got a "^(dres_type other_res) in
 	failwith failstring
@@ -373,9 +373,9 @@ type ('opcode_type,'opdata_type) ccpla =
 	string -> ('opcode_type,'opdata_type) distributed_command array array -> distributed_resource_handle;
       mutable ccpla_sequence_execute:
 	?local_vectors:Mpi_petsc.vector array -> distributed_resource_handle -> unit;
-      mutable ccpla_vector_create: 
+      mutable ccpla_vector_create:
 	string -> int array -> distributed_resource_handle;
-      mutable ccpla_vector_create_multiseq: 
+      mutable ccpla_vector_create_multiseq:
 	string -> int -> distributed_resource_handle;
       mutable ccpla_vector_distribute:
 	?local_vectors:Mpi_petsc.vector array -> int -> distributed_resource_handle -> unit;
@@ -418,22 +418,22 @@ type ('opcode_type,'opdata_type) ccpla =
 	?do_register_new_finalizer:bool -> drh -> drh -> drh -> unit;
       mutable ccpla_ksp_manipulate_tolerances:
 	drh -> ( (float*float*float*int)-> (float*float*float*int) ) -> unit;
-      
+
     }
 ;;
 
 let mpi_get_distributed_command ccpla =
   let myrank = Mpi_petsc.comm_rank ccpla.ccpla_comm in
-  let (len,recv) = 
-    let () = 
+  let (len,recv) =
+    let () =
       (if debug_mpi_buffer_lengths
        then Printf.fprintf stderr "[Node=%d] CCPLA getting command next!\n%!" myrank
        else ())
     in
-    try Mpi_petsc.receive_reporting_length 0 Mpi_petsc.any_tag ccpla.ccpla_comm 
+    try Mpi_petsc.receive_reporting_length 0 Mpi_petsc.any_tag ccpla.ccpla_comm
       (* Note: 0 = source; this will use Mpi_petsc.receive_basic(), using probe() to determine lengths. *)
     with
-      | _ -> 
+      | _ ->
 	  let () = Printf.printf "XXX PROBLEM: Mpi_petsc.receive() failed - issuing DCOM_QUIT!\n%!" in
 	    (0,DCOM_QUIT)
   in
@@ -504,7 +504,7 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
               ccpla.ccpla_queue := Queue.create ();
               f ();
               (* tell the slave nodes to quit recursion *)
-              for i = 1 to nr_nodes-1 do 
+              for i = 1 to nr_nodes-1 do
                 ignore(Mpi_petsc.send_reporting_length DCOM_rec_quit i 0 comm)
               done;
               ccpla.ccpla_queue := saved_queue;
@@ -515,7 +515,7 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
       | DCOM_rec_quit ->
           if myrank == 0
           then ()
-          else 
+          else
             raise Ccpla_DCOM_rec_quit
             (* ^^^ This seems a good way to exit the recursion, since it will
                    cause the program termination if the program wasn't trying
@@ -536,7 +536,7 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 			    We have to, as this is collective.
 			 *)
 		     | DRES_petsc_vector_multiseq (_,v) -> Mpi_petsc.vec_destroy v
-		     | DRES_petsc_matrix (_,r_om) -> 
+		     | DRES_petsc_matrix (_,r_om) ->
 			 (match !r_om with | None -> () | Some m -> Mpi_petsc.mat_destroy m)
 		     | DRES_petsc_ksp (_,ksp) -> Mpi_petsc.ksp_destroy ksp
 		     | DRES_petsc_matnullspace (_,mns) -> Mpi_petsc.matnullspace_destroy mns
@@ -549,7 +549,7 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	       with (* Destroying something nonexistent should not be considered a problem.
 		       During development, we nevertheless warn about it.
 		    *)
-		 | Not_found -> 
+		 | Not_found ->
 		     let () = !rccpla_logdebug (Printf.sprintf "Note: Destroying non-existent resource '%s'\n" name) in
 		       ()
 	    )
@@ -592,7 +592,7 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	    (* XXX There is an issue with communicators here. Actually/presumably,
 	       we should rather have one petsc-related subcommunicator of PETSC_COMM_WORLD
 	       for our program, and another subcommunicator of that (or of MPI_COMM_WORLD)
-	       for distributing our commands...(?) 
+	       for distributing our commands...(?)
 	       XXX In any case, we should have a communicator argument to vector_create_mpi!
 	    *)
 	  let () = !rccpla_logdebug (Printf.sprintf "[Node %d]DDD vector_create_mpi succeeded!\n" myrank) in
@@ -619,7 +619,7 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	      | "mpidense" -> (None,0)
 	      | _ -> (Some 75,45)
 	  in
-	  let mat = 
+	  let mat =
 	    Mpi_petsc.matrix_create
 	      ~communicator:(Mpi_petsc.petsc_get_comm_world())
 	      ~local_rows:local_sizes_left.(myrank)
@@ -651,8 +651,8 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 		     ()
 	       | _ -> failwith "DCOM_mat_duplicate: non-matrix distributed resource!")
       | DCOM_mat_copy (DRH name_src,DRH name_dst,same_nonzero_pattern) ->
-	  let src = get_resource name_src 
-	  and dst = get_resource name_dst 
+	  let src = get_resource name_src
+	  and dst = get_resource name_dst
 	  in
 	    (match (src,dst) with
 	       | (DRES_petsc_matrix (_,r_o_mx_src),
@@ -727,7 +727,7 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	  in
 	  let mns = Mpi_petsc.matnullspace_create
 	    ~communicator:(Mpi_petsc.petsc_get_comm_world())
-	    ~name 
+	    ~name
 	    ~has_constant vecs
 	  in
 	  let () =
@@ -834,7 +834,7 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	  let DRES_petsc_vector (_,_,vec) = get_resource name in
 	    if s=0.0 then
 	      Mpi_petsc.vector_zero vec
-	    else 
+	    else
 	      Mpi_petsc.vector_scale vec s
       | DCOM_vec_pointwise (DRH name,f) ->
 	  (match get_resource name with
@@ -846,9 +846,9 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 			for i=0 to my_len-1 do
 			  ba.{i} <- f (my_offset+i) ba.{i};
 			done)
-		     
+
 	     | DRES_petsc_vector_multiseq (_,vec) ->
-		 Mpi_petsc.with_petsc_vector_as_bigarray vec 
+		 Mpi_petsc.with_petsc_vector_as_bigarray vec
 		   (fun ba ->
 		      let dim = Bigarray.Array1.dim ba in
 			for i=0 to dim-1 do
@@ -951,17 +951,17 @@ and slave_mode ccpla =
 let master_process_queue ?(local_vectors=[||]) ccpla =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
   let myrank = Mpi_petsc.comm_rank ccpla.ccpla_comm in
-  try 
+  try
     let rec work () =
       let next_cmds = Queue.take !(ccpla.ccpla_queue) in
       let nr_cmds = Array.length next_cmds in
-        (*let () = Printf.printf "DDD master_process_queue() sending %d commands\n%!" nr_cmds in *)
-        (*let () = Printf.printf "---%s---\n%!" (opcode_tostring next_cmds.(0))
-         * in*)
+        let () = Printf.printf "DDD master_process_queue() sending %d commands\n%!" nr_cmds in
+        let () = Printf.printf "---%s---\n%!" (opcode_tostring next_cmds.(0))
+        in
         (*let _ = read_line () in*)
 	begin
 	  for i=1 to nr_cmds-1 do
-	    (* Note: at present this is quite primitive - we do not scatter.  
+	    (* Note: at present this is quite primitive - we do not scatter.
 	       Will have ample opportunity for refinement of the concept later on.
 	    *)
 	    match next_cmds.(i) with
@@ -984,52 +984,52 @@ let master_process_queue ?(local_vectors=[||]) ccpla =
       work ()
   with | Queue.Empty -> ()
 ;;
-	
+
 (* master functions -- XXX NOTE TODO: these should take an extra optarg
    after the ccpla: ?(proecess_queue_immediately=true)
  *)
-let ccpla_vector_create ccpla name node_dimensions = 
+let ccpla_vector_create ccpla name node_dimensions =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_create = 
+  let cmds_create =
     Array.make nr_nodes (DCOM_vec_create (name,node_dimensions)) in
-  let cmds_assembly_begin = 
+  let cmds_assembly_begin =
     Array.make nr_nodes (DCOM_vec_assembly_begin (DRH name)) in
-  let cmds_assembly_end = 
+  let cmds_assembly_end =
     Array.make nr_nodes (DCOM_vec_assembly_end (DRH name)) in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let () = Queue.push cmds_assembly_begin !(ccpla.ccpla_queue) in
   let () = Queue.push cmds_assembly_end !(ccpla.ccpla_queue) in
   let the_vector = DRH name in
   let () = !rccpla_logdebug (Printf.sprintf "DDD DRES vec: create finalizer for '%s'\n" name) in
-  let () = Gc.finalise 
+  let () = Gc.finalise
     (fun drh ->
        let () = !rccpla_logdebug (Printf.sprintf "DDD DRES vec: parfinalize '%s'\n" name) in
        let () = ccpla.ccpla_pending_finalizations <- name::ccpla.ccpla_pending_finalizations
        in ()) the_vector
-  in 
+  in
   let () = master_process_queue ccpla in
     the_vector
 ;;
 
-let ccpla_vector_create_multiseq ccpla name dim = 
+let ccpla_vector_create_multiseq ccpla name dim =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_create = 
+  let cmds_create =
     Array.make nr_nodes (DCOM_vec_create_multiseq (name,dim)) in
-  let cmds_assembly_begin = 
+  let cmds_assembly_begin =
     Array.make nr_nodes (DCOM_vec_assembly_begin (DRH name)) in
-  let cmds_assembly_end = 
+  let cmds_assembly_end =
     Array.make nr_nodes (DCOM_vec_assembly_end (DRH name)) in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let () = Queue.push cmds_assembly_begin !(ccpla.ccpla_queue) in
   let () = Queue.push cmds_assembly_end !(ccpla.ccpla_queue) in
   let the_vector = DRH name in
   let () = !rccpla_logdebug (Printf.sprintf "DDD DRES vec_multiseq: create finalizer for '%s'\n" name) in
-  let () = Gc.finalise 
+  let () = Gc.finalise
     (fun drh ->
        let () = !rccpla_logdebug (Printf.sprintf "DDD DRES vec_multiseq: parfinalize '%s'\n" name) in
        let () = ccpla.ccpla_pending_finalizations <- name::ccpla.ccpla_pending_finalizations
        in ()) the_vector
-  in 
+  in
   let () = master_process_queue ccpla in
     the_vector
 ;;
@@ -1075,60 +1075,60 @@ let ccpla_vector_collect ccpla ?(local_vectors=[||]) nr_master_vector ((DRH slav
     ()
 ;;
 
-let ccpla_matrix_create ccpla name mtype node_dimensions_left node_dimensions_right = 
+let ccpla_matrix_create ccpla name mtype node_dimensions_left node_dimensions_right =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_create = 
+  let cmds_create =
     Array.make nr_nodes (DCOM_mat_create (name,mtype,node_dimensions_left,node_dimensions_right)) in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
     (*
-      let cmds_assembly_begin = 
+      let cmds_assembly_begin =
       Array.make nr_nodes (DCOM_mat_assembly_begin name) in
-      let cmds_assembly_end = 
+      let cmds_assembly_end =
       Array.make nr_nodes (DCOM_mat_assembly_begin name) in
       let () = Queue.push cmds_assembly_begin !(ccpla.ccpla_queue) in
       let () = Queue.push cmds_assembly_end !(ccpla.ccpla_queue) in
     *)
   let the_matrix = DRH name in
   let () = !rccpla_logdebug (Printf.sprintf "DDD DRES mat: create finalizer for '%s'\n" name) in
-  let () = Gc.finalise 
+  let () = Gc.finalise
     (fun drh ->
        let () = !rccpla_logdebug (Printf.sprintf "DDD DRES mat: parfinalize '%s'\n" name) in
        let () = ccpla.ccpla_pending_finalizations <- name::ccpla.ccpla_pending_finalizations
        in ()) the_matrix
-  in 
+  in
   let () = master_process_queue ccpla in
     the_matrix
 ;;
 
-let ccpla_matrix_duplicate ccpla drh_src name_new copy_values = 
+let ccpla_matrix_duplicate ccpla drh_src name_new copy_values =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_create = 
+  let cmds_create =
     Array.make nr_nodes (DCOM_mat_duplicate (drh_src,name_new,copy_values)) in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let the_matrix = DRH name_new in
   let () = !rccpla_logdebug (Printf.sprintf "DDD DRES mat: create finalizer for '%s'\n" name_new) in
-  let () = Gc.finalise 
+  let () = Gc.finalise
     (fun drh ->
        let () = !rccpla_logdebug (Printf.sprintf "DDD DRES mat: parfinalize '%s'\n" name_new) in
        let () = ccpla.ccpla_pending_finalizations <- name_new::ccpla.ccpla_pending_finalizations
        in ()) the_matrix
-  in 
+  in
   let () = master_process_queue ccpla in
     the_matrix
 ;;
 
-let ccpla_matrix_copy ccpla drh_src drh_dst same_nonzero_pattern = 
+let ccpla_matrix_copy ccpla drh_src drh_dst same_nonzero_pattern =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_create = 
+  let cmds_create =
     Array.make nr_nodes (DCOM_mat_copy (drh_src,drh_dst,same_nonzero_pattern)) in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let () = master_process_queue ccpla in
     ()
 ;;
 
-let ccpla_matrix_scale_and_add_identity ccpla drh_mx scale id_coeff = 
+let ccpla_matrix_scale_and_add_identity ccpla drh_mx scale id_coeff =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_create = 
+  let cmds_create =
     Array.make nr_nodes (DCOM_mat_scale_and_add_identity (drh_mx,scale,id_coeff)) in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let () = master_process_queue ccpla in
@@ -1137,7 +1137,7 @@ let ccpla_matrix_scale_and_add_identity ccpla drh_mx scale id_coeff =
 
 let ccpla_matrix_times_vector ccpla drh_mx drh_src drh_dst =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_create = 
+  let cmds_create =
     Array.make nr_nodes (DCOM_mx_x_vec (drh_mx,drh_src,drh_dst)) in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let () = master_process_queue ccpla in
@@ -1146,18 +1146,18 @@ let ccpla_matrix_times_vector ccpla drh_mx drh_src drh_dst =
 
 let ccpla_ksp_solve ccpla drh_ksp drh_v_in drh_v_sol =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_create = 
+  let cmds_create =
     Array.make nr_nodes (DCOM_ksp_solve (drh_ksp,drh_v_in,drh_v_sol)) in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let () = master_process_queue ccpla in
     ()
 ;;
 
-let ccpla_matrix_assemble ccpla ?(final=true) drh_mx = 
+let ccpla_matrix_assemble ccpla ?(final=true) drh_mx =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_assembly_begin = 
+  let cmds_assembly_begin =
     Array.make nr_nodes (DCOM_mat_assembly_begin (drh_mx,final)) in
-  let cmds_assembly_end = 
+  let cmds_assembly_end =
     Array.make nr_nodes (DCOM_mat_assembly_end (drh_mx,final)) in
   let () = Queue.push cmds_assembly_begin !(ccpla.ccpla_queue) in
   let () = Queue.push cmds_assembly_end !(ccpla.ccpla_queue) in
@@ -1165,11 +1165,11 @@ let ccpla_matrix_assemble ccpla ?(final=true) drh_mx =
     ()
 ;;
 
-let ccpla_vector_assemble ccpla drh_v = 
+let ccpla_vector_assemble ccpla drh_v =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_assembly_begin = 
+  let cmds_assembly_begin =
     Array.make nr_nodes (DCOM_vec_assembly_begin drh_v) in
-  let cmds_assembly_end = 
+  let cmds_assembly_end =
     Array.make nr_nodes (DCOM_vec_assembly_end drh_v) in
   let () = Queue.push cmds_assembly_begin !(ccpla.ccpla_queue) in
   let () = Queue.push cmds_assembly_end !(ccpla.ccpla_queue) in
@@ -1177,28 +1177,28 @@ let ccpla_vector_assemble ccpla drh_v =
     ()
 ;;
 
-let ccpla_petsc_matrix ccpla (DRH name) = 
+let ccpla_petsc_matrix ccpla (DRH name) =
   let mx = dres_get_matrix (ccpla_get_resource ccpla name) in
     mx
 ;;
 
-let ccpla_petsc_vector ccpla (DRH name) = 
+let ccpla_petsc_vector ccpla (DRH name) =
   let DRES_petsc_vector (_,_,v) = ccpla_get_resource ccpla name in
     v
 ;;
 
-let ccpla_petsc_ksp ccpla (DRH name) = 
+let ccpla_petsc_ksp ccpla (DRH name) =
   let DRES_petsc_ksp (_,ksp) = ccpla_get_resource ccpla name in
     ksp
 ;;
 
 
-let ccpla_iparams ccpla (DRH name) = 
+let ccpla_iparams ccpla (DRH name) =
   let DRES_parameters (names,vals) = ccpla_get_resource ccpla name in
     (names,vals)
 ;;
 
-let ccpla_petsc_multiseq_vector ccpla (DRH name) = 
+let ccpla_petsc_multiseq_vector ccpla (DRH name) =
   let () = !rccpla_logdebug (Printf.sprintf "DDD ccpla_petsc_multiseq_vector name='%s'\n" name) in
   let DRES_petsc_vector_multiseq (_,v) = ccpla_get_resource ccpla name in
     v
@@ -1210,12 +1210,12 @@ let ccpla_ksp_create
     ?(matrix_structure=Mpi_petsc.DIFFERENT_NONZERO_PATTERN)
     ?tolerances
     ?initial_guess_nonzero
-    ?ksp_type 
+    ?ksp_type
     ?pc_type
     ?pc_subtype
     ?matnullspace
     drh_m1 drh_m2
-    = 
+    =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
   let push_parallel cmd =
     Queue.push (Array.make nr_nodes cmd) !(ccpla.ccpla_queue)
@@ -1259,9 +1259,9 @@ let ccpla_ksp_create
 
 	   How do we deal with the issue that a matrix DRH goes out
 	   of scope while the KSP DRH that uses this matrix still exists?
-	   
+
 	   If we were to just "let things happen", then a matrix DRH going
-	   out of scope would induce calling MatDestroy() on the matrix - 
+	   out of scope would induce calling MatDestroy() on the matrix -
 	   which would be fatal to the KSP. So, how to approach this?
 
 	   One trick that "almost" should do the job is to hide a matrix DRH
@@ -1279,7 +1279,7 @@ let ccpla_ksp_create
 		begin
 		  push_parallel (DCOM_matnullspace_create (mns_name,has_constant,vecs));
 		  let the_mns = DRH mns_name in
-		  let () = Gc.finalise 
+		  let () = Gc.finalise
 		    (fun drh ->
 		       let () = !rccpla_logdebug (Printf.sprintf "DDD DRES matnullspace: parfinalize '%s'\n" mns_name) in
 		       let tricky_gc_refs = vecs in
@@ -1290,20 +1290,20 @@ let ccpla_ksp_create
 		end
       in
       let () = !rccpla_logdebug (Printf.sprintf "DDD DRES ksp: create finalizer for '%s'\n" name) in
-      let () = Gc.finalise 
+      let () = Gc.finalise
 	(fun drh ->
 	   let () = !rccpla_logdebug (Printf.sprintf "DDD DRES ksp: parfinalize '%s'\n" name) in
 	   let tricky_gc_refs = [|drh_m1;drh_m2|] in
 	   let () = (if Array.length tricky_gc_refs <> 2 then Printf.printf "Boo!" else ()) in
 	   let () = ccpla.ccpla_pending_finalizations <- name::ccpla.ccpla_pending_finalizations
 	   in ()) the_ksp
-      in 
+      in
       let () = master_process_queue ccpla in
 	the_ksp
     end
 ;;
 
-let ccpla_ksp_set_up ccpla drh_ksp = 
+let ccpla_ksp_set_up ccpla drh_ksp =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
   let push_parallel cmd =
     Queue.push (Array.make nr_nodes cmd) !(ccpla.ccpla_queue)
@@ -1315,10 +1315,10 @@ let ccpla_ksp_set_up ccpla drh_ksp =
 ;;
 
 let ccpla_ksp_set_operators
-    ccpla 
+    ccpla
     ?(do_register_new_finalizer=true)
     drh_ksp drh_mx drh_precond
-    = 
+    =
   (* XXX How does this work with Garbage Collection?
      After all, when we replace the matrix operators, we must ensure
      KSP garbage collection no longer holds on to the old matrices,
@@ -1338,11 +1338,11 @@ let ccpla_ksp_set_operators
     begin
       push_parallel (DCOM_ksp_set_operators (drh_ksp,drh_mx,drh_precond));
       master_process_queue ccpla;
-      (if do_register_new_finalizer 
+      (if do_register_new_finalizer
        then
 	 let () = !rccpla_logdebug (Printf.sprintf "DDD DRES ksp: add finalizer for '%s'\n" name) in
 	   Gc.finalise
-	     (fun drh -> 
+	     (fun drh ->
 		let () = !rccpla_logdebug (Printf.sprintf "DDD DRES ksp: parfinalize '%s'\n" name) in
 		let tricky_gc_refs = [|drh_mx;drh_precond|] in
 		let () = (if Array.length tricky_gc_refs <> 2 then Printf.printf "Boo!" else ()) in
@@ -1354,27 +1354,27 @@ let ccpla_ksp_set_operators
 
 let ccpla_register_params ccpla name param_names param_vals =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_create = 
+  let cmds_create =
     Array.make nr_nodes
       (DCOM_register_parameters(name,param_names,param_vals))
   in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let the_params = DRH name in
   let () = !rccpla_logdebug (Printf.sprintf "DDD DRES params: create finalizer for '%s'\n" name) in
-  let () = Gc.finalise 
+  let () = Gc.finalise
     (fun drh ->
        let () = !rccpla_logdebug (Printf.sprintf "DDD DRES params: parfinalize '%s'\n" name) in
        let () = ccpla.ccpla_pending_finalizations <-
 	 name::ccpla.ccpla_pending_finalizations
        in ()) the_params
-  in 
+  in
   let () = master_process_queue ccpla in
     the_params
 ;;
 
 let ccpla_manipulate_params ccpla params f =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_manip = 
+  let cmds_manip =
     Array.make nr_nodes
       (DCOM_manipulate_parameters(params,f))
   in
@@ -1383,9 +1383,9 @@ let ccpla_manipulate_params ccpla params f =
     ()
 ;;
 
-let ccpla_sequence_create ccpla name misd_commands = 
+let ccpla_sequence_create ccpla name misd_commands =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_create = 
+  let cmds_create =
     Array.init nr_nodes
       (fun nr_node ->
 	 let node_commands =
@@ -1416,18 +1416,18 @@ let ccpla_sequence_create ccpla name misd_commands =
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
   let the_seq = DRH name in
   let () = !rccpla_logdebug (Printf.sprintf "DDD DRES seq: create finalizer for '%s'\n" name) in
-  let () = Gc.finalise 
+  let () = Gc.finalise
     (fun drh ->
        let () = !rccpla_logdebug (Printf.sprintf "DDD DRES seq: parfinalize '%s'\n" name) in
        let () = ccpla.ccpla_pending_finalizations <-
 	 name::ccpla.ccpla_pending_finalizations
        in ()) the_seq
-  in 
+  in
   let () = master_process_queue ccpla in
     the_seq
 ;;
 
-let ccpla_sequence_execute ccpla ?(local_vectors=[||]) drh_sequence = 
+let ccpla_sequence_execute ccpla ?(local_vectors=[||]) drh_sequence =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
   let cmds_exec = (* XXX can we get rid of that consing? *)
     Array.make nr_nodes (DCOM_execute_sequence drh_sequence)
@@ -1438,7 +1438,7 @@ let ccpla_sequence_execute ccpla ?(local_vectors=[||]) drh_sequence =
 
 let ccpla_ksp_manipulate_tolerances ccpla drh_ksp f =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
-  let cmds_manip = 
+  let cmds_manip =
     Array.make nr_nodes
       (DCOM_ksp_manipulate_tolerances(drh_ksp,f))
   in
@@ -1448,7 +1448,7 @@ let ccpla_ksp_manipulate_tolerances ccpla drh_ksp f =
 ;;
 
 (* Tricky issue:
-   
+
    * Whenever master loses a resource, this has to be entered in a finalization list.
      From this list, we generate and distribute parallel destruction commands,
      in sync with parallel command execution.
@@ -1465,11 +1465,11 @@ let ccpla_ksp_manipulate_tolerances ccpla drh_ksp f =
    and destroyed at the end!
 *)
 
-let _master_set_finalization_alarm ccpla = 
+let _master_set_finalization_alarm ccpla =
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
   let fun_destroy_resources () =
     let to_destroy = ccpla.ccpla_pending_finalizations in
-      (* XXX GLITCH: NO RESOURCE-HANDLE-DELETING GC MUST HAPPEN BETWEEN THE CODE 
+      (* XXX GLITCH: NO RESOURCE-HANDLE-DELETING GC MUST HAPPEN BETWEEN THE CODE
 	 LINES ABOVE AND BELOW!
       *)
     let () = ccpla.ccpla_pending_finalizations <- [] in
@@ -1549,11 +1549,11 @@ let setup ?(petsc_argv=[||]) mpi_argv opcode_interpreter fun_quit =
     }
   in
     begin
-      ccpla.ccpla_opcode_interpreter <- opcode_interpreter ccpla;  
-      ccpla.ccpla_register_params <- ccpla_register_params ccpla;  
+      ccpla.ccpla_opcode_interpreter <- opcode_interpreter ccpla;
+      ccpla.ccpla_register_params <- ccpla_register_params ccpla;
       ccpla.ccpla_manipulate_params <- ccpla_manipulate_params ccpla;
-      ccpla.ccpla_sequence_create <- ccpla_sequence_create ccpla;      
-      ccpla.ccpla_sequence_execute <- ccpla_sequence_execute ccpla;      
+      ccpla.ccpla_sequence_create <- ccpla_sequence_create ccpla;
+      ccpla.ccpla_sequence_execute <- ccpla_sequence_execute ccpla;
       ccpla.ccpla_vector_create <- ccpla_vector_create ccpla;
       ccpla.ccpla_vector_create_multiseq <- ccpla_vector_create_multiseq ccpla;
       ccpla.ccpla_vector_distribute <- ccpla_vector_distribute ccpla;
@@ -1597,7 +1597,7 @@ let setup ?(petsc_argv=[||]) mpi_argv opcode_interpreter fun_quit =
 
 
 let do_test ccpla =
-  let mysleep n = () (* Unix.sleep n *) in 
+  let mysleep n = () (* Unix.sleep n *) in
   let describe_vector s =
     let DRES_petsc_vector (_,_,v) = Hashtbl.find ccpla.ccpla_resources s in
     let _ = Mpi_petsc.vec_describe v in
@@ -1613,7 +1613,7 @@ let do_test ccpla =
       let vseq_master_back = Mpi_petsc.vector_pack (Array.make 240 0.0) in
       let local_vectors=[|vseq_master;vseq_master_back|] in
       let () = Printf.printf "[Node %d]DDD Step 1\n%!" myrank in let () = mysleep 3 in
-      let () = 
+      let () =
 	Mpi_petsc.with_petsc_vector_as_bigarray vseq_master
 	  (fun ba_m ->
 	     for i=0 to 240-1 do
@@ -1667,7 +1667,7 @@ let do_test2 ccpla =
   let v_data_ser = Mpi_petsc.vector_pack (Array.make len_total 0.0) in
   let v_solution_ser = Mpi_petsc.vector_pack (Array.make len_total 0.0) in
   let local_vectors=[|v_data_ser;v_solution_ser|] in
-  let () = 
+  let () =
     Mpi_petsc.with_petsc_vector_as_bigarray v_data_ser
       (fun ba_v ->
 	 for i=0 to len_total-1 do
@@ -1766,7 +1766,7 @@ let _ = do_test2 ccpla in
 
 (* Status: we can run the toplevel with:
 
-   mpirun -np 6 ccpla.top 
+   mpirun -np 6 ccpla.top
 
    Everything then works in a neat and tidy fashion. Nice.
 *)

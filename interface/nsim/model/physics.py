@@ -22,6 +22,7 @@ from nsim import linalg_machine as nlam
 
 from computation import Computations, SimplifyContext
 from quantity import Quantities
+from timestepper import Timesteppers
 
 __all__ = ['Model']
 
@@ -83,6 +84,7 @@ class Model:
         # Things that get constructed when the object is "used"
         self.computations = Computations()
         self.quantities = Quantities()
+        self.timesteppers = Timesteppers()
 
         self.intensive_params = []
 
@@ -104,8 +106,12 @@ class Model:
         return self.quantities.add(quant)
 
     def add_computation(self, c):
-        """Add the a computation (Computation object) to the model."""
+        """Add the computation (Computation object) to the model."""
         return self.computations.add(c)
+
+    def add_timestepper(self, ts):
+        """Add the timestepper (Timestepper object) to the model."""
+        return self.timesteppers.add(ts)
 
     def _build_elems_on_material(self, name, shape):
         # Build the 'all_materials' dictionary which maps a material name to
@@ -202,6 +208,36 @@ class Model:
         self.mwes[name] = mwe
         return mwe
 
+    def _build_dependency_tree(self):
+        # Determine dependencies and involved quantities
+        q_dependencies = {}
+        involved_qs = {}
+        for computation in self.computations._all:
+            inputs, outputs = computation.inputs_and_outputs
+            print inputs, outputs
+            raw_input()
+            for o in outputs:
+                q_dependencies[o] = inputs
+            for q_name in inputs + outputs:
+                if not involved_qs.has_key(q_name):
+                    involved_qs[q_name] = None
+
+        # Determine primary quantities
+        intermediate_qs = []
+        primary_qs = []
+        for q_name in involved_qs:
+            if q_dependencies.has_key(q_name):
+                intermediate_qs.append(q_name)
+            else:
+                primary_qs.append(q_name)
+
+        for pq_name in primary_qs:
+            print "PRIMARY: %s" % pq_name
+
+        for iq_name in intermediate_qs:
+            print "DERIVED: %s; DEPEND ON: %s" \
+             % (iq_name, ", ".join(q_dependencies[iq_name]))
+
     def _build_operators(self):
         return {}
 
@@ -241,6 +277,7 @@ class Model:
         programs = {}
         timesteppers = {}
         debugfile = None
+        self._build_dependency_tree()
 
         lam = nlam.make_lam(self.name,
                             intensive_params=self.intensive_params,
