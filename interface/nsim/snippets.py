@@ -38,7 +38,7 @@ def get_runid(argv):
     This mostly strips off any leading subdirectories from the name of
     the script, and removes the .py extension if given.
     """
-    
+
     if len(argv) == 0:
         return 'interactive-session'
         #raise StandardError,"sys.argv = %s -- can't determine name of program (and runid)" % sys.argv
@@ -51,7 +51,7 @@ def get_runid(argv):
     if "/" in filename:
         filename = filename.split("/")[-1]
     #get rid of '.py' if neccessary
-    if '.py' == filename[-3:]:  
+    if '.py' == filename[-3:]:
         run_id = filename[:-3]  # all is well
     else:
         run_id = filename
@@ -89,7 +89,7 @@ def output_file_location(filename,directory=None):
             directory=globalfeatures.get('etc','savedir')
         else:
             directory=''
-        
+
     path = os.path.join(directory,filename)
     log.debug('composing path to save data to be %s' % path)
     return path
@@ -114,13 +114,13 @@ def get_ocaml_pill_size_string(pill,name):
     msg = "Pill '%s' has size %dkB (data=%dB, head=%dB, depth=%d)" % \
           (name,(data+header)/kB,data,header,depth)
     return msg
-  
+
 
 def get_ml_heap_words():
     """Returns the number of words that OCaml thinks it is using.
     This needs to be multiplied by 4 (on a 32bit machine) or 8 (on a
     64bit machine) to get the number of bytes."""
-    
+
     import ocaml
     size_str = ocaml.ml_heap_footprint()
     mwords = -1
@@ -133,11 +133,11 @@ def get_callers_string(levels=100):
     """Returns a string that lists the n calling levels, where n is LEVELS, in a string.
 
     Example:
-    
+
         called from FUNC '            whereami' LINE 50 FILE 'test.py'
         called from FUNC '              callit' LINE 69 FILE 'test.py'
         called from FUNC '                   ?' LINE 72 FILE 'test.py'
-        
+
     """
     callers = inspect.getouterframes(inspect.currentframe())[1:] #throw away this function
 
@@ -149,7 +149,7 @@ def get_callers_string(levels=100):
     return caller_string[:-1] #do not return last \n
 
 def rename_old_files(old_files):
-    for file in old_files: 
+    for file in old_files:
         if os.path.exists(file):
             newname = file + '.old'
             log.info("Found old file %s, rename it to %s" % (file, newname))
@@ -163,7 +163,7 @@ def funky_wait(wait, dt=0.2):
         print ".",
         sys.stdout.flush()
         waited_so_far += dt
-    print 
+    print
 
 from subprocess import Popen, PIPE, STDOUT
 
@@ -174,6 +174,14 @@ def exec_cmd(cmd_args):
     p = Popen(cmd_args, stdout=PIPE, stderr=STDOUT)
     output = p.communicate()[0]
     return (output, p.returncode)
+
+def contains_all(the_list, the_items):
+    """Returns true only and only if 'the_list' contains all the elements
+    of the list 'the_items'."""
+    for item in the_items:
+       if item not in the_list:
+           return False
+    return True
 
 #def get_main_program_path():
 #    """Returns a tuple (PATH,NAME) where PATH is the full path name of
@@ -194,7 +202,7 @@ def exec_cmd(cmd_args):
 #    Addition: if we use this function in the tested scripts, it reports
 #    the location of the tests/pytest_main.py, so this doesn't really help.
 #
-#    
+#
 #    """
 #    import ocaml, os, sys
 #

@@ -12,6 +12,7 @@
 __all__ = ['Timestepper', 'Timesteppers']
 
 from group import Group
+from computation import Equation
 
 class Timestepper:
     type_str = "SundialsCVode"
@@ -40,7 +41,25 @@ class Timestepper:
             ['v_m','v_dmdt','v_H_total','v_H_anis','v_pin'],
             nr_primary_fields=1,
         """
+        if (eq_for_jacobian != None
+            and not isinstance(eq_for_jacobian, Equation)):
+            raise ValueError("The optional argument eq_for_jacobian should be"
+                             "set to an instance of the Equation class.")
+
+        if isinstance(x, str):
+            x = [x]
+
+        if isinstance(dxdt, str):
+            dxdt = [dxdt]
+
+        if len(x) != len(dxdt):
+            raise ValueError("x and dxdt should be lists with the same number "
+                             "of entries.")
+
         self.name = name
+        self.x = x
+        self.dxdt = dxdt
+        self.eq_for_jacobian = eq_for_jacobian
 
 class Timesteppers(Group):
     pass

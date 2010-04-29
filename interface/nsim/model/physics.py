@@ -23,6 +23,7 @@ from nsim import linalg_machine as nlam
 from computation import Computations, SimplifyContext
 from quantity import Quantities
 from timestepper import Timesteppers
+from nsim.snippets import contains_all
 
 __all__ = ['Model']
 
@@ -85,6 +86,11 @@ class Model:
         self.computations = Computations()
         self.quantities = Quantities()
         self.timesteppers = Timesteppers()
+
+        # Initialise some members
+        self.quantities.primary = None
+        self.quantities.derived = None
+        self.quantities.dependencies = None
 
         self.intensive_params = []
 
@@ -208,36 +214,6 @@ class Model:
         self.mwes[name] = mwe
         return mwe
 
-    def _build_dependency_tree(self):
-        # Determine dependencies and involved quantities
-        q_dependencies = {}
-        involved_qs = {}
-        for computation in self.computations._all:
-            inputs, outputs = computation.inputs_and_outputs
-            print inputs, outputs
-            raw_input()
-            for o in outputs:
-                q_dependencies[o] = inputs
-            for q_name in inputs + outputs:
-                if not involved_qs.has_key(q_name):
-                    involved_qs[q_name] = None
-
-        # Determine primary quantities
-        intermediate_qs = []
-        primary_qs = []
-        for q_name in involved_qs:
-            if q_dependencies.has_key(q_name):
-                intermediate_qs.append(q_name)
-            else:
-                primary_qs.append(q_name)
-
-        for pq_name in primary_qs:
-            print "PRIMARY: %s" % pq_name
-
-        for iq_name in intermediate_qs:
-            print "DERIVED: %s; DEPEND ON: %s" \
-             % (iq_name, ", ".join(q_dependencies[iq_name]))
-
     def _build_operators(self):
         return {}
 
@@ -259,6 +235,81 @@ class Model:
 
         return equation_dict
 
+    def _build_dependency_tree(self):
+        # Determine dependencies and involved quantities
+        q_dependencies = {}
+        involved_qs = {}
+        for computation in self.computations._all:
+            inputs, outputs = computation.inputs_and_outputs
+            for o in outputs:
+                q_dependencies[o] = (computation, inputs)
+            for q_name in inputs + outputs:
+                if not involved_qs.has_key(q_name):
+                    involved_qs[q_name] = None
+
+        # Determine primary quantities
+        derived_qs = []
+        primary_qs = []
+        for q_name in involved_qs:
+            if q_dependencies.has_key(q_name):
+                derived_qs.append(q_name)
+            else:
+                primary_qs.append(q_name)
+
+        self.quantities.primary = primary_qs
+        self.quantities.derived = derived_qs
+        self.quantities.dependencies = q_dependencies
+
+    def _build_timesteppers(self):
+        nlam_tss = {}
+        simplify_context = \
+          SimplifyContext(quantities=self.quantities,
+                          material=self.all_material_names)
+        for ts in self.timesteppers._all:
+            nr_primary_fields = len(ts.x)
+            assert nr_primary_fields == len(ts.dxdt)
+
+            inputs, outputs = \
+              ts.eq_for_jacobian.get_inputs_and_outputs(context=simplify_context)
+
+            all_names = inputs + outputs
+            x_and_dxdt = ts.x + ts.dxdt
+            if contains_all(all_names, x_and_dxdt):
+                other_names = [name
+                               for name in all_names
+                               if name not in x_and_dxdt]
+
+            else:
+                raise ValueError("Timestepper %s has x=%s and dxdt=%s, but "
+                                 "does not refer to one of them in its "
+                                 "jacobian: %s."
+                                 % (ts.name, ts.x, ts.dxdt,
+                                    ts.eq_for_jacobian.equation_str))
+
+            all_v_names = ["v_%s" % name for name in all_names]
+            derivs = [("PRIMARY", "")]*nr_primary_fields
+            for name in other_names:
+                derivs.append(("IGNORE", ""))
+
+            nlam_ts = \
+              nlam.lam_timestepper(ts.name,
+                                   all_names,
+                                   all_v_names,
+                                   'update_dmdt',
+                                   nr_primary_fields=nr_primary_fields,
+                                   name_jacobian=None,
+                                   pc_rtol=None,
+                                   pc_atol=None,
+                                   max_order=2,
+                                   krylov_max=300,
+                                   jacobi_eom=ts.eq_for_jacobian.get_text(),
+                                   phys_field_derivs=derivs,
+                                   jacobi_prealloc_diagonal=75,
+                                   jacobi_prealloc_off_diagonal=45)
+
+            nlam_tss[ts.name] = nlam_ts
+        return nlam_tss
+
     def _build_lam(self):
         # Build LAM vector dictionary
         vectors = {}
@@ -275,9 +326,9 @@ class Model:
         equations = self._build_equations()
         jacobi = {}
         programs = {}
-        timesteppers = {}
-        debugfile = None
         self._build_dependency_tree()
+        timesteppers = self._build_timesteppers()
+        debugfile = None
 
         lam = nlam.make_lam(self.name,
                             intensive_params=self.intensive_params,
@@ -318,7 +369,6 @@ class Model:
             self._build_mwe(field_quant.name)
 
         self._build_lam()
-
 
         for mwe in self.mwes:
             print mwe, self.mwes[mwe]
