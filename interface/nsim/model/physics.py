@@ -324,8 +324,9 @@ class Model:
                                  % (ts.name, ts.x, ts.dxdt,
                                     ts.eq_for_jacobian.equation_str))
 
-            all_v_names = ["v_%s" % name for name in all_names]
-            derivs = [("PRIMARY", "")]*nr_primary_fields
+            other_names = x_and_dxdt + other_names
+            all_v_names = ["v_%s" % name for name in other_names]
+            derivs = [("PRIMARY", "")]*(2*nr_primary_fields)
             for name in other_names:
                 derivs.append(("IGNORE", ""))
 
@@ -352,15 +353,16 @@ class Model:
             assert not self._was_built("LAMPrograms"), \
               "Timesteppers should be built before LAM programs!"
 
+            full_name = ts.get_full_name()
             nlam_ts = \
-              nlam.lam_timestepper(ts.name,
-                                   all_names,
+              nlam.lam_timestepper(full_name,
+                                   other_names,
                                    all_v_names,
                                    dxdt_updater.get_full_name(),
                                    nr_primary_fields=nr_primary_fields,
                                    name_jacobian=None,
-                                   pc_rtol=None,
-                                   pc_atol=None,
+                                   pc_rtol=1e-2,
+                                   pc_atol=1e-5,
                                    max_order=2,
                                    krylov_max=300,
                                    jacobi_eom=ts.eq_for_jacobian.get_text(),
@@ -368,7 +370,7 @@ class Model:
                                    jacobi_prealloc_diagonal=75,
                                    jacobi_prealloc_off_diagonal=45)
 
-            nlam_tss[ts.name] = nlam_ts
+            nlam_tss[full_name] = nlam_ts
         self._built["TSs"] = True
         return nlam_tss
 
@@ -407,6 +409,10 @@ class Model:
 
         self.lam = lam
 
+    def _vivify_objs(self, lam):
+        for ts in self.timesteppers._all:
+            ts._lam = lam
+
     def build(self):
         # I'm keeping the same order of execution that we were using in the
         # old nmag_lam.py source
@@ -432,8 +438,7 @@ class Model:
 
         self._build_lam()
 
-        for mwe in self.mwes:
-            print mwe, self.mwes[mwe]
+        self._vivify_objs(self.lam)
 
         self._built["LAM"] = True
 

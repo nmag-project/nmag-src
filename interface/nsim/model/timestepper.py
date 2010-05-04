@@ -11,10 +11,12 @@
 
 __all__ = ['Timestepper', 'Timesteppers']
 
+import ocaml
+from obj import ModelObj
 from group import Group
 from computation import Equation
 
-class Timestepper:
+class Timestepper(ModelObj):
     type_str = "SundialsCVode"
 
     def __init__(self, name, x, dxdt,
@@ -41,6 +43,8 @@ class Timestepper:
             ['v_m','v_dmdt','v_H_total','v_H_anis','v_pin'],
             nr_primary_fields=1,
         """
+        ModelObj.__init__(self, name)
+
         if (eq_for_jacobian != None
             and not isinstance(eq_for_jacobian, Equation)):
             raise ValueError("The optional argument eq_for_jacobian should be"
@@ -56,14 +60,32 @@ class Timestepper:
             raise ValueError("x and dxdt should be lists with the same number "
                              "of entries.")
 
-        self.name = name
         self.time_unit = time_unit
         self.x = x
         self.dxdt = dxdt
         self.eq_for_jacobian = eq_for_jacobian
 
-    def advance_time(self, dt):
-        print "advance_time: %s" % dt
+    def advance_time(self, target_time, max_it=-1, exact_tstop=False):
+        if self.time_unit != None:
+            try:
+                target_time = float(target_time/self.time_unit)
+            except:
+                raise ValueError("advance_time got wrong units for the time. "
+                                 "Expected %s, but got %s."
+                                 % (self.time_units, target_time))
+
+        print "advance_time: %s" % target_time
+        lam = self.get_lam()
+        ts_full_name = self.get_full_name()
+        ocaml.lam_ts_init(lam, ts_full_name, 0.0, 1e-6, 1e-6)
+        final_t_su = \
+          ocaml.lam_ts_advance(lam, ts_full_name,
+                               exact_tstop, target_time, max_it)
+
+        if self.time_unit != None:
+            return final_t_su*self.time_unit
+        else:
+            return final_t_su
 
 class Timesteppers(Group):
     pass
