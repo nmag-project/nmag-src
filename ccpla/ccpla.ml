@@ -955,9 +955,9 @@ let master_process_queue ?(local_vectors=[||]) ccpla =
     let rec work () =
       let next_cmds = Queue.take !(ccpla.ccpla_queue) in
       let nr_cmds = Array.length next_cmds in
-        let () = Printf.printf "DDD master_process_queue() sending %d commands\n%!" nr_cmds in
+        (*let () = Printf.printf "DDD master_process_queue() sending %d commands\n%!" nr_cmds in
         let () = Printf.printf "---%s---\n%!" (opcode_tostring next_cmds.(0))
-        in
+        in*)
         (*let _ = read_line () in*)
 	begin
 	  for i=1 to nr_cmds-1 do

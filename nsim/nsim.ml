@@ -1486,9 +1486,9 @@ let local_equations_to_c_code eom =
 let time_in_rhs = ref 0.0;;
 
 let nsim_opcode_interpreter ccpla op v_distributed_resources =
-  let () = Printf.printf
+(*  let () = Printf.printf
              "nsim_opcode_interpreter: executing %s\n%!"
-             (nsim_opcode_to_string op) in
+             (nsim_opcode_to_string op) in*)
   let comm = ccpla.ccpla_comm in
   match op with
     | NSIM_OP_swex_create (name,c_code,site_info_this_machine,defines) ->
