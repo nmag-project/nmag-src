@@ -18,7 +18,7 @@ class Timestepper:
     type_str = "SundialsCVode"
 
     def __init__(self, name, x, dxdt,
-                 eq_for_jacobian=None):
+                 eq_for_jacobian=None, time_unit=None):
         """
         Timestepper parameters:
             pc_rtol=None, pc_atol=None,
@@ -57,9 +57,13 @@ class Timestepper:
                              "of entries.")
 
         self.name = name
+        self.time_unit = time_unit
         self.x = x
         self.dxdt = dxdt
         self.eq_for_jacobian = eq_for_jacobian
+
+    def advance_time(self, dt):
+        print "advance_time: %s" % dt
 
 class Timesteppers(Group):
     pass

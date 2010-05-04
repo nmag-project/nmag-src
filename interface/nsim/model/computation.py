@@ -9,39 +9,64 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
-__all__ = ['Equation', 'Operator', 'CCode', 'LAMCode', 'Computations']
+__all__ = ['Equation', 'Operator', 'CCode', 'LAMProgram', 'Computations']
 
 import eqparser
 from eqtree import SimplifyContext
 from group import Group
+from obj import ModelObj
 
-class Computation:
+class Computation(ModelObj):
     """A computation can be regarded as a black box which takes some
     quantities as input and produces some quantities as output."""
 
     type_str = "Computation"
 
     def __init__(self, name, inputs=[], outputs=[]):
-        self.name = name
-        self.inputs = inputs
-        self.outputs = outputs
-        inouts = inputs + outputs
-        self.inouts = inouts
-        inouts_dict = {}
-        for q in inouts:
-            inouts_dict[q.name] = q
-        self.inouts_dict = inouts_dict
+        ModelObj.__init__(self, name)
+        self.inputs_and_outputs = None
 
-class Equation(Computation):
+    def get_inputs_and_outputs(self, context=None):
+        """Get the input and output quantities involved in the computation."""
+        if self.inputs_and_outputs == None:
+            return ([], [])
+        else:
+            return self.inputs_and_outputs
+
+    def get_inouts(self, context=None):
+        """Get all the quantities involved in the computation.
+        If the optional argument is not specified, then return the last
+        computed value, if possible."""
+        ins, outs = self.get_inputs_and_outputs(context=context)
+        return ins + outs
+
+class LAMProgram(Computation):
+    type_str = "LAMProgram"
+
+    def __init__(self, name, commands=[]):
+        Computation.__init__(self, name)
+        self.commands = commands
+
+    def add_commands(self, commands):
+        if type(commands[0]) == str:
+            commands = [commands]
+        self.commands += commands
+
+    def get_prog_name(self):
+        return self.get_full_name()
+
+class Equation(LAMProgram):
     type_str = "Equation"
 
     def __init__(self, name, equation_string):
-        Computation.__init__(self, name)
+        LAMProgram.__init__(self, name)
         self.equation_str = equation_string
         self.equation_tree = eqparser.parse(equation_string)
         self.simplified_tree = None
-        self.inputs_and_outputs = None
         self.text = None
+
+    def get_prog_name(self):
+        return "EqProg_%s" % self.name
 
     def get_text(self, context=None):
         """Get the final (processed) text of the equation."""
@@ -61,13 +86,6 @@ class Equation(Computation):
             self.inputs_and_outputs = \
               self.simplified_tree.get_inputs_and_outputs()
         return self.inputs_and_outputs
-
-    def get_inouts(self, context=None):
-        """Get all the quantities involved in the equation.
-        If the optional argument is not specified, then return the last
-        computed value, if possible."""
-        ins, outs = self.get_inputs_and_outputs(context=context)
-        return ins + outs
 
 class Operator(Computation):
     type_str = "Operator"
@@ -120,9 +138,6 @@ class Operator(Computation):
 
 class CCode(Computation):
     type_str = "CCode"
-
-class LAMCode(Computation):
-    type_str = "LAMCode"
 
 class Computations(Group):
     pass

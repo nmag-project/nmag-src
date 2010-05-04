@@ -28,15 +28,16 @@ __all__ = ['Constant', 'SpaceField', 'TimeField', 'SpaceTimeField']
 
 import collections
 from group import Group
+from obj import ModelObj
 
-class Quantity:
+class Quantity(ModelObj):
     """ddd"""
 
     type_str = "Quantity"
 
     def __init__(self, name, shape=[], value=None, units=1.0,
                  is_primary=True, def_on_material=False):
-        self.name = name
+        ModelObj.__init__(self, name)
         self.shape = shape
         self.value = value
         self.units = units

@@ -20,7 +20,7 @@ import ocaml
 import nmag
 from nsim import linalg_machine as nlam
 
-from computation import Computations, SimplifyContext
+from computation import Computations, SimplifyContext, LAMProgram
 from quantity import Quantities
 from timestepper import Timesteppers
 from nsim.snippets import contains_all
@@ -103,7 +103,12 @@ class Model:
         self.properties_by_region = properties_by_region
         self.mwes = {}               # All the MWEs
         self.lam = {}
-        self.built = False
+        self._built = {}
+
+    def _was_built(self, name):
+        if self._built.has_key(name):
+            return self._built.has_key(name)
+        return False
 
     def add_quantity(self, quant):
         """Add the given quantity 'quant' to the current physical model.
@@ -227,20 +232,40 @@ class Model:
             logger.info("Building equation %s" % eq.name)
             eq_text = eq.get_text(context=simplify_context)
             mwes_for_eq = eq.get_inouts()
-            equation_dict[eq.name] = \
-              nlam.lam_local(eq.name,
+            eq_full_name = eq.get_full_name()
+            equation_dict[eq_full_name] = \
+              nlam.lam_local(eq_full_name,
                              aux_args=self.intensive_params,
                              field_mwes=mwes_for_eq,
                              equation=eq_text)
 
+            # We should now register a VM call to compute the equation
+            logger.info("Creating equation SWEX for %s" % eq.name)
+            fields = ["v_%s" % name for name in eq.get_inouts()]
+            eq.add_commands(["SITE-WISE-IPARAMS", eq_full_name, fields, []])
+
+        self._built["Equations"] = True
         return equation_dict
+
+    def _build_programs(self):
+        progs = (self.computations._by_type.get('LAMProgram', [])
+                 + self.computations._by_type.get('Equation', []))
+        prog_dict = {}
+        for prog in progs:
+            prog_name = prog.get_prog_name()
+            logger.info("Building program %s" % prog_name)
+            prog_dict[prog_name] = \
+              nlam.lam_program(prog_name, commands=prog.commands)
+
+        self._built["LAMPrograms"] = True
+        return prog_dict
 
     def _build_dependency_tree(self):
         # Determine dependencies and involved quantities
         q_dependencies = {}
         involved_qs = {}
         for computation in self.computations._all:
-            inputs, outputs = computation.inputs_and_outputs
+            inputs, outputs = computation.get_inputs_and_outputs()
             for o in outputs:
                 q_dependencies[o] = (computation, inputs)
             for q_name in inputs + outputs:
@@ -259,6 +284,19 @@ class Model:
         self.quantities.primary = primary_qs
         self.quantities.derived = derived_qs
         self.quantities.dependencies = q_dependencies
+        self._built["DepTree"] = True
+
+    def _build_target_maker(self, target, primaries={}, targets_to_make=[]):
+        assert self._was_built("DepTree"), \
+          "The target-maker builder can be used only after building the " \
+          "dependency tree!"
+        if not self.quantities.dependencies.has_key(target):
+            primaries[target] = primaries.get(target, 0) + 1
+        else:
+            computation, inputs = self.quantities.dependencies[target]
+            for i in inputs:
+                self._build_target_maker(i, primaries, targets_to_make)
+            targets_to_make.append(computation)
 
     def _build_timesteppers(self):
         nlam_tss = {}
@@ -291,11 +329,34 @@ class Model:
             for name in other_names:
                 derivs.append(("IGNORE", ""))
 
+            # Build dxdt update program
+            primaries = {}
+            targets_to_make = []
+            for dxdt in ts.dxdt:
+                self._build_target_maker(dxdt, primaries, targets_to_make)
+            if False:
+                print "In order to update the RHS I have to:"
+                for p in primaries:
+                    print "distribute quantity %s" % p
+                for t in targets_to_make:
+                    print "run computation %s" % t.name
+                raw_input()
+
+            dxdt_updater = LAMProgram("TsUp_%s" % ts.name)
+            for t in targets_to_make:
+                t_full_name = t.get_full_name()
+                t_fields = ["v_%s" % name for name in t.get_inouts()]
+                dxdt_updater.add_commands(["SITE-WISE-IPARAMS",
+                                           t_full_name, t_fields, []])
+            self.computations.add(dxdt_updater)
+            assert not self._was_built("LAMPrograms"), \
+              "Timesteppers should be built before LAM programs!"
+
             nlam_ts = \
               nlam.lam_timestepper(ts.name,
                                    all_names,
                                    all_v_names,
-                                   'update_dmdt',
+                                   dxdt_updater.get_full_name(),
                                    nr_primary_fields=nr_primary_fields,
                                    name_jacobian=None,
                                    pc_rtol=None,
@@ -308,6 +369,7 @@ class Model:
                                    jacobi_prealloc_off_diagonal=45)
 
             nlam_tss[ts.name] = nlam_ts
+        self._built["TSs"] = True
         return nlam_tss
 
     def _build_lam(self):
@@ -324,10 +386,10 @@ class Model:
         bems = {}
         ksps = {}
         equations = self._build_equations()
-        jacobi = {}
-        programs = {}
+        jacobi = {} # Not used (should clean this)
         self._build_dependency_tree()
         timesteppers = self._build_timesteppers()
+        programs = self._build_programs()
         debugfile = None
 
         lam = nlam.make_lam(self.name,
@@ -373,6 +435,6 @@ class Model:
         for mwe in self.mwes:
             print mwe, self.mwes[mwe]
 
-        self.built = True
+        self._built["LAM"] = True
 
 
