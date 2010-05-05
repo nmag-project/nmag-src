@@ -16,33 +16,31 @@ from obj import ModelObj
 from group import Group
 from computation import Equation
 
+def optarg_to_ocaml(a):
+    if a == None:
+        return []
+    else:
+        return [a]
+
+def to_su(x, x_unit):
+    try:
+        if x_unit == None:
+            return x
+        else:
+            return float(x/x_unit)
+    except:
+        raise ValueError("Wrong units: expected %s, but got %s."
+                         % (x_unit, x))
+
 class Timestepper(ModelObj):
     type_str = "SundialsCVode"
 
     def __init__(self, name, x, dxdt,
-                 eq_for_jacobian=None, time_unit=None):
-        """
-        Timestepper parameters:
-            pc_rtol=None, pc_atol=None,
-            max_order=2,
-            krylov_max=None
-        RHS:
-            RHS='update_dmdt'
-        Jacobi parameters:
-            name_jacobian=None, # XXX TO BE OBSOLETED!
-            jacobi_prealloc_diagonal=75,
-            jacobi_prealloc_off_diagonal=45
-        Parameters for computation of Jacobian:
-            jacobi_eom=eq_rhs_jacobi_ts1,
-            phys_field_derivs=[("PRIMARY",""),
-                            ("PRIMARY",""),
-                            ("OPERATOR","op_H_exch"),
-                            ("IGNORE",""),
-                            ("IGNORE","")],
-            ['m','dmdt','H_total','H_anis','pin'], #check auxiliary fields for Jacobian are right
-            ['v_m','v_dmdt','v_H_total','v_H_anis','v_pin'],
-            nr_primary_fields=1,
-        """
+                 eq_for_jacobian=None, time_unit=None,
+                 rel_tol=1e-5, abs_tol=1e-5, initial_time=0.0,
+                 max_order=2, krylov_max=300,
+                 jacobi_prealloc_diagonal=75,
+                 jacobi_prealloc_off_diagonal=45):
         ModelObj.__init__(self, name)
 
         if (eq_for_jacobian != None
@@ -64,22 +62,41 @@ class Timestepper(ModelObj):
         self.x = x
         self.dxdt = dxdt
         self.eq_for_jacobian = eq_for_jacobian
+        self.rel_tol = rel_tol
+        self.abs_tol = abs_tol
+        self.initial_time = initial_time
+        self.max_order = max_order
+        self.krylov_max = krylov_max
+        self.jacobi_prealloc_diagonal = jacobi_prealloc_diagonal
+        self.jacobi_prealloc_off_diagonal = jacobi_prealloc_off_diagonal
+        self.initialised = False
+
+    def initialise(self, initial_time=None,
+                   rel_tol=None, abs_tol=None):
+        if rel_tol == None:
+            rel_tol = self.rel_tol
+        if abs_tol == None:
+            abs_tol = self.abs_tol
+        if initial_time == None:
+            initial_time = self.initial_time
+
+        self.rel_tol = rel_tol
+        self.abs_tol = abs_tol
+        self.initial_time = initial_time
+
+        initial_time = to_su(initial_time, self.time_unit)
+        ocaml.lam_ts_init(self.get_lam(), self.get_full_name(),
+                          initial_time, rel_tol, abs_tol)
+        self.initialised = True
 
     def advance_time(self, target_time, max_it=-1, exact_tstop=False):
-        if self.time_unit != None:
-            try:
-                target_time = float(target_time/self.time_unit)
-            except:
-                raise ValueError("advance_time got wrong units for the time. "
-                                 "Expected %s, but got %s."
-                                 % (self.time_units, target_time))
+        target_time = to_su(target_time, self.time_unit)
 
-        print "advance_time: %s" % target_time
-        lam = self.get_lam()
-        ts_full_name = self.get_full_name()
-        ocaml.lam_ts_init(lam, ts_full_name, 0.0, 1e-6, 1e-6)
+        if not self.initialised:
+            self.initialise()
+
         final_t_su = \
-          ocaml.lam_ts_advance(lam, ts_full_name,
+          ocaml.lam_ts_advance(self.get_lam(), self.get_full_name(),
                                exact_tstop, target_time, max_it)
 
         if self.time_unit != None:

@@ -39,10 +39,11 @@ class Quantity(ModelObj):
                  is_primary=True, def_on_material=False):
         ModelObj.__init__(self, name)
         self.shape = shape
-        self.value = value
+        self.value = None
         self.units = units
         self.is_primary = is_primary
         self.def_on_mat = def_on_material
+        self.set_value(value)
 
     def is_defined_on_material(self, material):
         """Return True if the quantity is defined on the specified material,
@@ -135,7 +136,7 @@ class SpaceField(Quantity):
 class TimeField(Quantity):
     type_str = "TimeField"
 
-class SpaceTimeField(Quantity):
+class SpaceTimeField(SpaceField):
     type_str = "SpaceTimeField"
 
 class Quantities(Group):

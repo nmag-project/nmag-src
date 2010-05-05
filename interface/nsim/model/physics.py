@@ -361,14 +361,16 @@ class Model:
                                    dxdt_updater.get_full_name(),
                                    nr_primary_fields=nr_primary_fields,
                                    name_jacobian=None,
-                                   pc_rtol=1e-2,
-                                   pc_atol=1e-5,
-                                   max_order=2,
-                                   krylov_max=300,
+                                   pc_rtol=ts.rel_tol,
+                                   pc_atol=ts.abs_tol,
+                                   max_order=ts.max_order,
+                                   krylov_max=ts.krylov_max,
                                    jacobi_eom=ts.eq_for_jacobian.get_text(),
                                    phys_field_derivs=derivs,
-                                   jacobi_prealloc_diagonal=75,
-                                   jacobi_prealloc_off_diagonal=45)
+                                   jacobi_prealloc_diagonal=
+                                     ts.jacobi_prealloc_diagonal,
+                                   jacobi_prealloc_off_diagonal=
+                                     ts.jacobi_prealloc_off_diagonal)
 
             nlam_tss[full_name] = nlam_ts
         self._built["TSs"] = True
