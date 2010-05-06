@@ -24,98 +24,11 @@ a Model, then it is uniquely associated with a field in that model and can
 hence be set, etc.
 """
 
-__all__ = ['Value', 'Constant', 'SpaceField', 'TimeField', 'SpaceTimeField']
+__all__ = ['Constant', 'SpaceField', 'TimeField', 'SpaceTimeField']
 
 import collections, types
 from group import Group
 from obj import ModelObj
-
-class Value:
-    """A Value is an object which can be used to set a Quantity.
-    It requires three things: a value, the units and a specification of where
-    the field should be set to that value."""
-
-    def __init__(self, value=None, where=None, unit=None):
-        self.values = []
-        if value != None:
-            self.set(value, where, unit)
-
-    def set(self, value, where=None, unit=None):
-        """An example:
-
-        FieldSetter(1.0).set(0.5, 'Dy').set(0.02, ['Py', 'Fe'])
-
-        sets to 0.5 in the region with name 'Dy', sets to 0.02 in the region
-        'Py' and in the region 'Fe' and sets to 1 in all the remaining
-        regions."""
-        if type(where) == str:
-            where = [where]
-        self.values.append((value, where, unit))
-        return self
-
-    def __repr__(self):
-        fmt = "Value"
-        if len(self.values) == 0:
-            return "%s()" % fmt
-
-        s = ""
-        for value, where, unit in self.values:
-            args = [str(value)]
-            if where != None:
-                if len(where) == 1:
-                    args.append("where='%s'" % where[0])
-                else:
-                    args.append("where=%s" % str(where))
-            if unit != None: args.append("unit=%s" % unit)
-            s += "%s(%s)" % (fmt, ", ".join(args))
-            fmt = ".set"
-        return s
-
-    def as_constant(self, where=None):
-        """Get the value assuming it is constant over the region 'where'.
-        If 'where' is not provided, then assumes the value is constant
-        everywhere in space."""
-        v = None
-        v_default = None
-        if where == None:
-            for value, _, unit in self.values:
-                new_v = (value, unit)
-                if v == None:
-                    v = new_v
-                elif v != new_v:
-                    raise ValueError("as_constant was called on a value "
-                                     "which is not uniform in space: %s."
-                                     % str(self))
-
-        else:
-            if type(where) == str:
-                where = [where]
-
-            for value, my_where, unit in self.values:
-                if my_where == where:
-                    new_v = (value, unit)
-                    if v == None:
-                        v = new_v
-                    elif v != new_v:
-                        raise ValueError("as_constant was called on a value "
-                                         "(%s) which is not uniform in %s."
-                                         % (str(where), self))
-                elif my_where == None:
-                    v_default = (value, unit)
-
-        if v == None:
-            if v_default != None:
-                v = v_default
-            else:
-                raise ValueError("as_constant: value (%s) is not set in %s."
-                                 % (self, str(where)))
-
-        value, unit = v
-        if unit == None:
-            return value
-        else:
-            return value*unit
-
 
 class Quantity(ModelObj):
     """ddd"""
