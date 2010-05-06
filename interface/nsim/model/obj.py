@@ -24,14 +24,22 @@ class ModelObj:
           "ModelObj is not meant to be used directly. Use rather one of " \
           "its derived classes."
         self.name = name
-        self._lam = None
+        self.lam = None
+
+    def _is_vivified(self):
+        return self.lam != None
+
+    vivified = property(_is_vivified)
 
     def get_full_name(self):
         return "%s_%s" % (self.type_str, self.name)
 
     def get_lam(self):
-        assert self._lam != None, \
+        assert self.lam != None, \
           "The %s object (name=%s) has not been vivified, yet. You need to " \
           "add it to a model and to build the model." \
           % (self.type_str, self.name)
-        return self._lam
+        return self.lam
+
+    def vivify(self, lam):
+        self.lam = lam

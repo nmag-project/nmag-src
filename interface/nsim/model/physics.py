@@ -53,7 +53,7 @@ def _extended_properties_by_region(region_materials, min_region=-1,
         add_prop(nr_region,str(nr_region))
         materials = region_materials[nr_region]
         for m in materials:
-            add_prop(nr_region,m.name)
+            add_prop(nr_region, m.name)
             for p in m.properties:
                 add_prop(nr_region,p)
 
@@ -412,8 +412,16 @@ class Model:
         self.lam = lam
 
     def _vivify_objs(self, lam):
+        logger.info("Vivifiying fields...")
+        field_quants = (self.quantities._by_type.get('SpaceField', [])
+                        + self.quantities._by_type.get('SpaceTimeField', []))
+        for q in field_quants:
+            q.vivify(lam, self.mwes[q.name])
+
+        logger.info("Vivifiying timesteppers...")
         for ts in self.timesteppers._all:
-            ts._lam = lam
+            ts.vivify(lam)
+
 
     def build(self):
         # I'm keeping the same order of execution that we were using in the

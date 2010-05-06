@@ -26,9 +26,11 @@ hence be set, etc.
 
 __all__ = ['Constant', 'SpaceField', 'TimeField', 'SpaceTimeField']
 
+import ocaml
 import collections, types
 from group import Group
 from obj import ModelObj
+from value import Value
 
 class Quantity(ModelObj):
     """ddd"""
@@ -44,9 +46,6 @@ class Quantity(ModelObj):
         self.units = units
         self.is_primary = is_primary
         self.def_on_mat = def_on_material
-
-        #self.mwe = None          # MWE associated to the field
-        #self.master = None       # Copy of the field stored on the master node
 
         self.set_value(value)
 
@@ -111,6 +110,39 @@ class Constant(Quantity):
 
 class SpaceField(Quantity):
     type_str = "SpaceField"
+
+    def __init__(self, name, shape=[], value=None, units=1.0,
+                 is_primary=True, def_on_material=False):
+
+        Quantity.__init__(self, name, shape, value, units, is_primary,
+                          def_on_material)
+
+        self.mwe = None     # MWE associated to the field
+        self.master = None  # Master copy of the field
+
+    def vivify(self, lam, mwe):
+        Quantity.vivify(self, lam)
+        self.mwe = mwe
+        self.master = ocaml.raw_make_field(mwe, [], "", "")
+
+        self.set_value(self.value)
+
+    def set_value(self, value):
+        if not self.vivified:
+            return Quantity.set_value(self, value)
+
+        if value == None:
+            return
+
+        if not isinstance(value, Value):
+            raise ValueError("The argument of set_value has type '%s', but "
+                             "it should rather be an instance of the Value "
+                             "class." % type(value))
+
+        set_plan = value.get_set_plan()
+        for v, m, u in set_plan:
+            print v, m, u
+
 
 class TimeField(Quantity):
     type_str = "TimeField"
