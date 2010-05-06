@@ -101,7 +101,7 @@ class Value:
         else:
             return value*unit
 
-    def get_set_plan(self, all_materials, unit, allow_overwrt=True):
+    def get_set_plan(self, all_materials=[], allow_overwrt=True):
         """Goes trough the Value and return a list of triples:
         (material_string, value, units)."""
         d = {}
@@ -118,14 +118,21 @@ class Value:
 
         # Now write the plan
         plan = []
+        used = {}
         for m in all_materials:
-            if plan.has_key(m):
+            if d.has_key(m):
                 v, u = d[m]
-            elif plan.has_ley(None):
+            elif d.has_key(None):
                 v, u = d[None]
             else:
                 raise ValueError("Value (%s) does not specify how to set "
                                  "material %s." % (self, m))
             plan.append((m, v, u))
+            used[m] = True
 
+        # Check that all materials were used
+        for m in d:
+            if m != None and not used.has_key(m):
+                raise ValueError("Material '%s' of value (%s) was not used."
+                                 % (m, self))
         return plan
