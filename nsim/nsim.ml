@@ -2452,7 +2452,6 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 		in
 		  0.0
 	    | Some cvode ->
-                let () = Printf.printf "Timestepper advance\n%!" in
 		let result = ref None in
 		let () = Mpi_petsc.with_petsc_vector_as_bigarray y_final_pv
 		  (fun ba_final ->

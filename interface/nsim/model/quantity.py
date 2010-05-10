@@ -31,6 +31,9 @@ import collections, types
 from group import Group
 from obj import ModelObj
 from value import Value
+from setfield import flexible_set_fielddata
+
+import nfem
 
 class Quantity(ModelObj):
     """ddd"""
@@ -82,6 +85,10 @@ class Quantity(ModelObj):
         to one."""
         return False
 
+    def integrate(self):
+        raise NotImplementedError("Method integrate is not implemented for "
+                                  "Quantity of type %s." % self.type_str)
+
 class Constant(Quantity):
     type_str = "Constant"
 
@@ -117,14 +124,15 @@ class SpaceField(Quantity):
         Quantity.__init__(self, name, shape, value, units, is_primary,
                           def_on_material)
 
-        self.mwe = None     # MWE associated to the field
-        self.master = None  # Master copy of the field
+        self.mwe = None            # MWE associated to the field
+        self.master = None         # Master copy of the field
+        self.material_names = None # Name of materials where field is defined
 
-    def vivify(self, lam, mwe):
+    def vivify(self, lam, mwe, material_names):
         Quantity.vivify(self, lam)
         self.mwe = mwe
         self.master = ocaml.raw_make_field(mwe, [], "", "")
-
+        self.material_names = material_names
         self.set_value(self.value)
 
     def set_value(self, value):
@@ -139,9 +147,26 @@ class SpaceField(Quantity):
                              "it should rather be an instance of the Value "
                              "class." % type(value))
 
-        set_plan = value.get_set_plan()
-        for v, m, u in set_plan:
-            print v, m, u
+        if self.def_on_mat:
+            set_plan = value.get_set_plan(self.material_names)
+            for v, m, u in set_plan:
+                print self.master, v, m, u
+                fn = "%s_%s" % (self.name, v)
+                flexible_set_fielddata(self.master, fn, m, 1e9, scale_factor=1.0,
+                                       normalise=False)
+
+        else:
+            set_plan = value.get_set_plan(self.material_names)
+            assert len(set_plan) == 1
+            v, m, u = set_plan[0]
+            flexible_set_fielddata(self.master, self.name, m, 1e9, scale_factor=1.0,
+                                   normalise=False)
+
+        ocaml.lam_set_field(self.lam, self.master, "v_" + self.name)
+
+    def integrate(self):
+        ocaml.lam_get_field(self.lam, self.master, "v_" + self.name)
+        return nfem.integrate_field(self.master, "m_Py")
 
 
 class TimeField(Quantity):

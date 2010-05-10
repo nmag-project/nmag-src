@@ -416,7 +416,7 @@ class Model:
         field_quants = (self.quantities._by_type.get('SpaceField', [])
                         + self.quantities._by_type.get('SpaceTimeField', []))
         for q in field_quants:
-            q.vivify(lam, self.mwes[q.name])
+            q.vivify(lam, self.mwes[q.name], self.all_material_names)
 
         logger.info("Vivifiying timesteppers...")
         for ts in self.timesteppers._all:
