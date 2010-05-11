@@ -30,7 +30,7 @@ function allsrc_dev_compose {
   #   the specified branch of nsim.
   # NOTE: this script is intended to be used by the Nsim core developers
   #  to produce a standalone directory which still can be used to commit
-  #  with SVN (the .svn directory are not removed!) 
+  #  with SVN (the .svn directory are not removed!)
   ALLSRC_DIR_NAME=$1
   ALLSRC_NSIM_BRANCH=$2
 
@@ -38,7 +38,7 @@ function allsrc_dev_compose {
 
   msg "NOTE: output of each command is redirected to $LOG_FILE"
   rm -rf $TEMPDIR $ALLSRC_DIR_NAME
-  
+
   mkdir $TEMPDIR && cd $TEMPDIR && \
   msg "Checking out the all-source build system..." && \
   $VC_CHECKOUT $REPOS_NSIM_DIST nmag >> $LOG_FILE && \
@@ -63,6 +63,27 @@ function allsrc_dev_compose {
   fi
 }
 
+function add_doc {
+  echo "Adding documentation"
+}
+
+function add_test {
+  echo "Adding test suite"
+
+}
+
+function remove_hg {
+  echo "Removing version control in directory $1"
+}
+
+function gen_tarball {
+  echo "Generating tarball for distribution"
+}
+
+function remove_directory {
+  echo "Removing distribution directory"
+}
+
 function remove_hg_stuff {
   TARGET="$1"
   echo "Entering $TARGET and removing .hg directories..."
@@ -81,61 +102,54 @@ function allsrc_compose {
    cleanup_allsrc_for_dist "$1")
 }
 
+
+
 #remove_svn_stuff 'nmag-0.1'
-allsrc_dev_compose 'nmag-0.1' 'trunk'
+# allsrc_dev_compose 'nmag-0.1' 'trunk'
 #allsrc_compose 'nmag-0.1' 'trunk'
-
-EXIT_STATUS=$?
-echo "Exit status $EXIT_STATUS"
-exit $EXIT_STATUS
-
-TAR_SVNEXCLUDE=--anchored --exclude=*.svn --exclude=*/*.svn --exclude=*/*/*.svn --exclude=*/*/*/*.svn --exclude=*/*/*/*/*.svn --exclude=*/*/*/*/*/*.svn --exclude=nmag/nsim/obsolete --exclude=nmag/nsim/interface/nmesh/doc --exclude=nmag/nsim/interface/nmeshlj/doc --exclude=nmag/nsim/devel
-
-tarballs: fetchtrunk installation-system nsim
-
 
 # Create links for nmag manual into toplevel 'doc' dir
 
-        mkdir -p output/$(NSIM_VERSION)/download
-
-        rm -rf tmp/$(SRCDIR)/nmag/doc/nmag
-        mkdir -p tmp/$(SRCDIR)/nmag/doc/nmag
-        ln -s nsim/interface/nmag/manual tmp/$(SRCDIR)/nmag/doc/nmag
-
-
-echo " *** REMOVING OLD TARBALLS *** "
-
-        rm -f output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)*.tar*
-
-echo " *** CREATING CORE NMAG BUILD ARCHIVE *** "
-
-        tar --directory $(INST_SYSTEMDIR) $(TAR_SVNEXCLUDE) -cvf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar nmag
-
-echo " *** ADDING NSIM SOURCES ARCHIVE *** "
-
-echo "tarball" >tmp/$(SRCDIR)/nmag/nsim/interface/nmag/DISTMODE
-
-        tar --directory tmp/$(SRCDIR) $(TAR_SVNEXCLUDE) --exclude=nmag/nsim/info -rf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar nmag/nsim nmag/doc
-
-        rm tmp/$(SRCDIR)/nmag/nsim/interface/nmag/DISTMODE
-
-        # This should not be necessary, as we built that manual anyway when we made installation-system:
-        #tar --directory $(INST_SYSTEMDIR) -rf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar nmag/INSTALL.pdf nmag/INSTALL.html
-
-echo " *** ADDING MANUAL TO ARCHIVE *** "
-
-        tar --directory tmp/nsim-build $(TAR_SVNEXCLUDE) -rf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar nmag/nsim/interface/nmag/manual
-
-        cp output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar \
-           output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar
-
-echo " *** ADDING PACKAGE SOURCES TO BIG ARCHIVE *** "
-
-        tar --directory tmp -Af output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar $(LIBSOURCE_FILE)
-
-echo " *** ZIPPING TARBALLS *** "
-
-        # Gzip final tarballs:
-        gzip -9 output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar
-        gzip -9 output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar
-
+#         mkdir -p output/$(NSIM_VERSION)/download
+#
+#         rm -rf tmp/$(SRCDIR)/nmag/doc/nmag
+#         mkdir -p tmp/$(SRCDIR)/nmag/doc/nmag
+#         ln -s nsim/interface/nmag/manual tmp/$(SRCDIR)/nmag/doc/nmag
+#
+#
+# echo " *** REMOVING OLD TARBALLS *** "
+#
+#         rm -f output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)*.tar*
+#
+# echo " *** CREATING CORE NMAG BUILD ARCHIVE *** "
+#
+#         tar --directory $(INST_SYSTEMDIR) $(TAR_SVNEXCLUDE) -cvf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar nmag
+#
+# echo " *** ADDING NSIM SOURCES ARCHIVE *** "
+#
+# echo "tarball" >tmp/$(SRCDIR)/nmag/nsim/interface/nmag/DISTMODE
+#
+#         tar --directory tmp/$(SRCDIR) $(TAR_SVNEXCLUDE) --exclude=nmag/nsim/info -rf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar nmag/nsim nmag/doc
+#
+#         rm tmp/$(SRCDIR)/nmag/nsim/interface/nmag/DISTMODE
+#
+#         # This should not be necessary, as we built that manual anyway when we made installation-system:
+#         #tar --directory $(INST_SYSTEMDIR) -rf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar nmag/INSTALL.pdf nmag/INSTALL.html
+#
+# echo " *** ADDING MANUAL TO ARCHIVE *** "
+#
+#         tar --directory tmp/nsim-build $(TAR_SVNEXCLUDE) -rf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar nmag/nsim/interface/nmag/manual
+#
+#         cp output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar \
+#            output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar
+#
+# echo " *** ADDING PACKAGE SOURCES TO BIG ARCHIVE *** "
+#
+#         tar --directory tmp -Af output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar $(LIBSOURCE_FILE)
+#
+# echo " *** ZIPPING TARBALLS *** "
+#
+#         # Gzip final tarballs:
+#         gzip -9 output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar
+#         gzip -9 output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar
+#

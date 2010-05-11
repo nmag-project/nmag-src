@@ -137,7 +137,7 @@ want_test = plan.add_choice(Choice("Do you want to include the test suite?"))
 want_test.add_alternative(Alternative("No, I'm concerned with size."))
 want_test.add_alternative(Alternative("Yes, include the big test suite."))
 
-want_repo = plan.add_choice(Choice("Do you want to the repositories?"))
+want_repo = plan.add_choice(Choice("Do you want to use the repositories?"))
 want_repo.add_alternative(Alternative("No, I don't care about version "
                                       "control."))
 want_repo.add_alternative(Alternative("Yes, I'm a developer, I want the "
@@ -181,22 +181,57 @@ plan.ask_user(script)
 script.writeln("# Script generated from the following answers:")
 script.writeln(comment(str(plan)))
 script.writeln(". disttools.sh")
+script.writeln("allsrc_dev_compose 'nmag-0.1' 'trunk'")
 
 if want_doc.chosen:
-    script.writeln(". disttools.sh")
+    script.writeln("add_doc")
 
 if want_test.chosen:
-    script.text += ""
+    script.writeln("add_test")
 
+if want_repo.chosen != 1:
+    if want_repo.chosen == 1:
+        remove_src_hg = True
+        remove_doc_hg = True
+        remove_test_hg = True
+    else:
+        remove_src_hg = (srcr.chosen == 0)
+        remove_doc_hg = (docr.chosen == 0)
+        remove_test_hg = (testr.chosen == 0)
+
+    if remove_src_hg:
+        script.writeln("remove_hg nsim")
+
+    if remove_test_hg:
+        script.writeln("remove_hg nsim/tests")
+
+    if remove_doc_hg:
+        script.writeln("remove_hg nsim/interface/nmag/manual")
+
+if want_tarb.chosen in [0, 2]:
+    script.writeln("gen_tarball")
+
+if want_tarb.chosen == 0:
+    script.writeln("remove_directory")
 
 #=============================================================================
 # Save the script, execute it and show final messages
 fn = script.save("distmake.bash")
 
-print "="*40
-print """I CREATED THE FILE '%s'"
-This is a bash file which generates the distribution file(s) according to your specifications.
-Use it as follows:
+if final.chosen in [0, 2]:
+    os.system("/bin/bash %s" % fn)
 
-/bin/bash %s
-""" % (fn, fn)
+if final.chosen == 0:
+    try:
+        os.path.remove(fn)
+    except:
+        print "Cannot remove '%s'" % fn
+
+else:
+    print "="*40
+    print """I CREATED THE FILE '%s'"
+    This is a bash file which generates the distribution file(s) according to your specifications.
+    Use it as follows:
+
+    /bin/bash %s
+    """ % (fn, fn)
