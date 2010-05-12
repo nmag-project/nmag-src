@@ -13,26 +13,66 @@
 This file contains the implementation of the Value object.
 '''
 
+import collections
+
 __all__ = ['Value']
+
+def _is_where_specification(x):
+    if type(x) == str:
+        return True
+    elif isinstance(x, collections.Sequence):
+        if len(x) > 0:
+            return type(x[0]) == str
+        else:
+            return True
 
 class Value:
     """A Value is an object which can be used to set a Quantity.
     It requires three things: a value, the units and a specification of where
     the field should be set to that value."""
 
-    def __init__(self, value=None, where=None, unit=None):
-        self.values = []
-        if value != None:
-            self.set(value, where, unit)
+    def __init__(self, arg1=None, arg2=None, arg3=None):
+        """Specifies a value, the associated unit and the name of the material
+        region where the value should be considered. There are two possible
+        ways of creating an instance of the Value class:
 
-    def set(self, value, where=None, unit=None):
+          EXAMPLE 1: Value(["mat1", "mat2", ...], [1, 2, 3], SI(1e-9, "m"))
+          EXAMPLE 2: Value([1, 2, 3], SI(1e-9, "m"))
+
+        The first example specifies a value for material regions with name
+        "mat1", "mat2", etc. The second specifies a value for all the
+        available material regions.
+        """
+        self.values = []
+        if arg1 != None:
+            self.set(arg1, arg2, arg3)
+
+    def set(self, arg1, arg2=None, arg3=None):
         """An example:
 
-        Value(1.0).set(0.5, 'Dy').set(0.02, ['Py', 'Fe'])
+        Value(1.0).set('Dy', 0.5).set(['Py', 'Fe'], 0.02)
 
         sets to 0.5 in the region with name 'Dy', sets to 0.02 in the region
         'Py' and in the region 'Fe' and sets to 1 in all the remaining
-        regions."""
+        regions.
+        The method receives three arguments and behaves similarly to the
+        instantiator:
+
+          EXAMPLE 1: v.set([1, 2, 3], SI(1e-9, "m"))
+          EXAMPLE 2: v.set(["mat1", "mat2", ...], [1, 2, 3], SI(1e-9, "m"))
+
+        The first sets everywhere, the second only on the listed materials.
+        """
+        if _is_where_specification(arg1):
+            where = arg1
+            value = arg2
+            unit = arg3
+        else:
+            value = arg1
+            unit = arg2
+            where = arg3
+            assert where == None, ""
+
         if type(where) == str:
             where = [where]
         self.values.append((value, where, unit))

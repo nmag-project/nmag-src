@@ -17,7 +17,7 @@ __all__ = ['LocalEqnNode', 'LocalAndRangeDefsNode',
            'SignedTensorAtomNode',
            'FloatNode', 'ParenthesisNode', 'TensorNode', 'FunctionNode']
 
-import collections, types, copy
+import collections, copy
 
 class ListFormatter:
     def __init__(self, open_str="[", close_str="]", separator=", "):
@@ -512,7 +512,7 @@ class TensorNode(UnaryNode):
                 assert self.children == [None], \
                   "Vector Constant quantities are not supported, yet!"
                 return FloatNode(q.as_constant(material=context.material,
-                                               in_units=True))
+                                               in_unit=True))
             else:
                 if (context.material != None
                     and q.is_defined_on_material(context.material)):

@@ -40,12 +40,12 @@ class Quantity(ModelObj):
 
     type_str = "Quantity"
 
-    def __init__(self, name, shape=[], value=None, units=1.0,
+    def __init__(self, name, shape=[], value=None, unit=1.0,
                  is_primary=True, def_on_material=False):
         ModelObj.__init__(self, name)
         self.shape = shape    # Shape of the field
         self.value = None     # Value (instance of Value class)
-        self.units = units    # Units
+        self.unit = unit      # Unit
         self.materials = None # Material names where the field is defined
         self.volumes = None   # Volumes of the material regions.
                               # (see self.material)
@@ -88,11 +88,22 @@ class Quantity(ModelObj):
         to one."""
         return False
 
-    def integrate(self, where=None):
+    def compute_integral(self, where=None):
+        """Integrate the field. If 'where' is not given, then integrate it on
+        every material region where the field is defined.
+        If 'where' is a string, then it is interpreted as the name of the
+        region where the integral should be carried out.
+        If 'where' is a list of strings, then the integral is carried out
+        for the regions with the corresponding names.
+        What is returned is a list [("mat1", value1), ("mat2", value2), ...].
+        """
         raise NotImplementedError("Method integrate is not implemented for "
                                   "Quantity of type %s." % self.type_str)
 
     def compute_average(self, where=None):
+        """Similar to 'compute_integral', but - for each material region -
+        divide the result of the integral by the volume of the material region
+        thus obtaining the spatial average."""
         raise NotImplementedError("Method compute_average is not implemented "
                                   "for Quantity of type %s." % self.type_str)
 
@@ -103,7 +114,7 @@ class Constant(Quantity):
     def is_constant(self):
         return True
 
-    def as_constant(self, material=None, in_units=True):
+    def as_constant(self, material=None, in_unit=True):
         if self.value == None:
             raise AttributeError("The Quantity initial value has not been "
                                  "set, yet!")
@@ -117,8 +128,8 @@ class Constant(Quantity):
         else:
             v = self.value.as_constant(material)
 
-        if in_units:
-            return float(v/self.units)
+        if in_unit:
+            return float(v/self.unit)
 
         else:
             return v
@@ -126,10 +137,10 @@ class Constant(Quantity):
 class SpaceField(Quantity):
     type_str = "SpaceField"
 
-    def __init__(self, name, shape=[], value=None, units=1.0,
+    def __init__(self, name, shape=[], value=None, unit=1.0,
                  is_primary=True, def_on_material=False):
 
-        Quantity.__init__(self, name, shape, value, units, is_primary,
+        Quantity.__init__(self, name, shape, value, unit, is_primary,
                           def_on_material)
 
         self.mwe = None            # MWE associated to the field
@@ -172,9 +183,16 @@ class SpaceField(Quantity):
 
         ocaml.lam_set_field(self.lam, self.master, "v_" + self.name)
 
-    def integrate(self):
+    def integrate(self, where=None):
         ocaml.lam_get_field(self.lam, self.master, "v_" + self.name)
-        return nfem.integrate_field(self.master, "m_Py")
+
+        dof_stem = ""
+        if where != None:
+            if type(where) == str:
+                where = [where]
+            dof_stem = ["%s_%s" % (self.name, mat_name)
+                        for mat_name in where]
+        return nfem.integrate_field(self.master, dof_stem)
 
 
 class TimeField(Quantity):
