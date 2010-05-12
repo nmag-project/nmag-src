@@ -3,7 +3,7 @@ and patch number. These numbers are separated by dots, for example
 
   0.1.2  --> major=0, minor=1, patch=2
 
-This triple of number identifies univocally any release of Nmag after the
+This triple of numbers identifies univocally any release of Nmag after the
 date 11 of May 2010. A release can be of three types:
 
 - Major release (major version number is increased by one, minor and patch

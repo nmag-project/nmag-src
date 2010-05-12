@@ -43,10 +43,13 @@ class Quantity(ModelObj):
     def __init__(self, name, shape=[], value=None, units=1.0,
                  is_primary=True, def_on_material=False):
         ModelObj.__init__(self, name)
-        self.shape = shape
+        self.shape = shape    # Shape of the field
+        self.value = None     # Value (instance of Value class)
+        self.units = units    # Units
+        self.materials = None # Material names where the field is defined
+        self.volumes = None   # Volumes of the material regions.
+                              # (see self.material)
 
-        self.value = None
-        self.units = units
         self.is_primary = is_primary
         self.def_on_mat = def_on_material
 
@@ -85,9 +88,14 @@ class Quantity(ModelObj):
         to one."""
         return False
 
-    def integrate(self):
+    def integrate(self, where=None):
         raise NotImplementedError("Method integrate is not implemented for "
                                   "Quantity of type %s." % self.type_str)
+
+    def compute_average(self, where=None):
+        raise NotImplementedError("Method compute_average is not implemented "
+                                  "for Quantity of type %s." % self.type_str)
+
 
 class Constant(Quantity):
     type_str = "Constant"
@@ -128,11 +136,11 @@ class SpaceField(Quantity):
         self.master = None         # Master copy of the field
         self.material_names = None # Name of materials where field is defined
 
-    def vivify(self, lam, mwe, material_names):
-        Quantity.vivify(self, lam)
-        self.mwe = mwe
+    def vivify(self, model):
+        Quantity.vivify(self, model)
+        self.mwe = mwe = model.mwes[self.name]
         self.master = ocaml.raw_make_field(mwe, [], "", "")
-        self.material_names = material_names
+        self.material_names = model.all_material_names
         self.set_value(self.value)
 
     def set_value(self, value):

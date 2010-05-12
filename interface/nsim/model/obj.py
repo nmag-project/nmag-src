@@ -41,5 +41,13 @@ class ModelObj:
           % (self.type_str, self.name)
         return self.lam
 
-    def vivify(self, lam):
-        self.lam = lam
+    def vivify(self, model):
+        """This function is not meant to be called directly by the user.
+        Called by the model to vivify the object. A ModelObj object can be
+        in one of two states: 1) an object prototypes, 2) a living object.
+        A Quantity, for example, is first created as a Quantity prototype.
+        At that stage it cannot be written and has no storage associated
+        with it. After the quantity has been added to a model and after the
+        model has been built, the QUantity becomes is vivified, i.e. storage
+        is associated to it and can be set/read normally."""
+        self.lam = model.lam
