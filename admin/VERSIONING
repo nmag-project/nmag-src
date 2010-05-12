@@ -1,0 +1,24 @@
+The version is composed by three integer numbers, which we call major, minor
+and patch number. These numbers are separated by dots, for example
+
+  0.1.2  --> major=0, minor=1, patch=2
+
+This triple of number identifies univocally any release of Nmag after the
+date 11 of May 2010. A release can be of three types:
+
+- Major release (major version number is increased by one, minor and patch
+  are set to zero): the major number is associated to a development cycle
+  of Nmag. The major number is increased only when a radical change has taken
+  place. Radical changes are expected to break compatibility with older
+  versions of the program, meaning that a script which runs with version
+  0.13.0 may not run with 1.0.0.
+
+- Normal release (major does not change, minor version number is increased by
+  one, patch number is set to zero): when new features are added. The user
+  may expect some extensions to the interface. Compatibility with older
+  versions should, however, be preserved.
+
+- Patch release (major and minor do not change, patch version is increased by
+  one): when no significant new features are added and the release is made
+  just to fix bugs.
+

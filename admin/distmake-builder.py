@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Nmag micromagnetic simulator
 # Copyright (C) 2010 University of Southampton
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
@@ -9,6 +10,7 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
+version = "distmake-builder 0.1"
 import os
 
 def comment(text):
@@ -145,6 +147,11 @@ want_repo.add_alternative(Alternative("Yes, I'm a developer, I want the "
 repos = want_repo.add_alternative(ChoiceList("For each package (src, doc, test) "
                                              "I want do decide separately."))
 
+distr = repos.add_choice(Choice("All-from-source repository: dist (Makefile "
+                                "to build everything, including PETSc, etc)"))
+distr.add_alternative(Alternative("Do not include version control for dist."))
+distr.add_alternative(Alternative("Include version control for dist."))
+
 srcr = repos.add_choice(Choice("Source repository: src"))
 srcr.add_alternative(Alternative("Do not include version control for src."))
 srcr.add_alternative(Alternative("Include version control for src."))
@@ -178,41 +185,60 @@ plan.ask_user(script)
 
 #=============================================================================
 # Consider the answer and build the script
+script.writeln("# Automatically generated using %s" % version)
 script.writeln("# Script generated from the following answers:")
 script.writeln(comment(str(plan)))
 script.writeln(". disttools.sh")
-script.writeln("allsrc_dev_compose 'nmag-0.1' 'trunk'")
+
+
+from version import current
+major, minor, patch = current[0]
+if want_repo.chosen == 0:
+    pkg_name = "nmag-%d.%d" % (major, minor)
+
+else:
+    pkg_name = "nmag-%d.%d-dev" % (major, minor)
+
+script.writeln("PKGNAME=\"%s\"" % pkg_name)
+script.writeln("allsrc_dev_compose \"$PKGNAME\" 'trunk'")
 
 if want_doc.chosen:
-    script.writeln("add_doc")
+    script.writeln('add_doc "$PKGNAME"')
 
 if want_test.chosen:
-    script.writeln("add_test")
+    script.writeln('add_test "$PKGNAME"')
 
 if want_repo.chosen != 1:
-    if want_repo.chosen == 1:
+    if want_repo.chosen == 0:
+        remove_dist_hg = True
         remove_src_hg = True
         remove_doc_hg = True
         remove_test_hg = True
     else:
+        remove_dist_hg = (distr.chosen == 0)
         remove_src_hg = (srcr.chosen == 0)
         remove_doc_hg = (docr.chosen == 0)
         remove_test_hg = (testr.chosen == 0)
 
     if remove_src_hg:
-        script.writeln("remove_hg nsim")
+        script.writeln('remove_hg "$PKGNAME"')
+
+    if remove_src_hg:
+        script.writeln('remove_hg "$PKGNAME/nsim"')
+        script.writeln('remove_dir "$PKGNAME" nsim/admin nsim/devel nsim/obsolete '
+                       'nsim/prototypes nsim/usersupport nsim/utils')
 
     if remove_test_hg:
-        script.writeln("remove_hg nsim/tests")
+        script.writeln('remove_hg "$PKGNAME/nsim/tests"')
 
     if remove_doc_hg:
-        script.writeln("remove_hg nsim/interface/nmag/manual")
+        script.writeln('remove_hg "$PKGNAME/nsim/interface/nmag/manual"')
 
 if want_tarb.chosen in [0, 2]:
-    script.writeln("gen_tarball")
+    script.writeln('gen_tarball "$PKGNAME"')
 
 if want_tarb.chosen == 0:
-    script.writeln("remove_directory")
+    script.writeln('remove_directory "$PKGNAME"')
 
 #=============================================================================
 # Save the script, execute it and show final messages
@@ -223,7 +249,7 @@ if final.chosen in [0, 2]:
 
 if final.chosen == 0:
     try:
-        os.path.remove(fn)
+        os.remove(fn)
     except:
         print "Cannot remove '%s'" % fn
 

@@ -1,0 +1,10 @@
+# This file lists all the released versions of Nmag.
+# This is a valid Python file, defining a list of entries, one per each
+# released version. The entry has the following format:
+#
+#   [(major, minor, patch), (year, month, day)]
+#
+# Example: [(0, 1, 0), (2010, 5, 11)].
+
+versions = []
+

@@ -7,6 +7,11 @@ function msg {
   echo $*
 }
 
+function fatalerr {
+  echo "FATAL ERROR: $*."
+  exit 1
+}
+
 function untar_pkg_file {
   LOG_FILE="$1"
   if [ -f $PKGS_FILE ]; then
@@ -65,23 +70,39 @@ function allsrc_dev_compose {
 
 function add_doc {
   echo "Adding documentation"
+  $VC_CHECKOUT "$REPOS_NSIM_DOC" "$1/nsim/interface/nmag/manual" >>$LOG_FILE \
+  || fatalerr "Cannot add the documentation to the distribution"
 }
 
 function add_test {
   echo "Adding test suite"
-
+  $VC_CHECKOUT "$REPOS_NSIM_TEST" "$1/nsim/tests" >>$LOG_FILE \
+  || fatalerr "Cannot add the test suite to the distribution"
 }
 
 function remove_hg {
   echo "Removing version control in directory $1"
+  rm -r "$1/.hg" \
+  || fatalerr "cannot remove version control from $1"
+}
+
+function remove_dir {
+  MAIN_DIR=$1
+  shift 1
+  echo "Removing directories $* from $1"
+  (cd $MAIN_DIR && for DIR in $*; do rm -r $DIR; done) \
+  || fatalerr "cannot remove directories"
 }
 
 function gen_tarball {
   echo "Generating tarball for distribution"
+  tar czvf "$1.tar.gz" $1/ >> $LOG_FILE \
+  || fatalerr "Cannot generate the tarball."
 }
 
 function remove_directory {
   echo "Removing distribution directory"
+  rm -r "$1" || fatalerr "Cannot remove the distribution directory."
 }
 
 function remove_hg_stuff {

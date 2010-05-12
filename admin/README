@@ -1,0 +1,21 @@
+Here is a list of tools which you can find inside the admin directory:
+
+-------------------
+distmake-builder.py
+-------------------
+
+Python script to create all-from-source tarballs for distribution.
+The script is interactive, it asks the user some questions (whether to include
+documentation, tests, version control, etc). Once all the questions have been
+answered, a bash script is generated. This bash script generates a tarball
+following the specifications the user gave (the answers to the questions).
+This means that you can save the file and use it whenever you want to create
+the distribution (without having to re-answer all the questions).
+
+-----------------
+svn2hg-transition
+-----------------
+
+The scripts which were used to migrate from SVN to Mercurial.
+They are not useful anymore, but document how the process was actually done.
+
