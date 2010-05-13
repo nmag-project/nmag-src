@@ -183,6 +183,19 @@ def contains_all(the_list, the_items):
            return False
     return True
 
+def rec_apply(f, x):
+    """Apply recursively f to all the element of the given list/typle, or,
+    if the list/tuple contains other list/tuples apply f to their elements
+    in a recursive fashion."""
+    if isinstance(x, (types.TupleType, types.ListType)):
+        return tuple([rec_apply(f, xi) for xi in x])
+    else:
+        return f(x)
+
+def rec_scale(scale, x):
+    """Scale recursively the given list (of lists, eventually)."""
+    return rec_apply(lambda y: scale*y, x)
+
 #def get_main_program_path():
 #    """Returns a tuple (PATH,NAME) where PATH is the full path name of
 #    the directory in which the main Python program file lives, and

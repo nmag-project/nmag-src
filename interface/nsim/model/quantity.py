@@ -31,29 +31,65 @@ import collections, types
 from group import Group
 from obj import ModelObj
 from value import Value
+from nsim.snippets import rec_scale
 from setfield import flexible_set_fielddata
 
 import nfem
 
 class Quantity(ModelObj):
-    """ddd"""
+    """Generic Quantity object."""
 
     type_str = "Quantity"
 
     def __init__(self, name, shape=[], value=None, unit=1.0,
-                 is_primary=True, def_on_material=False):
+                 subfields=False):
+        """Define a new quantity:
+        name:  name of the quantity (should be different for each quantity)
+        shape: shape. Examples: [] for scalars, [3] 3-component vectors, etc
+        value: initial value of the quantity. An initial value should be
+               provided only if the quantity is primary.
+        unit:  the unit used for the quantity. Values will be stored in terms
+               of units. For example, if unit=100 and you set the Quantity
+               to 200, then - internally - 2 will be used.
+        subfields:
+               For each region specifies which subfield of the Quantity are
+               present in it. Example: [["s1", "s2"], ["s1"], []] means
+               that the field has two subfields "s1" and "s2" in the region
+               with index 0, only "s1" in region with index 2, and is not
+               defined in region 3. If subfield is set to False, then the
+               field doesn't have any subfields. If it is set to True than
+               it gets all the default subfields of the model.
+        """
         ModelObj.__init__(self, name)
         self.shape = shape    # Shape of the field
         self.value = None     # Value (instance of Value class)
         self.unit = unit      # Unit
-        self.materials = None # Material names where the field is defined
-        self.volumes = None   # Volumes of the material regions.
-                              # (see self.material)
+        self.subfields = None # Name of the subfields
+        self.regions = None   # self.regions[sf_name] is the list of regions
+                              # indices where the subfield sf_name is defined
+        self.volumes = None   # self.volumes[sf_name] is the sum of volumes
+                              # of all the regions self.regions[sf_name].
 
-        self.is_primary = is_primary
-        self.def_on_mat = def_on_material
+        self.is_primary = True # unused at the moment
+
+        if subfields not in [True, False]:
+            raise NotImplementedError("User defined subfield allocations are "
+                                      "not permitted, yet. Use only "
+                                      "subfields=False or subfields=True "
+                                      "when instantiating a new Quantity.")
+
+        self.def_on_mat = subfields
 
         self.set_value(value)
+
+    def vivify(self, model):
+        ModelObj.vivify(self, model)
+        if self.subfields == True:
+            self.subfields = model.all_material_names
+
+
+        print model.mesh.regionvolumes
+        raw_input()
 
     def is_defined_on_material(self, material):
         """Return True if the quantity is defined on the specified material,
@@ -88,7 +124,7 @@ class Quantity(ModelObj):
         to one."""
         return False
 
-    def compute_integral(self, where=None):
+    def compute_integral(self, where=None, use_su=False):
         """Integrate the field. If 'where' is not given, then integrate it on
         every material region where the field is defined.
         If 'where' is a string, then it is interpreted as the name of the
@@ -104,9 +140,13 @@ class Quantity(ModelObj):
         """Similar to 'compute_integral', but - for each material region -
         divide the result of the integral by the volume of the material region
         thus obtaining the spatial average."""
-        raise NotImplementedError("Method compute_average is not implemented "
-                                  "for Quantity of type %s." % self.type_str)
+        integrals = self.compute_integral(where=where, use_su=True)
+        result = []
+        for subfield_name, value in integrals:
+            avg = rec_scale(value, 1.0/self.volumes[subfield_name])
+            result.append((subfield_name, avg))
 
+        return result
 
 class Constant(Quantity):
     type_str = "Constant"
@@ -138,10 +178,9 @@ class SpaceField(Quantity):
     type_str = "SpaceField"
 
     def __init__(self, name, shape=[], value=None, unit=1.0,
-                 is_primary=True, def_on_material=False):
+                 subfields=False):
 
-        Quantity.__init__(self, name, shape, value, unit, is_primary,
-                          def_on_material)
+        Quantity.__init__(self, name, shape, value, unit, subfields)
 
         self.mwe = None            # MWE associated to the field
         self.master = None         # Master copy of the field
@@ -181,9 +220,10 @@ class SpaceField(Quantity):
             flexible_set_fielddata(self.master, self.name, m, 1e9, scale_factor=1.0,
                                    normalise=False)
 
+        print self.lam, self.master
         ocaml.lam_set_field(self.lam, self.master, "v_" + self.name)
 
-    def integrate(self, where=None):
+    def compute_integral(self, where=None, use_su=False):
         ocaml.lam_get_field(self.lam, self.master, "v_" + self.name)
 
         dof_stem = ""

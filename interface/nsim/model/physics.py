@@ -52,10 +52,10 @@ def _extended_properties_by_region(region_materials, min_region=-1,
     for nr_region in range(len(region_materials)):
         add_prop(nr_region,str(nr_region))
         materials = region_materials[nr_region]
-        for m in materials:
-            add_prop(nr_region, m.name)
-            for p in m.properties:
-                add_prop(nr_region,p)
+        for mat_name in materials:
+            add_prop(nr_region, mat_name)
+            #for p in m.properties:
+                #add_prop(nr_region,p)
 
     # Now that we initialized these hashes, map them back to lists:
 
@@ -81,6 +81,18 @@ class Model:
         self.dim = ocaml.mesh_dim(mesh.raw_mesh)
         self.region_materials = region_materials
         self.min_region = min_region
+
+        # Fill a map associating subfield name to region indices where
+        # the subfield is defined.
+        regions_of_subfield = {}
+        for region_idx, subfield_names in enumerate(region_materials):
+            for subfield_name in subfield_names:
+                if regions_of_subfield.has_key(subfield_name):
+                    regions_of_subfield[subfield_name].append(region_idx - 1)
+                    # ^^^ we subtract one because we start from vacuum whose
+                    #     associated index is -1
+        self.regions_of_subfield = regions_of_subfield
+
 
         # Things that get constructed when the object is "used"
         self.computations = Computations()
@@ -129,16 +141,16 @@ class Model:
         # a corresponding element
         all_materials = {}
         for region in self.region_materials:
-            for mat in region:
-                logger.info("Processing material '%s'" % mat.name)
+            for mat_name in region:
+                logger.info("Processing material '%s'" % name)
 
-                if not all_materials.has_key(mat.name):
-                    elem_name = "%s_%s" % (name, mat.name)
+                if not all_materials.has_key(mat_name):
+                    elem_name = "%s_%s" % (name, mat_name)
                     elem = ocaml.make_element(elem_name, shape, self.dim, 1)
-                    all_materials[mat.name] = (mat, elem)
+                    all_materials[mat_name] = (mat_name, elem)
 
         # Build a list of all the different names of the involved materials
-        self.all_material_names = [all_materials[mn][0].name
+        self.all_material_names = [all_materials[mn][0]
                                    for mn in all_materials]
 
         # Obtain a list fused_elem_by_region such that
@@ -149,7 +161,7 @@ class Model:
         for region in self.region_materials:
             # Build a list of the elements in the region
             elems_in_region = \
-              map(lambda mat: all_materials[mat.name][1], region)
+              map(lambda mat_name: all_materials[mat_name][1], region)
             # Fuse all these elements
             fused_elem = reduce(ocaml.fuse_elements, elems_in_region,
                                 ocaml.empty_element)
