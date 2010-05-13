@@ -11,6 +11,7 @@
 
 from eqparser import parse
 from eqtree import SimplifyContext
+from value import Value
 
 def condensed_string(s):
     return s.replace(" ", "").replace("\n", "")
@@ -61,10 +62,10 @@ def test_simplify():
 
 def test_simplify_quantities():
     from quantity import Constant, SpaceField, Quantities
-    zero = Constant("zero", def_on_material=False, value=0.0)
-    gamma = Constant("gamma", def_on_material=False, value=1.23)
+    zero = Constant("zero", subfields=False, value=0.0)
+    gamma = Constant("gamma", subfields=False, value=1.23)
 
-    m = SpaceField("m", [3], def_on_material=True)
+    m = SpaceField("m", [3], subfields=True)
     H_ext = SpaceField("H_ext", [3])
     context = SimplifyContext(quantities=Quantities([gamma, m, H_ext, zero]))
     strings = [("m(0) <- -zero*(m(1)*H_ext(2) - m(2)*H_ext(1));",
@@ -79,16 +80,16 @@ def test_simplify_quantities():
 
 def test_llg():
     from quantity import Constant, SpaceField, Quantities
-    C1 = Constant("C1", def_on_material=False, value=-0.17688)
-    C2 = Constant("C2", def_on_material=False, value=-0.08844)
-    C3 = Constant("C3", def_on_material=False, value=0.1)
-    C4 = Constant("C4", def_on_material=False, value=0.0)
-    C5 = Constant("C5", def_on_material=False, value=0.0)
-    m = SpaceField("m", [3], def_on_material=True)
-    dmdt = SpaceField("dmdt", [3], def_on_material=True)
-    dm_dcurrent = SpaceField("dm_dcurrent", [3], def_on_material=False)
-    pin = SpaceField("pin", def_on_material=False)
-    H_total = SpaceField("H_total", [3], def_on_material=True)
+    C1 = Constant("C1", subfields=False, value=Value(-0.17688))
+    C2 = Constant("C2", subfields=False, value=Value(-0.08844))
+    C3 = Constant("C3", subfields=False, value=Value(0.1))
+    C4 = Constant("C4", subfields=False, value=Value(0.0))
+    C5 = Constant("C5", subfields=False, value=Value(0.0))
+    m = SpaceField("m", [3], subfields=True)
+    dmdt = SpaceField("dmdt", [3], subfields=True)
+    dm_dcurrent = SpaceField("dm_dcurrent", [3], subfields=False)
+    pin = SpaceField("pin", subfields=False)
+    H_total = SpaceField("H_total", [3], subfields=True)
     quantities = Quantities([C1, C2, C3, C4, C5, m, dmdt, dm_dcurrent, pin,
                              H_total])
 
@@ -116,16 +117,16 @@ def test_llg():
 
 def test_llg_multimaterial():
     from quantity import Constant, SpaceField, Quantities
-    C1 = Constant("C1", def_on_material=False, value=-0.17681384)
-    C2 = Constant("C2", def_on_material=False, value=-0.08840692)
-    C3 = Constant("C3", def_on_material=False, value=0.1)
-    C4 = Constant("C4", def_on_material=False, value=0.0)
-    C5 = Constant("C5", def_on_material=False, value=0.0)
-    m = SpaceField("m", [3], def_on_material=True)
-    dmdt = SpaceField("dmdt", [3], def_on_material=True)
-    dm_dcurrent = SpaceField("dm_dcurrent", [3], def_on_material=False)
-    pin = SpaceField("pin", def_on_material=False)
-    H_total = SpaceField("H_total", [3], def_on_material=True)
+    C1 = Constant("C1", subfields=False, value=Value(-0.17681384))
+    C2 = Constant("C2", subfields=False, value=Value(-0.08840692))
+    C3 = Constant("C3", subfields=False, value=Value(0.1))
+    C4 = Constant("C4", subfields=False, value=Value(0.0))
+    C5 = Constant("C5", subfields=False, value=Value(0.0))
+    m = SpaceField("m", [3], subfields=True)
+    dmdt = SpaceField("dmdt", [3], subfields=True)
+    dm_dcurrent = SpaceField("dm_dcurrent", [3], subfields=False)
+    pin = SpaceField("pin", subfields=False)
+    H_total = SpaceField("H_total", [3], subfields=True)
     quantities = Quantities([C1, C2, C3, C4, C5, m, dmdt, dm_dcurrent, pin,
                              H_total])
 
