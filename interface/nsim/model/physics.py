@@ -88,11 +88,13 @@ class Model:
         for region_idx, subfield_names in enumerate(region_materials):
             for subfield_name in subfield_names:
                 if regions_of_subfield.has_key(subfield_name):
-                    regions_of_subfield[subfield_name].append(region_idx - 1)
-                    # ^^^ we subtract one because we start from vacuum whose
-                    #     associated index is -1
+                    region_idxs = regions_of_subfield[subfield_name]
+                else:
+                    regions_of_subfield[subfield_name] = region_idxs = []
+                region_idxs.append(region_idx)
+                # ^^^ we subtract one because we start from vacuum whose
+                #     associated index is -1
         self.regions_of_subfield = regions_of_subfield
-
 
         # Things that get constructed when the object is "used"
         self.computations = Computations()

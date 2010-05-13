@@ -64,7 +64,14 @@ class Quantity(ModelObj):
         self.shape = shape    # Shape of the field
         self.value = None     # Value (instance of Value class)
         self.unit = unit      # Unit
-        self.subfields = None # Name of the subfields
+        self.subfields = subfields
+        if subfields not in [True, False]:
+            raise NotImplementedError("User defined subfield allocations are "
+                                      "not permitted, yet. Use only "
+                                      "subfields=False or subfields=True "
+                                      "when instantiating a new Quantity.")
+        self.def_on_mat = subfields
+
         self.regions = None   # self.regions[sf_name] is the list of regions
                               # indices where the subfield sf_name is defined
         self.volumes = None   # self.volumes[sf_name] is the sum of volumes
@@ -72,24 +79,25 @@ class Quantity(ModelObj):
 
         self.is_primary = True # unused at the moment
 
-        if subfields not in [True, False]:
-            raise NotImplementedError("User defined subfield allocations are "
-                                      "not permitted, yet. Use only "
-                                      "subfields=False or subfields=True "
-                                      "when instantiating a new Quantity.")
-
-        self.def_on_mat = subfields
-
         self.set_value(value)
 
     def vivify(self, model):
         ModelObj.vivify(self, model)
         if self.subfields == True:
+            vols = model.mesh.regionvolumes
             self.subfields = model.all_material_names
 
+            # Calculate the volume per subfield as the sum of the volumes
+            # where the subfield is defined
+            self.volumes = volumes = {}
+            for subfield in self.subfields:
+                volumes["%s_%s" % (self.name, subfield)] = \
+                  reduce(lambda v, region_idx: v + vols[region_idx],
+                         model.regions_of_subfield[subfield], 0.0)
 
-        print model.mesh.regionvolumes
-        raw_input()
+        else:
+            print self.name
+            raw_input()
 
     def is_defined_on_material(self, material):
         """Return True if the quantity is defined on the specified material,
@@ -143,7 +151,7 @@ class Quantity(ModelObj):
         integrals = self.compute_integral(where=where, use_su=True)
         result = []
         for subfield_name, value in integrals:
-            avg = rec_scale(value, 1.0/self.volumes[subfield_name])
+            avg = rec_scale(1.0/self.volumes[subfield_name], value)
             result.append((subfield_name, avg))
 
         return result
