@@ -19,8 +19,8 @@ def expect_exception(fn, exc):
 def test_all():
     xs, evalxs = x_evalx("Value()", [], [])
     x_evalx("Value(1)", xs, evalxs)
-    x_evalx("Value(1, where='Py').set(2, where='Co')", xs, evalxs)
-    x_evalx("Value(3).set(1, where='Py').set(2, where='Co')", xs, evalxs)
+    x_evalx("Value('Py', 1).set('Co', 2)", xs, evalxs)
+    x_evalx("Value(3).set('Py', 1).set('Co', 2)", xs, evalxs)
 
     for x, evalx in zip(xs, evalxs):
         my_x = str(evalx)

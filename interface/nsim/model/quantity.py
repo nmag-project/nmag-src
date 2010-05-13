@@ -83,9 +83,14 @@ class Quantity(ModelObj):
 
     def vivify(self, model):
         ModelObj.vivify(self, model)
-        if self.subfields == True:
-            vols = model.mesh.regionvolumes
-            self.subfields = model.all_material_names
+
+        vols = model.mesh.regionvolumes
+        if self.subfields == False:
+            self.volumes = {self.name:sum(vols[1:])}
+
+        else:
+            if self.subfields == True:
+                self.subfields = model.all_material_names
 
             # Calculate the volume per subfield as the sum of the volumes
             # where the subfield is defined
@@ -94,10 +99,6 @@ class Quantity(ModelObj):
                 volumes["%s_%s" % (self.name, subfield)] = \
                   reduce(lambda v, region_idx: v + vols[region_idx],
                          model.regions_of_subfield[subfield], 0.0)
-
-        else:
-            print self.name
-            raw_input()
 
     def is_defined_on_material(self, material):
         """Return True if the quantity is defined on the specified material,
@@ -228,7 +229,6 @@ class SpaceField(Quantity):
             flexible_set_fielddata(self.master, self.name, m, 1e9, scale_factor=1.0,
                                    normalise=False)
 
-        print self.lam, self.master
         ocaml.lam_set_field(self.lam, self.master, "v_" + self.name)
 
     def compute_integral(self, where=None, use_su=False):

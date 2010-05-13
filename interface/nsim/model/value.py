@@ -71,7 +71,8 @@ class Value:
             value = arg1
             unit = arg2
             where = arg3
-            assert where == None, ""
+            assert where == None, "You provided three arguments, but the " \
+              "first one was not recognised as a subfield specification."
 
         if type(where) == str:
             where = [where]
@@ -85,13 +86,15 @@ class Value:
 
         s = ""
         for value, where, unit in self.values:
-            args = [str(value)]
             if where != None:
                 if len(where) == 1:
-                    args.append("where='%s'" % where[0])
+                    args = ["'%s'" % where[0]]
                 else:
-                    args.append("where=%s" % str(where))
-            if unit != None: args.append("unit=%s" % unit)
+                    args = [str(where)]
+            else:
+                args = []
+            args.append(str(value))
+            if unit != None: args.append(str(unit))
             s += "%s(%s)" % (fmt, ", ".join(args))
             fmt = ".set"
         return s
