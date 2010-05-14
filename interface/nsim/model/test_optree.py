@@ -10,7 +10,7 @@
 #          (see <http://www.gnu.org/licenses/>)
 
 from quantity import *
-from physics import *
+from model import *
 from optree import *
 
 import nmesh

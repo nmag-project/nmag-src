@@ -16,7 +16,7 @@ by the Nsim package.
 
 from value import *
 from quantity import *
-from physics import *
+from model import *
 from optree import *
 from computation import *
 from timestepper import *
