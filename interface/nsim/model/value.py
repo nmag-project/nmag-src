@@ -29,7 +29,21 @@ def _is_where_specification(x):
 class Value:
     """A Value is an object which can be used to set a Quantity.
     It requires three things: a value, the units and a specification of where
-    the field should be set to that value."""
+    the field should be set to that value. The value can be:
+
+      - a floating number or a list of list of ... of floating point numbers
+        (used to set a Quantity uniformly in space),
+
+      - a function specifying, for every position, what the value is
+        (used to set a Quantity dependently on the position in space),
+
+      - a numpy array specifying a value for every site of the mesh
+        (used when the number of nodes and topology of the mesh is known).
+
+    A note should be made for the latter case. A Value object is not
+    associated to a mesh. Therefore, the check that the size of the numpy
+    array matches the number of mesh nodes is done when actually setting
+    the field, i.e. by the function or code that is using the Value."""
 
     def __init__(self, arg1=None, arg2=None, arg3=None):
         """Specifies a value, the associated unit and the name of the material

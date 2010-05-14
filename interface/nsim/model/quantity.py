@@ -49,7 +49,7 @@ class Quantity(ModelObj):
         value: initial value of the quantity. An initial value should be
                provided only if the quantity is primary.
         unit:  the unit used for the quantity. Values will be stored in terms
-               of units. For example, if unit=100 and you set the Quantity
+               of unit. For example, if unit=100 and you set the Quantity
                to 200, then - internally - 2 will be used.
         subfields:
                For each region specifies which subfield of the Quantity are

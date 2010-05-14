@@ -12,6 +12,52 @@
 """
 Module which allows to define in a high-level way the physics to be simulated
 by the Nsim package.
+
+nsim.model and SI units
+-----------------------
+
+The nsim.model module is completely independent from the SI object and the
+nsim.si_units module, but at the same time the two modules can be used
+together effectively. In this document we explain how this can be possible.
+Let's consider a SpaceField Quantity, for example. The user may want to set
+it using an SI object. For example,
+
+  M_sat.set_value(Value(0.86e6, SI("A/m"))
+
+Obviously, the field data is just an array of floats, therefore one needs to
+map the SI object to a float. This is done dependently on the units given in
+the Quantity definition. For example, if the field was defined as:
+
+  M_sat = SpaceField("M_sat", unit=SI(1e6, "A/m"))
+
+Then the array of float representing the data for M_sat will be set uniformly
+to the value 0.86 which is obtained doing
+
+  float(set_value_arg/unit) (in this case, set_value_arg=0.86e6*SI("A/m"))
+
+This construct is very generic and works in the case set_value_arg and
+unit are two SI objects, but - more importantly - also when they are just
+two floating point numbers. In the case of SI objects, what happens is that
+if the value provided as argument to set_value (which we call set_value_arg)
+has the right units, SI("A/m"), then the division will return an object of
+type SI(1) which can be converted safely to a float. If the user provides
+an SI object with different units, say SI("m"), then the division will give
+rise to a dimensional SI object (SI("m^2/A")) which will induce the float
+funciton to throw an exception. That is the way we get totally independent
+from the SI object and the related stuff.
+For example, the previous statements could be safely written as:
+
+  M_sat = SpaceField("M_sat")
+  M_sat.set_value(0.86e6)
+
+In this case, unit is assumed to be simply 1.0, a floating point number.
+
+Now let's see what happens when getting values from a Quantity.
+For example, let's compute the average of the Quantity.
+
+  M_sat.compute_average()
+
+if the SI object was used, then the internal value
 """
 
 import types, logging
