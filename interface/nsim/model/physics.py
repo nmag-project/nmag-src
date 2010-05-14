@@ -55,9 +55,19 @@ In this case, unit is assumed to be simply 1.0, a floating point number.
 Now let's see what happens when getting values from a Quantity.
 For example, let's compute the average of the Quantity.
 
-  M_sat.compute_average()
+  v = M_sat.compute_average()
 
-if the SI object was used, then the internal value
+what is returned is a Value object. A Value object is composed by the data
+(always non-dimensional: just floats) plus a factor. If you defined M_sat
+as SpaceField(..., unit=SI(1e6, "A/m")), then the factor will be
+SI(1e6, "A/m"). If you used SpaceField("M_sat"), then the prefactor will be
+just 1.0. Notice that also M_sat.get_value() will return a Value object.
+This does not imply a significant loss of performance, as the Valu object
+will be just a pair of the raw data (without any scaling, just as it is
+represented internally) plus a multiplicative factor.
+
+Notice that the Value object provides methods to convert it to floats
+with the desired unit (see Value.as_float).
 """
 
 import types, logging
