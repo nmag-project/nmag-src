@@ -31,7 +31,7 @@ class Value:
     It requires three things: a value, the units and a specification of where
     the field should be set to that value. The value can be:
 
-      - a floating number or a list of list of ... of floating point numbers
+      - a floating number or a list of lists of ... of floating point numbers
         (used to set a Quantity uniformly in space),
 
       - a function specifying, for every position, what the value is
@@ -60,6 +60,8 @@ class Value:
         self.values = []
         if arg1 != None:
             self.set(arg1, arg2, arg3)
+        else:
+            assert arg2 == None and arg3 == None
 
     def set(self, arg1, arg2=None, arg3=None):
         """An example:
@@ -193,3 +195,6 @@ class Value:
                 raise ValueError("Material '%s' of value (%s) was not used."
                                  % (m, self))
         return plan
+
+    def change_unit(self, new_units):
+        raise NotImplementedError("Value.change_unit is not implemented.")
