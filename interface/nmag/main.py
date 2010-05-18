@@ -2916,12 +2916,10 @@ class Simulation(SimulationCore):
         if filename == None:
             filename = "%s-dump.vtk" % self.name
 
-        mwe_field_by_name = self._master_mwes_and_fields_by_name
         if fields == None:
-            fields = [f for _, f in mwe_field_by_name.values()]
+            fields = [self._fields[name] for name in self._fields.keys()]
         else:
-            fields = [mwe_field_by_name[name][1]
-                      for name in fields]
+            fields = [self._fields[name] for name in fields]
 
         from nfem.visual import fields2vtkfile
         fields2vtkfile(fields,
