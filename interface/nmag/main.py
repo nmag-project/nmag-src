@@ -200,16 +200,16 @@ fields_on_space = ['H_anis', 'M', 'dmdt', 'm', 'grad_m',
 known_fields = fields_on_materials + fields_on_space
 
 fieldunits_by_fieldname = {'phi':SI("A"),
-                           'H_demag':SI("A/m"), 
-                           'H_anis':SI("A/m"), 
+                           'H_demag':SI("A/m"),
+                           'H_anis':SI("A/m"),
                            'M':SI("A/m"),
                            'dmdt':SI("A/m s"),
                            'm':SI(""),
                            'grad_m':SI("A/m^2"),
-                           'E_anis':SI("J/m^3"), 
-                           'E_exch':SI("J/m^3"), 
+                           'E_anis':SI("J/m^3"),
+                           'E_exch':SI("J/m^3"),
                            'E_lc':SI("J/m^3"),
-                           'rho':SI("A/m^2"), 
+                           'rho':SI("A/m^2"),
                            'E_demag':SI("J/m^3"),
                            'E_total':SI("J/m^3"),
                            'E_ext':SI("J/m^3"),
@@ -262,7 +262,7 @@ class MagMaterial:
         The saturation magnetisation of the material (in Ampere per
         meter).
 
-        Example (and default (PermAlloy) value): ``SI(0.86e6,"A/m")`` 
+        Example (and default (PermAlloy) value): ``SI(0.86e6,"A/m")``
 
       `llg_gamma_G` : SI Object
         The constant in front of the precession term in the LLG equation:
@@ -323,7 +323,7 @@ class MagMaterial:
         when setting up discretized operators.
 
         Example (and default value): ``True``
-    
+
     """
 
     __argdoclong__ = """
@@ -470,7 +470,7 @@ class MagMaterial:
         repr_str = "Material '%s'\n" % self.name
         attrs = filter(lambda a : a[0] != '_', dir(self))
         if not self.extended_print:
-            attrs = ['name', 'Ms', 'exchange_coupling', 'anisotropy', 
+            attrs = ['name', 'Ms', 'exchange_coupling', 'anisotropy',
                      'anisotropy_order', 'llg_gamma_G', 'llg_damping',
                      'llg_normalisationfactor', 'do_precession',
                      'llg_polarisation', 'llg_xi', 'thermal_factor',
@@ -519,14 +519,14 @@ class Fields:
     (the user could store this object, change the magnetisation and
     then query the field-pill again. It will not have updated
     automatically.)
-    
+
     Rethink this for next generation of code. A field should be
     a clever Python object with 'properties' etc. We are
     not sure yet, though, what a good userinterface would be,
     so we'll delay this design decision.
 
     """
-    
+
     def __init__(self, master_mwes_and_fields_by_name,
                  lam, mesh_unit_length,
                  primary_fields=['m', 'H_ext', 'pin', 'current_density']):
@@ -573,7 +573,7 @@ class Fields:
 
         #Sometimes, we only need the _structure_ of a field, so it doesn't matter
         #wether the data is up-to-date.
-        self.nutd = {} #nutd stands for Not-Up-To-Date fields 
+        self.nutd = {} #nutd stands for Not-Up-To-Date fields
 
         for fieldname in self.fieldnames:
             mwe,field = self._master_mwes_and_fields_by_name[fieldname]
@@ -596,7 +596,7 @@ class Fields:
             subfields_and_shape_list = nfem.data_doftypes(self.nutd[fieldname])
             for subfieldname,shape in subfields_and_shape_list:
                 out += "\t%15s -> %15s (shape=%s)\n" % (fieldname,subfieldname,str(shape))
-            
+
 	return out
 
     def keys(self):
@@ -624,7 +624,7 @@ class Fields:
                                  + "Available fields and subfields  are \n"
                                  + self.__repr__())
         return fieldname
-    
+
 
     def set_subfield(self, subfieldname, values, unit, auto_normalise=False, fieldname=None):
         """Can either provide [list of] subfield[s] to which to apply the operation, or
@@ -694,17 +694,17 @@ class Fields:
                                             normalise=auto_normalise)
 
     def shape_by_subfieldname(self,fieldname):
-        
+
         if self._shape_by_subfieldname == {}:
             for field_name in self.nutd.keys():
-                
+
                 field=self.nutd[field_name]
                 name_shape=ocaml.data_doftypes(field)
                 for name,shape in name_shape:
                     self._shape_by_subfieldname[name]=shape
             log.debug("Fields: have populated self._shape_by_subfieldname: "
                       "'%s'" % self._shape_by_subfieldname)
-                    
+
         return self._shape_by_subfieldname[fieldname]
 
 class LAMTimestepper:
@@ -740,19 +740,19 @@ class SetLatticePoints:
         transf_ls=[]   # list of transformations to be done on the repeated system (orthogonal transf,
                        # displacement, weight)
         conversionfactor=simulation_units.of(scalefactor) # scale factor is expressed in su
-        
+
         if [0.,0.,0.] not in vectorlist:
             vectorlist.append([0.0,0.0,0.0])
 
         for vector in vectorlist:
             su_vector = numpy.array(vector,'d')*conversionfactor
-            transf_ls.append( (ortho_transf,greyfact,su_vector.tolist()) ) 
+            transf_ls.append( (ortho_transf,greyfact,su_vector.tolist()) )
         self.structure = ([identity_matrix],transf_ls)
 
 ###        ortho_transf = 0
 ###        greyfact = 1
-###        displacement = [1000,0,0]  
-###        displacement2 = [0,0,0]  
+###        displacement = [1000,0,0]
+###        displacement2 = [0,0,0]
 ###        self.structure = ([identity_matrix],
 ###                          [(ortho_transf,greyfact,displacement),
 ###                           (ortho_transf,greyfact,displacement2),
@@ -807,7 +807,7 @@ class Simulation(SimulationCore):
 
         `ksp_tolerances`: dictionary
           Keys to this dictionary are:
-          DBC.rtol DBC.atol DBC.dtol DBC.maxits          
+          DBC.rtol DBC.atol DBC.dtol DBC.maxits
           NBC.rtol NBC.atol NBC.dtol NBC.maxits
 
           Values are the petsc KSP-solver tolerances for the Dirichlet and
@@ -838,7 +838,7 @@ class Simulation(SimulationCore):
                                 id="FE Simulation class")
 
         #first, display data about the version of this code.
-        
+
         #We do this here (i.e. when a Simulation object is created
         #rather than when the nmag module is imported, because the
         #version information is somewhat irrelevant when playing with
@@ -918,7 +918,7 @@ class Simulation(SimulationCore):
 
         self.region_name_list = None   #list of names of mesh regions in order as
                                        #in mesh, starting with region 1 (i.e. no vacuum)
-                                       
+
         self.regionnames_by_regionid = None
                                        #dictionary: same information as in self_name_list
                                        #but more consistent with our naming conventions.
@@ -1068,7 +1068,7 @@ class Simulation(SimulationCore):
             self.ts_in_lam.rel_tolerance = ts_rel_tol
             self.ts_in_lam.tol_factor = 1.0
             msg += ' ts_rel_tol=%s' % ts_rel_tol
- 
+
         if ts_abs_tol != None:
             self.ts_in_lam.abs_tolerance = ts_abs_tol
             self.ts_in_lam.tol_factor = 1.0
@@ -1100,7 +1100,7 @@ class Simulation(SimulationCore):
             A and B must have been defined previously as ``nmag.MagMaterial``.
 
             Having two Materials X and Y both defined in region A (as in a magnetic
-            two-component alloy), we would use [("region_A",[X,Y])]. 
+            two-component alloy), we would use [("region_A",[X,Y])].
 
           `unit_length` : SI object
             The SI object defines what a length of 1.0 in the mesh file
@@ -1119,7 +1119,7 @@ class Simulation(SimulationCore):
             use* this reodering option here, if you think you need to
             order it.
 
-            If you know nmag really well (you are probably a member of 
+            If you know nmag really well (you are probably a member of
             the core team) then read on.
 
             The use of ``do_reorder`` *can* make sense if either your
@@ -1130,7 +1130,7 @@ class Simulation(SimulationCore):
             than one CPU and leave the distribution of the nodes to
             nmag (i.e. you use the default
             ``manual_distribution==None``).
-                        
+
           `manual_distribution` : list of integers
             This list (if provided) describes how many nodes are to be
             put onto which CPU under MPI-parallelized execution.  If
@@ -1160,8 +1160,8 @@ class Simulation(SimulationCore):
         else:
             do_distribute=True
 
-	#Need to convert the mesh positions into simulation units. The mesh positions are SI when 
-	#the unit_length is multiplied with the actual coordinates. We thus only have to convert the 
+	#Need to convert the mesh positions into simulation units. The mesh positions are SI when
+	#the unit_length is multiplied with the actual coordinates. We thus only have to convert the
 	#unit_length SI object into simulation units:
 	scalefactor=simulation_units.of(unit_length, compatible_with=SI(1,'m'))
 
@@ -1170,7 +1170,7 @@ class Simulation(SimulationCore):
         memory_report("just before nmesh.load")
         self.mesh = nmesh.load(filename,do_reorder,do_distribute)
         memory_report("just after nmesh.load")
-        
+
         if(manual_distribution):
             ocaml.mesh_set_vertex_distribution(self.mesh.raw_mesh,manual_distribution)
 
@@ -1396,7 +1396,7 @@ class Simulation(SimulationCore):
             #          " pc setup    : %10.6f sec %4f calls\n"
             #          " pc solve    : %10.6f sec %4f calls\n"
             #          " RHS         : %10.6f sec %4f calls\n"
-            #          " Re-Jacobi : %10.6f sec %4f calls\n" 
+            #          " Re-Jacobi : %10.6f sec %4f calls\n"
             #          % (times[0], times[1], times[2], times[3], times[4],
             #             times[5], times[6], times[7], times[8], times[9]))
 
@@ -1501,7 +1501,7 @@ class Simulation(SimulationCore):
 
         :Parameters:
           `fieldname` : string
-            name of the field 
+            name of the field
 
           `subfieldname` : string
             name of the subfield
@@ -1510,7 +1510,7 @@ class Simulation(SimulationCore):
             The position at which we'd like to probe the subfield
 
             `pos_units` : SI object
-          
+
             Multiplicator for ``pos`` to get SI object that describes
             the position (i.e. the units of 'pos' are given in 'pos_units')
 
@@ -1534,7 +1534,7 @@ class Simulation(SimulationCore):
         su_pos = map( lambda a : a*factor, pos )
 
         field = self._fields[fieldname]
-        
+
         su_data = ocaml.probe_field(field,subfieldname,su_pos)
 
         #if we get su_data == [], then there are two possible reasons
@@ -1579,7 +1579,7 @@ class Simulation(SimulationCore):
         :Parameters:
           `subfieldname` : string
             The name of the subfield
-            
+
           `pos` : SI object
             The position for which the data should be returned
 
@@ -1601,7 +1601,7 @@ class Simulation(SimulationCore):
             The returned object is an SI object for scalar subfields,
             a list of SI objects for vector fields, a list of list of
             SI objects for (rank 2) tensor fields, etc.
-            
+
         """
 
 
@@ -1645,7 +1645,7 @@ class Simulation(SimulationCore):
     def probe_subfield_siv(self,subfieldname,pos,unit=None):
         """
         The same behaviour as ``get_subfield`` but the ``pos`` and return
-        data are `SI-value`_\ s (not SI objects). 
+        data are `SI-value`_\ s (not SI objects).
 
         If the subfield is not defined at that part of space, ``None``
         is returned.
@@ -1659,7 +1659,7 @@ class Simulation(SimulationCore):
         :Parameters:
           `subfieldname` : string
             The name of the subfield
-            
+
           `pos` : list of floats
             The position for which the data should be returned (in meters)
 
@@ -1680,7 +1680,7 @@ class Simulation(SimulationCore):
             The returned object is a float for scalar subfields,
             a list of floats vector fields, a list of list of
             floats for (rank 2) tensor fields, etc.
-            
+
         """
 
         log.debug("Entering get_subfield with subfield='%s'" % subfieldname)
@@ -1703,7 +1703,7 @@ class Simulation(SimulationCore):
         data = self._probe_subfield(fieldname,purepos,subfieldname,pos_units,si_units)
         return data
 
-    def _set_subfield(self,subfieldname,values,unit,fieldname,auto_normalise):        
+    def _set_subfield(self,subfieldname,values,unit,fieldname,auto_normalise):
         self._fields.set_subfield(subfieldname,
                                   values,
                                   unit,
@@ -1717,12 +1717,12 @@ class Simulation(SimulationCore):
         """
 
         :Parameters:
-        
+
           `values` : vector (=list), function or numpy array.
             See set_m_ for an explanation of possible ``values``.
-            
+
           `unit` : SI Object
-          
+
             An SI Object that is used as a multiplier for the
             ``values``. This unit has to be physically compatible with
             Ampere per meter.
@@ -1748,9 +1748,9 @@ class Simulation(SimulationCore):
 
         """
 
-        
+
         fieldname = 'H_ext'
-        
+
         if unit:
             #This is the default way of setting values as document for functions and numpy arrays:
             #values = (values,unit)
@@ -1776,59 +1776,59 @@ class Simulation(SimulationCore):
     def set_m(self,values,subfieldname=None):
 	"""
         :Parameters:
-        
+
           `values` : vector (=list), function or numpy array.
             The values to be set. See more detailed explanation below.
 
         This method sets the (normalised) magnetisation  (i.e. the ``m`` field)
         to a particular value (or pattern).
-        
+
         It can be used in three different ways:
 
         1. Providing a constant vector
 
            If given a vector, this function sets the ``m`` field to uniformly point in
            the given direction, everywhere.
- 
+
            For example, to have the magnetisation point
            in +x-direction, we could call the function like this::
-    
+
              sim.set_m([1,0,0])
-    
+
            To point in a 45 degree direction between the x- and y-axis,
            we could use::
-    
+
              sim.set_m([1,1,0])
-    
+
            (The magnetisation will automatically be normalised.)
- 
+
 
         2. Providing a function
 
            If the magnetisation is meant to vary spatially, then a
            function can be given to the ``set_m`` method as in this
            example::
- 
+
              def my_magnetisation((x,y,z)):
                  # get access to pi, cos and sin
-                 import math  
-             
+                 import math
+
                  # change angle of Mx and My by 10 degree when x varies by 1nm
-                 angle = (x*1e9)*10./360*2*math.pi 
+                 angle = (x*1e9)*10./360*2*math.pi
                  Mx = math.cos(angle)
                  My = math.sin(angle)
                  Mz = 0
- 
+
                  #return magnetisation vector for position (x,y,z)
                  return (Mx,My,Mz)
-                 
+
              sim.set_m(my_magnetisation)
- 
+
            The function ``my_magnetisation`` returns the magnetisation vector
            corresponding to the given 3d position in space.
-           
+
            This position ``(x,y,z)`` as given to the function is expressed in meters.
- 
+
         3. Providing a numpy array.
 
            If a numpy array is provided to set the values of the
@@ -1841,7 +1841,7 @@ class Simulation(SimulationCore):
 
            Note: the Simulation.get_subfield() function can be used to
            obtain exactly such a numpy array for the relevant
-           subfield.  
+           subfield.
 
            To read such a numpy array from a file, you can use the
            get_subfield_from_h5file_ function. However, you have to be
@@ -1863,7 +1863,7 @@ class Simulation(SimulationCore):
         self._m_has_been_set = True
 
     def load_m_from_h5file(self, file_name):
-        """Use the magnetisation stored in ``file_name`` to set the magnetisation of 
+        """Use the magnetisation stored in ``file_name`` to set the magnetisation of
         the simulation. (If more than one magnetisation configurations have been saved
         in the file, it will load the first one.)
 
@@ -1872,9 +1872,9 @@ class Simulation(SimulationCore):
         simulation object to this magnetisation.
 
         This restart file could have been written explicitely (using
-        the save_restart_file_ method), or implicitly by providing 
+        the save_restart_file_ method), or implicitly by providing
         a 'restart' action to the hysteresis_/relax_ commands.
-        
+
         To simply continue a hysteresis/relax simulation using the
         ``--restart`` option, there is no need to use this
         function. It should only be used if lower-level manipulation
@@ -1951,7 +1951,7 @@ class Simulation(SimulationCore):
 
         :Parameters:
           `fieldname` : string
-            name of the field 
+            name of the field
 
           `subfieldname` : string
             name of the subfield
@@ -1978,7 +1978,7 @@ class Simulation(SimulationCore):
 
         :Parameters:
           `fieldname` : string
-            name of the field 
+            name of the field
 
           `subfieldname` : string
             name of the subfield
@@ -1988,7 +1988,7 @@ class Simulation(SimulationCore):
             We also need to know the desired physical dimensions of the data in the result array.
 
             A typical value is SI('m') for positions (this is the default).
-            
+
         This is a low level function to be called from high-level user interfaces.
         """
 
@@ -2017,7 +2017,7 @@ class Simulation(SimulationCore):
             The name of the subfield, for example ``m_Py`` or ``H_demag``.
 
           `units` : SI object
-          
+
             Optional parameter. If it is provided, then the entity is
             expressed in these units. If it is not provided, then the
             correct SI dimensions for this subfield are looked up, and
@@ -2033,7 +2033,7 @@ class Simulation(SimulationCore):
           `data` : numpy-array
 
         """
-        
+
         fieldname = self._fields.fieldname_by_subfieldname(subfieldname)
         if units == None:
             units = fieldunits_by_fieldname[fieldname]
@@ -2056,9 +2056,9 @@ class Simulation(SimulationCore):
             mesh. There will be only one integer per site in first
             order basis function calculations (which is the usual case
             in micromagnetics)
-        
+
         """
-        
+
         fieldname = self._fields.fieldname_by_subfieldname(subfieldname)
         field = self._fields[fieldname]
         sites, pos, shape, site_vols = ocaml.mwe_subfield_metadata(field,subfieldname)
@@ -2083,7 +2083,7 @@ class Simulation(SimulationCore):
           `pos` : numpy-array
             Array containing a position (i.e. 3 floating point
             numbers) for every site.
-        
+
 
         """
 
@@ -2163,7 +2163,7 @@ class Simulation(SimulationCore):
         factor = simulation_units.of(pos_unit, compatible_with=SI("m"))
         pos_su = numpy.array(pos,dtype='d')*factor
         log.debug("get_H_demag: pos=%s %s -> %s simulation units" % (pos,pos_unit,pos_su))
-        
+
         h_demag_su=ocaml.lam_bem_field_strength(\
             epsilon,self._lam,"H_demag","v_H_demag","H_demag","BEM","v_phi1b",pos_su.tolist())
 
@@ -2221,7 +2221,7 @@ class Simulation(SimulationCore):
         """Returns the average of the subfield ``subfield_name`` of
         the field ``fieldname`` as a single floating point number (or
         a list if it is a vector, or a list of list for matrices etc).
-        
+
         The number is expressed in SI units (hence the suffix _siv
         which stands for si value).
 
@@ -2238,7 +2238,7 @@ class Simulation(SimulationCore):
 
         will obtain the average magnetisation of the subfield M_Py of field M, for example
         ``ave_M = [100000.00,0.,0.]``
-        
+
         """
         try:
             field_units_si = fieldunits_by_fieldname[field_name]
@@ -2367,7 +2367,7 @@ class Simulation(SimulationCore):
             if fieldname in ["H_demag", "H_ext", "phi", "rho",
                              "pin", "Temperature", "current_density"]:
                 dofname = fieldname
-                
+
 
                 dof_stem = self._fields.shape_by_subfieldname(dofname)
                 skeleton = nfem.fields.make_dof_list_structure(dof_stem)
@@ -2459,7 +2459,7 @@ class Simulation(SimulationCore):
         res_field_value.append(time.time())
 
         timer1.stop('compute_averages')
-        return res_field_name, res_field_value, res_field_unit 
+        return res_field_name, res_field_value, res_field_unit
 
     def save_data(self,fields=None,avoid_same_step=False):
         """
@@ -2476,9 +2476,9 @@ class Simulation(SimulationCore):
           `fields` : None, 'all' or list of fieldnames
 
             If None, then only spatially averaged data is saved into ``*ndt`` and ``*h5`` files.
-  
+
             If ``all`` (i.e. the string containing 'all'), then all fields are saved.
-  
+
             If a list of fieldnames is given, then only the selected
             fieldnames will be saved (i.e. ['m','H_demag']).
 
@@ -2519,7 +2519,7 @@ class Simulation(SimulationCore):
             #in this case we have written the data already.
             pass
 
-        else:           
+        else:
             # increase unique identifier:
             self.clock['id'] += 1
             log.info("save_data(): id->id+1=%d, fields=%s " % (self.clock['id'],str(fields)))
@@ -2795,7 +2795,7 @@ class Simulation(SimulationCore):
                           fieldnames=['m'],
                           all=False):
         """Save current magnetic configuration into file that can be used for
-        restarting. 
+        restarting.
 
         This function saves the current magnetisation, the time and
         all what is needed to restart the simulation exactly from
@@ -2808,7 +2808,7 @@ class Simulation(SimulationCore):
             The file into which the restart file is written. Defaults
             RUNID_restart.h5.
 
-          `fieldnames`: list  
+          `fieldnames`: list
             The fieldnames to be saved. Defaults to ['m']
 
           `all`:bool
@@ -2829,7 +2829,7 @@ class Simulation(SimulationCore):
            For example::
 
              sim.save_restart_file(filename="relaxed_configuration.h5")
-           
+
            One can then use the load_m_from_h5file_, to read this file
            ``relaxed_configuration.h5`` and to use it to set the
            magnetisation up in the subsequent simulation.
@@ -2909,6 +2909,53 @@ class Simulation(SimulationCore):
             log.info("Restart-file was saved in the middle of stage %d "
                      "continuing from this stage!" % stage)
 
+    def dump_fields(self, fields=None, filename=None, inspect=None,
+                    format="binary"):
+        """Dump the given field to a vtk file and launch Mayavi for
+        visualisation, if required (useful for interactive work)."""
+        if filename == None:
+            filename = "%s-dump.vtk" % self.name
+
+        mwe_field_by_name = self._master_mwes_and_fields_by_name
+        if fields == None:
+            fields = [f for _, f in mwe_field_by_name.values()]
+        else:
+            fields = [mwe_field_by_name[name][1]
+                      for name in fields]
+
+        from nfem.visual import fields2vtkfile
+        fields2vtkfile(fields,
+                       filename,
+                       mesh=self.mesh,
+                       only_dofname=None,
+                       format=format,
+                       extrafields=None,
+                       header='Field dump:%s' % self.name)
+
+        if inspect == "mayavi":
+            import os
+            os.system("mayavi -d %s -m VelocityVector" % filename)
+
+        elif inspect == "mayavi2":
+            ## Recorded script from Mayavi2
+            #from numpy import array
+            #try:
+                #engine = mayavi.engine
+            #except NameError:
+                #from enthought.mayavi.api import Engine
+                #engine = Engine()
+                #engine.start()
+            #if len(engine.scenes) == 0:
+                #engine.new_scene()
+
+            #vtk_file_reader = engine.open(filename)
+            #from enthought.mayavi.modules.vectors import Vectors
+            #vectors = Vectors()
+            #engine.add_module(vectors, obj=None)
+
+            import os
+            os.system("mayavi2 -d %s -m Vectors" % filename)
+
 def get_subfield_from_h5file(filename, subfieldname, id=None, row=None,
                              unit=None):
     """
@@ -2917,26 +2964,26 @@ def get_subfield_from_h5file(filename, subfieldname, id=None, row=None,
     Analog to get_subfield_ (which returns subfield data for a
     subfield of a simulation object), but will retrieve data from
     saved ``_dat.h5`` file.
-    
+
     :Parameters:
       `filename` : string
          The full name of the ``_dat.h5`` data file.
-         
+
       `subfieldname` : string
          The name of the subfield to be retrieved.
 
       `id` : integer
          The ``id`` of the configuration to return (defaults to 0)
 
-      `row` : integer 
+      `row` : integer
          If the ``id`` is not specified, the ``row`` can
-         be used to address the data row with index ``row``. 
+         be used to address the data row with index ``row``.
 
          For example, the magnetisation may have been saved at some
          point during the simulation into a file (for example
          using the `Restart example`_ functionality, or using the
          save_data_ method for the first time to save the m-field
-         (i.e. ``sim.save_data(fields=['m']``) into a new file). 
+         (i.e. ``sim.save_data(fields=['m']``) into a new file).
 
          We can use ``row=0`` to read the first magnetisation
          configuration that has been written into this file (and
@@ -2949,7 +2996,7 @@ def get_subfield_from_h5file(filename, subfieldname, id=None, row=None,
     if unit:
         raise NotImplementedError,"This feature is not implemented yet (unit=*)."
 
-    fh = hdf5.open_pytables_file(filename,'r') #TODO move this to hdf5 
+    fh = hdf5.open_pytables_file(filename,'r') #TODO move this to hdf5
     field = hdf5.fieldname_by_subfieldname(fh, subfieldname)
     if id == None:
         if row == None:
@@ -2973,25 +3020,25 @@ def get_subfield_positions_from_h5file(filename, subfieldname):
     :Parameters:
       `filename` : string
          The full name of the ``_dat.h5`` data file.
-         
+
       `subfieldname` : string
          The name of the subfield to be retrieved.
 
     :Returns:
       numpy array
-        The positions are returned as `si-value`_\ s.  
+        The positions are returned as `si-value`_\ s.
 
-      
+
     """
 
-    fh = hdf5.open_pytables_file(filename,'r') #TODO move this to hdf5 
+    fh = hdf5.open_pytables_file(filename,'r') #TODO move this to hdf5
     field = hdf5.fieldname_by_subfieldname(fh,subfieldname)
     row=0
     supos,sidata,site = hdf5.get_dof_row_data(fh,field,subfieldname,row)
     mesh_scale_factor_si = hdf5.get_mesh_unit(fh)
 
     hdf5.close_pytables_file(fh)
-    
+
     return numpy.array(supos)*mesh_scale_factor_si.value
 
 
@@ -3004,13 +3051,13 @@ def get_subfield_sites_from_h5file( filename, subfieldname):
     :Parameters:
       `filename` : string
          The full name of the ``_dat.h5`` data file.
-         
+
       `subfieldname` : string
          The name of the subfield to be retrieved.
 
     :Returns:
       numpy array
-        The ids are returned as `si-value`_\ s.  
+        The ids are returned as `si-value`_\ s.
 
     """
 
@@ -3029,7 +3076,7 @@ def fit_oscillation(data,freq=None):
     """Given an array of vectors whose 0th component is time
     and j-th component measurement data, fit a set of
     functions of the form
-    
+
                 c_j+a_j*math.sin(2*pi*f*t+p_j)
 
     against each component, i.e. parameters determined
@@ -3037,16 +3084,16 @@ def fit_oscillation(data,freq=None):
     phase shifts p_j for each vector component, plus
     an overall frequency. The initial frequency f used
     for optimization is either guessed, or user-provided.
-    
+
     Returns (f,[(c0,a0,p0),(c1,a1,p1),...])
     """
     from math import sin
     from scipy.optimize import leastsq
     import numpy
-    
+
     nr_steps=len(data)
     dim=len(data[0])-1
-    
+
     if freq==None:
         # We have to guess the number of oscillations,
         # and that guess should better be somewhat
@@ -3066,7 +3113,7 @@ def fit_oscillation(data,freq=None):
                 nr_sign_flips+=1
 
         freq = 0.5*nr_sign_flips/(data[nr_steps-1][0]-data[0][0])
-    
+
     def deviation(params):
         w=params[0]
         result=numpy.zeros(nr_steps*dim)
@@ -3078,7 +3125,7 @@ def fit_oscillation(data,freq=None):
             a_nk= params[1+3*k]+params[2+3*k]*sin(2*math.pi*time*params[0]+params[3+3*k])
             result[i]=d_nk-a_nk
         return result
-    
+
     start=numpy.zeros(3*dim+1)
     start[0]=freq
 
