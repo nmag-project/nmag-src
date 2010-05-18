@@ -13,7 +13,8 @@
 This file contains the implementation of the Value object.
 '''
 
-import collections
+import types, collections
+from nsim.snippets import remove_unit, rec_apply
 
 __all__ = ['Value']
 
@@ -160,7 +161,8 @@ class Value:
         else:
             return value*unit
 
-    def get_set_plan(self, all_materials=[], allow_overwrt=True):
+    def get_set_plan(self, all_materials=[], allow_overwrt=True,
+                     unit=None):
         """Goes trough the Value and return a list of triples:
         (material_string, value, units)."""
         d = {}
@@ -173,7 +175,7 @@ class Value:
                     raise ValueError("Value (%s) contains double "
                                      "specification for material '%s'."
                                      % (self, m))
-                d[m] = (v, u)
+                d[m] = _remove_unit_rec(v, u, unit)
 
         # Now write the plan
         plan = []
@@ -198,3 +200,42 @@ class Value:
 
     def change_unit(self, new_units):
         raise NotImplementedError("Value.change_unit is not implemented.")
+
+def _remove_unit_rec(data, unit, new_unit):
+    if isinstance(data, (types.ListType, types.TupleType, types.IntType,
+                         types.FloatType, types.BooleanType)):
+
+        def fn(x):
+            if unit == None:
+                r = x
+            elif x == None:
+                r = unit
+            else:
+                r = x*unit
+            return remove_unit(r, new_unit)
+
+        new_data = rec_apply(fn, data)
+        return (new_data, 1.0)
+
+    else:
+        scale_factor = remove_unit(unit, new_unit)
+        return (data, scale_factor)
+
+def classify_data(data):
+    """Given a value (as taken by the Value instantiator), returns a string
+    identifying its type. A Value can indeed accept a function, a numpy array,
+    etc.
+    """
+    if isinstance(data, types.FunctionType):
+        return "function"
+    elif isinstance(data, (types.ListType, types.TupleType)):
+        return "vector"
+    elif isinstance(data, (types.IntType, types.FloatType,
+                           types.BooleanType)):
+        return "number"
+    else:
+        import numpy
+        if isinstance(data, numpy.ndarray):
+            return "array"
+        raise ValueError("Unrecognised data type: %s. To set a Field you "
+                         "should provide a function, a ")

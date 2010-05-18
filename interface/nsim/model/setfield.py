@@ -70,6 +70,7 @@ def _prepare_set_field(field, subfieldname, data, site=None,
 
     else:
       # FIXME: this doesn't work with tensors!
+      print data
       data = map(lambda x : x*float(scale_factor), data)
 
     return data

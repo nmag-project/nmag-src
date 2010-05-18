@@ -15,22 +15,13 @@ import ocaml
 from obj import ModelObj
 from group import Group
 from computation import Equation
+from nsim.snippets import remove_unit
 
 def optarg_to_ocaml(a):
     if a == None:
         return []
     else:
         return [a]
-
-def to_su(x, x_unit):
-    try:
-        if x_unit == None:
-            return x
-        else:
-            return float(x/x_unit)
-    except:
-        raise ValueError("Wrong units: expected %s, but got %s."
-                         % (x_unit, x))
 
 class Timestepper(ModelObj):
     type_str = "SundialsCVode"
@@ -84,13 +75,13 @@ class Timestepper(ModelObj):
         self.abs_tol = abs_tol
         self.initial_time = initial_time
 
-        initial_time = to_su(initial_time, self.time_unit)
+        initial_time = remove_unit(initial_time, self.time_unit)
         ocaml.lam_ts_init(self.get_lam(), self.get_full_name(),
                           initial_time, rel_tol, abs_tol)
         self.initialised = True
 
     def advance_time(self, target_time, max_it=-1, exact_tstop=False):
-        target_time = to_su(target_time, self.time_unit)
+        target_time = remove_unit(target_time, self.time_unit)
 
         if not self.initialised:
             self.initialise()

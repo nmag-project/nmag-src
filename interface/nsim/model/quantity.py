@@ -31,7 +31,7 @@ import collections, types
 from group import Group
 from obj import ModelObj
 from value import Value
-from nsim.snippets import rec_scale
+from nsim.snippets import rec_scale, remove_unit
 from setfield import flexible_set_fielddata
 
 import nfem
@@ -41,7 +41,7 @@ class Quantity(ModelObj):
 
     type_str = "Quantity"
 
-    def __init__(self, name, shape=[], value=None, unit=1.0,
+    def __init__(self, name, shape=[], value=None, unit=None,
                  subfields=False):
         """Define a new quantity:
         name:  name of the quantity (should be different for each quantity)
@@ -178,7 +178,7 @@ class Constant(Quantity):
             v = self.value.as_constant(material)
 
         if in_unit:
-            return float(v/self.unit)
+            return remove_unit(v, self.unit)
 
         else:
             return v
@@ -215,18 +215,22 @@ class SpaceField(Quantity):
                              "class." % type(value))
 
         if self.def_on_mat:
-            set_plan = value.get_set_plan(self.material_names)
+            set_plan = value.get_set_plan(self.material_names, unit=self.unit)
             for v, m, u in set_plan:
                 print self.master, v, m, u
+                scale_factor = float(u)
                 fn = "%s_%s" % (self.name, v)
-                flexible_set_fielddata(self.master, fn, m, 1e9, scale_factor=1.0,
+                flexible_set_fielddata(self.master, fn, m, 1e9,
+                                       scale_factor=scale_factor,
                                        normalise=False)
 
         else:
-            set_plan = value.get_set_plan(self.material_names)
+            set_plan = value.get_set_plan(self.material_names, unit=self.unit)
             assert len(set_plan) == 1
             v, m, u = set_plan[0]
-            flexible_set_fielddata(self.master, self.name, m, 1e9, scale_factor=1.0,
+            scale_factor = float(u)
+            flexible_set_fielddata(self.master, self.name, m, 1e9,
+                                   scale_factor=scale_factor,
                                    normalise=False)
 
         ocaml.lam_set_field(self.lam, self.master, "v_" + self.name)

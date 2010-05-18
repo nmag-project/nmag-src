@@ -188,13 +188,27 @@ def rec_apply(f, x):
     if the list/tuple contains other list/tuples apply f to their elements
     in a recursive fashion."""
     if isinstance(x, (types.TupleType, types.ListType)):
-        return tuple([rec_apply(f, xi) for xi in x])
+        return [rec_apply(f, xi) for xi in x]
     else:
         return f(x)
 
 def rec_scale(scale, x):
     """Scale recursively the given list (of lists, eventually)."""
     return rec_apply(lambda y: scale*y, x)
+
+def remove_unit(x, x_unit):
+    """Return 'x' expressed in units of 'x_unit'. The result 'r' should be
+    just a floating point number, meaning that 'x' should be really
+    epressible as 'x = r*x_unit' where 'r' is a float."""
+    try:
+        if x_unit == None:
+            return x
+        else:
+            return float(x/x_unit)
+    except:
+        raise ValueError("Wrong units: expected %s, but got %s."
+                         % (x_unit, x))
+
 
 #def get_main_program_path():
 #    """Returns a tuple (PATH,NAME) where PATH is the full path name of
