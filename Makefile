@@ -25,7 +25,6 @@ ROOT = ${PWD}
 PYTHON=python
 NSIM_DEB = $(ROOT)/bin/nsim_debug
 NSIM_RAW_EXE = $(ROOT)/bin/nsim-raw
-NSIM_EXE=bin/nsim
 PYTEST_EXE=/usr/bin/py.test
 NSIM_PYTEST = $(ROOT)/bin/nsim --nologfile $(PYTEST_EXE) --
 NSIM_EXE1CPU = $(ROOT)/bin/nsim-1cpu
@@ -35,20 +34,11 @@ NMESHPP = $(ROOT)/bin/nmeshpp
 
 WHAT = all
 
-#LOCAL_INST_PATH=$(shell pwd)
-#OCAMLFIND_LDCONF:=ignore
-#OCAMLPATH:=$(LOCAL_INST_PATH)/site-lib
-#OCAMLFIND_DESTDIR:=$(LOCAL_INST_PATH)/site-lib
-
-#export OCAMLFIND_LDCONF
-#export OCAMLPATH
-#export OCAMLFIND_DESTDIR
-
 include config/common.inc
 
-all: local-deps nsim nmesh2pp
+all: local-deps build-bin nmesh2pp
 
-debug: local-deps deps.pyfem3_debug $(NSIM_RAW_EXE) $(NSIM_EXE) \
+debug: local-deps deps.pyfem3_debug build-bin \
   $(NSIM_DEB) nmesh2pp
 
 config/configuration.inc: config/configure.py
@@ -154,11 +144,13 @@ deps.ddpla: ddpla/deps deps.mpi_petsc
 	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
 	touch deps.ddpla
 
-
 $(PYFEM): pyfem3/deps deps.mt19937 deps.snippets deps.qhull deps.fastfields deps.pycaml deps.mesh deps.fem deps.mpi_petsc deps.bem3d deps.ccpla deps.sundials_sp deps.nsim_grammars deps.nsim_anisotropy deps.nsim deps.hlib 
 	(cd pyfem3 && make mrproper libuninstall; \
 	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
 	touch deps.pyfem3
+
+build-bin: $(PYFEM)
+	(cd bin && $(MAKE) build-bin)
 
 deps.pyfem3_debug: pyfem3/deps deps.mt19937 deps.snippets deps.qhull deps.fastfields deps.pycaml deps.mesh deps.fem deps.mpi_petsc deps.bem3d deps.ccpla deps.sundials_sp deps.nsim_grammars deps.nsim_anisotropy deps.nsim deps.hlib 
 	(cd pyfem3 && sed -r 's/native-code$$/byte-code/g' Makefile > Makefile.debug && \
@@ -166,14 +158,6 @@ deps.pyfem3_debug: pyfem3/deps deps.mt19937 deps.snippets deps.qhull deps.fastfi
 	 make -f Makefile.debug $(WHAT) && umask 0002 && \
 	 make -f Makefile.debug libinstall deps) >$(LOG) 2>&1
 	touch deps.pyfem3_debug
-
-$(NSIM_RAW_EXE): $(NSIM_RAW_EXE).in $(PYFEM)
-	sed -e 's|\$$NMAGROOTDIR\$$|$(ROOT)|g' $(NSIM_RAW_EXE).in > $@ || rm $@
-	chmod u+x $(NSIM_RAW_EXE)
-
-$(NSIM_EXE): $(NSIM_RAW_EXE) bin/nsim.in
-	sed -e 's|\$$NMAGROOTDIR\$$|$(ROOT)|g' bin/nsim.in > $@ || rm $@
-	chmod u+x $@
 
 $(NSIM_EXE1CPU): $(PYFEM)
 	rm -f $(NSIM_EXE1CPU)
@@ -196,9 +180,6 @@ $(NSIM_DEB):
 interface/nsim/svnversion.py:
 	echo "svnversion = '"$$(svnversion -n .)"'" > interface/nsim/svnversion.py
 
-nsim: interface/nsim/svnversion.py $(NSIM_EXE) \
-  $(NSIM_EXE1CPU)
-
 doc:
 	cd interface/nmag/manual; make 
 
@@ -212,7 +193,8 @@ libuninstall: config/configuration.inc
 	done
 
 clean: config/configuration.inc
-	rm -f depsrm -f $(NSIM_RAW_EXE) $(NSIM_EXE) $(NSIM_DEB)
+	(cd bin && $(MAKE) clean)
+	rm -f depsrm -f $(NSIM_DEB)
 	list='$(MODULES)'; \
 	for subdir in $$list; do \
 	  test "$$subdir" = . || (cd $$subdir && make mrproper); \
