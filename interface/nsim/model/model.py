@@ -129,12 +129,13 @@ def _extended_properties_by_region(region_materials, min_region=-1,
 #-----------------------------------------------------------------------------
 
 class Model:
-    def __init__(self, name, mesh, region_materials, min_region=-1,
+    def __init__(self, name, mesh, mesh_unit, region_materials, min_region=-1,
                  properties_by_region=[]):
         # Just save the relevant stuff
         self.name = name
         self.mesh = mesh
-        self.dim = ocaml.mesh_dim(mesh.raw_mesh)
+        self.mesh_unit = mesh_unit
+        self.dim = mesh.dim
         self.region_materials = region_materials
         self.min_region = min_region
 

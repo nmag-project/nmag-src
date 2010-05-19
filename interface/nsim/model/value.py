@@ -14,7 +14,8 @@ This file contains the implementation of the Value object.
 '''
 
 import types, collections
-from nsim.snippets import remove_unit, rec_apply
+import numpy
+from nsim.snippets import remove_unit, rec_apply, rec_scale
 
 __all__ = ['Value']
 
@@ -159,7 +160,16 @@ class Value:
         if unit == None:
             return value
         else:
-            return value*unit
+            return rec_scale(unit, value)
+
+    def as_float(self, where=None, unit=1.0):
+        """Get the value assuming it is a constant over the region 'where'
+        (see Value.as_constant) and divide by unit in order to transform it
+        to a float."""
+        v = self.as_constant(where=where)
+        data, scale_factor = _remove_unit_rec(v, 1.0, unit)
+        assert scale_factor == 1.0
+        return data
 
     def get_set_plan(self, all_materials=[], allow_overwrt=True,
                      unit=None):
@@ -202,9 +212,11 @@ class Value:
         raise NotImplementedError("Value.change_unit is not implemented.")
 
 def _remove_unit_rec(data, unit, new_unit):
-    if isinstance(data, (types.ListType, types.TupleType, types.IntType,
-                         types.FloatType, types.BooleanType)):
+    if isinstance(data, (types.FunctionType, numpy.ndarray)):
+        scale_factor = remove_unit(unit, new_unit)
+        return (data, scale_factor)
 
+    else:
         def fn(x):
             if unit == None:
                 r = x
@@ -217,10 +229,6 @@ def _remove_unit_rec(data, unit, new_unit):
         new_data = rec_apply(fn, data)
         return (new_data, 1.0)
 
-    else:
-        scale_factor = remove_unit(unit, new_unit)
-        return (data, scale_factor)
-
 def classify_data(data):
     """Given a value (as taken by the Value instantiator), returns a string
     identifying its type. A Value can indeed accept a function, a numpy array,
@@ -228,14 +236,9 @@ def classify_data(data):
     """
     if isinstance(data, types.FunctionType):
         return "function"
+    elif isinstance(data, numpy.ndarray):
+        return "array"
     elif isinstance(data, (types.ListType, types.TupleType)):
         return "vector"
-    elif isinstance(data, (types.IntType, types.FloatType,
-                           types.BooleanType)):
-        return "number"
     else:
-        import numpy
-        if isinstance(data, numpy.ndarray):
-            return "array"
-        raise ValueError("Unrecognised data type: %s. To set a Field you "
-                         "should provide a function, a ")
+        return "number"

@@ -120,8 +120,12 @@ class Quantity(ModelObj):
         """Whether the field is a constant."""
         return False
 
-    def as_constant(self, material=None):
+    def as_constant(self, where=None):
         raise NotImplementedError("Method as_constant is not implemented for "
+                                  "Quantity of type %s." % self.type_str)
+
+    def as_float(self, material=None):
+        raise NotImplementedError("Method as_float is not implemented for "
                                   "Quantity of type %s." % self.type_str)
 
     def is_always_zero(self):
@@ -133,7 +137,7 @@ class Quantity(ModelObj):
         to one."""
         return False
 
-    def compute_integral(self, where=None, use_su=False):
+    def compute_integral(self, where=None, as_value=True):
         """Integrate the field. If 'where' is not given, then integrate it on
         every material region where the field is defined.
         If 'where' is a string, then it is interpreted as the name of the
@@ -149,13 +153,18 @@ class Quantity(ModelObj):
         """Similar to 'compute_integral', but - for each material region -
         divide the result of the integral by the volume of the material region
         thus obtaining the spatial average."""
-        integrals = self.compute_integral(where=where, use_su=True)
-        result = []
-        for subfield_name, value in integrals:
-            avg = rec_scale(1.0/self.volumes[subfield_name], value)
-            result.append((subfield_name, avg))
+        integrals = self.compute_integral(where=where, as_value=False)
+        if self.def_on_mat:
+            v = Value()
+            for subfield_name, value in integrals:
+                v.set(subfield_name, value,
+                      self.unit/self.volumes[subfield_name])
+            return v
 
-        return result
+        else:
+            assert len(integrals) == 1
+            subfield_name, value = integrals[0]
+            return Value(value, self.unit/self.volumes[subfield_name])
 
 class Constant(Quantity):
     type_str = "Constant"
@@ -163,25 +172,25 @@ class Constant(Quantity):
     def is_constant(self):
         return True
 
-    def as_constant(self, material=None, in_unit=True):
+    def _get_value(self, where=None):
         if self.value == None:
             raise AttributeError("The Quantity initial value has not been "
                                  "set, yet!")
-
-        if material == None:
+        if where == None:
             assert self.def_on_mat == False, \
               ("This field is defined per material! as_constant then "
-               "requires you to specify the material.")
-            v = self.value
+               "requires you to specify the material (where=...).")
+        return self.value
 
-        else:
-            v = self.value.as_constant(material)
+    def as_constant(self, where=None):
+        v = self._get_value(where=where)
+        return v.as_constant(where=where)
 
-        if in_unit:
-            return remove_unit(v, self.unit)
-
-        else:
-            return v
+    def as_float(self, where=None, unit=None):
+        if unit == None:
+            unit = self.unit
+        v = self._get_value(where=where)
+        return v.as_float(where=where, unit=unit)
 
 class SpaceField(Quantity):
     type_str = "SpaceField"
@@ -192,11 +201,17 @@ class SpaceField(Quantity):
         Quantity.__init__(self, name, shape, value, unit, subfields)
 
         self.mwe = None            # MWE associated to the field
+        self.mesh = None           # Mesh
+        self.mesh_unit = None      # Mesh unit
+        self.volume_unit = None    # Volume unit
         self.master = None         # Master copy of the field
         self.material_names = None # Name of materials where field is defined
 
     def vivify(self, model):
         Quantity.vivify(self, model)
+        self.mesh = model.mesh
+        self.mesh_unit = model.mesh_unit
+        self.volume_unit = self.mesh_unit**self.mesh.dim
         self.mwe = mwe = model.mwes[self.name]
         self.master = ocaml.raw_make_field(mwe, [], "", "")
         self.material_names = model.all_material_names
@@ -235,7 +250,7 @@ class SpaceField(Quantity):
 
         ocaml.lam_set_field(self.lam, self.master, "v_" + self.name)
 
-    def compute_integral(self, where=None, use_su=False):
+    def compute_integral(self, where=None, as_value=True):
         ocaml.lam_get_field(self.lam, self.master, "v_" + self.name)
 
         dof_stem = ""
@@ -244,8 +259,22 @@ class SpaceField(Quantity):
                 where = [where]
             dof_stem = ["%s_%s" % (self.name, mat_name)
                         for mat_name in where]
-        return nfem.integrate_field(self.master, dof_stem)
+        raw_result = nfem.integrate_field(self.master, dof_stem)
 
+        if not as_value:
+            return raw_result
+
+        u = self.unit*self.volume_unit
+        if self.def_on_mat:
+            v = Value()
+            for mat_name, data in raw_result:
+                v.set(mat_name, data, u)
+            return v
+
+        else:
+            assert len(raw_result) == 1
+            name, data = raw_result[0]
+            return Value(data, u)
 
 class TimeField(Quantity):
     type_str = "TimeField"

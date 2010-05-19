@@ -511,8 +511,7 @@ class TensorNode(UnaryNode):
             if q.is_constant():
                 assert self.children == [None], \
                   "Vector Constant quantities are not supported, yet!"
-                return FloatNode(q.as_constant(material=context.material,
-                                               in_unit=True))
+                return FloatNode(q.as_float(context.material))
             else:
                 if (context.material != None
                     and q.is_defined_on_material(context.material)):
