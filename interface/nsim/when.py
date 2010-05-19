@@ -221,17 +221,17 @@ def every(arg1, arg2=None, first=0, last=None):
     else:
         identifier, delta = arg2, arg1
     if type(identifier) != str:
-        raise "Bad usage of the function every: you should specify " \
-              "an identifier. Example: every(10, 'step')"
+        raise ValueError("Bad usage of the function every: you should "
+                         "specify an identifier. Example: every(10, 'step')")
     if last != None and last <= first:
-        raise "Bad usage of the function every: the value of the " \
-              "optional argument last must be greater than " \
-              "the value of the optional argument first, however " \
-              "first=%s, last=%s" % (str(first), str(last))
+        raise ValueError("Bad usage of the function every: the value of the "
+                         "optional argument last must be greater than "
+                         "the value of the optional argument first, however "
+                         "first=%s, last=%s" % (str(first), str(last)))
     if delta <= 0:
-        raise "Bad usage of the function every: the delta value " \
-              "must be positive, but you specified something like " \
-              "every(-1, 'step') or every(0, 'step')"
+        raise ValueError("Bad usage of the function every: the delta value "
+                         "must be positive, but you specified something like "
+                         "every(-1, 'step') or every(0, 'step')")
     return When(('every', (identifier, (delta, first, last))))
 
 never = When(('never', (None, None)))

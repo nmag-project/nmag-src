@@ -16,8 +16,8 @@ def _append_floats(l, first, second, last, units=None):
     interval = last - first
     num_steps = interval / step
     if num_steps <= 1.0:
-        raise err_msg("%g should lie between %g and %g!"
-                      % (second, first, last))
+        raise ValueError(err_msg("%g should lie between %g and %g!"
+                                 % (second, first, last)))
 
     if abs(interval/round(num_steps) - step)/64 + interval != interval:
         int_num_steps = int(num_steps) + 1
@@ -55,22 +55,25 @@ def float_set(float_list, units=None):
         if status == 0:
             if token == "..." or token == []:
                 if eye_tail_1 == None or eye_tail_2 == None:
-                    raise "float_list has wrong syntax! " \
-                          "I expect something like [1, 2, \"...\", 10], " \
-                          "but you gave something like [1, \"...\", 10]"
+                    raise ValueError("float_list has wrong syntax! I expect "
+                                     "something like [1, 2, \"...\", 10], "
+                                     "but you gave something like "
+                                     "[1, \"...\", 10]")
                 status = 1
             elif type(token) == list:
                 if len(token) == 1 and type(token[0]) == int:
                     num_steps = token[0]
                     if num_steps < 1:
-                        raise "The number of steps must be a positive " \
-                              "integer: you gave [..., %f, [%i], ...]" \
-                              % (eye_tail_1, token[0])
+                        raise ValueError("the number of steps must be a "
+                                         "positive integer: you gave "
+                                         "[..., %f, [%i], ...]"
+                                         % (eye_tail_1, token[0]))
                     status = 2
                 else:
-                    raise "float_list contains a syntax error. " \
-                          "Hint: the right syntax is to range from a to b " \
-                          "in n steps is [a, [n], b]. n must be integer."
+                    raise ValueError("float_list contains a syntax error. "
+                                     "Hint: the right syntax is to range "
+                                     "from a to b in n steps is [a, [n], b]. "
+                                     "n must be integer.")
             else:
                 eye_tail_2 = eye_tail_1
                 eye_tail_1 = float(token)
@@ -93,7 +96,7 @@ def float_set(float_list, units=None):
             eye_tail_1 = final_float
             status = 0
     if status != 0:
-        raise "float_list cannot end with \"...\", [] or [integer]"
+        raise ValueError('float_list cannot end with "...", [] or [integer]')
     return fs
 
 def vector_scalar_product(vector1, vector2):

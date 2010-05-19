@@ -2909,12 +2909,13 @@ class Simulation(SimulationCore):
             log.info("Restart-file was saved in the middle of stage %d "
                      "continuing from this stage!" % stage)
 
-    def dump_fields(self, fields=None, filename=None, inspect=None,
-                    format="binary"):
-        """Dump the given field to a vtk file and launch Mayavi for
-        visualisation, if required (useful for interactive work)."""
+    def dump_fields(self, fields=None, filename=None, format="binary"):
+        """Dump the given field to a vtk file
+        (useful for interactive work)."""
         if filename == None:
             filename = "%s-dump.vtk" % self.name
+
+        tmp_filename = "%s.tmp.vtk" % filename
 
         if fields == None:
             fields = [self._fields[name] for name in self._fields.keys()]
@@ -2923,36 +2924,19 @@ class Simulation(SimulationCore):
 
         from nfem.visual import fields2vtkfile
         fields2vtkfile(fields,
-                       filename,
+                       tmp_filename,
                        mesh=self.mesh,
                        only_dofname=None,
                        format=format,
                        extrafields=None,
                        header='Field dump:%s' % self.name)
 
-        if inspect == "mayavi":
-            import os
-            os.system("mayavi -d %s -m VelocityVector" % filename)
-
-        elif inspect == "mayavi2":
-            ## Recorded script from Mayavi2
-            #from numpy import array
-            #try:
-                #engine = mayavi.engine
-            #except NameError:
-                #from enthought.mayavi.api import Engine
-                #engine = Engine()
-                #engine.start()
-            #if len(engine.scenes) == 0:
-                #engine.new_scene()
-
-            #vtk_file_reader = engine.open(filename)
-            #from enthought.mayavi.modules.vectors import Vectors
-            #vectors = Vectors()
-            #engine.add_module(vectors, obj=None)
-
-            import os
-            os.system("mayavi2 -d %s -m Vectors" % filename)
+        import os
+        try:
+            os.unlink(filename)
+        except:
+            pass
+        os.rename(tmp_filename, filename)
 
 def get_subfield_from_h5file(filename, subfieldname, id=None, row=None,
                              unit=None):
