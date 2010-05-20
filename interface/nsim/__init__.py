@@ -36,9 +36,10 @@ for name in __all__:
 del name,glob,loc
 
 
-# get subversion build id (output from 'svnversion')
+# get Nmag version string
 try:
-    import svnversion
-    __version__ = svnversion.svnversion
+    from versions import get_version_string
+    __version__ = get_version_string()
 except:
     __version__ = 'not available'
+

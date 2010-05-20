@@ -3,22 +3,21 @@ import nsim
 from nsim.snippets import get_absolute_librarypath
 
 def read_first_line(fname):
-
      try:
-          f=open(fname,'r')
-          lines=f.readlines()
+          f = open(fname, 'r')
+          lines = f.readlines()
           if len(lines) > 1:
-               print "Warning: file %s \nhas %d lines but we expect only 1." % (fname,len(lines)),
+               print "Warning: file %s \nhas %d lines but we expect only 1." \
+                     % (fname, len(lines)),
                print "The first 10 lines read"
                for line in lines[0:10]:
                     print "\t> ",line,
           line = lines[0]
           return line.strip()
-     except IOError,msg: #can't find file
+     except IOError, msg: #can't find file
           return None
 
-
-def get_svn_version():
+def get_version_string():
     return svnversion.svnversion
 
 def _get_nmag_path():
@@ -36,9 +35,7 @@ def get_nmag_release():
     else:
         return "(unknown)"
 
-
 def get_nmag_distmode():
-
     nmagpath = _get_nmag_path()
     DISTMODE = read_first_line(os.path.join(nmagpath,'DISTMODE'))
 
@@ -48,7 +45,6 @@ def get_nmag_distmode():
          return "(unknown)"
 
 def get_nmag_release_date():
-
     nmagpath = _get_nmag_path()
     RELEASEDATE = read_first_line(os.path.join(nmagpath,'RELEASEDATE'))
 
@@ -56,8 +52,6 @@ def get_nmag_release_date():
          return RELEASEDATE
     else:
          return "(unknown)"
-
-
 
 def get_nmag_release_dist_svn_string():
     msg = "Versions:"
@@ -67,27 +61,19 @@ def get_nmag_release_dist_svn_string():
     msg += "\n\tnmag-release-date      =" +  str(get_nmag_release_date())
     return msg
     
-
 def get_nmag_paths():
     paths = {}
     nmagpath = _get_nmag_path()
     paths['nsimpath'] = get_absolute_librarypath(nsim)[0]
     paths['nmagpath'] = os.path.join(get_absolute_librarypath(nsim)[0],'../nmag')
     paths['realnmagpath'] = os.path.realpath(nmagpath)
-
     return paths
 
 def get_nmag_paths_string():
-
     paths = get_nmag_paths()
     msg  = "Paths:"
     msg += "\n\tnsimpath       : %s" % paths['nsimpath']
     msg += "\n\tnmagpath       : %s" % paths['nmagpath']
     msg += "\n\tnmagpath (real): %s" % paths['realnmagpath']
-    
     return msg
-
-
-
-
 

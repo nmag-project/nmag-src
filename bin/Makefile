@@ -20,7 +20,7 @@ root.inc:
 	echo "NMAG_ROOT=`cd .. && pwd`" >> root.inc
 
 build-bin:
-	rm root.inc
+	rm -f root.inc
 	$(MAKE)
 
 clean:
