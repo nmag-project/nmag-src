@@ -18,7 +18,11 @@ def read_first_line(fname):
           return None
 
 def get_version_string():
-    return svnversion.svnversion
+    try:
+        import svnversion
+        return svnversion.svnversion
+    except:
+        return "(unknown)"
 
 def _get_nmag_path():
     nsimpath = get_absolute_librarypath(nsim)[0]
@@ -54,11 +58,12 @@ def get_nmag_release_date():
          return "(unknown)"
 
 def get_nmag_release_dist_svn_string():
+    v = get_version_string()
     msg = "Versions:"
-    msg += "\n\tnsim.svnversion        =" + str(nsim.svnversion.svnversion)
+    msg += "\n\tnsim.version           =" + str(v)
     msg += "\n\tnmag-release           =" + str(get_nmag_release())
     msg += "\n\tnmag-distribution-mode =" + str(get_nmag_distmode())
-    msg += "\n\tnmag-release-date      =" +  str(get_nmag_release_date())
+    msg += "\n\tnmag-release-date      =" + str(get_nmag_release_date())
     return msg
     
 def get_nmag_paths():
