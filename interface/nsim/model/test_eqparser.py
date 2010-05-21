@@ -39,7 +39,7 @@ def test_consistency():
         print "passed"
 
 def test_simplify():
-    print "Test that simplification works"
+    print "Testing simplification"
     strings = [("a <- 0;", "a <- 0.0;"),
                ("abc <- def;", "abc <- def;"),
                ("a <- 0*(b + c);", "a <- 0.0;"),
@@ -61,9 +61,10 @@ def test_simplify():
         print "passed"
 
 def test_simplify_quantities():
+    print "Thesting simplification of quantities"
     from quantity import Constant, SpaceField, Quantities
-    zero = Constant("zero", subfields=False, value=0.0)
-    gamma = Constant("gamma", subfields=False, value=1.23)
+    zero = Constant("zero", subfields=False, value=Value(0.0))
+    gamma = Constant("gamma", subfields=False, value=Value(1.23))
 
     m = SpaceField("m", [3], subfields=True)
     H_ext = SpaceField("H_ext", [3])
@@ -79,6 +80,7 @@ def test_simplify_quantities():
         print "passed"
 
 def test_llg():
+    print "Testing LLG single material"
     from quantity import Constant, SpaceField, Quantities
     C1 = Constant("C1", subfields=False, value=Value(-0.17688))
     C2 = Constant("C2", subfields=False, value=Value(-0.08844))
@@ -116,6 +118,7 @@ def test_llg():
     print "passed"
 
 def test_llg_multimaterial():
+    print "Testing LLG multi-material"
     from quantity import Constant, SpaceField, Quantities
     C1 = Constant("C1", subfields=False, value=Value(-0.17681384))
     C2 = Constant("C2", subfields=False, value=Value(-0.08840692))

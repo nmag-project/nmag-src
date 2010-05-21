@@ -34,8 +34,8 @@ def test_all():
     assert_eq(evalxs[3].as_constant('Fe'), 3)
 
     assert_eq(evalxs[3].get_set_plan(['Fe', 'Py', 'Co', 'Dy'], 1.0),
-              [('Fe', 3, None), ('Py', 1, None), ('Co', 2, None),
-               ('Dy', 3, None)])
+              [('Fe', 3, 1.0), ('Py', 1, 1.0), ('Co', 2, 1.0),
+               ('Dy', 3, 1.0)])
 
     expect_exception(evalxs[3].get_set_plan, ValueError)
     expect_exception(lambda: evalxs[0].get_set_plan(['Py']), ValueError)
