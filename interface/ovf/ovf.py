@@ -183,16 +183,8 @@ for known_value_tuple in known_values_list:
     value_name = name_normalise(known_value_tuple[0])
     known_values[value_name] = known_value_tuple
 
-known_sections = {
-  "data text": "",
-  "data binary 4": "",
-  "data binary 8": ""
-}
-
 class OVFSegmentSectionNode(OVFSectionNode):
     required = ["Header"]
-
-    pass
 
 class OVFHeaderSectionNode(OVFSectionNode):
     pass
@@ -294,7 +286,6 @@ class OVFDataSectionNode(OVFSectionNode):
     def _write_binary(self, stream, root=None, data_size=8):
         endianness, float_type, expected_tag = \
           _info_binary(root.a_oommf.value.version, data_size)
-
 
         fmt = endianness + float_type
         out_data = struct.pack(fmt, expected_tag)
@@ -432,12 +423,13 @@ class OVFStream(object):
     def write_line(self, line):
         self.f.write(line + "\n")
 
-s = OVFStream("big-v1.0.ovf")
-ovf = OVFRootNode()
-ovf.read(s, root=ovf)
-ovf._end_section("main")
+if __name__ == "__main__":
+    import sys
+    s = OVFStream(sys.argv[1])
+    ovf = OVFRootNode()
+    ovf.read(s, root=ovf)
+    ovf._end_section("main")
 
-import sys
-s2 = OVFStream("big-out.ovf", mode="w")
-ovf.write(s2, root=ovf)
+    s2 = OVFStream(sys.argv[2], mode="w")
+    ovf.write(s2, root=ovf)
 
