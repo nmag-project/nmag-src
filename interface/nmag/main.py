@@ -2909,7 +2909,7 @@ class Simulation(SimulationCore):
             log.info("Restart-file was saved in the middle of stage %d "
                      "continuing from this stage!" % stage)
 
-    def dump_fields(self, fields=None, filename=None, format="binary"):
+    def dump(self, fields=None, filename=None, format="binary"):
         """Dump the given field to a vtk file
         (useful for interactive work)."""
         if filename == None:
