@@ -142,8 +142,8 @@ class OVFType:
         self.mesh_type = mesh_type
 
     def __str__(self):
-        if self.version == 1:
-            return "%s mesh %s" % (self.mesh_type, self.version_str)
+        if self.version == (1, 0):
+            return "%s mesh v%s" % (self.mesh_type, self.version_str)
         else:
             return "OVF %s" % self.version_str
 
@@ -197,6 +197,18 @@ class OVFSegmentSectionNode(OVFSectionNode):
 class OVFHeaderSectionNode(OVFSectionNode):
     pass
 
+def _info_binary(oommf_version, data_size):
+    endianness = '!' if oommf_version == (1, 0) else '<'
+    if data_size == 8:
+        float_type = 'd'
+        expected_tag = 123456789012345.0
+
+    else:
+        assert data_size == 4
+        float_type = 'f'
+        expected_tag = 1234567.0 
+    return endianness, float_type, expected_tag
+
 class OVFDataSectionNode(OVFSectionNode):
     def __init__(self, value=[], data=None):
         OVFSectionNode.__init__(self, value, data)
@@ -241,16 +253,8 @@ class OVFDataSectionNode(OVFSectionNode):
                                % self.name)
 
     def _read_binary(self, stream, root=None, data_size=8):
-        endianness = '!' if root.a_oommf.value.version == (1, 0) else '<'
-        if data_size == 8:
-            float_type = 'd'
-            expected_tag = 123456789012345.0
-
-        else:
-            assert data_size == 4
-            float_type = 'f'
-            expected_tag = 1234567.0 
-
+        endianness, float_type, expected_tag = \
+          _info_binary(root.a_oommf.value.version, data_size)
 
         fmt = endianness + float_type
         verification_tag, = struct.unpack(fmt, stream.read_bytes(data_size))
@@ -279,12 +283,29 @@ class OVFDataSectionNode(OVFSectionNode):
         self._retrieve_info_from_root(root)
 
         stream.write_line("# Begin: %s" % self.name)
-
-        if self.mesh_type:
-            pass
-
+        if self.data_type == "databinary8":
+            self._write_binary(stream, root=root, data_size=8)
+        elif self.data_type == "databinary4":
+            self._write_binary(stream, root=root, data_size=4)
+        elif self.data_type == "datatext":
+            self._write_ascii(stream, root=root)
         stream.write_line("# End: %s" % self.name)
 
+    def _write_binary(self, stream, root=None, data_size=8):
+        endianness, float_type, expected_tag = \
+          _info_binary(root.a_oommf.value.version, data_size)
+
+
+        fmt = endianness + float_type
+        out_data = struct.pack(fmt, expected_tag)
+ 
+        num_floats = self.num_stored_nodes*self.floats_per_node
+        fmt = endianness + float_type*num_floats
+        out_data += struct.pack(fmt, *self.field.flat) + "\n"
+        stream.write(out_data)
+
+    def _write_ascii(self, stream, root=None):
+        pass
 
 
 def remove_comment(line, marker="##"):
@@ -362,6 +383,10 @@ class OVFRootNode(OVFSectionNode):
         else:
             return self.a_section.a_header.a_meshtype
 
+    def write(self, stream, root=None):
+        for n in self.subnodes:
+            n.write(stream, root=root)
+
 class OVFStream(object):
     def __init__(self, filename, mode="r"):
         if type(filename) == str:
@@ -401,6 +426,9 @@ class OVFStream(object):
     def read_lines_ahead(self):
         self.lines += self.f.readlines()
 
+    def write(self, data):
+        self.f.write(data)
+
     def write_line(self, line):
         self.f.write(line + "\n")
 
@@ -410,6 +438,6 @@ ovf.read(s, root=ovf)
 ovf._end_section("main")
 
 import sys
-s2 = OVFStream(sys.stdout)
+s2 = OVFStream("big-out.ovf", mode="w")
 ovf.write(s2, root=ovf)
 
