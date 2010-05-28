@@ -9,10 +9,15 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
-__all__ = []
+__all__ = ["OVF10", "OVF20", "OVFFile"]
 
 import struct
 from numpy import array
+
+# Abbreviations for OVF versions
+OVF10 = (1, 0)
+OVF20 = (2, 0)
+ANY_OVF = [OVF10, OVF20]
 
 def name_normalise(name):
     for c in [" ", "\t", "\n"]:
@@ -25,12 +30,12 @@ class OVFReadError(Exception):
 class OVFNode(object):
     def __init__(self, subnodes=[], data=None):
         #print "Creating node %s:%s" % (type(self), data)
-        self.subnodes = list(subnodes)
-        self.data = data
+        self._subnodes = list(subnodes)
+        self._data = data
 
     def _to_str(self, indent=0):
-        s = " "*indent + "Node %s: data=%s\n" % (type(self), self.data)
-        for subnode in self.subnodes:
+        s = " "*indent + "Node %s: data=%s\n" % (type(self), self._data)
+        for subnode in self._subnodes:
             s += subnode._to_str(indent=indent+2)
         return s
 
@@ -38,18 +43,22 @@ class OVFNode(object):
         return self._to_str()
 
     def _get_name(self):
-        return self.data[0]
+        return self._data[0]
 
     def _set_name(self, n):
-        self.data = (n, self.data[1])
+        self._data = (n, self._data[1])
+
+    def _get_identity(self):
+        return name_normalise(self._get_name())
 
     def _get_value(self):
-        return self.data[1]
+        return self._data[1]
 
     def _set_value(self, v):
-        self.data = (self.data[0], v)
+        self._data = (self._data[0], v)
 
     name = property(_get_name, _set_name)
+    identity = property(_get_identity)
     value = property(_get_value, _set_value)
 
     def read(self, stream, root=None):
@@ -75,12 +84,11 @@ class OVFSectionNode(OVFNode):
             if node == None:
                 return
 
-            node_name = node.data[0]
-            self.subnodes.append(node)
+            node_name = node.name
+            self._subnodes.append(node)
 
             self.received[node_name] = node
-            attr_name = "a_" + name_normalise(node_name)
-            setattr(self, attr_name, node)
+            setattr(self, "a_" + node.identity, node)
             assert self != node
  
             if isinstance(node, OVFSectionNode):
@@ -117,7 +125,7 @@ class OVFSectionNode(OVFNode):
         else:
             stream.write_line("# End: %s" % self.name)
 
-        for n in self.subnodes:
+        for n in self._subnodes:
             n.write(stream, root=root)
 
 class OVFValueNode(OVFNode):
@@ -139,10 +147,10 @@ class OVFType:
                 version_str = version_str[1:]
 
         if version_str in ["0.0a0", "0.99", "1.0"]:
-            version = (1, 0)
+            version = OVF10
 
         elif version_str in ["2.0"]:
-            version = (2, 0)
+            version = OVF20
 
         else:
             print ("Unknown OVF version '%s'. Trying to read assuming "
@@ -155,15 +163,34 @@ class OVFType:
         self.mesh_type = mesh_type
 
     def __str__(self):
-        if self.version == (1, 0):
+        if self.version == OVF10:
             return "%s mesh v%s" % (self.mesh_type, self.version_str)
         else:
             return "OVF %s" % self.version_str
 
-# List of known values in OOMMF file
+class OVFValueUnits:
+    def __init__(self, s):
+        self.units = s.split()
+
+    def __str__(self):
+        return " ".join(self.units)
+
+class OVFValueLabels:
+    def __init__(self, s):
+        self.labels = s
+
+    def __str__(self):
+        return self.labels
+
+# List of known values in OOMMF file. Each entry is a tuple specifying:
+# (the name of the field, the type of the field, a description,
+#  supported version of OVF, default value)
+# Version and context are potional. If the version is omitted,
+# ANY_OVF is assumed, if the context is omitted, the value is assumed to
+# belong to the header.
 known_values_list = [
-  ("OOMMF", OVFType, "First line of OVF file"),
-  ("Segment count", int, "Number of segments in data file", 1),
+  ("OOMMF", OVFType, "First line of OVF file", ANY_OVF, "root"),
+  ("Segment count", int, "Number of segments in data file", ANY_OVF, "root"),
   ("Title", str, "Title/long filename of the file"),
   ("Desc", str, "Extra lines used by postprocessing programs"),
   ("meshtype", str, "Mesh type"),
@@ -183,11 +210,20 @@ known_values_list = [
   ("xnodes", int, "Number of cells along x dimension in the mesh"),
   ("ynodes", int, "Number of cells along y dimension in the mesh"),
   ("znodes", int, "Number of cells along z dimension in the mesh"),
-  ("valueunit", str, "Units for data values"),
-  ("valuemultiplier", float, "Multiply data values by this to get true "
-                             "value in valueunit-s"),
-  ("ValueRangeMaxMag", float, "Maximum value of data (used as hint)"),
-  ("ValueRangeMinMag", float, "Minimum value of data (used as hint)")
+  ("valuedim", int, "Dimension of the data", OVF20),
+  ("valueunit", str, "Units for data values", OVF10),
+  ("valueunits", str, OVFValueUnits,
+   "Units for each dimension of the field.", OVF20),
+  ("valuelabels", str, OVFValueLabels,
+   "Labels for each dimension of the field", OVF20),
+  ("valuemultiplier", float,
+   "Multiply data values by this to get true value in valueunit-s", OVF10),
+  ("ValueRangeMaxMag", float, "Maximum value of data (used as hint)", OVF10),
+  ("ValueRangeMinMag", float, "Minimum value of data (used as hint)", OVF10),
+  ("boundary", str, "List of (x, y, z) triples specifying the vertices of a "
+                    "boundary frame. Optional.", OVF10)
+  # ^^^ I didn't find any examples of what this looks like. I then use str
+  #     for the type.
 ]
 
 # Build a dictionary corresponding to known_values_list
@@ -203,7 +239,7 @@ class OVFHeaderSectionNode(OVFSectionNode):
     pass
 
 def _info_binary(oommf_version, data_size):
-    endianness = '!' if oommf_version == (1, 0) else '<'
+    endianness = '!' if oommf_version == OVF10 else '<'
     if data_size == 8:
         float_type = 'd'
         expected_tag = 123456789012345.0
@@ -221,9 +257,14 @@ class OVFDataSectionNode(OVFSectionNode):
         self.data_type = None
         self.nodes = None
         self.num_nodes = None
-        self.num_stored_node = None
+        self.num_stored_nodes = None
         self.floats_per_node = None
         self.field = None
+
+    def _get_identity(self):
+        return "data"
+
+    identity = property(_get_identity)
 
     def _retrieve_info_from_root(self, root):
         h = root.a_segment.a_header
@@ -381,13 +422,13 @@ class OVFRootNode(OVFSectionNode):
     def get_mesh_type(self):
         ovf_version = self.a_oommf.value
         v = ovf_version.version
-        if v == (1, 0):
+        if v == OVF10:
             return ovf_version.mesh_type
         else:
             return self.a_section.a_header.a_meshtype
 
     def write(self, stream, root=None):
-        for n in self.subnodes:
+        for n in self._subnodes:
             n.write(stream, root=root)
 
 class OVFStream(object):
@@ -442,6 +483,43 @@ class OVFFile:
         if filename != None:
             self.read(filename)
 
+    def new(self, version=OVF10, mesh_type="rectangular",
+            data_type="binary8"):
+        # Generate the root node
+        root_node = OVFRootNode()
+
+        # Append version info
+        if version == OVF10:
+            t = OVFType("%s mesh v1.0" % mesh_type)
+        else:
+            t = OVFType("OVF 2.0")
+        root_node._subnodes.append(OVFValueNode(data=("OOMMF", t)))
+
+        # Append segment count and segment section
+        root_node._subnodes.append(OVFValueNode(data=("Segment count", "1")))
+        section_node = OVFSectionNode(data=("Segment", "Begin"))
+        root_node._subnodes.append(section_node)
+
+        # Generate the header
+        header_node = OVFSectionNode(data=("Header", "Begin"))
+        root_node._subnodes.append(header_node)
+        for known_v in known_values_list:
+            v_name = known_v[0]
+            v_type = known_v[1]
+            v_ver = known_v[3] if len(known_v) > 3 else ANY_OVF
+            v_context = known_v[4] if len(known_v) > 4 else "header"
+            if v_context == "header" and \
+               (v_ver == ANY_OVF or v_ver == version):
+                v_node = OVFValueNode(data=(v_name, None))
+                header_node._subnodes.append(v_node)
+
+
+
+
+
+
+
+
     def read(self, stream):
         if not isinstance(stream, OVFStream):
             stream = OVFStream(stream)
@@ -461,7 +539,7 @@ ovf[1|2][r|i][b8|b4|t]
 [b8|b4|t] data format to use (binary 8| binary 4|text)
 """
 
-if __name__ == "__main__":
+if __name__ == "__main__no":
     import sys
     print "Reading"
     ovf = OVFFile(sys.argv[1])
@@ -470,4 +548,7 @@ if __name__ == "__main__":
     ovf.write(sys.argv[2])
     print "Done"
 
+elif __name__ == "__main__":
+    ovf = OVFFile()
+    ovf.new(version=OVF10)
 

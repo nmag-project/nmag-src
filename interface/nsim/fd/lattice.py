@@ -10,10 +10,13 @@
 #          (see <http://www.gnu.org/licenses/>)
 
 '''
-This module provides the implementation of the nmagprobe command line tool.
+This module provides the Lattice class to describe multi dimensional
+rectangular grids.
 '''
 
 __all__ = ["first_difference", "parse_lattice_spec", "Lattice"]
+
+import logging
 
 log = logging.getLogger('nsim')
 logmsg = log.info
