@@ -9,6 +9,8 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
+__all__ = []
+
 import struct
 from numpy import array
 
@@ -451,6 +453,14 @@ class OVFFile:
             stream = OVFStream(stream, mode="w")
         self.content.write(stream, root=self.content)
 
+"""
+ovf[1|2][r|i][b8|b4|t]
+
+[1|2] version of OVF file
+[r|i] type of mesh to use (rectangular|irregular)
+[b8|b4|t] data format to use (binary 8| binary 4|text)
+"""
+
 if __name__ == "__main__":
     import sys
     print "Reading"
@@ -460,10 +470,4 @@ if __name__ == "__main__":
     ovf.write(sys.argv[2])
     print "Done"
 
-"""
-ovf[1|2][r|i][b8|b4|t]
 
-[1|2] version of OVF file
-[r|i] type of mesh to use (rectangular|irregular)
-[b8|b4|t] data format to use (binary 8| binary 4|text)
-"""
