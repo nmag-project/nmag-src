@@ -5,7 +5,7 @@ Copyright (C) 2010 University of Southampton
 Author: Matteo Franchin
 '''
 
-import sys, math, cmath, numpy, tables, logging
+import os, sys, math, cmath, numpy, tables, logging
 import numpy.fft as fft
 
 log = logging.getLogger('nmagprobe')
@@ -81,7 +81,7 @@ def parse_lattice_spec(s):
     return [parse_dim_spec(spec) for spec in s.split('/')]
 
 class Lattice:
-    """This class allows to define a n-dimensional square lattice an perform
+    """This class allows to define a n-dimensional square lattice and perform
     various operations on it. In particular it allows to iterate over the
     points of the lattice. No storage is needed for this (a Lattice of one
     millions of points doesn't require more memory that a Lattice of 1 point).
@@ -350,12 +350,16 @@ class ProbeStore:
         ft_ps.data *= factor
         return ft_ps
 
-        #ft_data = fft.fftshift(ft_data)
-
     def write(self, out=sys.stdout.write, fmt="%s", filter=None, 
-              sep_blocks="\n"):
+              sep_blocks="\n", out_fmt=None):
+        if out_fmt.lower() not in [None, 'text', 'ascii']:
+            raise NmagUserError("ProbeStore.write only supports text format. "
+                                "Use ProbeStore.write_to_file to write to "
+                                "OVF files.")
+
         if filter == None:
             filter = lambda x: x
+
         last_idx = [None]
         fastest_digit = [None]
         def my_out(idx, pos):
@@ -372,11 +376,38 @@ class ProbeStore:
 
         self.ts_lattice.foreach(my_out)
 
+    def _write_to_ovf_files(self, file_name, fmt="%s", filter=None,
+                            sep_blocks="\n", out_fmt=None):
+        file_index = [0]
+        file_basename, file_ext = os.path.splitext(file_name)
+
+        def foreach_time(idx, t):
+            spatial_data = self.data[idx[0]]
+            fn = "%s-%09d%s" % (file_basename, file_index[0], file_ext)
+            print fn
+            file_index[0] += 1
+
+        self.times.foreach(foreach_time)
+        raise NmagUserError("OVF output is not implemented, yet!")
+
+
     def write_to_file(self, file_name, fmt="%s", filter=None,
-                      sep_blocks="\n"):
-        f = open(file_name, "w")
-        self.write(out=f.write, fmt=fmt, filter=filter, sep_blocks=sep_blocks)
-        f.close()
+                      sep_blocks="\n", out_fmt=None):
+        out_fmt = out_fmt.lower()
+        if out_fmt in [None, 'text', 'ascii']:
+            f = open(file_name, "w")
+            self.write(out=f.write, fmt=fmt, filter=filter,
+                       sep_blocks=sep_blocks, out_fmt=out_fmt)
+            f.close()
+
+        elif out_fmt.startswith(('ovf', 'omf')):
+            self._write_to_ovf_files(file_name, fmt=fmt, filter=filter,
+                                     sep_blocks=sep_blocks, out_fmt=out_fmt)
+
+        else:
+            raise NmagUserError("Unrecognised output format '%s'." % out_fmt)
+
+
 
 def probe_field_on_lattice(lattice, field, subfield, out):
     def do(idx, position):
@@ -730,7 +761,8 @@ def probe_and_fft_field_from_file(file_name, times, lattice, field_name,
                                   real_out=None,
                                   fft_out=None,
                                   complex_to_real=None,
-                                  ref_time=None):
+                                  ref_time=None,
+                                  out_fmt=None):
 
     if vector_to_scalar == None:
         vector_to_scalar = default_vector_filter
@@ -751,12 +783,13 @@ def probe_and_fft_field_from_file(file_name, times, lattice, field_name,
 
 
     if real_out != None:
-        ps.write_to_file(real_out)
+        ps.write_to_file(real_out, out_fmt=out_fmt)
 
     ft_ps = None
     if fft_out != None:
         ft_ps = ps.compute_fft(axes=axes)
-        ft_ps.write_to_file(fft_out, filter=complex_to_real)
+        ft_ps.write_to_file(fft_out, filter=complex_to_real,
+                            out_fmt=out_fmt)
 
     return (ps, ft_ps)
 
@@ -890,7 +923,16 @@ def parse_cmdline(prog, args):
             "data format, the format used by OOMMF when saving its data. "
             "The latter choice may be used to probe the magnetisation of a "
             "finite element simulation, so that it can be used by OOMMF in a "
-            "finite difference simulation.")
+            "finite difference simulation. If you choose 'ovf' then OVF "
+            "version 1.0 will be used, with rectangular mesh and float size "
+            "of 8 bytes. If you want to control such parameters then you "
+            "have to use '--out-format=ovf[1|2][r|i][b8|b4|t]', where [|] "
+            "denotes alternative choices. [1|2] is the version of the OVF "
+            "format, [r|i] selects rectangular and irregular mesh type "
+            "while [b8|b4|t] selects the representation for the data: "
+            "binary 8 bytes, binary 4 bytes or text. Refer to OOMMF OVF "
+            "documentation for more details.")
+
     out_group.add_option("--out-format", metavar="FORMAT",
                          help=help, action="store",
                          dest="fileformat")
@@ -977,6 +1019,7 @@ def main(prog, args):
     ft_out_filename = options.ft_out
     scalar_mode = options.scalar_mode
     ft_out_mode = options.out_mode
+    out_file_format = options.fileformat
 
     d_time_lattice = 0
     d_space_lattice = (0, 0, 0)
@@ -1036,7 +1079,8 @@ def main(prog, args):
                     ('lattice in time', ts),
                     ('vector to scalar reduction', scalar_mode),
                     ('FT axes', ft_axes),
-                    ('FT output mode', ft_out_mode)]
+                    ('FT output mode', ft_out_mode),
+                    ('Output file format', out_file_format)]
         for name, setting in settings:
             print "%30s: %s" % (name, setting)
         print
@@ -1058,7 +1102,8 @@ def main(prog, args):
                                   ref_time=ref_time,
                                   vector_to_scalar=vec2scal,
                                   real_out=out_filename,
-                                  fft_out=ft_out_filename)
+                                  fft_out=ft_out_filename,
+                                  out_fmt=out_file_format)
 
 #import cProfile
 #cProfile.run("profile()")

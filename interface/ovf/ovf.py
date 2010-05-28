@@ -1,3 +1,14 @@
+# Nmag micromagnetic simulator
+# Copyright (C) 2010 University of Southampton
+# Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
+#
+# WEB:     http://nmag.soton.ac.uk 
+# CONTACT: nmag@soton.ac.uk
+#
+# AUTHOR(S) OF THIS FILE: Matteo Franchin
+# LICENSE: GNU General Public License 2.0
+#          (see <http://www.gnu.org/licenses/>)
+
 import struct
 from numpy import array
 
@@ -298,7 +309,6 @@ class OVFDataSectionNode(OVFSectionNode):
     def _write_ascii(self, stream, root=None):
         pass
 
-
 def remove_comment(line, marker="##"):
     """Return the given line, without the part which follows the comment
     marker ## (and without the marker itself)."""
@@ -423,13 +433,37 @@ class OVFStream(object):
     def write_line(self, line):
         self.f.write(line + "\n")
 
+class OVFFile:
+    def __init__(self, filename=None):
+        self.content = OVFRootNode()
+
+        if filename != None:
+            self.read(filename)
+
+    def read(self, stream):
+        if not isinstance(stream, OVFStream):
+            stream = OVFStream(stream)
+        self.content.read(stream, root=self.content)
+        self.content._end_section("main")
+
+    def write(self, stream):
+        if not isinstance(stream, OVFStream):
+            stream = OVFStream(stream, mode="w")
+        self.content.write(stream, root=self.content)
+
 if __name__ == "__main__":
     import sys
-    s = OVFStream(sys.argv[1])
-    ovf = OVFRootNode()
-    ovf.read(s, root=ovf)
-    ovf._end_section("main")
+    print "Reading"
+    ovf = OVFFile(sys.argv[1])
+    print "Writing"
+    #ovf.content.a_segment.a_databinary8.name = "Data Binary 4"
+    ovf.write(sys.argv[2])
+    print "Done"
 
-    s2 = OVFStream(sys.argv[2], mode="w")
-    ovf.write(s2, root=ovf)
+"""
+ovf[1|2][r|i][b8|b4|t]
 
+[1|2] version of OVF file
+[r|i] type of mesh to use (rectangular|irregular)
+[b8|b4|t] data format to use (binary 8| binary 4|text)
+"""
