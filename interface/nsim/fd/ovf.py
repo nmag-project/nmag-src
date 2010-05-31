@@ -533,11 +533,11 @@ class OVFFile:
         assert mesh_type == "rectangular", "Irregular meshes are not " \
                                            "supported, yet!"
 
-        assert fieldlattice.order == "F", "FieldLattice should have " \
-                                          "Fortran ordering!"
+        assert fieldlattice.lattice.order == "F", \
+          "FieldLattice should have Fortran ordering!"
 
-        assert fieldlattice.dim == 3, "The FieldLattice should be defined " \
-                                      "over a 3D mesh."
+        assert fieldlattice.lattice.dim == 3, \
+          "The FieldLattice should be defined over a 3D mesh."
 
         # Generate the root node
         root_node = OVFRootNode()
@@ -570,6 +570,7 @@ class OVFFile:
 
         # Generate the data segment
         fl = fieldlattice
+        l = fieldlattice.lattice
         data_node = OVFDataSectionNode(data=(data_type, "Begin"))
         segment_node._subnodes.append(data_node)
         data_node._subnodes.append(OVFSectionNode(data=(data_type, "End")))
@@ -582,13 +583,13 @@ class OVFFile:
 
         # Now write proper values in the header fields
         h = root_node.a_segment.a_header
-        h.a_xnodes.value, h.a_ynodes.value, h.a_znodes.value = fl.nodes
-        ss = fl.stepsizes
+        h.a_xnodes.value, h.a_ynodes.value, h.a_znodes.value = l.nodes
+        ss = l.stepsizes
         hss = [0.5*ssi for ssi in ss]
         h.a_xstepsize.value, h.a_ystepsize.value, h.a_zstepsize.value = ss
         h.a_xbase.value, h.a_ybase.value, h.a_zbase.value = hss
-        min_mesh_pos = [nmn - d for nmn, d in zip(fl.min_node_pos, hss)]
-        max_mesh_pos = [nmx + d for nmx, d in zip(fl.max_node_pos, hss)]
+        min_mesh_pos = [nmn - d for nmn, d in zip(l.min_node_pos, hss)]
+        max_mesh_pos = [nmx + d for nmx, d in zip(l.max_node_pos, hss)]
         h.a_xmin.value, h.a_ymin.value, h.a_zmin.value = min_mesh_pos
         h.a_xmax.value, h.a_ymax.value, h.a_zmax.value = max_mesh_pos
 

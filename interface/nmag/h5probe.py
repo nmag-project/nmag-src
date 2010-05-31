@@ -24,10 +24,20 @@ from nmeshlib import load_hdf5
 import nmag.fefields as ff
 from nmag.nmag_exceptions import *
 import nfem.hdf5_v01 as hdf5
-from nsim.fd import first_difference, Lattice
+from nsim.fd import first_difference, Lattice, FieldLattice
+from nsim.fd.ovf import OVFFile, OVF10, OVF20
 from nsim.timings import Timer, show_timers
 
 timer1 = Timer("readh5")
+
+def save_to_ovf(lattice, data, data_dim, filename,
+                data_type="binary8", mesh_type="rectangular",
+                ovf_version=OVF10, title="From_NmagProbe"):
+    fl = FieldLattice(lattice, data=data, dim=data_dim, order="F")
+    ovf = OVFFile()
+    ovf.new(fl, version=ovf_version, data_type=data_type, mesh_type=mesh_type)
+    ovf.content.a_segment.a_header.a_title = title
+    ovf.write(filename)
 
 def complex_filter(filter_name):
     """Returns a function which is supposed to act as a filter on complex
@@ -132,7 +142,7 @@ class ProbeStore:
             shape = tuple(self.data_shape + self.item_shape)
             logmsg("Allocating ProbeStore data array: shape = %s"
                    % str(shape))
-            self.data = numpy.ndarray(shape, dtype=self.dtype)
+            self.data = numpy.ndarray(shape, dtype=self.dtype, order="F")
             self.data.fill(0.0)
 
         return self.data
@@ -260,16 +270,21 @@ class ProbeStore:
                             sep_blocks="\n", out_fmt=None):
         file_index = [0]
         file_basename, file_ext = os.path.splitext(file_name)
+        print self.item_shape
+        if len(self.item_shape) != 1:
+            raise NmagUserError("Can save only scalars and vectors to OVF "
+                                "file, not generic tensors!")
+        item_dim = self.item_shape[0]
 
         def foreach_time(idx, t):
-            spatial_data = self.data[idx[0]]
             fn = "%s-%09d%s" % (file_basename, file_index[0], file_ext)
-            print fn
+            spatial_data = self.data[idx[0]]
+            save_to_ovf(self.lattice, spatial_data, item_dim, fn,
+                data_type="binary8", mesh_type="rectangular",
+                ovf_version=OVF10)
             file_index[0] += 1
 
         self.times.foreach(foreach_time)
-        raise NmagUserError("OVF output is not implemented, yet!")
-
 
     def write_to_file(self, file_name, fmt="%s", filter=None,
                       sep_blocks="\n", out_fmt=None):
@@ -941,8 +956,8 @@ def main(prog, args):
     fieldname = "m"
     subfieldname = "Py"
 
-    l = Lattice(space_lattice, reduction=1e-15)
-    ts = Lattice(time_lattice, reduction=1e-20)
+    l = Lattice(space_lattice, reduction=1e-15, order="F")
+    ts = Lattice(time_lattice, reduction=1e-20, order="F")
 
     if options.verbose:
         heading = "EXECUTING PROBE WITH FOLLOWING SETTINGS:"

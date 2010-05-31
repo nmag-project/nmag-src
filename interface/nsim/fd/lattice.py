@@ -14,7 +14,8 @@ This module provides the Lattice class to describe multi dimensional
 rectangular grids.
 '''
 
-__all__ = ["first_difference", "parse_lattice_spec", "Lattice"]
+__all__ = ["first_difference", "parse_lattice_spec",
+           "Lattice", "FieldLattice"]
 
 import numpy
 
@@ -176,13 +177,16 @@ class Lattice(object):
         else:
             self._foreach(self.dim - 1, idx, pos, fn, -1, -1)
 
-class FieldLattice(Lattice):
-    def __init__(self, min_max_num_list, dim=3, order='C',
+class FieldLattice(object):
+    def __init__(self, lattice, dim=3, order='C',
                  data=None, reduction=0.0):
-        Lattice.__init__(self, min_max_num_list, order=order,
-                         reduction=reduction)
+        if isinstance(lattice, Lattice):
+            self.lattice = lattice
+        else:
+            self.lattice = Lattice(lattice, order=order, reduction=reduction)
         self.field_dim = dim
-        shape = self.nodes + [dim] if order == 'C' else [dim] + self.nodes
+        nodes = self.lattice.nodes
+        shape = nodes + [dim] if order == 'C' else [dim] + nodes
         if data != None:
             self.field_data = data
         else:
@@ -191,12 +195,12 @@ class FieldLattice(Lattice):
 
     def set(self, setter):
         all_components = [slice(None)]
-        if self.order == 'C':
+        if self.lattice.order == 'C':
             def fn(idx, pos):
                 self.field_data[idx + all_components] = setter(pos)
         else:
             def fn(idx, pos):
                 self.field_data[all_components + idx] = setter(pos)
 
-        self.foreach(fn)
+        self.lattice.foreach(fn)
 
