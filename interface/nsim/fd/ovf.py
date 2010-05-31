@@ -14,6 +14,8 @@ __all__ = ["OVF10", "OVF20", "OVFFile"]
 import struct
 from numpy import array
 
+from lattice import FieldLattice
+
 # Abbreviations for OVF versions
 OVF10 = (1, 0)
 OVF20 = (2, 0)
@@ -283,15 +285,15 @@ class OVFDataSectionNode(OVFSectionNode):
           (h.a_xnodes.value, h.a_ynodes.value, h.a_znodes.value)
         self.num_nodes = xn*yn*zn
 
-        field_size = root.field_size
+        field_dim = root.field_dim
         self.mesh_type = root.mesh_type
         if self.mesh_type == "rectangular":
-            self.floats_per_node = field_size
+            self.floats_per_node = field_dim
             self.num_stored_nodes = self.num_nodes
 
         else:
             assert self.mesh_type == "irregular"
-            self.floats_per_node = 3 + field_size
+            self.floats_per_node = 3 + field_dim
             self.num_stored_nodes = h.a_pointcount
 
         self.data_type = name_normalise(self.name)
@@ -447,14 +449,14 @@ class OVFRootNode(OVFSectionNode):
                          "Mesh type of the OVF file "
                          "(a string = rectangular/irregular)")
 
-    def _get_field_size(self):
+    def _get_field_dim(self):
         if self.ovf_version == OVF10:
             return 3
         else:
             return self.a_segment.a_header.a_valuedim
 
-    field_size = property(_get_field_size, None, None,
-                          "Return the size of the field.")
+    field_dim = property(_get_field_dim, None, None,
+                         "Return the size of the field.")
 
 
 
@@ -534,6 +536,9 @@ class OVFFile:
         assert fieldlattice.order == "F", "FieldLattice should have " \
                                           "Fortran ordering!"
 
+        assert fieldlattice.dim == 3, "The FieldLattice should be defined " \
+                                      "over a 3D mesh."
+
         # Generate the root node
         root_node = OVFRootNode()
 
@@ -596,10 +601,22 @@ class OVFFile:
         # Finally replace self.content
         self.content = root_node
 
+    def get_field(self):
+        root_node = self.content
+        segment_node = root_node.a_segment
+        h = segment_node.a_header
+        ss = [h.a_xstepsize, h.a_ystepsize, h.a_zstepsize]
+        dx, dy, dz = [0.5*ssi for ssi in ss]
 
+        min_max_ndim = \
+          [(h.a_xmin.value - dx, h.a_xmax.value + dx, h.a_xnodes.value),
+           (h.a_ymin.value - dy, h.a_ymax.value + dy, h.a_ynodes.value),
+           (h.a_zmin.value - dz, h.a_zmax.value + dz, h.a_znodes.value)]
 
-
-
+        field_data = segment_node.a_data.field
+        field_dim = root_node.field_dim
+        return FieldLattice(min_max_dim, dim=field_dim,
+                            data=field_data, order='F')
 
     def read(self, stream):
         if not isinstance(stream, OVFStream):
@@ -631,7 +648,6 @@ if __name__ == "__main__no":
 
 elif __name__ == "__main__":
     # Here is how to create an OVF file from a FieldLattice object
-    from lattice import FieldLattice
     fl = FieldLattice("2.5e-9,97.5e-9,20/2.5e-9,97.5e-9,20/0,2e-9,1",
                       order="F")
     fl.set(lambda pos: [1, 0, 0])

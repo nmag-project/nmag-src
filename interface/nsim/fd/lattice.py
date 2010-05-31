@@ -177,12 +177,17 @@ class Lattice(object):
             self._foreach(self.dim - 1, idx, pos, fn, -1, -1)
 
 class FieldLattice(Lattice):
-    def __init__(self, min_max_num_list, dim=3, order='C', reduction=0.0):
+    def __init__(self, min_max_num_list, dim=3, order='C',
+                 data=None, reduction=0.0):
         Lattice.__init__(self, min_max_num_list, order=order,
                          reduction=reduction)
         self.field_dim = dim
         shape = self.nodes + [dim] if order == 'C' else [dim] + self.nodes
-        self.field_data = numpy.ndarray(dtype=float, shape=shape, order=order)
+        if data != None:
+            self.field_data = data
+        else:
+            self.field_data = numpy.ndarray(dtype=float, shape=shape,
+                                            order=order)
 
     def set(self, setter):
         all_components = [slice(None)]
