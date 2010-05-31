@@ -204,23 +204,7 @@ known_values_list = [
   ("Segment count", int, "Number of segments in data file", ANY_OVF, "root"),
   ("Title", str, "Title/long filename of the file"),
   ("Desc", str, "Extra lines used by postprocessing programs"),
-  ("meshtype", str, "Mesh type"),
   ("meshunit", str, "Fundamental mesh measurement unit"),
-  ("xbase", float, "x coordinate of first point in data section"),
-  ("ybase", float, "y coordinate of first point in data section"),
-  ("zbase", float, "z coordinate of first point in data section"),
-  ("xstepsize", float, "Distance between adjacent grid points."),
-  ("ystepsize", float, "Distance between adjacent grid points."),
-  ("zstepsize", float, "Distance between adjacent grid points."),
-  ("xmin", float, "Minimum x coordinate of the mesh"),
-  ("ymin", float, "Minimum y coordinate of the mesh"),
-  ("zmin", float, "Minimum z coordinate of the mesh"),
-  ("xmax", float, "Maximum x coordinate of the mesh"),
-  ("ymax", float, "Maximum y coordinate of the mesh"),
-  ("zmax", float, "Maximum z coordinate of the mesh"),
-  ("xnodes", int, "Number of cells along x dimension in the mesh"),
-  ("ynodes", int, "Number of cells along y dimension in the mesh"),
-  ("znodes", int, "Number of cells along z dimension in the mesh"),
   ("valuedim", int, "Dimension of the data", OVF20),
   ("valueunit", str, "Units for data values", OVF10),
   ("valueunits", str, OVFValueUnits,
@@ -229,8 +213,24 @@ known_values_list = [
    "Labels for each dimension of the field", OVF20),
   ("valuemultiplier", float,
    "Multiply data values by this to get true value in valueunit-s", OVF10),
+  ("xmin", float, "Minimum x coordinate of the mesh"),
+  ("ymin", float, "Minimum y coordinate of the mesh"),
+  ("zmin", float, "Minimum z coordinate of the mesh"),
+  ("xmax", float, "Maximum x coordinate of the mesh"),
+  ("ymax", float, "Maximum y coordinate of the mesh"),
+  ("zmax", float, "Maximum z coordinate of the mesh"),
   ("ValueRangeMaxMag", float, "Maximum value of data (used as hint)", OVF10),
   ("ValueRangeMinMag", float, "Minimum value of data (used as hint)", OVF10),
+  ("meshtype", str, "Mesh type"),
+  ("xbase", float, "x coordinate of first point in data section"),
+  ("ybase", float, "y coordinate of first point in data section"),
+  ("zbase", float, "z coordinate of first point in data section"),
+  ("xstepsize", float, "Distance between adjacent grid points."),
+  ("ystepsize", float, "Distance between adjacent grid points."),
+  ("zstepsize", float, "Distance between adjacent grid points."),
+  ("xnodes", int, "Number of cells along x dimension in the mesh"),
+  ("ynodes", int, "Number of cells along y dimension in the mesh"),
+  ("znodes", int, "Number of cells along z dimension in the mesh"),
   ("boundary", str, "List of (x, y, z) triples specifying the vertices of a "
                     "boundary frame. Optional.", OVF10)
   # ^^^ I didn't find any examples of what this looks like. I then use str
@@ -587,6 +587,12 @@ class OVFFile:
         h.a_xmin.value, h.a_ymin.value, h.a_zmin.value = min_mesh_pos
         h.a_xmax.value, h.a_ymax.value, h.a_zmax.value = max_mesh_pos
 
+        # Final "decorations"
+        h.a_title.value = "Title"
+        h.a_meshtype.value = mesh_type
+        h.a_meshunit.value = "1.0"
+        h.a_valuemultiplier.value = 1.0
+
         # Finally replace self.content
         self.content = root_node
 
@@ -624,11 +630,13 @@ if __name__ == "__main__no":
     print "Done"
 
 elif __name__ == "__main__":
+    # Here is how to create an OVF file from a FieldLattice object
     from lattice import FieldLattice
     fl = FieldLattice("2.5e-9,97.5e-9,20/2.5e-9,97.5e-9,20/0,2e-9,1",
                       order="F")
     fl.set(lambda pos: [1, 0, 0])
     ovf = OVFFile()
     ovf.new(fl, version=OVF10, data_type="binary8")
+    ovf.content.a_segment.a_header.a_title = "MyFile"
     ovf.write("new-v1.ovf")
 
