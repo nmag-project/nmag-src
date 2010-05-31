@@ -357,7 +357,8 @@ class OVFDataSectionNode(OVFSectionNode):
  
         num_floats = self.num_stored_nodes*self.floats_per_node
         fmt = endianness + float_type*num_floats
-        out_data += struct.pack(fmt, *self.field.flat) + "\n"
+        flat_array = self.field.ravel('F')
+        out_data += struct.pack(fmt, *flat_array) + "\n"
         stream.write(out_data)
 
     def _write_ascii(self, stream, root=None):
@@ -527,6 +528,12 @@ class OVFFile:
             raise ValueError("Wrong choice of data_type. Available choices "
                              "are: %s." % available_choices)
 
+        assert mesh_type == "rectangular", "Irregular meshes are not " \
+                                           "supported, yet!"
+
+        assert fieldlattice.order == "F", "FieldLattice should have " \
+                                          "Fortran ordering!"
+
         # Generate the root node
         root_node = OVFRootNode()
 
@@ -618,7 +625,9 @@ if __name__ == "__main__no":
 
 elif __name__ == "__main__":
     from lattice import FieldLattice
-    fl = FieldLattice("2.5e-9,97.5e-9,20/2.5e-9,97.5e-9,20/0,2e-9,1")
+    fl = FieldLattice("2.5e-9,97.5e-9,20/2.5e-9,97.5e-9,20/0,2e-9,1",
+                      order="F")
+    fl.set(lambda pos: [1, 0, 0])
     ovf = OVFFile()
     ovf.new(fl, version=OVF10, data_type="binary8")
     ovf.write("new-v1.ovf")

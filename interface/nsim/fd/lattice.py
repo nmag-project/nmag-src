@@ -61,7 +61,7 @@ class Lattice(object):
     millions of points doesn't require more memory that a Lattice of 1 point).
     The points of the lattice can be referred univocally by index."""
 
-    def __init__(self, min_max_num_list, reduction=0.0):
+    def __init__(self, min_max_num_list, order='C', reduction=0.0):
         """Creates a lattice given a list containing, for each dimension,
         the corresponding minimum and maximum coordinate and the number of
         points in which it is discretised. Something like:
@@ -75,7 +75,10 @@ class Lattice(object):
             min_max_num_list = parse_lattice_spec(min_max_num_list)
         self.min_max_num_list = list(min_max_num_list)
         self.dim = len(min_max_num_list)
+        self.order = order
         self.reduction = reduction
+        if order not in ['C', 'F']:
+            raise ValueError("Array order should be either 'C' or 'F'.")
 
     def __repr__(self):
         return "Lattice(%s)" % self.min_max_num_list
@@ -138,8 +141,8 @@ class Lattice(object):
                 pos.append(x_min)
         return pos
 
-    def _foreach(self, nr_idx, idx, pos, fn):
-        if nr_idx == self.dim:
+    def _foreach(self, nr_idx, idx, pos, fn, fastest_idx, idx_order):
+        if nr_idx == fastest_idx:
             fn(idx, pos)
 
         else:
@@ -158,7 +161,8 @@ class Lattice(object):
                 pos[nr_idx] = xi
                 idx[nr_idx] = i
                 xi += delta_xi
-                self._foreach(nr_idx+1, idx, pos, fn)
+                self._foreach(nr_idx + idx_order, idx, pos, fn,
+                              fastest_idx, idx_order)
 
     def foreach(self, fn):
         """Iterates over all the points in the lattice and, for each of those,
@@ -167,12 +171,27 @@ class Lattice(object):
         """
         idx = [0]*self.dim
         pos = [0.0]*self.dim
-        self._foreach(0, idx, pos, fn)
+        if self.order == 'C':
+            self._foreach(0, idx, pos, fn, self.dim, 1)
+        else:
+            self._foreach(self.dim - 1, idx, pos, fn, -1, -1)
 
 class FieldLattice(Lattice):
-    def __init__(self, min_max_num_list, dim=3, reduction=0.0):
-        Lattice.__init__(self, min_max_num_list, reduction=reduction)
-        self.field_data = numpy.ndarray(dtype=float,
-                                        shape=self.nodes + [dim],
-                                        order='C')
+    def __init__(self, min_max_num_list, dim=3, order='C', reduction=0.0):
+        Lattice.__init__(self, min_max_num_list, order=order,
+                         reduction=reduction)
+        self.field_dim = dim
+        shape = self.nodes + [dim] if order == 'C' else [dim] + self.nodes
+        self.field_data = numpy.ndarray(dtype=float, shape=shape, order=order)
+
+    def set(self, setter):
+        all_components = [slice(None)]
+        if self.order == 'C':
+            def fn(idx, pos):
+                self.field_data[idx + all_components] = setter(pos)
+        else:
+            def fn(idx, pos):
+                self.field_data[all_components + idx] = setter(pos)
+
+        self.foreach(fn)
 
