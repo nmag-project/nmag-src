@@ -61,11 +61,20 @@ class OVFNode(object):
     identity = property(_get_identity)
     value = property(_get_value, _set_value)
 
+    def _add_as_attr(self, obj=None, prefix="a_"):
+        if obj != None:
+            assert obj != self
+            setattr(obj, prefix + self.identity, self)
+
+        for subnode in self._subnodes:
+            subnode._add_as_attr(self, prefix=prefix)
+
     def read(self, stream, root=None):
         raise NotImplementedError("OVFNode.read not implemented!")
 
     def write(self, stream, root=None):
         raise NotImplementedError("OVFNode.write not implemented!")
+
 
 class OVFSectionNode(OVFNode):
     required = None
@@ -130,7 +139,9 @@ class OVFSectionNode(OVFNode):
 
 class OVFValueNode(OVFNode):
     def write(self, stream, root=None):
-        stream.write_line("# %s: %s" % (self.name, self.value))
+        v = self.value
+        if v != None:
+            stream.write_line("# %s: %s" % (self.name, self.value))
 
 class OVFType:
     def __init__(self, s):
@@ -272,8 +283,8 @@ class OVFDataSectionNode(OVFSectionNode):
           (h.a_xnodes.value, h.a_ynodes.value, h.a_znodes.value)
         self.num_nodes = xn*yn*zn
 
-        field_size = 3
-        self.mesh_type = root.get_mesh_type()
+        field_size = root.field_size
+        self.mesh_type = root.mesh_type
         if self.mesh_type == "rectangular":
             self.floats_per_node = field_size
             self.num_stored_nodes = self.num_nodes
@@ -419,13 +430,32 @@ class OVFRootNode(OVFSectionNode):
     def __init__(self):
         OVFSectionNode.__init__(self, data=("main", "begin"))
 
-    def get_mesh_type(self):
-        ovf_version = self.a_oommf.value
-        v = ovf_version.version
+    def _get_version(self):
+        return self.a_oommf.value.version
+
+    ovf_version = property(_get_version, None, None, "Version of OVF file.")
+
+    def _get_mesh_type(self):
+        v = self.ovf_version
         if v == OVF10:
-            return ovf_version.mesh_type
+            return self.a_oommf.value.mesh_type
         else:
-            return self.a_section.a_header.a_meshtype
+            return self.a_segment.a_header.a_meshtype
+
+    mesh_type = property(_get_mesh_type, None, None,
+                         "Mesh type of the OVF file "
+                         "(a string = rectangular/irregular)")
+
+    def _get_field_size(self):
+        if self.ovf_version == OVF10:
+            return 3
+        else:
+            return self.a_segment.a_header.a_valuedim
+
+    field_size = property(_get_field_size, None, None,
+                          "Return the size of the field.")
+
+
 
     def write(self, stream, root=None):
         for n in self._subnodes:
@@ -483,8 +513,20 @@ class OVFFile:
         if filename != None:
             self.read(filename)
 
-    def new(self, version=OVF10, mesh_type="rectangular",
+    def new(self, fieldlattice, version=OVF10, mesh_type="rectangular",
             data_type="binary8"):
+
+        available_data_types = {"text":"Text",
+                                "binary4": "Data Binary 4",
+                                "binary8": "Data Binary 8"}
+        if available_data_types.has_key(data_type):
+            data_type = available_data_types[data_type]
+
+        else:
+            available_choices = ", ".join(available_data_types.keys())
+            raise ValueError("Wrong choice of data_type. Available choices "
+                             "are: %s." % available_choices)
+
         # Generate the root node
         root_node = OVFRootNode()
 
@@ -497,12 +539,12 @@ class OVFFile:
 
         # Append segment count and segment section
         root_node._subnodes.append(OVFValueNode(data=("Segment count", "1")))
-        section_node = OVFSectionNode(data=("Segment", "Begin"))
-        root_node._subnodes.append(section_node)
+        segment_node = OVFSectionNode(data=("Segment", "Begin"))
+        root_node._subnodes.append(segment_node)
 
         # Generate the header
         header_node = OVFSectionNode(data=("Header", "Begin"))
-        root_node._subnodes.append(header_node)
+        segment_node._subnodes.append(header_node)
         for known_v in known_values_list:
             v_name = known_v[0]
             v_type = known_v[1]
@@ -512,8 +554,34 @@ class OVFFile:
                (v_ver == ANY_OVF or v_ver == version):
                 v_node = OVFValueNode(data=(v_name, None))
                 header_node._subnodes.append(v_node)
+        header_node._subnodes.append(OVFSectionNode(data=("Header", "End")))
 
+        # Generate the data segment
+        fl = fieldlattice
+        data_node = OVFDataSectionNode(data=(data_type, "Begin"))
+        segment_node._subnodes.append(data_node)
+        data_node._subnodes.append(OVFSectionNode(data=(data_type, "End")))
+        data_node.field = fl.field_data
 
+        segment_node._subnodes.append(OVFSectionNode(data=("Segment", "End")))
+
+        # Add subnodes as attributes for better accessibility
+        root_node._add_as_attr()
+
+        # Now write proper values in the header fields
+        h = root_node.a_segment.a_header
+        h.a_xnodes.value, h.a_ynodes.value, h.a_znodes.value = fl.nodes
+        ss = fl.stepsizes
+        hss = [0.5*ssi for ssi in ss]
+        h.a_xstepsize.value, h.a_ystepsize.value, h.a_zstepsize.value = ss
+        h.a_xbase.value, h.a_ybase.value, h.a_zbase.value = hss
+        min_mesh_pos = [nmn - d for nmn, d in zip(fl.min_node_pos, hss)]
+        max_mesh_pos = [nmx + d for nmx, d in zip(fl.max_node_pos, hss)]
+        h.a_xmin.value, h.a_ymin.value, h.a_zmin.value = min_mesh_pos
+        h.a_xmax.value, h.a_ymax.value, h.a_zmax.value = max_mesh_pos
+
+        # Finally replace self.content
+        self.content = root_node
 
 
 
@@ -549,6 +617,9 @@ if __name__ == "__main__no":
     print "Done"
 
 elif __name__ == "__main__":
+    from lattice import FieldLattice
+    fl = FieldLattice("2.5e-9,97.5e-9,20/2.5e-9,97.5e-9,20/0,2e-9,1")
     ovf = OVFFile()
-    ovf.new(version=OVF10)
+    ovf.new(fl, version=OVF10, data_type="binary8")
+    ovf.write("new-v1.ovf")
 

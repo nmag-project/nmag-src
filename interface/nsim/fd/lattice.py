@@ -16,6 +16,8 @@ rectangular grids.
 
 __all__ = ["first_difference", "parse_lattice_spec", "Lattice"]
 
+import numpy
+
 import logging
 
 log = logging.getLogger('nsim')
@@ -52,7 +54,7 @@ def parse_lattice_spec(s):
         return [float(x_min), float(x_max), int(num_steps)]
     return [parse_dim_spec(spec) for spec in s.split('/')]
 
-class Lattice:
+class Lattice(object):
     """This class allows to define a n-dimensional square lattice and perform
     various operations on it. In particular it allows to iterate over the
     points of the lattice. No storage is needed for this (a Lattice of one
@@ -88,6 +90,23 @@ class Lattice:
         of points for each dimension of the lattice. Example: [10, 5, 20] for
         a 3D lattice made of 10 by 5 by 20 points."""
         return [i for _, _, i in self.min_max_num_list]
+
+    nodes = property(get_shape)
+
+    def _get_stepsizes(self, scale=1.0):
+        return [(scale*(mx - mn)/(ns - 1) if ns > 1 else 0.0)
+                for mn, mx, ns in self.min_max_num_list]
+
+    stepsizes = property(_get_stepsizes)
+
+    def _get_min_node_pos(self):
+        return [mn for mn, _, _ in self.min_max_num_list]
+
+    def _get_max_node_pos(self):
+        return [mx for _, mx, _ in self.min_max_num_list]
+
+    min_node_pos = property(_get_min_node_pos)
+    max_node_pos = property(_get_max_node_pos)
 
     def get_num_points(self):
         """Returns the total number of points in the lattice."""
@@ -149,4 +168,11 @@ class Lattice:
         idx = [0]*self.dim
         pos = [0.0]*self.dim
         self._foreach(0, idx, pos, fn)
+
+class FieldLattice(Lattice):
+    def __init__(self, min_max_num_list, dim=3, reduction=0.0):
+        Lattice.__init__(self, min_max_num_list, reduction=reduction)
+        self.field_data = numpy.ndarray(dtype=float,
+                                        shape=self.nodes + [dim],
+                                        order='C')
 
