@@ -98,7 +98,7 @@ class Lattice(object):
     nodes = property(get_shape)
 
     def _get_stepsizes(self, scale=1.0):
-        return [(scale*(mx - mn)/(ns - 1) if ns > 1 else 0.0)
+        return [(scale*(mx - mn)/(ns - 1) if ns > 1 else (mx - mn))
                 for mn, mx, ns in self.min_max_num_list]
 
     stepsizes = property(_get_stepsizes)

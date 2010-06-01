@@ -320,7 +320,7 @@ class OVFDataSectionNode(OVFSectionNode):
         if verification_tag != expected_tag:
             raise OVFReadError("Data carries wrong signature: got '%s' but "
                                "'%s' was expected. This usually means that "
-                               "the file is corrupted or is not being read "
+                               "the file is corrupted or is not being red "
                                "correctly."
                                % (verification_tag, expected_tag))
 
@@ -328,7 +328,11 @@ class OVFDataSectionNode(OVFSectionNode):
         fmt = endianness + float_type*num_floats
         data = stream.read_bytes(num_floats*data_size)
         big_float_tuple = struct.unpack(fmt, data)
-        self.field = array(big_float_tuple).reshape((-1, 3))
+
+        # Reshape the data
+        xn, yn, zn = self.nodes
+        fn = self.float_per_node
+        self.field = array(big_float_tuple).reshape((fn, xn, yn, zn))
 
         while True:
             l = stream.next_line()
@@ -336,7 +340,18 @@ class OVFDataSectionNode(OVFSectionNode):
                 return
 
     def _read_ascii(self, stream, root=None):
-        raise NotImplementedError("Cannot read OVF in ASCII format.")
+        semiflat_array = numpy.ndarray(dtype='float', order="F",
+                                       shape=(self.floats_per_node, self.num_nodes))
+
+        for i in range(self.num_nodes):
+            l.stream.next_line()
+            v = [float(vi) for vi in l.split()]
+            semiflat_array[:, i] = v
+
+        # Reshape the data
+        xn, yn, zn = self.nodes
+        fn = self.float_per_node
+        self.field = semiflat_array.reshape((fn, xn, yn, zn))
 
     def write(self, stream, root=None):
         self._retrieve_info_from_root(root)
@@ -348,6 +363,9 @@ class OVFDataSectionNode(OVFSectionNode):
             self._write_binary(stream, root=root, data_size=4)
         elif self.data_type == "datatext":
             self._write_ascii(stream, root=root)
+        else:
+            raise ValueError("Unrecognised data type '%s'"
+                             % self.data_type)
         stream.write_line("# End: %s" % self.name)
 
     def _write_binary(self, stream, root=None, data_size=8):
@@ -364,7 +382,12 @@ class OVFDataSectionNode(OVFSectionNode):
         stream.write(out_data)
 
     def _write_ascii(self, stream, root=None):
-        pass
+        semiflat_array = \
+          self.field.reshape((self.floats_per_node, self.num_nodes))
+        fmt = (" %g"*self.floats_per_node)[1:]
+        for i in range(self.num_nodes):
+            v = semiflat_array[:, i]
+            stream.write_line(fmt % tuple(v))
 
 def remove_comment(line, marker="##"):
     """Return the given line, without the part which follows the comment
@@ -519,7 +542,7 @@ class OVFFile:
     def new(self, fieldlattice, version=OVF10, mesh_type="rectangular",
             data_type="binary8"):
 
-        available_data_types = {"text":"Text",
+        available_data_types = {"text":"Data Text",
                                 "binary4": "Data Binary 4",
                                 "binary8": "Data Binary 8"}
         if available_data_types.has_key(data_type):
@@ -644,11 +667,11 @@ if __name__ == "__main__no":
 
 elif __name__ == "__main__":
     # Here is how to create an OVF file from a FieldLattice object
-    fl = FieldLattice("2.5e-9,97.5e-9,20/2.5e-9,97.5e-9,20/0,2e-9,1",
+    fl = FieldLattice("2.5e-9,97.5e-9,20/2.5e-9,47.5e-9,10/2.5e-9,7.5e-9,1",
                       order="F")
     fl.set(lambda pos: [1, 0, 0])
     ovf = OVFFile()
-    ovf.new(fl, version=OVF10, data_type="binary8")
+    ovf.new(fl, version=OVF10, data_type="text")
     ovf.content.a_segment.a_header.a_title = "MyFile"
     ovf.write("new-v1.ovf")
 
