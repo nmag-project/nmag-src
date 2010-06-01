@@ -39,6 +39,47 @@ def save_to_ovf(lattice, data, data_dim, filename,
     ovf.content.a_segment.a_header.a_title = title
     ovf.write(filename)
 
+def unpack_ovf_fmt(ovf_fmt):
+    """Unpack an OVF format specifications in its components.
+    The format string has the form ovf[1|2][r|i][b8|b4|t], where:
+
+      [1|2] version of OVF file
+      [r|i] type of mesh to use (rectangular|irregular)
+      [b8|b4|t] data format to use (binary 8| binary 4|text)
+
+    Examples: ovf, ovf1, ovf2r, ovf2rb4
+    Note: ovfr is not accepted. If you specify r (for rectangular),
+          then you also have to give the version: ovf1r or ovf2r.
+    """
+    version, mesh_type, data_type = (OVF10, "rectangular", "binary8")
+    if ovf_fmt != None:
+        ovf_fmt = ovf_fmt.lower()
+        assert ovf_fmt.startswith("ovf"), \
+          ("OVF format string is supposed to start with ovf. It has indeed "
+           "the form ovf[1|2][r|i][b8|b4|t]")
+
+        ovf_fmt = ovf_fmt[3:]
+        if len(ovf_fmt) > 0:
+            assert ovf_fmt[0] in ["1", "2"], \
+              "OVF version character should be either 1 or 2 (ovf1, ovf2)."
+            version = OVF10 if ovf_fmt[0] == "1" else OVF20
+
+        if len(ovf_fmt) > 1:
+            assert ovf_fmt[1] in ["r", "i"], \
+              ("OVF mesh type character should be either r or i "
+               "(ovf1r, ovf1i).")
+            mesh_type = "rectangular" if ovf_fmt[1] == "r" else "irregular"
+    
+            dt_chars = ovf_fmt[2:]
+            if len(dt_chars) > 0:
+                assert dt_chars in ["b8", "b4", "t"], \
+                  ("OVF data type characters should be b8, b4, t "
+                   "(i.e. ovf1rb4)")
+                data_type = \
+                  {"b8":"binary8", "b4":"binary4", "t":"text"}[dt_chars]
+
+    return (version, mesh_type, data_type)
+
 def complex_filter(filter_name):
     """Returns a function which is supposed to act as a filter on complex
     numbers. 'complex_filter' takes a string with the name of the filter
@@ -268,6 +309,7 @@ class ProbeStore:
 
     def _write_to_ovf_files(self, file_name, fmt="%s", filter=None,
                             sep_blocks="\n", out_fmt=None):
+        (version, mesh_type, data_type) = unpack_ovf_fmt(out_fmt)
         file_index = [0]
         file_basename, file_ext = os.path.splitext(file_name)
         print self.item_shape
@@ -280,8 +322,8 @@ class ProbeStore:
             fn = "%s-%09d%s" % (file_basename, file_index[0], file_ext)
             spatial_data = self.data[idx[0]]
             save_to_ovf(self.lattice, spatial_data, item_dim, fn,
-                data_type="binary8", mesh_type="rectangular",
-                ovf_version=OVF10)
+                        data_type=data_type, mesh_type=mesh_type,
+                        ovf_version=version)
             file_index[0] += 1
 
         self.times.foreach(foreach_time)

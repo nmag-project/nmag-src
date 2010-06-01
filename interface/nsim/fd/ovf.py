@@ -597,7 +597,10 @@ class OVFFile:
         h.a_title.value = "Title"
         h.a_meshtype.value = mesh_type
         h.a_meshunit.value = "1.0"
+        h.a_valueunit.value = "1.0"
         h.a_valuemultiplier.value = 1.0
+        h.a_valuerangeminmag.value = min(fl.field_data.flat)
+        h.a_valuerangemaxmag.value = max(fl.field_data.flat)
 
         # Finally replace self.content
         self.content = root_node
@@ -629,14 +632,6 @@ class OVFFile:
         if not isinstance(stream, OVFStream):
             stream = OVFStream(stream, mode="w")
         self.content.write(stream, root=self.content)
-
-"""
-ovf[1|2][r|i][b8|b4|t]
-
-[1|2] version of OVF file
-[r|i] type of mesh to use (rectangular|irregular)
-[b8|b4|t] data format to use (binary 8| binary 4|text)
-"""
 
 if __name__ == "__main__no":
     import sys
