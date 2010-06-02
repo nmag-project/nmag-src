@@ -312,15 +312,17 @@ class ProbeStore:
         (version, mesh_type, data_type) = unpack_ovf_fmt(out_fmt)
         file_index = [0]
         file_basename, file_ext = os.path.splitext(file_name)
-        print self.item_shape
-        if len(self.item_shape) != 1:
+        item_rank = len(self.item_shape)
+        if item_rank > 1:
             raise NmagUserError("Can save only scalars and vectors to OVF "
                                 "file, not generic tensors!")
-        item_dim = self.item_shape[0]
+
+        item_dim = self.item_shape[0] if item_rank == 1 else 0
 
         def foreach_time(idx, t):
             fn = "%s-%09d%s" % (file_basename, file_index[0], file_ext)
             spatial_data = self.data[idx[0]]
+            
             save_to_ovf(self.lattice, spatial_data, item_dim, fn,
                         data_type=data_type, mesh_type=mesh_type,
                         ovf_version=version)

@@ -147,15 +147,17 @@ class OVFValueNode(OVFNode):
 
 class OVFType:
     def __init__(self, s):
-        mesh_type = None
-
         pieces = s.lower().split()
-        if pieces[0] == "OVF":
-            version_str = pieces[1]
+        assert pieces[0] in ["oommf", "oommf:"], \
+          "Unrecognised OVF version string (%s)" % s
 
-        elif pieces[1] == "mesh":
-            mesh_type = pieces[0]
+        mesh_type = None
+        if pieces[1] == "ovf":
             version_str = pieces[2]
+
+        elif pieces[2] == "mesh":
+            mesh_type = pieces[1]
+            version_str = pieces[3]
             if version_str.startswith("v"):
                 version_str = version_str[1:]
 
@@ -166,9 +168,8 @@ class OVFType:
             version = OVF20
 
         else:
-            print ("Unknown OVF version '%s'. Trying to read assuming "
-                   "version 2.0.")
-            version = (2, 0)
+            print ("Unknown OVF version '%s'. Assuming version 2.0.")
+            version = OVF20
             version_str = "2.0"
 
         self.version_str = version_str
@@ -177,9 +178,25 @@ class OVFType:
 
     def __str__(self):
         if self.version == OVF10:
-            return "%s mesh v%s" % (self.mesh_type, self.version_str)
+            return "OOMMF: %s mesh v%s" % (self.mesh_type, self.version_str)
         else:
-            return "OVF %s" % self.version_str
+            return "OOMMF OVF %s" % self.version_str
+
+def split_strings(ls):
+    s = ls.lstrip()
+
+    pieces = []
+    while len(s) > 0:
+        second = s.find('"', 1)
+        assert second > 0 and s[0] == '"' and s[second] == '"', \
+          ("split_strings expects a number of strings delimited by \" and "
+           "separated by spaces, but it got: '%s'." % ls)
+
+        pieces.append(s[1: second])
+
+        s = s[second + 1:].lstrip()
+
+    return pieces    
 
 class OVFValueUnits:
     def __init__(self, s):
@@ -190,10 +207,10 @@ class OVFValueUnits:
 
 class OVFValueLabels:
     def __init__(self, s):
-        self.labels = s
+        self.labels = split_strings(s)
 
     def __str__(self):
-        return self.labels
+        return " ".join(['"%s"' % l for l in self.labels])
 
 # List of known values in OOMMF file. Each entry is a tuple specifying:
 # (the name of the field, the type of the field, a description,
@@ -202,16 +219,15 @@ class OVFValueLabels:
 # ANY_OVF is assumed, if the context is omitted, the value is assumed to
 # belong to the header.
 known_values_list = [
-  ("OOMMF", OVFType, "First line of OVF file", ANY_OVF, "root"),
   ("Segment count", int, "Number of segments in data file", ANY_OVF, "root"),
   ("Title", str, "Title/long filename of the file"),
   ("Desc", str, "Extra lines used by postprocessing programs"),
   ("meshunit", str, "Fundamental mesh measurement unit"),
   ("valuedim", int, "Dimension of the data", OVF20),
   ("valueunit", str, "Units for data values", OVF10),
-  ("valueunits", str, OVFValueUnits,
+  ("valueunits", OVFValueUnits,
    "Units for each dimension of the field.", OVF20),
-  ("valuelabels", str, OVFValueLabels,
+  ("valuelabels", OVFValueLabels,
    "Labels for each dimension of the field", OVF20),
   ("valuemultiplier", float,
    "Multiply data values by this to get true value in valueunit-s", OVF10),
@@ -244,6 +260,12 @@ known_values = {}
 for known_value_tuple in known_values_list:
     value_name = name_normalise(known_value_tuple[0])
     known_values[value_name] = known_value_tuple
+
+class OVFVersionNode(OVFNode):
+    def write(self, stream, root=None):
+        v = self.value
+        if v != None:
+            stream.write_line("# %s" % self.value)
 
 class OVFSegmentSectionNode(OVFSectionNode):
     required = ["Header"]
@@ -398,6 +420,9 @@ def remove_comment(line, marker="##"):
     else:
         return line[:i]
 
+def version_node(ver_str):
+    return OVFVersionNode(data=("oommf", OVFType(ver_str)))
+
 def known_value_node(name, value):
     lname = name_normalise(name)
     if known_values.has_key(lname):
@@ -438,17 +463,24 @@ def read_node(stream):
         raise OVFReadError("Error reading OVF header. "
                            "Expected #, but got '%s'" % l)
 
-    piece = l[1:].split(":", 1)
-    name = piece[0].strip()
-    lname = name_normalise(name)
-    value = None
-    if len(piece) > 1:
-        value = piece[1].strip()
+    l = l[1:].lstrip()
+    ll = l.lower()
+    if ll.startswith("oommf"):
+        return version_node(ll)
 
-    if lname in ["begin", "end"]:
-        return known_section_node(name, value)
     else:
-        return known_value_node(name, value)
+        piece = l.split(":", 1)
+        name = piece[0].strip()
+        lname = name_normalise(name)
+
+        value = None
+        if len(piece) > 1:
+            value = piece[1].strip()
+
+        if lname in ["begin", "end"]:
+            return known_section_node(name, value)
+        else:
+            return known_value_node(name, value)
 
 class OVFRootNode(OVFSectionNode):
     required = ["OOMMF", "Segment count"]
@@ -466,7 +498,7 @@ class OVFRootNode(OVFSectionNode):
         if v == OVF10:
             return self.a_oommf.value.mesh_type
         else:
-            return self.a_segment.a_header.a_meshtype
+            return self.a_segment.a_header.a_meshtype.value
 
     mesh_type = property(_get_mesh_type, None, None,
                          "Mesh type of the OVF file "
@@ -476,7 +508,7 @@ class OVFRootNode(OVFSectionNode):
         if self.ovf_version == OVF10:
             return 3
         else:
-            return self.a_segment.a_header.a_valuedim
+            return self.a_segment.a_header.a_valuedim.value
 
     field_dim = property(_get_field_dim, None, None,
                          "Return the size of the field.")
@@ -567,10 +599,13 @@ class OVFFile:
 
         # Append version info
         if version == OVF10:
-            t = OVFType("%s mesh v1.0" % mesh_type)
+            t = OVFType("OOMMF: %s mesh v1.0" % mesh_type)
+            assert fieldlattice.field_dim == 3, \
+              ("OVF 1.0 only supports fields with dimension 3 (such as "
+               "the magnetisation, for example)")
         else:
-            t = OVFType("OVF 2.0")
-        root_node._subnodes.append(OVFValueNode(data=("OOMMF", t)))
+            t = OVFType("OOMMF OVF 2.0")
+        root_node._subnodes.append(OVFVersionNode(data=("OOMMF", t)))
 
         # Append segment count and segment section
         root_node._subnodes.append(OVFValueNode(data=("Segment count", "1")))
@@ -620,10 +655,16 @@ class OVFFile:
         h.a_title.value = "Title"
         h.a_meshtype.value = mesh_type
         h.a_meshunit.value = "1.0"
-        h.a_valueunit.value = "1.0"
-        h.a_valuemultiplier.value = 1.0
-        h.a_valuerangeminmag.value = min(fl.field_data.flat)
-        h.a_valuerangemaxmag.value = max(fl.field_data.flat)
+        if version == OVF10:
+            h.a_valueunit.value = "1.0"
+            h.a_valuemultiplier.value = 1.0
+            h.a_valuerangeminmag.value = min(fl.field_data.flat)
+            h.a_valuerangemaxmag.value = max(fl.field_data.flat)
+
+        else:
+            h.a_valuedim.value = fl.field_dim
+            h.a_valueunits.value = " 1.0"*fl.field_dim
+            h.a_valuelabels.value = OVFValueLabels(' "1.0"'*fl.field_dim)
 
         # Finally replace self.content
         self.content = root_node
@@ -671,7 +712,7 @@ elif __name__ == "__main__":
                       order="F")
     fl.set(lambda pos: [1, 0, 0])
     ovf = OVFFile()
-    ovf.new(fl, version=OVF10, data_type="text")
+    ovf.new(fl, version=OVF20, data_type="binary8")
     ovf.content.a_segment.a_header.a_title = "MyFile"
     ovf.write("new-v1.ovf")
 
