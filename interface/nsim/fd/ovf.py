@@ -648,6 +648,8 @@ class OVFFile:
                "the magnetisation, for example)")
         else:
             t = OVFType("OOMMF OVF 2.0")
+            assert fieldlattice.field_dim >= 1, \
+              ("You are trying to write a field with dimension 0.")
         root_node._subnodes.append(OVFVersionNode(data=("OOMMF", t)))
 
         # Append segment count and segment section

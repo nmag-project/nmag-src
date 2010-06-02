@@ -167,9 +167,7 @@ class ProbeStore:
         self.ts_lattice = times + lattice
         self.dtype = dtype
         self.order = self.lattice.order
-        self._combine_idx = self.lattice._combine_idx
-        self.data_shape = \
-          self._combine_idx(times.get_shape(), lattice.get_shape())
+        self.data_shape = lattice.get_shape() + times.get_shape()
         self.item_shape = None
         self.data = None
         self.data0 = None
@@ -183,7 +181,7 @@ class ProbeStore:
 
     def get_data(self):
         if self.data == None:
-            shape = tuple(self._combine_idx(self.data_shape, self.item_shape))
+            shape = self.item_shape + self.data_shape
             logmsg("Allocating ProbeStore data array: shape = %s"
                    % str(shape))
             self.data = numpy.ndarray(shape, dtype=self.dtype,
@@ -217,12 +215,11 @@ class ProbeStore:
         def filler(t, pos, value):
             idx_t = self.times.get_closest([t])
             idx_space = self.lattice.get_closest(pos)
-            idx = tuple(self._combine_idx(idx_t, idx_space))
+            idx = tuple(idx_space + idx_t)
             v = my_filter(value, idx=idx, t=t)
             self.define_item_shape_from_example(v)
             data = self.get_data()
-            extra_idx = (slice(None),)*len(self.item_shape)
-            data.__setitem__(self._combine_idx(idx, extra_idx), v)
+            data[(Ellipsis,) + idx] = v
         return filler
 
     def probe_field(self, file_name, field_name, subfield_name,
@@ -249,9 +246,9 @@ class ProbeStore:
 
         def my_filter(v, idx=None, t=None):
             my_idx = list(idx)
-            my_idx[0] = 0
+            my_idx[-1] = 0
             my_idx = tuple(my_idx)
-            v0 = self.data0.__getitem__(my_idx)
+            v0 = self.data0[(Ellipsis,) + my_idx]
             return filter(v - v0, idx=idx, t=t)
 
         self.probe_field(file_name, field_name, subfield_name,
@@ -317,28 +314,23 @@ class ProbeStore:
         (version, mesh_type, data_type) = unpack_ovf_fmt(out_fmt)
         file_index = [0]
         file_basename, file_ext = os.path.splitext(file_name)
-        item_rank = len(self.item_shape)
+        item_shape = self.item_shape if self.item_shape != None else (1,)
+        item_rank = len(item_shape)
         if item_rank > 1:
             raise NmagUserError("Can save only scalars and vectors to OVF "
                                 "file, not generic tensors!")
 
-        item_dim = self.item_shape[0] if item_rank == 1 else 0
-
-        # Using Fortran ordering leads to horrible complications like the
-        # following. The problem is that the x dimension is usually the
-        # fastest, and normally - using C ordering - it should then be
-        # assigned to the latest index, such as p[z, y, x].
-        # To avoid that we use Fortran ordering. We can then use p[x, y, z],
-        # but NumPy does not really think that way.
-        # I have really to think carefully whether that is really worth it.
-        # Matteo, 2 June 2010
-        remaining_idx = (slice(None),)*(self.data.ndim - 1)
+        item_dim = item_shape[0] if item_rank == 1 else 1
 
         def foreach_time(idx, t):
             fn = "%s-%09d%s" % (file_basename, file_index[0], file_ext)
-            full_idx = self._combine_idx((idx[0],), remaining_idx)
-            spatial_data = self.data[full_idx]
-            
+            spatial_data = self.data[..., idx[0]]
+            if item_rank == 0:
+                spatial_data.shape = (1,) + spatial_data.shape
+            else:
+                assert item_rank == 1, \
+                  "You can only write vectors and scalars to OVF files."
+
             save_to_ovf(self.lattice, spatial_data, item_dim, fn,
                         data_type=data_type, mesh_type=mesh_type,
                         ovf_version=version)
