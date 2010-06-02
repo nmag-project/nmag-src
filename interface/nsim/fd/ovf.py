@@ -9,10 +9,50 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
+"""
+Generic library to read/write files using the OOMMF OVF file format.
+We support:
+ - all major OVF versions (OVF 1.0 and 2.0)
+ - all data modes (binary8, binary4 and text)
+ - only rectangular mesh types (irregular mesh type is not supported, yet).
+Here are few examples illustrating how to use the library:
+
+EXAMPLE 1: reading an OVF file and retrieving the data
+
+  ovf = OVFFile("filename.ovf")
+  fl = ovf.get_field()
+  # fl is a FieldLattice object, see module lattice.py
+  # fl.lattice is a Lattice object, describing the mesh (lattice.py)
+  # fl.field_data is the numpy array containing the data
+
+EXAMPLE 2: creating a new OVF file
+
+    # Create the data
+    fl = FieldLattice("2.5e-9,97.5e-9,20/2.5e-9,47.5e-9,10/2.5e-9,7.5e-9,1",
+                      order="F")
+    fl.set(lambda pos: [1, 0, 0])
+
+    # Save it to file
+    ovf = OVFFile()
+    ovf.new(fl, version=OVF20, data_type="binary8")
+    ovf.write("newfile.ovf")
+
+  Note that after the ovf.new method has been called, you can customize some
+  of the fields of the OVF header by accessing it directly under ovf.content.
+  For example:
+
+    h = ovf.content.a_segment.a_header
+    h.a_title.value = "The title of my OVF file"
+    h.a_meshunit.value = "m"
+    h.a_valueunits.value.units = ["A/m", "A/m", "A/m"]
+    ovf.write("newfile.ovf")
+
+"""
+
 __all__ = ["OVF10", "OVF20", "OVFFile"]
 
 import struct
-from numpy import array
+from numpy import array, ndarray
 
 from lattice import FieldLattice
 
@@ -333,6 +373,13 @@ class OVFDataSectionNode(OVFSectionNode):
             raise OVFReadError("Unknown data type '%s' in OVF file."
                                % self.name)
 
+        # Get to end of section
+        while True:
+            l = stream.next_line()
+            if l.startswith("# End:"):
+                return
+
+
     def _read_binary(self, stream, root=None, data_size=8):
         endianness, float_type, expected_tag = \
           _info_binary(root.a_oommf.value.version, data_size)
@@ -353,26 +400,21 @@ class OVFDataSectionNode(OVFSectionNode):
 
         # Reshape the data
         xn, yn, zn = self.nodes
-        fn = self.float_per_node
+        fn = self.floats_per_node
         self.field = array(big_float_tuple).reshape((fn, xn, yn, zn))
 
-        while True:
-            l = stream.next_line()
-            if l.startswith("# End:"):
-                return
-
     def _read_ascii(self, stream, root=None):
-        semiflat_array = numpy.ndarray(dtype='float', order="F",
-                                       shape=(self.floats_per_node, self.num_nodes))
+        semiflat_array = ndarray(dtype='float', order="F",
+                                 shape=(self.floats_per_node, self.num_nodes))
 
         for i in range(self.num_nodes):
-            l.stream.next_line()
+            l = stream.next_line()
             v = [float(vi) for vi in l.split()]
             semiflat_array[:, i] = v
 
         # Reshape the data
         xn, yn, zn = self.nodes
-        fn = self.float_per_node
+        fn = self.floats_per_node
         self.field = semiflat_array.reshape((fn, xn, yn, zn))
 
     def write(self, stream, root=None):
@@ -483,7 +525,7 @@ def read_node(stream):
             return known_value_node(name, value)
 
 class OVFRootNode(OVFSectionNode):
-    required = ["OOMMF", "Segment count"]
+    required = ["Segment count"]
 
     def __init__(self):
         OVFSectionNode.__init__(self, data=("main", "begin"))
