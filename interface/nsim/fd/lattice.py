@@ -62,7 +62,7 @@ class Lattice(object):
     millions of points doesn't require more memory that a Lattice of 1 point).
     The points of the lattice can be referred univocally by index."""
 
-    def __init__(self, min_max_num_list, order='C', reduction=0.0):
+    def __init__(self, min_max_num_list, order="F", reduction=0.0):
         """Creates a lattice given a list containing, for each dimension,
         the corresponding minimum and maximum coordinate and the number of
         points in which it is discretised. Something like:
@@ -78,7 +78,7 @@ class Lattice(object):
         self.dim = len(min_max_num_list)
         self.order = order
         self.reduction = reduction
-        if order not in ['C', 'F']:
+        if order not in ["C", "F"]:
             raise ValueError("Array order should be either 'C' or 'F'.")
 
     def __repr__(self):
@@ -88,6 +88,12 @@ class Lattice(object):
         reduction = max(self.reduction, right.reduction)
         return Lattice(self.min_max_num_list + right.min_max_num_list,
                        reduction=reduction)
+
+    def _combine_idx(self, *slower_faster):
+        if self.order == "F":
+            return reduce(lambda x, y: y + x, slower_faster)
+        else:
+            return reduce(lambda x, y: x + y, slower_faster)
 
     def get_shape(self):
         """Returns the shape of the lattice, i.e. a list containing the number
@@ -172,13 +178,13 @@ class Lattice(object):
         """
         idx = [0]*self.dim
         pos = [0.0]*self.dim
-        if self.order == 'C':
+        if self.order == "C":
             self._foreach(0, idx, pos, fn, self.dim, 1)
         else:
             self._foreach(self.dim - 1, idx, pos, fn, -1, -1)
 
 class FieldLattice(object):
-    def __init__(self, lattice, dim=3, order='C',
+    def __init__(self, lattice, dim=3, order="F",
                  data=None, reduction=0.0):
         if isinstance(lattice, Lattice):
             self.lattice = lattice
@@ -186,12 +192,12 @@ class FieldLattice(object):
             self.lattice = Lattice(lattice, order=order, reduction=reduction)
         self.field_dim = dim
         nodes = self.lattice.nodes
-        shape = nodes + [dim] if order == 'C' else [dim] + nodes
+        shape = self.lattice._combine_idx(nodes, [dim])
         if data != None:
             self.field_data = data
         else:
-            self.field_data = numpy.ndarray(dtype=float, shape=shape,
-                                            order=order)
+            self.field_data = \
+              numpy.ndarray(dtype=float, shape=shape, order=order)
 
     def set(self, setter):
         all_components = [slice(None)]

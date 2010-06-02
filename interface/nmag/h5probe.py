@@ -166,7 +166,10 @@ class ProbeStore:
         self.lattice = lattice
         self.ts_lattice = times + lattice
         self.dtype = dtype
-        self.data_shape = times.get_shape() + lattice.get_shape()
+        self.order = self.lattice.order
+        self._combine_idx = self.lattice._combine_idx
+        self.data_shape = \
+          self._combine_idx(times.get_shape(), lattice.get_shape())
         self.item_shape = None
         self.data = None
         self.data0 = None
@@ -180,10 +183,11 @@ class ProbeStore:
 
     def get_data(self):
         if self.data == None:
-            shape = tuple(self.data_shape + self.item_shape)
+            shape = tuple(self._combine_idx(self.data_shape, self.item_shape))
             logmsg("Allocating ProbeStore data array: shape = %s"
                    % str(shape))
-            self.data = numpy.ndarray(shape, dtype=self.dtype, order="F")
+            self.data = numpy.ndarray(shape, dtype=self.dtype,
+                                      order=self.order)
             self.data.fill(0.0)
 
         return self.data
@@ -200,7 +204,7 @@ class ProbeStore:
 
     def define_item_shape_from_example(self, item_example):
         ie = item_example
-        if item_example != numpy.ndarray:
+        if ie != numpy.ndarray:
             ie = numpy.array(item_example)
         self.define_item_shape(ie.shape)
 
@@ -213,11 +217,12 @@ class ProbeStore:
         def filler(t, pos, value):
             idx_t = self.times.get_closest([t])
             idx_space = self.lattice.get_closest(pos)
-            idx = tuple(idx_t + idx_space)
+            idx = tuple(self._combine_idx(idx_t, idx_space))
             v = my_filter(value, idx=idx, t=t)
             self.define_item_shape_from_example(v)
             data = self.get_data()
-            data.__setitem__(idx, v)
+            extra_idx = (slice(None),)*len(self.item_shape)
+            data.__setitem__(self._combine_idx(idx, extra_idx), v)
         return filler
 
     def probe_field(self, file_name, field_name, subfield_name,
@@ -319,9 +324,20 @@ class ProbeStore:
 
         item_dim = self.item_shape[0] if item_rank == 1 else 0
 
+        # Using Fortran ordering leads to horrible complications like the
+        # following. The problem is that the x dimension is usually the
+        # fastest, and normally - using C ordering - it should then be
+        # assigned to the latest index, such as p[z, y, x].
+        # To avoid that we use Fortran ordering. We can then use p[x, y, z],
+        # but NumPy does not really think that way.
+        # I have really to think carefully whether that is really worth it.
+        # Matteo, 2 June 2010
+        remaining_idx = (slice(None),)*(self.data.ndim - 1)
+
         def foreach_time(idx, t):
             fn = "%s-%09d%s" % (file_basename, file_index[0], file_ext)
-            spatial_data = self.data[idx[0]]
+            full_idx = self._combine_idx((idx[0],), remaining_idx)
+            spatial_data = self.data[full_idx]
             
             save_to_ovf(self.lattice, spatial_data, item_dim, fn,
                         data_type=data_type, mesh_type=mesh_type,
@@ -345,8 +361,6 @@ class ProbeStore:
 
         else:
             raise NmagUserError("Unrecognised output format '%s'." % out_fmt)
-
-
 
 def probe_field_on_lattice(lattice, field, subfield, out):
     def do(idx, position):
