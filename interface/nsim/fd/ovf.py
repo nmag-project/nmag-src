@@ -401,7 +401,8 @@ class OVFDataSectionNode(OVFSectionNode):
         # Reshape the data
         xn, yn, zn = self.nodes
         fn = self.floats_per_node
-        self.field = array(big_float_tuple).reshape((fn, xn, yn, zn))
+        self.field = array(big_float_tuple).reshape((fn, xn, yn, zn),
+                                                    order="F")
 
     def _read_ascii(self, stream, root=None):
         semiflat_array = ndarray(dtype='float', order="F",
