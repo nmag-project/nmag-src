@@ -449,10 +449,9 @@ class OVFDataSectionNode(OVFSectionNode):
     def _write_ascii(self, stream, root=None):
         semiflat_array = \
           self.field.reshape((self.floats_per_node, self.num_nodes))
-        fmt = (" %g"*self.floats_per_node)[1:]
         for i in range(self.num_nodes):
             v = semiflat_array[:, i]
-            stream.write_line(fmt % tuple(v))
+            stream.write_line(" ".join([repr(vi) for vi in v]))
 
 def remove_comment(line, marker="##"):
     """Return the given line, without the part which follows the comment

@@ -285,7 +285,8 @@ class ProbeStore:
 
     def write(self, out=sys.stdout.write, fmt="%s", filter=None, 
               sep_blocks="\n", out_fmt=None):
-        if out_fmt.lower() not in [None, 'text', 'ascii']:
+        out_fmt = out_fmt.lower() if out_fmt != None else None
+        if out_fmt not in [None, 'text', 'ascii']:
             raise NmagUserError("ProbeStore.write only supports text format. "
                                 "Use ProbeStore.write_to_file to write to "
                                 "OVF files.")
@@ -303,7 +304,12 @@ class ProbeStore:
                 if sep_blocks != None and fd < mfd:
                     out(sep_blocks)
             last_idx[0] = list(idx)
-            value = filter(self.data.__getitem__(tuple(idx)))
+
+            # We want to print t, x, y, x but the indices for accessing the
+            # data are rather in the order x, y, z, t (from faster to slower).
+            # We then have to do some permutations:
+            reordered_idx = tuple(idx[1:] + idx[:1])
+            value = filter(self.data[(Ellipsis,) + reordered_idx])
             s = " ".join([fmt % xi for xi in pos]) + " " + fmt % value + "\n"
             out(s)
 
@@ -340,7 +346,7 @@ class ProbeStore:
 
     def write_to_file(self, file_name, fmt="%s", filter=None,
                       sep_blocks="\n", out_fmt=None):
-        out_fmt = out_fmt.lower()
+        out_fmt = out_fmt.lower() if out_fmt != None else None
         if out_fmt in [None, 'text', 'ascii']:
             f = open(file_name, "w")
             self.write(out=f.write, fmt=fmt, filter=filter,

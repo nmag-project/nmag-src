@@ -5,7 +5,7 @@ from lattice import FieldLattice
 
 small_value = {"binary8": 1e-10,
                "binary4": 1e-6,
-               "text": 1e-4}
+               "text": 1e-10}
 
 # The following function is included for debugging
 def ipython(globals=None, locals=None):
