@@ -19,18 +19,22 @@ Here are few examples illustrating how to use the library:
 
 EXAMPLE 1: reading an OVF file and retrieving the data
 
-  ovf = OVFFile("filename.ovf")
-  fl = ovf.get_field()
+  from ovf import OVFFile
+  ovf_file = OVFFile("filename.ovf")
+  fl = ovf_file.get_field()
   # fl is a FieldLattice object, see module lattice.py
   # fl.lattice is a Lattice object, describing the mesh (lattice.py)
   # fl.field_data is the numpy array containing the data
 
 EXAMPLE 2: creating a new OVF file
 
+    from ovf import OVFFile, OVF10, OVF20
+
     # Create the data
-    fl = FieldLattice("2.5e-9,97.5e-9,20/2.5e-9,47.5e-9,10/2.5e-9,7.5e-9,1",
-                      order="F")
-    fl.set(lambda pos: [1, 0, 0])
+    fl = FieldLattice("2.5e-9,97.5e-9,20/2.5e-9,47.5e-9,10/2.5e-9,7.5e-9,1")
+    def setter_function(position):
+        return [1, 0, 0]
+    fl.set(setter_function)
 
     # Save it to file
     ovf = OVFFile()
@@ -47,6 +51,31 @@ EXAMPLE 2: creating a new OVF file
     h.a_valueunits.value.units = ["A/m", "A/m", "A/m"]
     ovf.write("newfile.ovf")
 
+NOTE: The OVF file defines fields over a grid of cubes while the FieldLattice
+  defines fields over points (the centers of the cubes, actually).
+  For example:
+
+    fl = FieldLattice("1,9,5/1,9,5/1,9,5")
+
+  The FieldLattice above defines a cubic lattice of 5x5x5 points: all the ones
+  obtained varying x, y and z among the values 1, 3, 5, 7, 9.
+  For example (1, 1, 1) is the first point of the lattice. It lies exactly
+  at the center of the first cube of the mesh, which occupies the space
+  between 0-2 in each dimension.
+  That should be enough to understand the relation between the OVF mesh and
+  the corresponding FieldLattice. Since the cubes are all equal and the points
+  are at the center of the cubes, the x-size of the cubes is equal to the
+  spacing between the nodes along the x-axis. Similarly for the other
+  directions of space y and z.
+  If your mesh has just one cubes along one or more directions, then you have
+  to put some care in specifying the FieldLattice. For example,
+  
+    fl = FieldLattice("1,3,1/1,3,1/1,3,1")
+
+  defines a lattice with just one point (1, 1, 1) corresponding to a cube
+  with size (2, 2, 2) and that occupies the region of space 0-2 in each
+  dimension of space. The values (3, 3, 3) are given just to define what
+  the spacing is, but is not used as a point in the mesh.
 """
 
 __all__ = ["OVF10", "OVF20", "OVFFile"]

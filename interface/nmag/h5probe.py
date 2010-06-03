@@ -940,7 +940,7 @@ disk in various formats. You can use %prog for the following purposes:
     purposes;
 
   - probe the magnetisation over an arbitrary 3D lattice and convert it into
-    an omf file which can be loaded by OOMMF (you could transfer your
+    an OVF file which can be loaded by OOMMF (you could transfer your
     magnetisation configuration from Nmag to OOMMF);
 
   - Fourier transform the magnetisation along one or more of the four
