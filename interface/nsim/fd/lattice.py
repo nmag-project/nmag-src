@@ -24,14 +24,29 @@ import logging
 log = logging.getLogger('nsim')
 logmsg = log.info
 
-def first_difference(la, lb):
+def first_difference(la, lb, reverse=False):
     """Given two lists 'la' and 'lb', returns the index at which the two lists
     differ or len(la) if the first entries in 'lb' match with all the entries
-    of 'la'."""
-    for i, a in enumerate(la):
-        if a != lb[i]:
-            return i
-    return len(a)
+    of 'la'. If reverse=True counts the digits from the last one.
+    In particular, first_difference(a, b, reverse=True) is equivalent to:
+
+        ra, rb = list(a), list(b)
+        ra.reverse(); rb.reverse()
+        first_difference(ra, rb)
+    """
+    if reverse:
+        len_la = len(la)
+        for i in range(len_la):
+            ri = -1 - i
+            if la[ri] != lb[ri]:
+                return i
+        return len_la
+
+    else:
+        for i, a in enumerate(la):
+            if a != lb[i]:
+                return i
+        return len(a)
 
 def parse_lattice_spec(s):
     """The lattice specification should be a string such as "-5,10,5/0.5,2,2",
@@ -87,7 +102,7 @@ class Lattice(object):
     def __add__(self, right):
         reduction = max(self.reduction, right.reduction)
         return Lattice(self.min_max_num_list + right.min_max_num_list,
-                       reduction=reduction)
+                       reduction=reduction, order=self.order)
 
     def _combine_idx(self, *slower_faster):
         if self.order == "F":

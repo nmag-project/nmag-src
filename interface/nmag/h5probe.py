@@ -164,7 +164,7 @@ class ProbeStore:
     def __init__(self, times, lattice, dtype=numpy.float64):
         self.times = times
         self.lattice = lattice
-        self.ts_lattice = times + lattice
+        self.ts_lattice = lattice + times
         self.dtype = dtype
         self.order = self.lattice.order
         self.data_shape = lattice.get_shape() + times.get_shape()
@@ -261,6 +261,7 @@ class ProbeStore:
         if self.item_shape != []:
             raise NmagUserError("Cannot compute the FFT of a ProbeStore "
                                 "object having non scalar items!")
+
         data = self.get_data()
         ft_data = fft.fftn(data, axes=axes)
         ft_ps = ProbeStore(self.times, self.lattice, dtype=ft_data.dtype)
@@ -299,18 +300,19 @@ class ProbeStore:
         def my_out(idx, pos):
             lidx = last_idx[0]
             if lidx != None:
-                fd = first_difference(idx, lidx)
+                fd = first_difference(idx, lidx, reverse=True)
                 fastest_digit[0] = mfd = max(fastest_digit[0], fd)
                 if sep_blocks != None and fd < mfd:
                     out(sep_blocks)
             last_idx[0] = list(idx)
 
-            # We want to print t, x, y, x but the indices for accessing the
-            # data are rather in the order x, y, z, t (from faster to slower).
+            # We want to print t, x, y, z but the coordinates are rather in
+            # the order x, y, z, t (from faster to slower).
             # We then have to do some permutations:
-            reordered_idx = tuple(idx[1:] + idx[:1])
-            value = filter(self.data[(Ellipsis,) + reordered_idx])
-            s = " ".join([fmt % xi for xi in pos]) + " " + fmt % value + "\n"
+            reordered_pos = pos[-1:] + pos[:-1]
+            value = filter(self.data[(Ellipsis,) + tuple(idx)])
+            s = (" ".join([fmt % xi for xi in reordered_pos])
+                 + " " + fmt % value + "\n")
             out(s)
 
         self.ts_lattice.foreach(my_out)
@@ -833,6 +835,7 @@ def parse_cmdline(prog, args):
     ft_group = optparse.OptionGroup(parser, desc, help)
 
     help = ("Specifies which axes should be Fourier-transormed. "
+            "(0: time, 1: x-space, 2: y-space, 3:z-space) "
             "EXAMPLE: '--ft-axes=0,1'")
     ft_group.add_option("-a", "--ft-axes",
                         help=help, action="store",
@@ -1014,6 +1017,13 @@ def main(prog, args):
 
     l = Lattice(space_lattice, reduction=1e-15, order="F")
     ts = Lattice(time_lattice, reduction=1e-20, order="F")
+
+    if ft_axes != None:
+        # We say to the user that 0 is time, while 1:x, 2:y and 3:z
+        # but in this library 0 corresponds to x, 1:y, 2:z and 3:t.
+        # here we convert the user representation to our internal one.
+        d = l.dim + ts.dim
+        ft_axes = [(a - 1) % d for a in ft_axes]
 
     if options.verbose:
         heading = "EXECUTING PROBE WITH FOLLOWING SETTINGS:"
