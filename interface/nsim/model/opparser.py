@@ -92,8 +92,7 @@ def t_SIGN(t):
     t.value = 1.0 if t.value == '+' else -1.0
     return t
 
-
-# Ignored charactersID
+# Ignored characters
 t_ignore = " \t\r\n"
 
 def t_error(t):
@@ -122,7 +121,7 @@ def p_contrib(t):
     if len(t) == 2:
         t[0] = t[1]
     else:
-        t[0] = ContribNode(term=t[2], sign=SignSym(t[1]))
+        t[0] = ContribNode(children=t[2], data=SignSym(t[1]))
 
 def p_unsigned_contrib(t):
     """unsigned_contrib : bracket
@@ -130,7 +129,7 @@ def p_unsigned_contrib(t):
                         | expr STAR bracket"""
     lt = len(t)
     if lt == 2:
-        t[0] = UContribNode().add2(t[1], 1.0)
+        t[0] = UContribNode().add2(t[1], ScalarNode(1.0))
     elif lt == 3:
         t[0] = UContribNode().add2(t[2], t[1])
     elif lt == 4:
@@ -148,12 +147,13 @@ def p_expr(t):
 def p_signed_scalar(t):
     """signed_scalar : SIGN unsigned_scalar
                      | SIGN signed_scalar"""
-    t[2].data[0] *= t[1]
+    t[0] = t[2]
+    t[0].data[0] *= t[1]
 
 def p_unsigned_scalar(t):
     """unsigned_scalar : INT
                        | FLOAT"""
-    t[0] = ScalarNode(t[1], 1.0)
+    t[0] = ScalarNode(data=t[1])
 
 def p_bracket(t):
     """bracket : LANGLE opt_diff_field VBAR VBAR opt_diff_field RANGLE

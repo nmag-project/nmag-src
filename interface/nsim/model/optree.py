@@ -21,6 +21,7 @@ __all__ = ['OperatorNode', 'ContribsNode', 'ContribNode', 'UContribNode',
            'SignSym']
 
 from tree import *
+import collections
 
 class SignSym(GenericSym):
     def __str__(self):
@@ -36,6 +37,10 @@ class SignSym(GenericSym):
 class Node(GenericNode):
     def __init__(self, children=[], data=[]):
         if type(data) == str:
+            data = [data]
+        elif isinstance(data, collections.Sequence):
+            data = list(data)
+        else:
             data = [data]
         GenericNode.__init__(self, children=children, data=data)
 
@@ -63,13 +68,17 @@ class ContribsNode(AssocNode):
     pass
 
 class ContribNode(Node):
-    pass
+    fmt = minimal_list_formatter
 
 class UContribNode(AssocNode):
     fmt = ListFormatter("", "", "*")
 
 class ScalarNode(Node):
     fmt = minimal_list_formatter
+
+    def __str__(self):
+        n = self.data[0]
+        return repr(n) if n >= 0.0 else "(%s)" % repr(n)
 
 class DiffFieldNode(AssocNode):
     def __str__(self):

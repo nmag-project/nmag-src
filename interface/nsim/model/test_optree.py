@@ -50,7 +50,6 @@ E_anis = SpaceField("E_anis", [], subfields=True)
 
 op_div_m = \
   Operator("div_m", "(1.23)*<rho||d/dxj m(j)> + (4.56)*<rho||D/Dxj m(j)>, j:3")
-
 print str(op_div_m.operator_tree)
 
 #print "Simplifying"
@@ -66,3 +65,8 @@ print str(op_div_m.operator_tree)
 #oc = OperatorContext(tree, inputs=[m], outputs=[H_exch])
 #print "quants:", tree.get_used_quants({})
 #print "str:", oc.to_str()
+
+op_exch = \
+  Operator("exch", "(-24.0583053511)*<d/dxj H_exch_Py(k)||d/dxj m_Py(k)>,j:3, k:3")
+print str(op_exch.operator_tree)
+print " (-24.0583053511)*<d/dxj H_exch_Py(k)||d/dxj m_Py(k)>, j:3, k:3"

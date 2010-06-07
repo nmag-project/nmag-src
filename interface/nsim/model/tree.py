@@ -63,7 +63,7 @@ class GenericNode(object):
         self.children = children
         if type(data) == str:
             pass
-        elif  isinstance(data, collections.Sequence):
+        elif isinstance(data, collections.Sequence):
             data = list(data)
         self.data = data
 
