@@ -14,8 +14,11 @@ representation of the operator which can be used to simplify it,
 examine the quantities involved and finally rewrite it as text."""
 
 __all__ = ['OperatorNode', 'ContribsNode', 'ContribNode', 'UContribNode',
+           'ScalarNode',
            'DiffFieldNode', 'DiffNode', 'DiffIndexNode', 'BSpecsNode',
-           'FieldNode', 'BraKetNode', 'SignSym']
+           'FieldNode', 'FieldIndexNode', 'FieldIndicesNode',
+           'MiddleFieldNode', 'BraKetNode', 'SumSpecsNode', 'SumSpecNode',
+           'SignSym']
 
 from tree import *
 
@@ -39,10 +42,22 @@ class Node(GenericNode):
 class OperatorNode(Node):
     fmt = minimal_list_formatter
 
-    def __init__(self, children=[], data=[],
+    def __init__(self, children=[None, None, None], data=[],
                  contribs=None, amendments=None, sums=None):
-        children.extend(filter(None, [contribs, amendments, sums]))
+        if contribs != None:
+            children[0] = contribs
+        if amendments != None:
+            children[1] = amendments
+        if sums != None:
+            children[2] = sums
         Node.__init__(self, children=children, data=data)
+
+    def __str__(self):
+        contribs, amendments, sums = self.children
+        s_contribs = str(contribs)
+        s_amendments = ""
+        s_sums = ", %s" % str(sums) if sums != None else ""
+        return s_contribs + s_amendments + s_sums
 
 class ContribsNode(AssocNode):
     pass
@@ -51,12 +66,10 @@ class ContribNode(Node):
     pass
 
 class UContribNode(AssocNode):
-    fmt = minimal_list_formatter
+    fmt = ListFormatter("", "", "*")
 
-    def __init__(self, children=[], data=[], prefactor=1.0):
-        if prefactor:
-            data = [prefactor]
-        AssocNode.__init__(self, children=children, data=data)
+class ScalarNode(Node):
+    fmt = minimal_list_formatter
 
 class DiffFieldNode(AssocNode):
     def __str__(self):
@@ -79,9 +92,26 @@ class FieldNode(Node):
     def __str__(self):
         bspecs, indices = self.children
         if indices != None:
-            return "%s%s(%s)" % (self.data, bspecs, indices)
+            return "%s%s(%s)" % (self.data[0], bspecs, indices)
         else:
             return self.data[0] + str(bspecs)
 
+class FieldIndexNode(Node):
+    def __str__(self):
+        return self.data[0]
+
+class FieldIndicesNode(Node):
+    fmt = plain_list_formatter
+
+class MiddleFieldNode(Node):
+    fmt = minimal_list_formatter
+
 class BraKetNode(Node):
     fmt = ListFormatter("<", ">", "|")
+
+class SumSpecsNode(Node):
+    fmt = plain_list_formatter
+
+class SumSpecNode(Node):
+    def __str__(self):
+        return "%s:%s" % (self.data[0], self.data[1])

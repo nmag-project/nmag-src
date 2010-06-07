@@ -49,7 +49,7 @@ E_anis = SpaceField("E_anis", [], subfields=True)
 #print
 
 op_div_m = \
-  Operator("div_m", "(2.0)*<rho||d/dxj m(j)> + (1.0)*<rho||D/Dxj m(j)>, j:3")
+  Operator("div_m", "(1.23)*<rho||d/dxj m(j)> + (4.56)*<rho||D/Dxj m(j)>, j:3")
 
 print str(op_div_m.operator_tree)
 

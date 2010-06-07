@@ -140,33 +140,30 @@ def p_expr(t):
     """expr : unsigned_scalar
             | LPAREN signed_scalar RPAREN
             | LPAREN expr RPAREN"""
-    #  { $1 }
-    #  { $2 }
-    #  { $2 }
-    pass
+    if len(t) == 2:
+        t[0] = t[1]
+    else:
+        t[0] = t[2]
 
 def p_signed_scalar(t):
     """signed_scalar : SIGN unsigned_scalar
                      | SIGN signed_scalar"""
-    #{ $1*.$2 }
-    #{ $1*.$2 }
-    pass
+    t[2].data[0] *= t[1]
 
 def p_unsigned_scalar(t):
     """unsigned_scalar : INT
                        | FLOAT"""
-    #t[0] = ScalarSym(t[1])
-    pass
+    t[0] = ScalarNode(t[1], 1.0)
 
 def p_bracket(t):
     """bracket : LANGLE opt_diff_field VBAR VBAR opt_diff_field RANGLE
                | LANGLE opt_diff_field VBAR field VBAR opt_diff_field RANGLE"""
     lt = len(t)
     if lt == 7:
-        t[0] = BraKetNode([t[2], None, t[5]])
+        t[0] = BraKetNode([t[2], MiddleFieldNode(), t[5]])
     else:
         assert lt == 8
-        t[0] = BraKetNode([t[2], t[4], t[6]])
+        t[0] = BraKetNode([t[2], MiddleFieldNode(t[4]), t[6]])
 
 def p_opt_diff_field(t):
     """opt_diff_field : field
@@ -252,22 +249,27 @@ def p_fields(t):
 def p_opt_sum_specs(t):
     """opt_sum_specs :
                      | COMMA sum_specs"""
-    #{ [] }
-    #{ $2 }
-    pass
+    if len(t) == 1:
+        t[0] = None
+    else:
+        t[0] = t[2]
 
 def p_sum_specs(t):
     """sum_specs :
                  | sum_spec
                  | sum_specs COMMA sum_spec"""
-    #{ [$1] }
-    #{ $3::$1 }
-    pass
+    lt = len(t)
+    if lt == 1:
+        t[0] = None
+    elif lt == 2:
+        t[0] = SumSpecsNode().add(t[1])
+    else:
+        assert lt == 4
+        t[0] = t[1].add(t[3])
 
 def p_sum_spec(t):
     """sum_spec : STRING COLON INT"""
-    #{ ($1,$3) }
-    pass
+    t[0] = SumSpecNode(data=(t[1], t[3]))
 
 def p_opt_bspec(t):
     """opt_bspec :
@@ -326,26 +328,31 @@ def p_region_logic(t):
     #   {$1}
     pass
 
-
 def p_field_name(t):
     """field_name : STRING"""
     t[0] = t[1]
 
 def p_field_indices(t):
     """field_indices : field_index
-                     | field_index COMMA field_indices"""
-    # { [$1] }
-    #    { $1::$3 }
-    pass
-
+                     | field_indices COMMA field_index"""
+    if len(t) == 2:
+        t[0] = FieldIndicesNode()
+        if t[1] != None:
+            t[0] = t[0].add(t[1])
+    else:
+        if t[1] != None:
+            t[0] = t[1].add(t[3])
 
 def p_field_index(t):
     """field_index :
                    | INT
                    | STRING"""
-    #{ IX_int $1 }
-    #{ IX_name $1 }
-    pass
+    lt = len(t)
+    if lt == 1:
+        t[0] = None
+    else:
+        assert lt == 2
+        t[0] = FieldIndexNode(data=t[1])
 
 def p_error(t):
     if hasattr(t, 'value'):
