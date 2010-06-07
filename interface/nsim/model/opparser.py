@@ -155,8 +155,7 @@ def p_signed_scalar(t):
 def p_unsigned_scalar(t):
     """unsigned_scalar : INT
                        | FLOAT"""
-    #{ float_of_int $1 }
-    #             { $1 }
+    #t[0] = ScalarSym(t[1])
     pass
 
 def p_bracket(t):
@@ -171,36 +170,29 @@ def p_bracket(t):
 
 def p_opt_diff_field(t):
     """opt_diff_field : field
-                      | diff field
-    """
-    #    { ($1,PDIFF_none) }
-    #    { ($2,$1) }
-    pass
+                      | diff field"""
+    if len(t) == 2:
+        t[0] = DiffFieldNode(t[1], None)
+    else:
+        t[0] = DiffFieldNode(t[2], t[1])
 
 def p_diff(t):
-    """diff : DDX_VOL     diff_index
-            | DDX_BOUNDARY diff_index
-    """
-    #    { PDIFF_vol $2 }
-    #     { PDIFF_boundary $2 }
-    pass
+    """diff : DDX_VOL      diff_index
+            | DDX_BOUNDARY diff_index"""
+    t[0] = DiffNode(t[2], t[1])
 
 def p_diff_index(t):
     """diff_index : INT
-                  | STRING
-    """
-    #{ IX_int $1 }
-    #{ IX_name $1 }
-    pass
+                  | STRING"""
+    t[0] = DiffIndexNode(data=t[1])
 
 def p_field(t):
     """field : field_name opt_bspec
-             | field_name opt_bspec LPAREN field_indices RPAREN
-    """
-    # { {fnsi_name=$1;fnsi_indices=[||];fnsi_bspec=$2;} }
-    # { {fnsi_name=$1;fnsi_indices=Array.of_list $4;fnsi_bspec=$2;} }
-    pass
-
+             | field_name opt_bspec LPAREN field_indices RPAREN"""
+    if len(t) == 3:
+        t[0] = FieldNode([t[2], None], t[1])
+    else:
+        t[0] = FieldNode([t[2], t[4]], t[1])
 
 def p_opt_amendment_specs(t):
     """opt_amendment_specs :
@@ -257,21 +249,6 @@ def p_fields(t):
     #{ $1::$3 }
     pass
 
-def notused_p_short_vector_restriction(t):
-    """short_vector_restriction :
-                                |  opt_fields opt_sum_specs"""
-    #{ match $1 with
-    #                            | None -> None
-    #                            | Some fields ->
-    #                                     let v_fields = expand_fields $2 fields in
-    #                                       (* XXX NOTE: this actually is somewhat broken: expanding the
-    #                                          field indices wrt sum specs will not give us what we expected
-    #                                          in the next step, when we again throw away all indices:
-    #                                       *)
-    #                                       Some (Array.map (fun field -> (field.f_name, field.f_bspec)) v_fields)
-    #                             }
-    pass
-
 def p_opt_sum_specs(t):
     """opt_sum_specs :
                      | COMMA sum_specs"""
@@ -297,7 +274,7 @@ def p_opt_bspec(t):
                  | LBRACKET region_logic RBRACKET"""
     #{$2}
     #{ DLOG_true }
-    pass
+    t[0] = BSpecsNode()
 
 def p_region_logic_atomic(t):
     """region_logic_atomic : LPAREN region_logic RPAREN
@@ -352,9 +329,7 @@ def p_region_logic(t):
 
 def p_field_name(t):
     """field_name : STRING"""
-    #  { $1 }
-    pass
-
+    t[0] = t[1]
 
 def p_field_indices(t):
     """field_indices : field_index

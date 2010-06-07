@@ -433,4 +433,4 @@ class FunctionNode(UnaryNode):
         if self.children[0] == None:
             return self.data[0]
         else:
-            return "%s[%s]" % (self.data, self.children[0])
+            return "%s[%s]" % (self.data[0], self.children[0])

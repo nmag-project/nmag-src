@@ -61,7 +61,9 @@ class GenericNode(object):
         else:
             children = list(children)
         self.children = children
-        if not type(data) == str and isinstance(data, collections.Sequence):
+        if type(data) == str:
+            pass
+        elif  isinstance(data, collections.Sequence):
             data = list(data)
         self.data = data
 
@@ -74,7 +76,7 @@ class GenericNode(object):
     def add(self, l):
         """Add l as one subnode."""
         self.children.append(l)
-        return selfopt_sum_specs
+        return self
 
     def add2(self, l, d):
         """Add one subnode l with the associated data d."""
@@ -140,6 +142,11 @@ class GenericNode(object):
 
 class AssocNode(GenericNode):
     fmt = spaced_list_formatter
+
+    def __init__(self, children=[], data=[]):
+        if type(data) == str:
+            data = [data]
+        GenericNode.__init__(self, children=children, data=data)
 
     def __str__(self):
         pieces = []

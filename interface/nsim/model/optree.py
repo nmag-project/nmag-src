@@ -14,7 +14,8 @@ representation of the operator which can be used to simplify it,
 examine the quantities involved and finally rewrite it as text."""
 
 __all__ = ['OperatorNode', 'ContribsNode', 'ContribNode', 'UContribNode',
-           'BraKetNode', 'SignSym']
+           'DiffFieldNode', 'DiffNode', 'DiffIndexNode', 'BSpecsNode',
+           'FieldNode', 'BraKetNode', 'SignSym']
 
 from tree import *
 
@@ -29,7 +30,11 @@ class SignSym(GenericSym):
             assert v == None
             return ""
 
-Node = GenericNode
+class Node(GenericNode):
+    def __init__(self, children=[], data=[]):
+        if type(data) == str:
+            data = [data]
+        GenericNode.__init__(self, children=children, data=data)
 
 class OperatorNode(Node):
     fmt = minimal_list_formatter
@@ -51,7 +56,32 @@ class UContribNode(AssocNode):
     def __init__(self, children=[], data=[], prefactor=1.0):
         if prefactor:
             data = [prefactor]
-        Node.__init__(self, children=children, data=data)
+        AssocNode.__init__(self, children=children, data=data)
+
+class DiffFieldNode(AssocNode):
+    def __str__(self):
+        if self.data == None:
+            return str(self.children[0])
+        else:
+            return "%s %s" % (self.data, str(self.children[0]))
+
+class DiffNode(AssocNode):
+    fmt = minimal_list_formatter
+
+class BSpecsNode(Node):
+    fmt = minimal_list_formatter
+
+class DiffIndexNode(Node):
+    def __str__(self):
+        return self.data[0]
+
+class FieldNode(Node):
+    def __str__(self):
+        bspecs, indices = self.children
+        if indices != None:
+            return "%s%s(%s)" % (self.data, bspecs, indices)
+        else:
+            return self.data[0] + str(bspecs)
 
 class BraKetNode(Node):
     fmt = ListFormatter("<", ">", "|")
