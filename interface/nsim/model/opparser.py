@@ -86,14 +86,12 @@ import ply.lex as lex
 lexer = lex.lex(lextab='diffop_lextab')
 
 def p_parse_ddiffop(t):
-    """parse_ddiffop :
-                     | contribs opt_amendment_specs opt_sum_specs"""
+    """parse_ddiffop : contribs opt_amendment_specs opt_sum_specs"""
     #{ build_ddiffop $1 $3 $2 }
     pass
 
 def p_contribs(t):
-    """contribs :
-                | contrib
+    """contribs : contrib
                 | contribs SIGN contrib"""
     # { [$1] }
     # { let (c1, t2) = $3 in ($2*.c1, t2)::$1 }
@@ -200,26 +198,22 @@ def p_amendment_spec(t):
     pass
 
 def p_amdmt_mxdim(t):
-    """amdmt_mxdim :
-                   | MXDIM EQUALS LPAREN opt_fields VBAR VBAR opt_fields RPAREN"""
+    """amdmt_mxdim : MXDIM EQUALS LPAREN opt_fields VBAR VBAR opt_fields RPAREN"""
     #{ AMDMT_MXDIM ($4,$7) }
     pass
 
 def p_amdmt_diagonal_ones(t):
-    """amdmt_diagonal_ones :
-                           | field EQUALS field"""
+    """amdmt_diagonal_ones : field EQUALS field"""
     #{ AMDMT_DIAGONAL_ONES ($1,$3) }
     pass
 
 def p_amdmt_gauge_fix(t):
-    """amdmt_gauge_fix :
-                       | GAUGEFIX field"""
+    """amdmt_gauge_fix : GAUGEFIX field"""
     # { AMDMT_GAUGE_FIX $2 }
     pass
 
 def p_amdmt_periodic(t):
-    """amdmt_periodic :
-                      | PERIODIC field"""
+    """amdmt_periodic : PERIODIC field"""
     #{ AMDMT_PERIODIC $2 }
     pass
 
@@ -233,8 +227,7 @@ def p_opt_fields(t):
     pass
 
 def p_fields(t):
-    """fields :
-              | field
+    """fields : field
               | field COMMA fields"""
     #{ [$1] }
     #{ $1::$3 }
@@ -283,8 +276,7 @@ def p_opt_bspec(t):
     pass
 
 def p_region_logic_atomic(t):
-    """region_logic_atomic :
-                           | LPAREN region_logic RPAREN
+    """region_logic_atomic : LPAREN region_logic RPAREN
                            | INT
                            | STRING
                            | DOF_REGION_ALL EQUALS INT
@@ -304,8 +296,7 @@ def p_region_logic_atomic(t):
     pass
 
 def p_region_logic_opt_not(t):
-    """region_logic_opt_not :
-                            | DOF_REGION_NOT region_logic_atomic
+    """region_logic_opt_not : DOF_REGION_NOT region_logic_atomic
                             | region_logic_atomic
     """
     # {DLOG_not $2}
@@ -313,8 +304,7 @@ def p_region_logic_opt_not(t):
     pass
 
 def p_region_logic_and(t):
-    """region_logic_and :
-                        | region_logic_opt_not DOF_REGION_AND region_logic_and
+    """region_logic_and : region_logic_opt_not DOF_REGION_AND region_logic_and
                         | region_logic_opt_not
     """
     #  {DLOG_and [$1;$3]}
@@ -322,8 +312,7 @@ def p_region_logic_and(t):
     pass
 
 def p_region_logic_or(t):
-    """region_logic_or :
-                       | region_logic_and DOF_REGION_OR region_logic_or
+    """region_logic_or : region_logic_and DOF_REGION_OR region_logic_or
                        | region_logic_and"""
     # {DLOG_or [$1;$3]}
     # {$1}
