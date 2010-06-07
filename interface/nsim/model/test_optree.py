@@ -11,7 +11,8 @@
 
 from quantity import *
 from model import *
-from optree import *
+from optree_old import *
+from computation import Operator
 
 import nmesh
 
@@ -36,28 +37,30 @@ E_demag = SpaceField("E_demag", [], subfields=True)
 E_ext = SpaceField("E_ext", [], subfields=True)
 E_anis = SpaceField("E_anis", [], subfields=True)
 
-tree = \
-  OverMatNode(
-    SumNode(MulNode(QuantityNode(M_sat),
-                    UnparsedNode("<${rho}||d/dxj ${m(j)}>")),
-            MulNode(QuantityNode(M_sat),
-                    UnparsedNode("<${rho}||D/Dxj ${m(j)}>"))))
-oc = OperatorContext(tree, inputs=[rho], outputs=[m])
-print "quants:", tree.get_used_quants({})
-print "str:", oc.to_str()
-print
+#tree = \
+  #OverMatNode(
+    #SumNode(MulNode(QuantityNode(M_sat),
+                    #UnparsedNode("<${rho}||d/dxj ${m(j)}>")),
+            #MulNode(QuantityNode(M_sat),
+                    #UnparsedNode("<${rho}||D/Dxj ${m(j)}>"))))
+#oc = OperatorContext(tree, inputs=[rho], outputs=[m])
+#print "quants:", tree.get_used_quants({})
+#print "str:", oc.to_str()
+#print
 
+op_div_m = Operator("div_m", "(1.0)*<r||d/dxj m(j)> + (1.0)*<r||D/Dxj m(j)>, j:3")
+print str(op_div_m.operator_tree)
 
-print "Simplifying"
-simp_tree = tree.simplify()
-oc = OperatorContext(simp_tree, inputs=[rho], outputs=[m])
-print "quants:", simp_tree.get_used_quants({})
-print "str:", oc.to_str()
-print
+#print "Simplifying"
+#simp_tree = tree.simplify()
+#oc = OperatorContext(simp_tree, inputs=[rho], outputs=[m])
+#print "quants:", simp_tree.get_used_quants({})
+#print "str:", oc.to_str()
+#print
 
-tree = OverMatNode(
-       MulNode(QuantityNode(negJ),
-               UnparsedNode("<d/dxj ${H_exch(k)}||d/dxj ${m(k)}>")))
-oc = OperatorContext(tree, inputs=[m], outputs=[H_exch])
-print "quants:", tree.get_used_quants({})
-print "str:", oc.to_str()
+#tree = OverMatNode(
+       #MulNode(QuantityNode(negJ),
+               #UnparsedNode("<d/dxj ${H_exch(k)}||d/dxj ${m(k)}>")))
+#oc = OperatorContext(tree, inputs=[m], outputs=[H_exch])
+#print "quants:", tree.get_used_quants({})
+#print "str:", oc.to_str()

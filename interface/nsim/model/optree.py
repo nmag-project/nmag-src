@@ -13,7 +13,45 @@
 representation of the operator which can be used to simplify it,
 examine the quantities involved and finally rewrite it as text."""
 
-from tree import GenericNode
+__all__ = ['OperatorNode', 'ContribsNode', 'ContribNode', 'UContribNode',
+           'BraKetNode', 'SignSym']
 
-class Node(GenericNode):
+from tree import *
+
+class SignSym(GenericSym):
+    def __str__(self):
+        v = self.value
+        if v == 1.0:
+            return "+"
+        elif v == -1.0:
+            return "-"
+        else:
+            assert v == None
+            return ""
+
+Node = GenericNode
+
+class OperatorNode(Node):
+    fmt = minimal_list_formatter
+
+    def __init__(self, children=[], data=[],
+                 contribs=None, amendments=None, sums=None):
+        children.extend(filter(None, [contribs, amendments, sums]))
+        Node.__init__(self, children=children, data=data)
+
+class ContribsNode(AssocNode):
     pass
+
+class ContribNode(Node):
+    pass
+
+class UContribNode(AssocNode):
+    fmt = minimal_list_formatter
+
+    def __init__(self, children=[], data=[], prefactor=1.0):
+        if prefactor:
+            data = [prefactor]
+        Node.__init__(self, children=children, data=data)
+
+class BraKetNode(Node):
+    fmt = ListFormatter("<", ">", "|")

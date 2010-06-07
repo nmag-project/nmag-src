@@ -15,6 +15,11 @@ examine the quantities involved and finally rewrite it as text."""
 
 import collections, copy
 
+__all__ = ["ListFormatter", "default_list_formatter", "plain_list_formatter",
+           "minimal_list_formatter", "spaced_list_formatter",
+           "GenericSym",
+           "GenericNode", "AssocNode"]
+
 class ListFormatter:
     def __init__(self, open_str="[", close_str="]", separator=", "):
         self.open_str = open_str
@@ -27,6 +32,15 @@ class ListFormatter:
         return (self.open_str
                 + self.separator.join([str(item) for item in l])
                 + self.close_str)
+
+default_list_formatter = ListFormatter("(", ")", ", ")
+plain_list_formatter = ListFormatter("", "", ", ")
+minimal_list_formatter = ListFormatter("", "", "")
+spaced_list_formatter = ListFormatter("", "", " ")
+
+class GenericSym(object):
+    def __init__(self, value=None):
+        self.value = value
 
 class GenericNode(object):
     """Generic class for a node of the diffop parser.
@@ -60,7 +74,7 @@ class GenericNode(object):
     def add(self, l):
         """Add l as one subnode."""
         self.children.append(l)
-        return self
+        return selfopt_sum_specs
 
     def add2(self, l, d):
         """Add one subnode l with the associated data d."""
@@ -123,3 +137,14 @@ class GenericNode(object):
         for child in self.children:
             if child != None:
                 child._collect_quantities(inputs, outputs, parsing)
+
+class AssocNode(GenericNode):
+    fmt = spaced_list_formatter
+
+    def __str__(self):
+        pieces = []
+        for operator, operand in zip(self.data, self.children):
+            if operator != None:
+                pieces.append(str(operator))
+            pieces.append(str(operand))
+        return self.fmt.stringify(pieces)

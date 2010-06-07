@@ -11,7 +11,7 @@
 
 __all__ = ['Equation', 'Operator', 'CCode', 'LAMProgram', 'Computations']
 
-import eqparser
+import eqparser, opparser
 from eqtree import SimplifyContext
 from group import Group
 from obj import ModelObj
@@ -88,6 +88,60 @@ class Equation(LAMProgram):
         return self.inputs_and_outputs
 
 class Operator(Computation):
+    type_str = "Operator"
+
+    def __init__(self, name, operator_string,
+                 input=None, output=None):
+        Computation.__init__(self, name)
+        self.operator_str = operator_string
+        self.operator_tree = opparser.parse(operator_string)
+        self.simplified_tree = None
+        self.text = None
+
+        #self.running_indices = None
+        #self.operator_tree = operator_tree
+        #self.allow_incongruent_shapes = False
+        #self.seen_indices = {}
+
+    def _parse_quant_str(self, quant_str):
+        """Parse the given Quantity string representation and return the
+        a tuple of (quantity name, list of index variables)."""
+        if "(" in quant_str:
+            field_s, indices_s = quant_str.split("(", 1)
+            indices_s = indices_s.strip()
+            assert indices_s[-1] == ")", ("Index specification in '%s' "
+              "should end with a final parenthesis" % quant_str)
+            indices_s = indices_s[:-1]
+            indices = [i_s for i_s in indices_s.split(",")]
+
+        else:
+            field_s = quant_str
+            indices = []
+
+        return (field_s, indices)
+
+    def _check_quant_str(self, quant_str):
+        """Check the given Quantity string representation and take note about
+        the indices and how they are used (basically, infer the index ranges).
+        """
+        name, indices = self._parse_quant_str(quant_str)
+        for q in self.input + self.output:
+            if q.name == name:
+                for i, idx_name in enumerate(indices):
+                    cur_shape = self.seen_indices.get(idx_name, None)
+                    new_shape = q.shape[i]
+                    if (not allow_incongruent_shapes
+                        and cur_shape != None
+                        and cur_shape != new_shape):
+                        raise ValueError("Found incongruency in range for "
+                                         "index variable %s." % idx_name)
+                    self.seen_indices[idx_name] = new_shape
+                return q
+
+        raise ValueError("Cannot find field '%s' in the list of input or "
+                         "output fields." % quant_str)
+
+class OldOperator(Computation):
     type_str = "Operator"
 
     def __init__(self, name, operator_tree, running_indices=None,

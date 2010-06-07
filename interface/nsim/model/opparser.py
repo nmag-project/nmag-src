@@ -18,38 +18,56 @@ from optree import *
 
 __all__ = ['lexer', 'parser', 'parse']
 
-tokens = ('INT', 'FLOAT', 'STRING', 'DOF_REGION_AND', 'DOF_REGION_OR',
+tokens = ('INT', 'FLOAT', 'DOF_REGION_AND', 'DOF_REGION_OR',
           'DOF_REGION_NOT', 'DOF_REGION_SOME', 'DOF_REGION_ALL', 'DDX_VOL',
           'DDX_BOUNDARY', 'MXDIM', 'GAUGEFIX', 'PERIODIC', 'LPAREN', 'RPAREN',
           'LANGLE', 'RANGLE', 'VBAR', 'LBRACKET', 'RBRACKET', 'COMMA',
-          'COLON', 'SEMICOLON', 'EQUALS', 'HASH', 'STAR', 'SIGN'
-          )
+          'COLON', 'SEMICOLON', 'EQUALS', 'HASH', 'STAR', 'SIGN', 'STRING')
 
 # Tokens
-t_STRING = r'[a-zA-Z_][a-zA-Z0-9_]*'
-t_DOF_REGION_AND  = r'and'
-t_DOF_REGION_OR   = r'or'
-t_DOF_REGION_NOT  = r'not'
-t_DOF_REGION_SOME = r'some'
-t_DOF_REGION_ALL  = r'all'
-t_DDX_VOL         = r'd/dx'
-t_DDX_BOUNDARY    = r'D/Dx'
 t_MXDIM           = r'\(L\|\|R\)'
-t_GAUGEFIX        = r'gauge_fix:'
-t_PERIODIC        = r'periodic:'
 t_LPAREN          = r'\('
 t_RPAREN          = r'\)'
 t_LANGLE          = r'<'
 t_RANGLE          = r'>'
 t_VBAR            = r'\|'
-t_LBRACKET        = r'<'
-t_RBRACKET        = r'>'
+t_LBRACKET        = r'\['
+t_RBRACKET        = r'\]'
 t_COMMA           = r','
 t_COLON           = r':'
 t_SEMICOLON       = r';'
 t_EQUALS          = r'='
 t_HASH            = r'\#'
 t_STAR            = r'\*'
+
+def t_DDX_VOL(t):
+    r'd/dx'
+    return t
+
+def t_DDX_BOUNDARY(t):
+    r'D/Dx'
+    return t
+
+def t_GAUGEFIX(t):
+    r'gauge_fix:'
+    return t
+
+def t_PERIODIC(t):
+    r'periodic:'
+    return t
+
+keywords = {
+  'and': 'AND',
+  'or': 'OR',
+  'not': 'NOT',
+  'some': 'SOME',
+  'all': 'ALL'
+}
+
+def t_STRING(t):
+    r'[a-zA-Z_][a-zA-Z0-9_]*'
+    t.type = keywords.get(t.value, 'STRING')
+    return t
 
 def t_FLOAT(t):
     r'\d*[.]\d+([eE]-?\d+)?|\d+[eE]-?\d+'
@@ -74,7 +92,8 @@ def t_SIGN(t):
     t.value = 1.0 if t.value == '+' else -1.0
     return t
 
-# Ignored characters
+
+# Ignored charactersID
 t_ignore = " \t\r\n"
 
 def t_error(t):
@@ -87,31 +106,35 @@ lexer = lex.lex(lextab='diffop_lextab')
 
 def p_parse_ddiffop(t):
     """parse_ddiffop : contribs opt_amendment_specs opt_sum_specs"""
-    #{ build_ddiffop $1 $3 $2 }
-    pass
+    t[0] = OperatorNode(contribs=t[1], amendments=t[2], sums=t[3])
 
 def p_contribs(t):
     """contribs : contrib
                 | contribs SIGN contrib"""
-    # { [$1] }
-    # { let (c1, t2) = $3 in ($2*.c1, t2)::$1 }
-    pass
+    if len(t) == 2:
+        t[0] = ContribsNode().add2(t[1], SignSym())
+    else:
+        t[0] = t[1].add2(t[3], SignSym(t[2]))
 
 def p_contrib(t):
     """contrib : unsigned_contrib
                | SIGN contrib"""
-    # { $1 }
-    # { let (c, t) = $2 in ($1*.c, t) }
-    pass
+    if len(t) == 2:
+        t[0] = t[1]
+    else:
+        t[0] = ContribNode(term=t[2], sign=SignSym(t[1]))
 
 def p_unsigned_contrib(t):
     """unsigned_contrib : bracket
                         | expr bracket
                         | expr STAR bracket"""
-    #            {(1.0,$1) }
-    #            { ($1,$2) }
-    #            { ($1,$3) }
-    pass
+    lt = len(t)
+    if lt == 2:
+        t[0] = UContribNode().add2(t[1], 1.0)
+    elif lt == 3:
+        t[0] = UContribNode().add2(t[2], t[1])
+    elif lt == 4:
+        t[0] = UContribNode().add2(t[3], t[1])
 
 def p_expr(t):
     """expr : unsigned_scalar
@@ -129,7 +152,6 @@ def p_signed_scalar(t):
     #{ $1*.$2 }
     pass
 
-
 def p_unsigned_scalar(t):
     """unsigned_scalar : INT
                        | FLOAT"""
@@ -140,9 +162,12 @@ def p_unsigned_scalar(t):
 def p_bracket(t):
     """bracket : LANGLE opt_diff_field VBAR VBAR opt_diff_field RANGLE
                | LANGLE opt_diff_field VBAR field VBAR opt_diff_field RANGLE"""
-    # { ($2,$5,None) }
-    # { ($2,$6,Some $4) }
-    pass
+    lt = len(t)
+    if lt == 7:
+        t[0] = BraKetNode([t[2], None, t[5]])
+    else:
+        assert lt == 8
+        t[0] = BraKetNode([t[2], t[4], t[6]])
 
 def p_opt_diff_field(t):
     """opt_diff_field : field
@@ -151,7 +176,6 @@ def p_opt_diff_field(t):
     #    { ($1,PDIFF_none) }
     #    { ($2,$1) }
     pass
-
 
 def p_diff(t):
     """diff : DDX_VOL     diff_index
@@ -334,8 +358,7 @@ def p_field_name(t):
 
 def p_field_indices(t):
     """field_indices : field_index
-                     | field_index COMMA field_indices
-    """
+                     | field_index COMMA field_indices"""
     # { [$1] }
     #    { $1::$3 }
     pass
@@ -344,8 +367,7 @@ def p_field_indices(t):
 def p_field_index(t):
     """field_index :
                    | INT
-                   | STRING
-    """
+                   | STRING"""
     #{ IX_int $1 }
     #{ IX_name $1 }
     pass

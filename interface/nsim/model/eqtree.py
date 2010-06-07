@@ -17,11 +17,7 @@ __all__ = ['LocalEqnNode', 'LocalAndRangeDefsNode',
            'SignedTensorAtomNode',
            'FloatNode', 'ParenthesisNode', 'TensorNode', 'FunctionNode']
 
-from tree import ListFormatter, GenericNode
-
-default_list_formatter = ListFormatter("(", ")", ", ")
-plain_list_formatter = ListFormatter("", "", ", ")
-minimal_list_formatter = ListFormatter("", "", "")
+from tree import *
 
 class SimplifyContext:
     def __init__(self, quantities=None, material=None):
