@@ -17,7 +17,7 @@ def ipython(globals=None, locals=None):
     from IPython.Shell import IPShellEmbed
     IPShellEmbed([])(local_ns=locals, global_ns=globals)
 
-def test_one(fl, ver, data_type, mesh_type, filename):
+def just_test_one(fl, ver, data_type, mesh_type, filename):
     quasi_zero = small_value[data_type]
 
     print "Testing OVF%s,%s,%s" % (ver[0], data_type, mesh_type)
@@ -92,7 +92,7 @@ def test_ovf_read_and_write(filename="ovftest.ovf"):
         for ver in [OVF10, OVF20]:
             for data_type in ["binary4", "binary8", "text"]:
                 for mesh_type in ["rectangular"]:
-                    test_one(fl, ver, data_type, mesh_type, filename)
+                    just_test_one(fl, ver, data_type, mesh_type, filename)
 
 if __name__ == "__main__":
     test_ovf_read_and_write()
