@@ -73,12 +73,23 @@ class ContribNode(Node):
 class UContribNode(AssocNode):
     fmt = ListFormatter("", "", "*")
 
+    def __str__(self):
+        pieces = []
+        for operator, operand in zip(self.data, self.children):
+            if operator != None and not operator.is_one():
+                pieces.append(str(operator))
+            pieces.append(str(operand))
+        return self.fmt.stringify(pieces)
+
 class ScalarNode(Node):
     fmt = minimal_list_formatter
 
     def __str__(self):
         n = self.data[0]
         return repr(n) if n >= 0.0 else "(%s)" % repr(n)
+
+    def is_one(self):
+        return self.data[0] == 1.0
 
 class DiffFieldNode(AssocNode):
     def __str__(self):

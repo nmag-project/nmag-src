@@ -129,7 +129,7 @@ def p_unsigned_contrib(t):
                         | expr STAR bracket"""
     lt = len(t)
     if lt == 2:
-        t[0] = UContribNode().add2(t[1], ScalarNode(1.0))
+        t[0] = UContribNode().add2(t[1], ScalarNode(data=1.0))
     elif lt == 3:
         t[0] = UContribNode().add2(t[2], t[1])
     elif lt == 4:
