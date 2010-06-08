@@ -10,8 +10,8 @@
 #          (see <http://www.gnu.org/licenses/>)
 
 from opparser import parse
-#from optree import SimplifyContext
-#from value import Value
+from optree import OpSimplifyContext
+from value import Value
 
 def condensed_string(s):
     return s.replace(" ", "").replace("\n", "")
@@ -32,9 +32,9 @@ def test_consistency():
           "Original='%s' but parsed ='%s'." % (string, backnforth)
         print "passed"
 
-#def test_simplify():
-    #print "Testing simplification"
-    #strings = [("a <- 0;", "a <- 0.0;"),
+def test_simplify():
+    print "Testing simplification"
+    strings = [] #("a <- 0;", "a <- 0.0;"),
                #("abc <- def;", "abc <- def;"),
                #("a <- 0*(b + c);", "a <- 0.0;"),
                #("a <- 1*(b + c);", "a <- (b + c);"),
@@ -47,31 +47,30 @@ def test_consistency():
                #("a <- 1*(0.5 + b - (5 - 4)/2);", "a <- b;"),
                #("a <- -1*-1;", "a <- 1.0;"),
                #("a <- --1;", "a <- 1.0;"),]
-    #for string, result in strings:
-        #my_result = str(parse(string).simplify()).replace("\n", "")
-        #assert my_result == result, ("Simplified of '%s' is '%s', but '%s' "
-                                     #"is expected."
-                                     #% (string, my_result, result))
-        #print "passed"
+    for string, result in strings:
+        my_result = str(parse(string).simplify()).replace("\n", "")
+        assert my_result == result, ("Simplified of '%s' is '%s', but '%s' "
+                                     "is expected."
+                                     % (string, my_result, result))
+        print "passed"
 
-#def test_simplify_quantities():
-    #print "Thesting simplification of quantities"
-    #from quantity import Constant, SpaceField, Quantities
-    #zero = Constant("zero", subfields=False, value=Value(0.0))
-    #gamma = Constant("gamma", subfields=False, value=Value(1.23))
+def test_simplify_quantities():
+    print "Testing simplification of quantities"
+    from quantity import Constant, SpaceField, Quantities
+    zero = Constant("zero", subfields=False, value=Value(0.0))
+    gamma = Constant("gamma", subfields=False, value=Value(1.23))
 
-    #m = SpaceField("m", [3], subfields=True)
-    #H_ext = SpaceField("H_ext", [3])
-    #context = SimplifyContext(quantities=Quantities([gamma, m, H_ext, zero]))
-    #strings = [("m(0) <- -zero*(m(1)*H_ext(2) - m(2)*H_ext(1));",
-                #"m(0) <- 0.0;")]
-    #for string, result in strings:
-        #parse_tree = parse(string).simplify(context=context)
-        #my_result = str(parse_tree).replace("\n", "")
-        #assert my_result == result, ("Simplified of '%s' is '%s', but '%s' "
-                                     #"is expected."
-                                     #% (string, my_result, result))
-        #print "passed"
+    m = SpaceField("m", [3], subfields=True)
+    H_ext = SpaceField("H_ext", [3])
+    context = OpSimplifyContext(quantities=Quantities([gamma, m, H_ext, zero]))
+    strings = []
+    for string, result in strings:
+        parse_tree = parse(string).simplify(context=context)
+        my_result = str(parse_tree).replace("\n", "")
+        assert my_result == result, ("Simplified of '%s' is '%s', but '%s' "
+                                     "is expected."
+                                     % (string, my_result, result))
+        print "passed"
 
 #def test_llg():
     #print "Testing LLG single material"
@@ -103,7 +102,7 @@ def test_consistency():
               #"  * H_total_Py(q) * pin "
               #"+ 0.1 * (1.0 - m_Py(j)*m_Py(j)) * m_Py(i) * pin;")
 
-    #context = SimplifyContext(quantities=quantities, material='Py')
+    #context = OpSimplifyContext(quantities=quantities, material='Py')
     #parse_tree = parse(eq_rhs).simplify(context=context)
     #my_result = str(parse_tree).replace("\n", "")
     #assert compare_strings(my_result, result), \
@@ -145,7 +144,7 @@ def test_consistency():
         #+ -0.08840692*eps(i,j,k)*m_Co(j)*eps(k,p,q)*m_Co(p)*H_total_Co(q)*pin
         #+ 0.1*(1.0 - m_Co(j)*m_Co(j))*m_Co(i)*pin;""")
 
-    #context = SimplifyContext(quantities=quantities, material=['Py', 'Co'])
+    #context = OpSimplifyContext(quantities=quantities, material=['Py', 'Co'])
     #parse_tree = parse(eq_rhs).simplify(context=context)
     #my_result = condensed_string(str(parse_tree))
     #assert compare_strings(my_result, result), \
@@ -155,7 +154,7 @@ def test_consistency():
 
 if __name__ == "__main__":
     test_consistency()
-    #test_simplify()
-    #test_simplify_quantities()
+    test_simplify()
+    test_simplify_quantities()
     #test_llg()
     #test_llg_multimaterial()

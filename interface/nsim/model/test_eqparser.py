@@ -10,7 +10,7 @@
 #          (see <http://www.gnu.org/licenses/>)
 
 from eqparser import parse
-from eqtree import SimplifyContext
+from eqtree import EqSimplifyContext
 from value import Value
 
 def condensed_string(s):
@@ -68,7 +68,8 @@ def test_simplify_quantities():
 
     m = SpaceField("m", [3], subfields=True)
     H_ext = SpaceField("H_ext", [3])
-    context = SimplifyContext(quantities=Quantities([gamma, m, H_ext, zero]))
+    context = \
+      EqSimplifyContext(quantities=Quantities([gamma, m, H_ext, zero]))
     strings = [("m(0) <- -zero*(m(1)*H_ext(2) - m(2)*H_ext(1));",
                 "m(0) <- 0.0;")]
     for string, result in strings:
@@ -109,7 +110,7 @@ def test_llg():
               "  * H_total_Py(q) * pin "
               "+ 0.1 * (1.0 - m_Py(j)*m_Py(j)) * m_Py(i) * pin;")
 
-    context = SimplifyContext(quantities=quantities, material='Py')
+    context = EqSimplifyContext(quantities=quantities, material='Py')
     parse_tree = parse(eq_rhs).simplify(context=context)
     my_result = str(parse_tree).replace("\n", "")
     assert compare_strings(my_result, result), \
@@ -151,7 +152,7 @@ def test_llg_multimaterial():
         + -0.08840692*eps(i,j,k)*m_Co(j)*eps(k,p,q)*m_Co(p)*H_total_Co(q)*pin
         + 0.1*(1.0 - m_Co(j)*m_Co(j))*m_Co(i)*pin;""")
 
-    context = SimplifyContext(quantities=quantities, material=['Py', 'Co'])
+    context = EqSimplifyContext(quantities=quantities, material=['Py', 'Co'])
     parse_tree = parse(eq_rhs).simplify(context=context)
     my_result = condensed_string(str(parse_tree))
     assert compare_strings(my_result, result), \

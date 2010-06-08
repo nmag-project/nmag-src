@@ -76,7 +76,7 @@ import ocaml
 import nmag
 from nsim import linalg_machine as nlam
 
-from computation import Computations, SimplifyContext, LAMProgram
+from computation import Computations, EqSimplifyContext, LAMProgram
 from quantity import Quantities
 from timestepper import Timesteppers
 from nsim.snippets import contains_all
@@ -296,8 +296,8 @@ class Model:
     def _build_equations(self):
         eqs = self.computations._by_type.get('Equation', [])
         simplify_context = \
-          SimplifyContext(quantities=self.quantities,
-                          material=self.all_material_names)
+          EqSimplifyContext(quantities=self.quantities,
+                            material=self.all_material_names)
         equation_dict = {}
         for eq in eqs:
             logger.info("Building equation %s" % eq.name)
@@ -372,8 +372,8 @@ class Model:
     def _build_timesteppers(self):
         nlam_tss = {}
         simplify_context = \
-          SimplifyContext(quantities=self.quantities,
-                          material=self.all_material_names)
+          EqSimplifyContext(quantities=self.quantities,
+                            material=self.all_material_names)
         for ts in self.timesteppers._all:
             nr_primary_fields = len(ts.x)
             assert nr_primary_fields == len(ts.dxdt)

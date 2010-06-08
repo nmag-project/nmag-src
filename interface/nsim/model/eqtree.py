@@ -19,7 +19,7 @@ __all__ = ['LocalEqnNode', 'LocalAndRangeDefsNode',
 
 from tree import *
 
-class SimplifyContext:
+class EqSimplifyContext:
     def __init__(self, quantities=None, material=None):
         self.quantities = quantities
         self.material = material
@@ -28,7 +28,7 @@ class SimplifyContext:
         self.simplify_sums = True
         self.simplify_products = True
 
-default_simplify_context = SimplifyContext()
+default_simplify_context = EqSimplifyContext()
 
 def _sc(context):
     """If a simplify-context is None, then the default context should be used.

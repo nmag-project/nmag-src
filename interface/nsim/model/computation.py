@@ -12,7 +12,8 @@
 __all__ = ['Equation', 'Operator', 'CCode', 'LAMProgram', 'Computations']
 
 import eqparser, opparser
-from eqtree import SimplifyContext
+from eqtree import EqSimplifyContext
+from optree import OpSimplifyContext
 from group import Group
 from obj import ModelObj
 

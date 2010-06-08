@@ -13,7 +13,8 @@
 representation of the operator which can be used to simplify it,
 examine the quantities involved and finally rewrite it as text."""
 
-__all__ = ['OperatorNode', 'ContribsNode', 'ContribNode', 'UContribNode',
+__all__ = ['OpSimplifyContext',
+           'OperatorNode', 'ContribsNode', 'ContribNode', 'UContribNode',
            'ScalarNode',
            'DiffFieldNode', 'DiffNode', 'DiffIndexNode', 'BSpecsNode',
            'FieldNode', 'FieldIndexNode', 'FieldIndicesNode',
@@ -22,6 +23,13 @@ __all__ = ['OperatorNode', 'ContribsNode', 'ContribNode', 'UContribNode',
 
 from tree import *
 import collections
+
+class OpSimplifyContext:
+    def __init__(self, quantities=None, material=None):
+        self.quantities = quantities
+        self.material = material
+
+default_simplify_context = OpSimplifyContext()
 
 class SignSym(GenericSym):
     def __str__(self):
