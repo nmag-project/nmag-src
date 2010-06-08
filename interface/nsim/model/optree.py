@@ -55,8 +55,12 @@ class Node(GenericNode):
 class OperatorNode(Node):
     fmt = minimal_list_formatter
 
-    def __init__(self, children=[None, None, None], data=[],
+    def __init__(self, children=None, data=[],
                  contribs=None, amendments=None, sums=None):
+        if children == None:
+            children = list([None, None, None])
+            # ^^^ list() is necessary in order to get a new list for every
+            #  call to the method.
         if contribs != None:
             children[0] = contribs
         if amendments != None:
@@ -73,7 +77,33 @@ class OperatorNode(Node):
         return s_contribs + s_amendments + s_sums
 
 class ContribsNode(AssocNode):
-    pass
+    def simplify(self, context=None):
+        # This node is responsible for expanding the operator string for all
+        # the materials: transforming one expression in 'm' into many
+        # expressions in 'm_material1', 'm_material2', etc.
+        if context != None and context.material != None:
+            material = context.material
+            if isinstance(material, str):
+                material_list = [material]
+            else:
+                material_list = material
+
+            opstrings = self.children
+            expanded_opstrings = ContribsNode()
+            plus = SignSym(1.0)
+            sign = SignSym()
+            for material_name in material_list:
+                context.material = material_name
+                for opstring in opstrings:
+                    simplified = opstring.simplify(context=context)
+                    expanded_opstrings.add2(simplified, sign)
+                    sign = plus
+
+            context.material = material
+            return expanded_opstrings
+
+        else:
+            return GenericNode.simplify(self, context=context)
 
 class ContribNode(Node):
     fmt = minimal_list_formatter
@@ -117,6 +147,23 @@ class DiffIndexNode(Node):
         return self.data[0]
 
 class FieldNode(Node):
+    def simplify(self, context=None):
+        # We should go through the quantities, find this one and - if it is
+        # constant - just simplify the tensor with such constant.
+        # For example, if pi(i, j) is a tensor which turns out to be always
+        # equal to 3.14, then we just have to substitute pi(i, j) -> 3.14
+        if context != None:
+            q = context.quantities.get(self.data[0])
+            assert not q.is_constant(), \
+              "Constant Quantities cannot appear inside <...>."
+            if (context.material != None
+                and q.is_defined_on_material(context.material)):
+                field_node = Node.simplify(self, context=context)
+                field_node.data[0] += "_%s" % context.material
+                return field_node
+
+        return Node.simplify(self, context=context)
+
     def __str__(self):
         bspecs, indices = self.children
         if indices != None:

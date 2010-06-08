@@ -61,7 +61,7 @@ def test_simplify():
         print "passed"
 
 def test_simplify_quantities():
-    print "Thesting simplification of quantities"
+    print "Testing simplification of quantities"
     from quantity import Constant, SpaceField, Quantities
     zero = Constant("zero", subfields=False, value=Value(0.0))
     gamma = Constant("gamma", subfields=False, value=Value(1.23))
