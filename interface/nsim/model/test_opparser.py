@@ -58,13 +58,20 @@ def test_simplify_quantities():
     print "Testing simplification of quantities"
     from quantity import Constant, SpaceField, Quantities
     zero = Constant("zero", subfields=False, value=Value(0.0))
-    gamma = Constant("gamma", subfields=False, value=Value(1.23))
+    C = Constant("C", subfields=True,
+                 value=Value("mat1", -1.25).set("mat2", -2.5))
 
     a = SpaceField("a", [3], subfields=True)
     b = SpaceField("b", [3])
-    context = OpSimplifyContext(quantities=Quantities([gamma, zero, a, b]),
+    H_exch = SpaceField("H_exch", [3], subfields=True)
+    m = SpaceField("m", [3], subfields=True)
+    context = OpSimplifyContext(quantities=Quantities([C, a, b, H_exch, m]),
                                 material=["mat1", "mat2"])
-    strings = [("<a||b>", "<a_mat1||b> + <a_mat2||b>")]
+    strings = [("<a||b>", "<a_mat1||b> + <a_mat2||b>"),
+               ("C*<d/dxj H_exch(k)||d/dxj m(k)>, j:1, k:3",
+                "  (-1.25)*<d/dxj H_exch_mat1(k)||d/dxj m_mat1(k)> "
+                "+ (-2.5)*<d/dxj H_exch_mat2(k)||d/dxj m_mat2(k)>,j:1, k:3")]
+
     for string, result in strings:
         parse_tree = parse(string).simplify(context=context)
         my_result = str(parse_tree)

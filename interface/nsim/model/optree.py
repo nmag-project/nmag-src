@@ -15,7 +15,7 @@ examine the quantities involved and finally rewrite it as text."""
 
 __all__ = ['OpSimplifyContext',
            'OperatorNode', 'ContribsNode', 'ContribNode', 'UContribNode',
-           'ScalarNode',
+           'ScalarNode', 'ScaledBraKetNode',
            'DiffFieldNode', 'DiffNode', 'DiffIndexNode', 'BSpecsNode',
            'FieldNode', 'FieldIndexNode', 'FieldIndicesNode',
            'MiddleFieldNode', 'BraKetNode', 'SumSpecsNode', 'SumSpecNode',
@@ -113,18 +113,45 @@ class UContribNode(AssocNode):
 
     def __str__(self):
         pieces = []
-        for operator, operand in zip(self.data, self.children):
-            if operator != None and not operator.is_one():
-                pieces.append(str(operator))
-            pieces.append(str(operand))
+        for term in self.children:
+            braket, factor = term.children
+            if factor != None and not factor.is_one():
+                pieces.append(str(factor))
+            pieces.append(str(braket))
         return self.fmt.stringify(pieces)
 
 class ScalarNode(Node):
     fmt = minimal_list_formatter
 
+    def simplify(self, context=None):
+        # We should go through the quantities, find this one and - if it is
+        # constant - just simplify the tensor with such constant.
+        # For example, if pi(i, j) is a tensor which turns out to be always
+        # equal to 3.14, then we just have to substitute pi(i, j) -> 3.14
+        v = self.data[0]
+        if type(v) == str and context != None:
+            q = context.quantities.get(v)
+            if q.is_constant():
+                #assert self.children == [None], \
+                #  "Prefactors of <...> should be scalars, not vectors!"
+                if q.is_constant():
+                    return ScalarNode(data=q.as_float(context.material))
+
+                elif (context.material != None
+                      and q.is_defined_on_material(context.material)):
+                    field_node = Node.simplify(self, context=context)
+                    field_node.data[0] += "_%s" % context.material
+                    return field_node
+
+        # Keep it as a it is
+        return Node.simplify(self, context=context)
+
     def __str__(self):
         n = self.data[0]
-        return repr(n) if n >= 0.0 else "(%s)" % repr(n)
+        if type(n) == str:
+            return n
+        else:
+            return repr(n) if n >= 0.0 else "(%s)" % repr(n)
 
     def is_one(self):
         return self.data[0] == 1.0
@@ -148,10 +175,6 @@ class DiffIndexNode(Node):
 
 class FieldNode(Node):
     def simplify(self, context=None):
-        # We should go through the quantities, find this one and - if it is
-        # constant - just simplify the tensor with such constant.
-        # For example, if pi(i, j) is a tensor which turns out to be always
-        # equal to 3.14, then we just have to substitute pi(i, j) -> 3.14
         if context != None:
             q = context.quantities.get(self.data[0])
             assert not q.is_constant(), \
@@ -179,6 +202,9 @@ class FieldIndicesNode(Node):
     fmt = plain_list_formatter
 
 class MiddleFieldNode(Node):
+    fmt = minimal_list_formatter
+
+class ScaledBraKetNode(Node):
     fmt = minimal_list_formatter
 
 class BraKetNode(Node):

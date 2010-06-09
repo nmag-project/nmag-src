@@ -129,11 +129,13 @@ def p_unsigned_contrib(t):
                         | expr STAR bracket"""
     lt = len(t)
     if lt == 2:
-        t[0] = UContribNode().add2(t[1], ScalarNode(data=1.0))
+        term = ScaledBraKetNode([t[1], ScalarNode(data=1.0)])
     elif lt == 3:
-        t[0] = UContribNode().add2(t[2], t[1])
+        term = ScaledBraKetNode([t[2], t[1]])
     elif lt == 4:
-        t[0] = UContribNode().add2(t[3], t[1])
+        term = ScaledBraKetNode([t[3], t[1]])
+
+    t[0] = UContribNode().add(term)
 
 def p_expr(t):
     """expr : unsigned_scalar
@@ -152,7 +154,8 @@ def p_signed_scalar(t):
 
 def p_unsigned_scalar(t):
     """unsigned_scalar : INT
-                       | FLOAT"""
+                       | FLOAT
+                       | STRING"""
     t[0] = ScalarNode(data=t[1])
 
 def p_bracket(t):
