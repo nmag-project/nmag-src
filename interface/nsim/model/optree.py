@@ -76,11 +76,18 @@ class OperatorNode(Node):
         s_sums = ", %s" % str(sums) if sums != None else ""
         return s_contribs + s_amendments + s_sums
 
+    def is_zero(self):
+        contribs = self.children[0]
+        return contribs.is_zero()
+
 class ContribsNode(AssocNode):
     def simplify(self, context=None):
         # This node is responsible for expanding the operator string for all
         # the materials: transforming one expression in 'm' into many
         # expressions in 'm_material1', 'm_material2', etc.
+        material_list = [""]
+        set_material = lambda mn: None
+        material = None
         if context != None and context.material != None:
             material = context.material
             if isinstance(material, str):
@@ -88,25 +95,36 @@ class ContribsNode(AssocNode):
             else:
                 material_list = material
 
-            opstrings = self.children
-            expanded_opstrings = ContribsNode()
-            plus = SignSym(1.0)
-            sign = SignSym()
-            for material_name in material_list:
-                context.material = material_name
-                for opstring in opstrings:
-                    simplified = opstring.simplify(context=context)
+            def set_material(mn):
+                context.material = mn
+
+        opstrings = self.children
+        expanded_opstrings = ContribsNode()
+        plus = SignSym(1.0)
+        sign = SignSym()
+        for material_name in material_list:
+            set_material(material_name)
+
+            for opstring in opstrings:
+                simplified = opstring.simplify(context=context)
+                if not simplified.is_zero():
                     expanded_opstrings.add2(simplified, sign)
                     sign = plus
 
-            context.material = material
-            return expanded_opstrings
+        set_material(material)
+        return expanded_opstrings
 
-        else:
-            return GenericNode.simplify(self, context=context)
+    def is_zero(self):
+        for child in self.children:
+            if not child.is_zero():
+                return False
+        return True
 
 class ContribNode(Node):
     fmt = minimal_list_formatter
+
+    def is_zero(self):
+        return self.children[0].is_zero()
 
 class UContribNode(AssocNode):
     fmt = ListFormatter("", "", "*")
@@ -119,6 +137,11 @@ class UContribNode(AssocNode):
                 pieces.append(str(factor))
             pieces.append(str(braket))
         return self.fmt.stringify(pieces)
+
+    def is_zero(self):
+        scaled_braket = self.children[0]
+        scale_factor = scaled_braket.children[1]
+        return scale_factor.is_zero()
 
 class ScalarNode(Node):
     fmt = minimal_list_formatter
@@ -155,6 +178,9 @@ class ScalarNode(Node):
 
     def is_one(self):
         return self.data[0] == 1.0
+
+    def is_zero(self):
+        return self.data[0] == 0.0
 
 class DiffFieldNode(AssocNode):
     def __str__(self):

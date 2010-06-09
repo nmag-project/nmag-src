@@ -34,7 +34,8 @@ def test_consistency():
 
 def test_simplify():
     print "Testing simplification"
-    strings = [] #("a <- 0;", "a <- 0.0;"),
+    strings = [("0*<a||b>", ""),
+               ("0*<a||b> + 1*<a||b>", "<a||b>"),]
                #("abc <- def;", "abc <- def;"),
                #("a <- 0*(b + c);", "a <- 0.0;"),
                #("a <- 1*(b + c);", "a <- (b + c);"),
