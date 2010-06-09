@@ -170,11 +170,11 @@ class AssignmentNode(Node):
     node_type = "Assignment"
     fmt = ListFormatter("", ";", " <- ")
 
-    def _collect_quantities(self, inputs, outputs, parsing):
+    def _collect_quantities(self, collections, parsing):
         assert parsing == 'root'
         assert len(self.children) == 2
-        self.children[0]._collect_quantities(inputs, outputs, 'outputs')
-        self.children[1]._collect_quantities(inputs, outputs, 'inputs')
+        self.children[0]._collect_quantities(collections, 'outputs')
+        self.children[1]._collect_quantities(collections, 'inputs')
 
 class AssignmentsNode(Node):
     node_type = "Assignments"
@@ -411,17 +411,11 @@ class TensorNode(UnaryNode):
 
         return Node.simplify(self, context=context)
 
-    def _collect_quantities(self, inputs, outputs, parsing):
+    def _collect_quantities(self, collections, parsing):
         name = self.data[1]
         if self.special_tensors.has_key(name):
             return
-        if parsing == "inputs":
-            qs_list = inputs
-        else:
-            assert parsing == "outputs"
-            qs_list = outputs
-        if not name in qs_list:
-            qs_list.append(name)
+        collections[parsing][name] = True
 
 class FunctionNode(UnaryNode):
     node_type = "Function"

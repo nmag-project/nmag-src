@@ -76,7 +76,8 @@ import ocaml
 import nmag
 from nsim import linalg_machine as nlam
 
-from computation import Computations, EqSimplifyContext, LAMProgram
+from computation import Computations, EqSimplifyContext, OpSimplifyContext, \
+                        LAMProgram
 from quantity import Quantities
 from timestepper import Timesteppers
 from nsim.snippets import contains_all
@@ -291,7 +292,32 @@ class Model:
         return mwe
 
     def _build_operators(self):
-        return {}
+        ops = self.computations._by_type.get('Operator', [])
+        simplify_context = \
+          OpSimplifyContext(quantities=self.quantities,
+                            material=self.all_material_names)
+        operator_dict = {}
+        for op in ops:
+            logger.info("Building operator %s" % op.name)
+            op_text = op.get_text(context=simplify_context)
+            mwe_in, mwe_out = op.get_inputs_and_outputs()
+            op_full_name = op.get_full_name()
+            assert len(mwe_in) == 1 and len(mwe_out) == 1, \
+              ("Operators should only involve one quantity as input and "
+               "one quantity as output")
+
+            operator_dict[op_full_name] = \
+              nlam.lam_operator(op_full_name, mwe_out[0], mwe_in[0], op_text)
+
+            # We should now register a VM call to compute the equation
+            logger.info("Creating equation SWEX for %s" % op.name)
+            v_in, v_out = ["v_%s" % name for name in mwe_in + mwe_out]
+            op.add_commands(["SM*V", op_full_name, v_in, v_out])
+                            #["SM*V","op_H_exch","v_m","v_H_exch"],
+                            #["CFBOX","H_exch","v_H_exch"],
+
+        self._built["Operator"] = True
+        return operator_dict
 
     def _build_equations(self):
         eqs = self.computations._by_type.get('Equation', [])
@@ -320,7 +346,8 @@ class Model:
 
     def _build_programs(self):
         progs = (self.computations._by_type.get('LAMProgram', [])
-                 + self.computations._by_type.get('Equation', []))
+                 + self.computations._by_type.get('Equation', [])
+                 + self.computations._by_type.get('Operator', []))
         prog_dict = {}
         for prog in progs:
             prog_name = prog.get_prog_name()
@@ -393,7 +420,7 @@ class Model:
                                  "does not refer to one of them in its "
                                  "jacobian: %s."
                                  % (ts.name, ts.x, ts.dxdt,
-                                    ts.eq_for_jacobian.equation_str))
+                                    ts.eq_for_jacobian.text))
 
             other_names = x_and_dxdt + other_names
             all_v_names = ["v_%s" % name for name in other_names]
@@ -416,10 +443,12 @@ class Model:
 
             dxdt_updater = LAMProgram("TsUp_%s" % ts.name)
             for t in targets_to_make:
-                t_full_name = t.get_full_name()
-                t_fields = ["v_%s" % name for name in t.get_inouts()]
-                dxdt_updater.add_commands(["SITE-WISE-IPARAMS",
-                                           t_full_name, t_fields, []])
+                #t_full_name = t.get_full_name()
+                #t_fields = ["v_%s" % name for name in t.get_inouts()]
+                #dxdt_updater.add_commands(["SITE-WISE-IPARAMS",
+                                           #t_full_name, t_fields, []])
+                dxdt_updater.add_commands(["GOSUB", t.get_prog_name()])
+
             self.computations.add(dxdt_updater)
             assert not self._was_built("LAMPrograms"), \
               "Timesteppers should be built before LAM programs!"

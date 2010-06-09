@@ -200,6 +200,14 @@ class DiffIndexNode(Node):
         return self.data[0]
 
 class FieldNode(Node):
+    def __init__(self, children=[], data=[]):
+        Node.__init__(self, children=children, data=data)
+        if len(self.data) == 1:
+            n = self.data[0]
+            self.data = [n, n]
+            #             ^^^ the first gets decorated with the material name,
+            #             (example: m --> m_Py), the second doesn't change
+
     def simplify(self, context=None):
         if context != None:
             q = context.quantities.get(self.data[0])
@@ -220,6 +228,10 @@ class FieldNode(Node):
         else:
             return self.data[0] + str(bspecs)
 
+    def _collect_quantities(self, collections, parsing):
+        qn = self.data[1]
+        collections[parsing][qn] = True
+
 class FieldIndexNode(Node):
     def __str__(self):
         return self.data[0]
@@ -235,6 +247,13 @@ class ScaledBraKetNode(Node):
 
 class BraKetNode(Node):
     fmt = ListFormatter("<", ">", "|")
+
+    def _collect_quantities(self, collections, parsing):
+        print self.children
+        assert len(self.children) == 3
+        self.children[0]._collect_quantities(collections, "outputs")
+        self.children[1]._collect_quantities(collections, "inputs")
+        self.children[2]._collect_quantities(collections, "inputs")
 
 class SumSpecsNode(Node):
     fmt = plain_list_formatter

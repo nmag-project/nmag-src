@@ -127,18 +127,19 @@ class GenericNode(object):
         new_obj.data = copy.copy(self.data)
         return new_obj
 
-    def get_inputs_and_outputs(self):
+    def get_inputs_and_outputs(self, sections=['inputs', 'outputs']):
         """Traverse the parse tree to collect inputs and outputs
         quantities."""
-        inputs = []
-        outputs = []
-        self._collect_quantities(inputs, outputs, parsing='root')
-        return (inputs, outputs)
+        collections = {}
+        for section in sections:
+            collections[section] = {}
+        self._collect_quantities(collections, parsing='root')
+        return [collections[section].keys() for section in sections]
 
-    def _collect_quantities(self, inputs, outputs, parsing):
+    def _collect_quantities(self, collections, parsing):
         for child in self.children:
             if child != None:
-                child._collect_quantities(inputs, outputs, parsing)
+                child._collect_quantities(collections, parsing)
 
 class AssocNode(GenericNode):
     fmt = spaced_list_formatter
