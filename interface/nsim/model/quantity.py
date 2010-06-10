@@ -232,8 +232,6 @@ class SpaceField(Quantity):
         if self.def_on_mat:
             set_plan = value.get_set_plan(self.material_names, unit=self.unit)
             for v, m, u in set_plan:
-                print self.master, v, m, u
-                raw_input()
                 scale_factor = float(u)
                 fn = "%s_%s" % (self.name, v)
                 flexible_set_fielddata(self.master, fn, m, 1e-9,

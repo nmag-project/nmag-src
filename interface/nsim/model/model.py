@@ -444,8 +444,6 @@ class Model:
             for name in other_names:
                 if how_to_derive.has_key(name):
                     derivs.append(how_to_derive[name])
-                    print "derive using ", how_to_derive[name]
-                    raw_input()
                 else:
                     derivs.append(("IGNORE", ""))
 
@@ -469,11 +467,6 @@ class Model:
             self.computations.add(dxdt_updater)
             assert not self._was_built("LAMPrograms"), \
               "Timesteppers should be built before LAM programs!"
-
-            print "---"
-            print all_v_names
-            print derivs
-            raw_input()
 
             full_name = ts.get_full_name()
             nlam_ts = \
