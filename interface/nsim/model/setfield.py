@@ -112,8 +112,8 @@ def set_fielddata_from_function(field, subfieldname, function,
       ocaml.mwe_subfield_metadata(field, subfieldname)
 
     for pos, site in zip(site_pos, site_ids):
-        # convert position from mesh coordinates to meter
-        pos = [(x*pos_unit_length).in_units_of(SI("m")) for x in pos]
+        # convert position from mesh as required
+        pos = [x*pos_unit_length for x in pos]
 
         # sample function and set field at current site
         value = function(pos)
@@ -191,10 +191,11 @@ def flexible_set_fielddata(field, subfieldname, data, pos_unit_length,
       `subfieldname` : string
         The name of the subfield that is meant to be modified
 
-      `pos_unit_length` : SI object
-        The scale factor that converts coordinates in simulation units
-        into SI positions.  (This is required when the user provides a
-        function to sample as ``data``.)
+      `pos_unit_length` : float
+        The scale factor to be used in order to get from mesh coordinate
+        to float values in SI units. Exmple: if mesh is in nm, then the
+        factor should simply be 1e-9, so that if 5 is a coordinate in units
+        of the mesh, 5*1e-9 = 5e-9 is a coordinate in meters.
 
       `scale_factor=1.0` : float
         The nmag user is setting fields using SI objects. The

@@ -301,6 +301,8 @@ class Model:
             logger.info("Building operator %s" % op.name)
             op_text = op.get_text(context=simplify_context)
             mwe_in, mwe_out = op.get_inputs_and_outputs()
+            print op.final_text
+            raw_input()
             op_full_name = op.get_full_name()
             assert len(mwe_in) == 1 and len(mwe_out) == 1, \
               ("Operators should only involve one quantity as input and "
@@ -313,8 +315,8 @@ class Model:
             logger.info("Creating equation SWEX for %s" % op.name)
             v_in, v_out = ["v_%s" % name for name in mwe_in + mwe_out]
             op.add_commands(["SM*V", op_full_name, v_in, v_out])
-                            #["SM*V","op_H_exch","v_m","v_H_exch"],
-                            #["CFBOX","H_exch","v_H_exch"],
+            if True:
+                op.add_commands(["CFBOX","H_exch","v_H_exch"])
 
         self._built["Operator"] = True
         return operator_dict
