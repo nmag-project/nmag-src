@@ -28,6 +28,7 @@ class Timestepper(ModelObj):
 
     def __init__(self, name, x, dxdt,
                  eq_for_jacobian=None, time_unit=None,
+                 derivatives=None,
                  rel_tol=1e-5, abs_tol=1e-5, initial_time=0.0,
                  max_order=2, krylov_max=300,
                  jacobi_prealloc_diagonal=75,
@@ -49,6 +50,7 @@ class Timestepper(ModelObj):
             raise ValueError("x and dxdt should be lists with the same number "
                              "of entries.")
 
+        self.derivatives = derivatives
         self.time_unit = time_unit
         self.x = x
         self.dxdt = dxdt

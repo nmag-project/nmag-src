@@ -77,7 +77,7 @@ import nmag
 from nsim import linalg_machine as nlam
 
 from computation import Computations, EqSimplifyContext, OpSimplifyContext, \
-                        LAMProgram
+                        LAMProgram, Operator
 from quantity import Quantities
 from timestepper import Timesteppers
 from nsim.snippets import contains_all
@@ -301,8 +301,6 @@ class Model:
             logger.info("Building operator %s" % op.name)
             op_text = op.get_text(context=simplify_context)
             mwe_in, mwe_out = op.get_inputs_and_outputs()
-            print op.final_text
-            raw_input()
             op_full_name = op.get_full_name()
             assert len(mwe_in) == 1 and len(mwe_out) == 1, \
               ("Operators should only involve one quantity as input and "
@@ -424,11 +422,32 @@ class Model:
                                  % (ts.name, ts.x, ts.dxdt,
                                     ts.eq_for_jacobian.text))
 
-            other_names = x_and_dxdt + other_names
-            all_v_names = ["v_%s" % name for name in other_names]
+            # List of all quantities involved in jacobi equation
+            all_names = x_and_dxdt + other_names
+
+            # Build a dictionary containing info about how to derive each
+            # quantity
+            how_to_derive = {}
+            if ts.derivatives != None:
+                for quant, way in ts.derivatives:
+                    if isinstance(way, Operator):
+                        op_full_name = way.get_full_name()
+                        how_to_derive[quant.name] = ("OPERATOR", op_full_name)
+                    else:
+                        raise ValueError("Timestepper was build specifying "
+                          "that %s should be used to compute the derivative "
+                          "of %s, but only operators can be used at the "
+                          "moment." % (quant.name, way.name))
+
+            all_v_names = ["v_%s" % name for name in all_names]
             derivs = [("PRIMARY", "")]*(2*nr_primary_fields)
             for name in other_names:
-                derivs.append(("IGNORE", ""))
+                if how_to_derive.has_key(name):
+                    derivs.append(how_to_derive[name])
+                    print "derive using ", how_to_derive[name]
+                    raw_input()
+                else:
+                    derivs.append(("IGNORE", ""))
 
             # Build dxdt update program
             primaries = {}
@@ -445,20 +464,21 @@ class Model:
 
             dxdt_updater = LAMProgram("TsUp_%s" % ts.name)
             for t in targets_to_make:
-                #t_full_name = t.get_full_name()
-                #t_fields = ["v_%s" % name for name in t.get_inouts()]
-                #dxdt_updater.add_commands(["SITE-WISE-IPARAMS",
-                                           #t_full_name, t_fields, []])
                 dxdt_updater.add_commands(["GOSUB", t.get_prog_name()])
 
             self.computations.add(dxdt_updater)
             assert not self._was_built("LAMPrograms"), \
               "Timesteppers should be built before LAM programs!"
 
+            print "---"
+            print all_v_names
+            print derivs
+            raw_input()
+
             full_name = ts.get_full_name()
             nlam_ts = \
               nlam.lam_timestepper(full_name,
-                                   other_names,
+                                   all_names,
                                    all_v_names,
                                    dxdt_updater.get_full_name(),
                                    nr_primary_fields=nr_primary_fields,
