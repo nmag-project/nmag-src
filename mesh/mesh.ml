@@ -5320,7 +5320,7 @@ let mesh_plotinfo_pointsregions mesh =
   let pointregions = Array.make npoints [||] in
   let () = 
     for i=0 to (npoints-1) do
-      pointregions.(i) <- Array.of_list (List.map (fun simplex_region -> let Body_Nr x = simplex_region in x) mesh.mm_points.(i).mp_in_body);
+      pointregions.(i) <- Array.of_list (List.map (fun (Body_Nr x) -> x) mesh.mm_points.(i).mp_in_body);
     done
   in pointregions;;
 
@@ -6782,11 +6782,12 @@ let read_mesh filename =
 		  (fun sx_ix (region,indices) ->
 		     let dim = Array.length indices in
 		       for i=0 to (dim-1) do
-			 try ignore(List.find (fun (Body_Nr x) -> x = (fun (Body_Nr r) -> r) region) mesh.mm_points.(indices.(i)).mp_in_body  )
-			 with
-			   | Not_found -> mesh.mm_points.(indices.(i)).mp_in_body  <- (region::mesh.mm_points.(indices.(i)).mp_in_body )
-		       done
-		  )
+                         let regs_in_pnt =
+                           mesh.mm_points.(indices.(i)).mp_in_body in
+			 try ignore(List.find ((=) region) regs_in_pnt)
+			 with Not_found ->
+                           mesh.mm_points.(indices.(i)).mp_in_body <- region::regs_in_pnt
+		       done)
 		  the_simplices
 		  
 		in
@@ -6838,7 +6839,7 @@ let read_mesh filename =
 let read_mesh_from_points_and_simplices nodes_arr simplices_indices_arr region_arr periodic_points_arr =
   let () = logdebug (Printf.sprintf "Reading mesh...%!") in (* DDD *)
   try
-    let the_points =  nodes_arr in
+    let the_points = nodes_arr in
     let simplices_nr = Array.length simplices_indices_arr in
     let regions_nr = Array.length region_arr in
     let () =
@@ -6847,28 +6848,28 @@ let read_mesh_from_points_and_simplices nodes_arr simplices_indices_arr region_a
       else ()
     in
     let the_simplices =
-      Array.mapi (
-      fun sx_ix sx_region ->
-	let indices = simplices_indices_arr.(sx_ix) in
-        let region = (fun n -> Body_Nr n ) sx_region in
-	region, indices
-     ) region_arr
-
+      Array.mapi
+        (fun sx_ix sx_region ->
+           (Body_Nr sx_region, simplices_indices_arr.(sx_ix)))
+      region_arr
     in
     try
       let () = logdebug (Printf.sprintf "Using mesh_from_known_delaunay...%!") in (* DDD *)
       let mesh = mesh_from_known_delaunay the_points the_simplices in
       let () = logdebug (Printf.sprintf "Have rudimentary mesh...%!") in (* DDD *)
-      let () = Array.iteri
-	(fun sx_ix (region,indices) ->
-	   let dim = Array.length indices in
-	     for i=0 to (dim-1) do
-	       try ignore(List.find (fun (Body_Nr x) -> x = (fun (Body_Nr r) -> r) region) mesh.mm_points.(indices.(i)).mp_in_body  )
-	       with
-		 | Not_found -> mesh.mm_points.(indices.(i)).mp_in_body  <- (region::mesh.mm_points.(indices.(i)).mp_in_body )
-	     done
-	)
-	the_simplices
+      (* Populate mesh.mm_points.(i).mp_in_body with the list of regions
+         owning the point mesh.mm_points.(i) *)
+      let () =
+        Array.iteri
+	  (fun sx_ix (region, indices) ->
+	     let dim = Array.length indices in
+	       for i=0 to (dim-1) do
+                 let regs_of_pnt = mesh.mm_points.(indices.(i)).mp_in_body in
+                   try ignore (List.find ((=) region) regs_of_pnt)
+                   with Not_found ->
+                     mesh.mm_points.(indices.(i)).mp_in_body <- region::regs_of_pnt
+	       done)
+        the_simplices
       in
       let () = logdebug (Printf.sprintf "going to mesh-grow-bookkeeping-data ") in
       let () = mesh_grow_bookkeeping_data ~do_connectivity:true ~do_incircle_circumcircle:true mesh in
