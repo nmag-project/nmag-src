@@ -2,7 +2,7 @@
 # Copyright (C) 2010 University of Southampton
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
 #
-# WEB:     http://nmag.soton.ac.uk 
+# WEB:     http://nmag.soton.ac.uk
 # CONTACT: nmag@soton.ac.uk
 #
 # AUTHOR(S) OF THIS FILE: Matteo Franchin
@@ -69,7 +69,7 @@ NOTE: The OVF file defines fields over a grid of cubes while the FieldLattice
   directions of space y and z.
   If your mesh has just one cubes along one or more directions, then you have
   to put some care in specifying the FieldLattice. For example,
-  
+
     fl = FieldLattice("1,3,1/1,3,1/1,3,1")
 
   defines a lattice with just one point (1, 1, 1) corresponding to a cube
@@ -157,7 +157,7 @@ class OVFSectionNode(OVFNode):
         self.section_action = lvalue = value.lower()
         assert lvalue in ["begin", "end"], "lvalue is %s" % lvalue
         self.received = {}
- 
+
     def read(self, stream, root=None):
         while True:
             node = read_node(stream)
@@ -170,7 +170,7 @@ class OVFSectionNode(OVFNode):
             self.received[node_name] = node
             setattr(self, "a_" + node.identity, node)
             assert self != node
- 
+
             if isinstance(node, OVFSectionNode):
                 sa = node.section_action
                 if sa == "begin":
@@ -265,7 +265,7 @@ def split_strings(ls):
 
         s = s[second + 1:].lstrip()
 
-    return pieces    
+    return pieces
 
 class OVFValueUnits:
     def __init__(self, s):
@@ -290,34 +290,34 @@ class OVFValueLabels:
 known_values_list = [
   ("Segment count", int, "Number of segments in data file", ANY_OVF, "root"),
   ("Title", str, "Title/long filename of the file"),
-  ("Desc", str, "Extra lines used by postprocessing programs"),
+  ("meshtype", str, "Mesh type"),
   ("meshunit", str, "Fundamental mesh measurement unit"),
-  ("valuedim", int, "Dimension of the data", OVF20),
-  ("valueunit", str, "Units for data values", OVF10),
-  ("valueunits", OVFValueUnits,
-   "Units for each dimension of the field.", OVF20),
-  ("valuelabels", OVFValueLabels,
-   "Labels for each dimension of the field", OVF20),
-  ("valuemultiplier", float,
-   "Multiply data values by this to get true value in valueunit-s", OVF10),
   ("xmin", float, "Minimum x coordinate of the mesh"),
   ("ymin", float, "Minimum y coordinate of the mesh"),
   ("zmin", float, "Minimum z coordinate of the mesh"),
   ("xmax", float, "Maximum x coordinate of the mesh"),
   ("ymax", float, "Maximum y coordinate of the mesh"),
   ("zmax", float, "Maximum z coordinate of the mesh"),
+  ("valuedim", int, "Dimension of the data", OVF20),
+  ("valuelabels", OVFValueLabels,
+   "Labels for each dimension of the field", OVF20),
+  ("valueunit", str, "Units for data values", OVF10),
+  ("valueunits", OVFValueUnits,
+   "Units for each dimension of the field.", OVF20),
+  ("valuemultiplier", float,
+   "Multiply data values by this to get true value in valueunit-s", OVF10),
   ("ValueRangeMaxMag", float, "Maximum value of data (used as hint)", OVF10),
   ("ValueRangeMinMag", float, "Minimum value of data (used as hint)", OVF10),
-  ("meshtype", str, "Mesh type"),
+  ("Desc", str, "Extra lines used by postprocessing programs"),
   ("xbase", float, "x coordinate of first point in data section"),
   ("ybase", float, "y coordinate of first point in data section"),
   ("zbase", float, "z coordinate of first point in data section"),
-  ("xstepsize", float, "Distance between adjacent grid points."),
-  ("ystepsize", float, "Distance between adjacent grid points."),
-  ("zstepsize", float, "Distance between adjacent grid points."),
   ("xnodes", int, "Number of cells along x dimension in the mesh"),
   ("ynodes", int, "Number of cells along y dimension in the mesh"),
   ("znodes", int, "Number of cells along z dimension in the mesh"),
+  ("xstepsize", float, "Distance between adjacent grid points."),
+  ("ystepsize", float, "Distance between adjacent grid points."),
+  ("zstepsize", float, "Distance between adjacent grid points."),
   ("boundary", str, "List of (x, y, z) triples specifying the vertices of a "
                     "boundary frame. Optional.", OVF10)
   # ^^^ I didn't find any examples of what this looks like. I then use str
@@ -351,7 +351,7 @@ def _info_binary(oommf_version, data_size):
     else:
         assert data_size == 4
         float_type = 'f'
-        expected_tag = 1234567.0 
+        expected_tag = 1234567.0
     return endianness, float_type, expected_tag
 
 class OVFDataSectionNode(OVFSectionNode):
@@ -468,7 +468,7 @@ class OVFDataSectionNode(OVFSectionNode):
 
         fmt = endianness + float_type
         out_data = struct.pack(fmt, expected_tag)
- 
+
         num_floats = self.num_stored_nodes*self.floats_per_node
         fmt = endianness + float_type*num_floats
         flat_array = self.field.ravel('F')

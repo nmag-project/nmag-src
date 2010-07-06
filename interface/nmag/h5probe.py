@@ -2,7 +2,7 @@
 # Copyright (C) 2010 University of Southampton
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
 #
-# WEB:     http://nmag.soton.ac.uk 
+# WEB:     http://nmag.soton.ac.uk
 # CONTACT: nmag@soton.ac.uk
 #
 # AUTHOR(S) OF THIS FILE: Matteo Franchin
@@ -36,7 +36,8 @@ def save_to_ovf(lattice, data, data_dim, filename,
     fl = FieldLattice(lattice, data=data, dim=data_dim, order="F")
     ovf = OVFFile()
     ovf.new(fl, version=ovf_version, data_type=data_type, mesh_type=mesh_type)
-    ovf.content.a_segment.a_header.a_title = title
+    h = ovf.content.a_segment.a_header
+    h.a_title = title
     ovf.write(filename)
 
 def unpack_ovf_fmt(ovf_fmt):
@@ -69,7 +70,7 @@ def unpack_ovf_fmt(ovf_fmt):
               ("OVF mesh type character should be either r or i "
                "(ovf1r, ovf1i).")
             mesh_type = "rectangular" if ovf_fmt[1] == "r" else "irregular"
-    
+
             dt_chars = ovf_fmt[2:]
             if len(dt_chars) > 0:
                 assert dt_chars in ["b8", "b4", "t"], \
@@ -84,7 +85,7 @@ def complex_filter(filter_name):
     """Returns a function which is supposed to act as a filter on complex
     numbers. 'complex_filter' takes a string with the name of the filter
     and returns the corresponding function. Available filters are:
-    
+
       - identity: just return the identity function (lambda x: x);
       - norm: return the norm of the complex number;
       - real: return the real part of the complex number;
@@ -130,11 +131,11 @@ def vector_projection(nr_component):
 def vector_filter(filter_spec):
     """Returns a function which maps a vector into a scalar.
     filter_spec specifies what kind of filter to return:
-        
+
       - 'component,1' returns the second component of the vector
-      
+
       - 'norm' returns the norm of the vector;
-      
+
       - 'projection,1' project the vector into the plane orthogonal to the
         second axis and return its norm.
     """
@@ -181,6 +182,8 @@ class ProbeStore:
 
     def get_data(self):
         if self.data == None:
+            assert self.item_shape != None and self.data_shape != None, \
+              "Data shape is not available: are you probing outside the mesh?"
             shape = self.item_shape + self.data_shape
             logmsg("Allocating ProbeStore data array: shape = %s"
                    % str(shape))
@@ -284,7 +287,7 @@ class ProbeStore:
         ft_ps.data *= factor
         return ft_ps
 
-    def write(self, out=sys.stdout.write, fmt="%s", filter=None, 
+    def write(self, out=sys.stdout.write, fmt="%s", filter=None,
               sep_blocks="\n", out_fmt=None):
         out_fmt = out_fmt.lower() if out_fmt != None else None
         if out_fmt not in [None, 'text', 'ascii']:
@@ -366,9 +369,12 @@ def probe_field_on_lattice(lattice, field, subfield, out):
     def do(idx, position):
         probed = ocaml.probe_field(field, subfield, position)
         if probed != None:
-            assert(len(probed) == 1)
-            dofname, value = probed[0]
-            out(position, value)
+            if len(probed) == 1:
+                dofname, value = probed[0]
+                out(position, value)
+            else:
+                assert len(probed) == 0, \
+                  "Unexpected output from probing function: %s" % str(probed)
     lattice.foreach(do)
 
 def build_full_field_name(field_name, subfield_name):
@@ -444,7 +450,7 @@ class Fields:
                 self.read_cache[cached_row_data_id] = (ps, cached_vs, sites)
 
             return (ps, vss[0], sites)
- 
+
     def get_field_array(self, field_name, subfield_name, row):
         """This method can be used to extract the data for the specified field
         and the specified row. Example:
@@ -473,7 +479,7 @@ class Fields:
             vs_tot *= coefficient
 
             for coefficient, idx in row[1:]:
-                _, vs, _ = self.get_dof_row_data(field_name, 
+                _, vs, _ = self.get_dof_row_data(field_name,
                                                  subfield_name, idx)
                 vs *= coefficient
                 vs_tot += vs
@@ -481,7 +487,7 @@ class Fields:
             return (ps, vs_tot, sites)
 
         else:
-            ps_vs_sites = self.get_dof_row_data(field_name, 
+            ps_vs_sites = self.get_dof_row_data(field_name,
                                                 subfield_name, row)
             return ps_vs_sites
 
@@ -492,7 +498,7 @@ class Fields:
         # Now we get the data
         f = self.open_handler()
         root_data_fields = self.get_root_data_fields()
-       
+
         dim = self.mesh.dim
         field_table = f.getNode(root_data_fields, field_name)
         field_stuff = getattr(root_data_fields, field_name) # need to improve this
@@ -530,7 +536,7 @@ class Fields:
                % (full_field_name, regions_where_defined))
 
         # Consistency check: there musn't be a region where the field
-        # is partially defined! 
+        # is partially defined!
         logmsg("Now checking that there the field is always present...")
         for site in range(num_sites):
             field_should_be_defined_here = \
@@ -559,7 +565,7 @@ class Fields:
         properties = zip(regions_where_defined,
                          [[full_field_name]]*len(regions_where_defined))
         mwe = ocaml.make_mwe(field_name,
-                             self.mesh.raw_mesh, 
+                             self.mesh.raw_mesh,
                              element_assoc,
                              [],
                              properties)
@@ -701,7 +707,7 @@ def probe_field_from_file(file_name, times, lattice, field_name, subfield,
                                 "match the one of the mesh (%d)."
                                 % (lattice.dim, f.mesh.dim))
 
-        full_field_name = build_full_field_name(field_name, subfield) 
+        full_field_name = build_full_field_name(field_name, subfield)
         probe_field_on_lattice(lattice, field, full_field_name, partial_out)
 
     times.foreach(do_for_time)
