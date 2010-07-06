@@ -19,7 +19,7 @@ def _local_couplings_ccode(local_couplings):
        same crystal (such as the DyFe2 Laves phase structure),
        we have to introduce an exchange-type local coupling between
        magnetic momenta associated to the different atomic species.
-    
+
        Given the dictionary of material-material coupling strengths,
        generate the C-code which adds the couplings to the total
        magnetic field.
@@ -83,20 +83,20 @@ def _extended_properties_by_region(region_materials,min_region=-1,extra_pbr=[]):
             add_prop(nr_region,m.name)
             for p in m.properties:
                 add_prop(nr_region,p)
-                
+
     # Now that we initialized these hashes, map them back to lists:
 
     def sorted_keys(h):
         k=h.keys()
         k.sort()
         return k
-    
+
     srk=sorted_keys(pbr)
 
     result=[(k,sorted_keys(pbr[k])) for k in srk]
     logger.info("properties_by_region: %s" % repr(result))
     return result
-    
+
 def nmag_lam(timestepper,
              name="nmag",
              mesh=None,
@@ -159,7 +159,7 @@ def nmag_lam(timestepper,
     else:
         su_temperature=0.0
 
-    # properly translate periodic_bc internally to our 
+    # properly translate periodic_bc internally to our
     # conventions for passing optional args to ocaml:
     is_periodic=False
     if periodic_bc == None:
@@ -214,7 +214,7 @@ def nmag_lam(timestepper,
     # that is okay. Eventually, all this code will vanish and be replaced by
     # a more expressive formalism that is directly available to the user.
     # What is missing at present is mostly the parser.
-    
+
     # Suppose we have many materials in the system and hence have to write
     # down the equations of motion for all the materials. Equations
     # may be written as: lhs_m = c1_m * term1_m + c2_m * term2_m + ...,
@@ -651,7 +651,7 @@ E_total_$MAT$ <- E_demag_$MAT$ + E_exch_$MAT$ + E_ext_$MAT$ + E_anis_$MAT$%s;
                                                aux_args=intensive_params,
                                                field_mwes=["m","M"],
                                                equation=eq_M),
-               "local_correct_m_lengths":nlam.lam_local("local_correct_m_lengths", 
+               "local_correct_m_lengths":nlam.lam_local("local_correct_m_lengths",
                                                aux_args=intensive_params,
                                                field_mwes=["m"],
                                                c_code=ccode_correct_m_lengths),
@@ -673,7 +673,7 @@ E_total_$MAT$ <- E_demag_$MAT$ + E_exch_$MAT$ + E_ext_$MAT$ + E_anis_$MAT$%s;
                                           [[], # opt_derive_me
                                            jacobi_contribs_dH_dm,
                                            [],
-                                           []], 
+                                           []],
                                           eq_rhs_jacobi_ts1, # eom_str
                                           debugprint=True,
                                           ),
@@ -721,9 +721,9 @@ E_total_$MAT$ <- E_demag_$MAT$ + E_exch_$MAT$ + E_ext_$MAT$ + E_anis_$MAT$%s;
                                                     ("IGNORE","")],
                                  jacobi_prealloc_diagonal=75,
                                  jacobi_prealloc_off_diagonal=45)
-        
+
     lam_timesteppers={"timestepper":ts1}
-    
+
     # These are "execution sequence scripts" much akin to OpenGL
     # "display lists": their parallel execution can be triggered
     # easily with a single MPI packet, and they ensure all machines do
@@ -783,12 +783,12 @@ E_total_$MAT$ <- E_demag_$MAT$ + E_exch_$MAT$ + E_ext_$MAT$ + E_anis_$MAT$%s;
                   "update_dmdt":nlam.lam_program("update_dmdt",
                                                  commands=[["TSTART","update_dmdt"],
                                                            ["GOSUB", "set_dm_dcurrent"],
-                                                           #["CALLPY", pre_rhs_funs],
+                                                           ["CALLPY", pre_rhs_funs],
                                                            ["GOSUB", "update_H_total"],
                                                            ["SITE-WISE-IPARAMS","local_dmdt",fields_for_dmdt,[]],
                                                            # ["DEBUG","dm/dt","v_dmdt",6],
                                                            # ["DEBUG","dm","v_m",6],
-                                                           #["CALLPY", post_rhs_funs],
+                                                           ["CALLPY", post_rhs_funs],
                                                            ["TSTOP","update_dmdt"]]),
                   "debug_m":nlam.lam_program("debug_m",
                                                  commands=[["DEBUG","dm/dt","v_dmdt",6],
@@ -948,13 +948,13 @@ if(have_Temperature && have_H_therm_$MAT$)
   /* fprintf(stderr,\"DDD THERMAL site=%6.1f time=%8.4f H_therm=[%6.3f %6.3f %6.3f]\\n\",SITE_PMID,TIME,H_therm_$MAT$(0),H_therm_$MAT$(1),H_therm_$MAT$(2));fflush(stderr); */
 }
 """)
-        
+
         mwe_temperature=ocaml.mwe_sibling(mwe_scalar,"Temperature","Temperature/scalar",[("scalar","Temperature")])
         master_fields_and_mwes_by_name["Temperature"]=(mwe_temperature,ocaml.raw_make_field(mwe_temperature,[lambda x, y: su_temperature],"",""))
 
         mwe_H_therm = ocaml.mwe_sibling(mwe_m,"H_therm","H_therm/m",m_relabeled("H_therm_"))
         master_fields_and_mwes_by_name["H_therm"]=(mwe_H_therm,ocaml.raw_make_field(mwe_H_therm,[],"",""))
-        
+
         # Note that we do not introduce a thermal energy for now,
         # as this will just be noise anyway.
         lam_mwes["H_therm"]=mwe_H_therm
@@ -1012,10 +1012,10 @@ if(have_Temperature && have_H_therm_$MAT$)
                                        ["AXPBY-IPARAMS","THERMAL_DELTA_T","",1.0,"TIME"],
                                        ["TSTOP","advance_time_thermal"],
                                        ])
-        
+
         lam_vectors["v_H_therm"]=nlam.lam_vector(name="v_H_therm",mwe_name="H_therm")
         lam_vectors["v_Temperature"]=nlam.lam_vector(name="v_Temperature",mwe_name="Temperature")
-        
+
         lam_local["local_H_therm"]=nlam.lam_local("local_H_therm",
                                                   aux_args=intensive_params,
                                                   field_mwes=["H_therm","Temperature"],
@@ -1061,7 +1061,7 @@ if(have_Temperature && have_H_therm_$MAT$)
         ocaml.lam_set_field(lam, master_fields_and_mwes_by_name["Temperature"][1], "v_Temperature")
         ocaml.lam_execute(lam,"init_m_inv_sqrtvol",[],[])
         # XXX NOTE: shouldn't I provide the proper intensive parameters here?!??
-    
+
     # The LAM is set up now.
     # The question is: what else apart from that do we return?
     # Most certainly, access to the master buffers.
