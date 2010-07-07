@@ -29,12 +29,6 @@ from nsim.fd.ovf import OVFFile, OVF10, OVF20
 from nsim.timings import Timer, show_timers
 from nsim.si_units.si import SI
 
-
-
-import nsim.shell
-
-
-
 timer1 = Timer("readh5")
 
 def build_full_field_name(field_name, subfield_name):
