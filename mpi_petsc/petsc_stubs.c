@@ -926,8 +926,8 @@ CAMLprim value caml_petsc_vec_set1(value ml_vec, value ml_index, value ml_val)
   CAMLparam3(ml_vec,ml_index,ml_val);
 
   Vec vec;
-  double x[1];
-  int indices[1];
+  PetscScalar x[1];
+  PetscInt indices[1];
 
   DEBUG_LOG("caml_petsc_vec_set1");
   petsc_checkinit();
@@ -951,8 +951,8 @@ CAMLprim value caml_petsc_vec_inc1(value ml_vec, value ml_index, value ml_val)
   CAMLparam3(ml_vec,ml_index,ml_val);
 
   Vec vec;
-  double x[1];
-  int indices[1];
+  PetscScalar x[1];
+  PetscInt indices[1];
 
   DEBUG_LOG("caml_petsc_vec_inc1");
   petsc_checkinit();
@@ -1063,7 +1063,7 @@ CAMLprim value caml_petsc_vec_global_size(value ml_vec)
   CAMLparam1(ml_vec);
 
   Vec vec;
-  int global_size;
+  PetscInt global_size;
 
   petsc_checkinit();
   petsc_check_vec(ml_vec);
@@ -1216,7 +1216,7 @@ CAMLprim value caml_petsc_vec_extract(value ml_vec)
   CAMLparam1(ml_vec);
 
   Vec vec, vec_local;
-  int i,local_size,global_size;
+  PetscInt i, local_size,global_size;
 
   PetscScalar *data;
 
@@ -1270,7 +1270,7 @@ CAMLprim value caml_petsc_vec_get_own_range(value ml_vec)
   CAMLparam1(ml_vec);
   
   Vec vec;
-  int mybase, myend;
+  PetscInt mybase, myend;
   
   DEBUG_LOG("caml_petsc_vec_get_own_range");
   petsc_checkinit();
@@ -1298,7 +1298,7 @@ CAMLprim value caml_petsc_vec_as_bigarray_open_raw(value ml_vec)
 
   Vec vec;
   long l_local_size[1];
-  int i_local_size[1];
+  PetscInt i_local_size[1];
   int dim;
 
   PetscScalar *data;

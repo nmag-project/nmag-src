@@ -1764,7 +1764,8 @@ let _py_mesh_from_points_and_simplices =
 	let do_reorder = py_is_true args.(5) in
 	let do_distribute = py_is_true args.(6) in
 	let () = logdebug (Printf.sprintf "mesh_from_points_and_simplices #1\n") in
-	let some_mesh =
+        let () = reportmem "_py_mesh_from_points_and_simplices: Before read_mesh" in
+        let some_mesh =
 	  read_mesh_from_points_and_simplices nodes_arr simplices_indices_arr simplices_regions_arr periodic_points_arr in
 	let mesh =
 	  match some_mesh with
