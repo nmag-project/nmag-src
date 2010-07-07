@@ -303,8 +303,9 @@ class Model:
             mwe_in, mwe_out = op.get_inputs_and_outputs()
             op_full_name = op.get_full_name()
             assert len(mwe_in) == 1 and len(mwe_out) == 1, \
-              ("Operators should only involve one quantity as input and "
-               "one quantity as output")
+              ("Operators should only involve exactly one quantity as input "
+               "and one quantity as output. However, for operator '%s' "
+               "input=%s and output=%s." % (op.name, mwe_in, mwe_out))
 
             operator_dict[op_full_name] = \
               nlam.lam_operator(op_full_name, mwe_out[0], mwe_in[0], op_text)

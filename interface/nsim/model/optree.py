@@ -202,6 +202,7 @@ class DiffIndexNode(Node):
 class FieldNode(Node):
     def __init__(self, children=[], data=[]):
         Node.__init__(self, children=children, data=data)
+
         if len(self.data) == 1:
             n = self.data[0]
             self.data = [n, n]
@@ -229,6 +230,8 @@ class FieldNode(Node):
             return self.data[0] + str(bspecs)
 
     def _collect_quantities(self, collections, parsing):
+        print self.data
+        #raw_input()
         qn = self.data[1]
         collections[parsing][qn] = True
 
