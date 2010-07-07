@@ -1710,7 +1710,7 @@ class Simulation(SimulationCore):
         :Returns:
           `data` : [list [of list[ of ...]]] float
             The returned object is a float for scalar subfields,
-            a list of floats vector fields, a list of list of
+            a list of floats for vector fields, a list of list of
             floats for (rank 2) tensor fields, etc.
             
         """
