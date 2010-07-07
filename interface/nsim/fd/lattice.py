@@ -2,7 +2,7 @@
 # Copyright (C) 2010 University of Southampton
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
 #
-# WEB:     http://nmag.soton.ac.uk 
+# WEB:     http://nmag.soton.ac.uk
 # CONTACT: nmag@soton.ac.uk
 #
 # AUTHOR(S) OF THIS FILE: Matteo Franchin
@@ -19,7 +19,7 @@ __all__ = ["first_difference", "parse_lattice_spec",
 
 import numpy
 
-import logging
+import logging, collections
 
 log = logging.getLogger('nsim')
 logmsg = log.info
@@ -81,9 +81,9 @@ class Lattice(object):
         """Creates a lattice given a list containing, for each dimension,
         the corresponding minimum and maximum coordinate and the number of
         points in which it is discretised. Something like:
-            
+
           [(x_min, x_max, x_num), (y_min, y_max, y_num), ...]
-          
+
         Alternatively, a string is accepted following the same specification
         accepted by the function 'parse_lattice_spec'.
         """
@@ -163,6 +163,23 @@ class Lattice(object):
                 pos.append(x_min)
         return pos
 
+    def scale(self, factors):
+        """Scale the Lattice object by the given factor. If factors is a list
+        than it is interpreted as a list of factors, one for each corresponding
+        dimensions. Otherwise, it is interpreted as a factor by which all the
+        dimensions should be scaled."""
+        if isinstance(factors, collections.Sequence):
+            for i, f in enumerate(factors):
+                mn, mx, nm = self.min_max_num_list[i]
+                self.min_max_num_list[i] = (mn*f, mx*f, nm)
+
+        else:
+            n = len(self.min_max_num_list)
+            f = factors
+            for i in range(n):
+                mn, mx, nm = self.min_max_num_list[i]
+                self.min_max_num_list[i] = (mn*f, mx*f, nm)
+
     def _foreach(self, nr_idx, idx, pos, fn, fastest_idx, idx_order):
         if nr_idx == fastest_idx:
             fn(idx, pos)
@@ -200,11 +217,13 @@ class Lattice(object):
 
 class FieldLattice(object):
     def __init__(self, lattice, dim=3, order="F",
-                 data=None, reduction=0.0):
+                 data=None, reduction=0.0, scale=None):
         if isinstance(lattice, Lattice):
             self.lattice = lattice
         else:
             self.lattice = Lattice(lattice, order=order, reduction=reduction)
+        if scale != None:
+            self.lattice.scale(scale)
         self.field_dim = dim
         nodes = self.lattice.nodes
         shape = self.lattice._combine_idx(nodes, [dim])

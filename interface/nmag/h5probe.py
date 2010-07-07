@@ -27,21 +27,70 @@ import nfem.hdf5_v01 as hdf5
 from nsim.fd import first_difference, Lattice, FieldLattice
 from nsim.fd.ovf import OVFFile, OVF10, OVF20
 from nsim.timings import Timer, show_timers
+from nsim.si_units.si import SI
+
+
+
+import nsim.shell
+
+
 
 timer1 = Timer("readh5")
 
+def build_full_field_name(field_name, subfield_name):
+    return '%s_%s' % (field_name, subfield_name)
+
+class FieldInfo(object):
+    """The purpose of this class is to store additional information about the
+    field which may be required in order to save OVF files."""
+    def __init__(self, filename=None):
+        self.meshunit = "m"
+        self.scale = None
+        self.valueunit_si = None
+        self.valueunit = None
+
+    def set_from_file(self, filehandle, field_name, subfield_name):
+        """Read the field info from the given hdf5 file handle or file name.
+        """
+        full_name = build_full_field_name(field_name, subfield_name)
+
+        fh_to_close = None
+        if type(filehandle) == str:
+            filehandle = hdf5.open_pytables_file(filehandle)
+            fh_to_close = filehandle
+
+        u = hdf5.get_mesh_unit(filehandle)
+        self.meshunit = "m" # Always in m
+        self.scale = float(u/SI("m"))
+        units_by_dofname = hdf5.get_units_by_dofname(filehandle)
+        self.valueunit_si = eval(units_by_dofname[full_name])
+        self.valueunit = self.valueunit_si.dens_str(angles=False)
+        self.full_name = full_name
+
+        if fh_to_close:
+            hdf5.close_pytables_file(fh_to_close)
+        return self
+
 def save_to_ovf(lattice, data, data_dim, filename,
                 data_type="binary8", mesh_type="rectangular",
-                ovf_version=OVF10, title="From_NmagProbe"):
-    fl = FieldLattice(lattice, data=data, dim=data_dim, order="F")
+                ovf_version=OVF10, title=None, field_info=None):
+    logmsg("Saving field to OVF file \"%s\"" % filename)
+    if field_info == None:
+        field_info = FieldInfo()
+    fl = FieldLattice(lattice, data=data, dim=data_dim, order="F",
+                      scale=field_info.scale)
     ovf = OVFFile()
     ovf.new(fl, version=ovf_version, data_type=data_type, mesh_type=mesh_type)
-    h = ovf.content.a_segment.a_header
-    h.a_title = title
+    c = ovf.content
+    h = c.a_segment.a_header
+    h.a_title.value = title if title != None else "Data"
+    h.a_meshunit.value = field_info.meshunit
+    c.valueunits = field_info.valueunit
+    c.valuelabels = field_info.full_name
     ovf.write(filename)
 
 def unpack_ovf_fmt(ovf_fmt):
-    """Unpack an OVF format specifications in its components.
+    """Unpack an OVF format specifications to its components.
     The format string has the form ovf[1|2][r|i][b8|b4|t], where:
 
       [1|2] version of OVF file
@@ -172,6 +221,7 @@ class ProbeStore:
         self.item_shape = None
         self.data = None
         self.data0 = None
+        self.field_info = None
         logmsg("Creating ProbeStore object: shape=%s" % (self.data_shape,))
 
     def __str__(self):
@@ -179,6 +229,11 @@ class ProbeStore:
         def out_writer(s): out[0] += s
         self.write(out=out_writer)
         return out[0]
+
+    def add_field_info(self, field_info):
+        """Add additional field information (field_info must be a FieldInfo
+        object)."""
+        self.field_info = field_info
 
     def get_data(self):
         if self.data == None:
@@ -344,7 +399,7 @@ class ProbeStore:
 
             save_to_ovf(self.lattice, spatial_data, item_dim, fn,
                         data_type=data_type, mesh_type=mesh_type,
-                        ovf_version=version)
+                        ovf_version=version, field_info=self.field_info)
             file_index[0] += 1
 
         self.times.foreach(foreach_time)
@@ -376,9 +431,6 @@ def probe_field_on_lattice(lattice, field, subfield, out):
                 assert len(probed) == 0, \
                   "Unexpected output from probing function: %s" % str(probed)
     lattice.foreach(do)
-
-def build_full_field_name(field_name, subfield_name):
-    return '%s_%s' % (field_name, subfield_name)
 
 class Fields:
     """Class which can be used to load the fields stored inside an Nmag h5
@@ -500,9 +552,8 @@ class Fields:
         root_data_fields = self.get_root_data_fields()
 
         dim = self.mesh.dim
-        field_table = f.getNode(root_data_fields, field_name)
-        field_stuff = getattr(root_data_fields, field_name) # need to improve this
-        field_shape = list(field_stuff[0][1].shape)[1:]
+        field_stuff = f.getNode(root_data_fields, field_name)
+        field_shape = list(field_stuff.row[full_field_name].shape)[1:]
 
         # Get the sites where the subfield is defined (sites) and the
         # corresponding coordinates (ps) and values (vs)
@@ -729,7 +780,12 @@ def probe_and_fft_field_from_file(file_name, times, lattice, field_name,
     if complex_to_real == None:
         complex_to_real = lambda x: abs(x)
 
+    # Retrieve additional field information (useful when saving to OVF)
+    fi = FieldInfo()
+    fi.set_from_file(file_name, field_name, subfield_name)
+
     ps = ProbeStore(times, lattice)
+    ps.add_field_info(fi)
     if ref_time != None:
         ps.define_reference_field(file_name, field_name, subfield_name,
                                   time=ref_time)
@@ -1018,8 +1074,7 @@ def main(prog, args):
 
     cmplx2real = complex_filter(ft_out_mode)
 
-    fieldname = "m"
-    subfieldname = "Py"
+    fieldname, subfieldname = fieldname.rsplit("_", 1)
 
     l = Lattice(space_lattice, reduction=1e-15, order="F")
     ts = Lattice(time_lattice, reduction=1e-20, order="F")

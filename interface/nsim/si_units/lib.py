@@ -60,7 +60,7 @@ def _unsafe_str_of_SI_vector(vector):
     return "[" + " ".join(numbers) + ']' + units_str
 
 # mf: don't know a better way to avoid round-off errors in __pow__ method
-def float_is_integer(x): 
+def float_is_integer(x):
     """
     Return true if float x is an integer.
 
@@ -70,25 +70,25 @@ def float_is_integer(x):
     float_is_integer(x) should return true only when x differs from an integer
     by the less significant bit in the machine representation of the floating
     point number. For example:
-    
+
     in base 10 you can write 1 as 0.99999999999...
     in base 2, 1 is (binary)0.11111111111...
-    
+
     the machine however has to truncate the number, therefore the statement::
-    
+
       print 1 == (binary)0.11111...1
-    
+
     will print false. The function defined here solves this problem.
 
     You can see it in another way: try to execute the python program::
-    
+
       for i in range(1, 1000): print (1.0/i)*i == 1.0
-    
+
     one would expect that only true is printed on the screen. Actually this does
     not happen due to truncation errors. This function solves the problem::
-    
+
       for i in range(1, 1000): print float_is_integer((1.0/i)*i)
-    
+
     will print always true.
 
     This is done in a tricky way: we have to check that the fractional part of
@@ -111,51 +111,51 @@ class Physical(object):
 
     There are different ways to create objects:
 
-    1. The most fundamental approach is to 
+    1. The most fundamental approach is to
        provide a value and a list of pairs where each pair is
        a character identifying the SI base unit and an integer that
        provides its power.
-      
+
        Examples:
-      
+
        A. ``v = SI(10,['m',1,'s',-1])`` is the code to create an SI object v
           that represents 10 m/s.
-         
+
        B. ``B = SI(0.6,['kg',1,'s',-2,'A',-1])`` is the code to create an SI
           object T that represents  0.6 kg/(s^2 A) (i.e. 0.6 Tesla)
-         
+
     2. A more convenient way is to first define all the base units
-       like this (these are already defined in the ``si`` submodule, so 
+       like this (these are already defined in the ``si`` submodule, so
        instead of the following lines below, we could also just write:
        ``from si import meter,second,Ampere``)::
-      
+
          meter = SI(1,'m') # alternative spelling: metre
          second = SI(1,'s')
          Ampere = SI(1,'A')
-        
+
        and then to use these SI objects to create more complex
        expressions::
 
          v = 10*meter/second
          B = 0.6*kilogram/second**2/Ampere
-        
+
        Of course, short hand notations can be defined such as::
-      
+
          T = kilogram/second**2/Ampere
          B = 0.6*Tesla
-        
+
     3. Finally, there is another convenient way:
 
        Instead of a SI dimension vector as in (1), it is possible to pass
        a string specifying dimensions. Examples are:
 
        "A/m", "V/m", "J/m^3", "m^2 s^(-2)", "m^-3 s^-1" etc.
-     
+
        The dimensions parser will understand (in addition to m, kg, s, A, K, mol, cd):
        J, N, W, T, V, C, Ohm, H
 
     A very basic demonstration of the SI object in use::
-    
+
         >>> a = SI(1,'m')
         >>> b = SI(1e-3,'m')
         >>> print a+b
@@ -163,9 +163,9 @@ class Physical(object):
         >>> print a*b
         <SI: 0.001  m^2 >
         >>> print a/b
-        >>> <SI: 1000  >           #Note that this is dimensionless 
+        >>> <SI: 1000  >           #Note that this is dimensionless
                                    #because we divided meters by meters
-    
+
     """
 
     _si_unit_name_to_posn={"m":0,"kg":1,"s":2,"A":3,"K":4,"mol":5,"cd":6}
@@ -194,7 +194,7 @@ class Physical(object):
 
 	"""
         Create a Physical object, see documentation of the SI class.
-        
+
         """
 
         if dimensions == [] and type(value) == types.StringType:
@@ -225,7 +225,7 @@ class Physical(object):
                 raise ValueError("Physicalquantity: Bad dimensions given! "
                                  "(%s)" % str(dimensions))
             nr_entries=nr_dims/2
-        
+
             for i in range(0,nr_entries):
                 key = dimensions[2*i]
                 if not(Physical._si_unit_name_to_posn.has_key(key)):
@@ -249,7 +249,7 @@ class Physical(object):
             if abs_val==1:
                 return " %s" % Physical._si_posn_to_unit_name[index]
             return " %s^%d"%(Physical._si_posn_to_unit_name[index],abs_val)
-        
+
         pos_powers="".join([name_power(x,self._dims[x],True) for x in range(0,7)])
         neg_powers="".join([name_power(x,self._dims[x],False) for x in range(0,7)])
         powers=pos_powers
@@ -270,7 +270,7 @@ class Physical(object):
 
 	More information and other represenations:
 
-	Example: 
+	Example:
 
           >>> H=SI(1e6,["A",1,"m",-1])
           >>> print H
@@ -281,7 +281,7 @@ class Physical(object):
           "SI(            1000000,['m',-1,'A',1])"
 	  >>>
 	  >>> #Note that we print the value with many digits to
-	  >>> #ensure that we serialise all significant digits of 
+	  >>> #ensure that we serialise all significant digits of
 	  >>> #the float.
 	  >>>
           >>> H.dens_str()
@@ -301,10 +301,10 @@ class Physical(object):
         output += ","+list2str(self.units)+")"
         return output
 
-    def dens_str(self):
+    def dens_str(self, angles=True):
 	"""Provide a dense string describing the object
 
-	Example: 
+	Example:
 
   	  >>> H=SI(1e6,["A",1,"m",-1])
           >>> print H
@@ -326,18 +326,19 @@ class Physical(object):
             if abs_val==1:
                 return "%s" % Physical._si_posn_to_unit_name[index]
             return "%s^%d"%(Physical._si_posn_to_unit_name[index],abs_val)
-        
-        pos_powers="".join([name_power(x,self._dims[x],True) for x in range(0,7)])
-        neg_powers="".join([name_power(x,self._dims[x],False) for x in range(0,7)])
-        powers=pos_powers
-        if neg_powers <> "":
-            powers="%s/%s"%(pos_powers,neg_powers)
-        if self._value in [1.0,1]:
-            repr_str="<%s>" %(powers)
-        else:
-            repr_str="<%g%s>" %(self._value,powers)
-        return repr_str
 
+        pos_powers = "".join([name_power(x, self._dims[x], True)
+                              for x in range(0, 7)])
+        neg_powers = "".join([name_power(x, self._dims[x], False)
+                              for x in range(0, 7)])
+        powers = pos_powers
+        if neg_powers <> "":
+            powers = "%s/%s" % (pos_powers, neg_powers)
+        if self._value in [1.0, 1]:
+            repr_str = powers if powers != "" else "1"
+        else:
+            repr_str = "%g%s" % (self._value, powers)
+        return ("<%s>" % repr_str if angles else repr_str)
 
     def _check_type(self,x):
         """Internal checking of type"""
@@ -559,7 +560,7 @@ class Physical(object):
         'unit_quantity'. This is useful to convert from one
         measurement convention (such as m/s) to another one (such as
         km/h). The return value is just a float.
-        
+
         The units of 'unit_quantity' have to be compatible with the
         units of the object itself (otherwise an exception is raised).
 
@@ -569,7 +570,7 @@ class Physical(object):
           >>> inch = SI(2.54e-2,'m')
           >>> d.in_units_of(inch)
           393.70078740157478
-         
+
         Another example::
 
           >>> m = SI(1,'m')
@@ -586,7 +587,7 @@ class Physical(object):
           `unit_quantity` : SI Object
             The SI object itself (i.e. ``self``) will be expressed in
             multiplies of this ``unit_quantity``.  `
-            
+
         :Returns:
           float
             This is the number that, multiplied by the ``unit_quantitity`` will
@@ -602,7 +603,7 @@ class Physical(object):
     def _get_value(self): return self._value
 
     _property_value_doc__ = """
-        Read-only attribute to obtain (dimensionless) value of Physical Object        
+        Read-only attribute to obtain (dimensionless) value of Physical Object
 
         :Returns:
           `value` : float
@@ -629,7 +630,7 @@ class Physical(object):
                 continue
             result += [unit,power]
         return result
-            
+
     units = property(_get_units,doc="Read-only attribute to obtain units of Physical Object (returned as list of pairs of dimension name and power)" )
 
 
@@ -652,7 +653,7 @@ SI = Physical
 #    print force
 #    print time
 #    print time.in_units_of(SI(1,["s",1]))
-#    
+#
 #    momentum=force*time
 #
 #    print momentum

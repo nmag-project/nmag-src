@@ -41,15 +41,45 @@ EXAMPLE 2: creating a new OVF file
     ovf.new(fl, version=OVF20, data_type="binary8")
     ovf.write("newfile.ovf")
 
-  Note that after the ovf.new method has been called, you can customize some
-  of the fields of the OVF header by accessing it directly under ovf.content.
+  Note that after the 'ovf.new' method has been called, you can customize some
+  of the fields of the OVF header by accessing it directly under
+  'ovf.content'. 'ovf.content' gives you access to the content of the header.
+  For example, if the header contains an entry 'xmin', then you can access it
+  as 'ovf.content.a_segment.a_header.a_xmin'. However, there are some header
+  entries which appear only in OVF version 1.0, but not in version 2.0.
+  One of such entries is 'valueunit', which is valid in v 1.0 but is not valid
+  in v 2.0 (where it is replaced by the entry 'valueunits'). In practice that
+  means that the OVF 1.0 files have the entry
+
+    ovf.content.a_segment.a_header.a_valueunit
+
+  but do not have the entry
+
+    ovf.content.a_segment.a_header.a_valueunits
+
+  while for OVF 2.0 it is exactly the other way round.
+  'ovf.content' then provides wrapper entries which work for both version
+  1.0 and version 2.0. You should then try to use the properties of
+  'ovf.content' when they are available, rather than using
+  'ovf.content.a_segment...'.
   For example:
 
     h = ovf.content.a_segment.a_header
     h.a_title.value = "The title of my OVF file"
     h.a_meshunit.value = "m"
-    h.a_valueunits.value.units = ["A/m", "A/m", "A/m"]
+    ovf.content.valueunits = ["A/m", "A/m", "A/m"]
     ovf.write("newfile.ovf")
+
+  Here we use:
+
+    ovf.content.valueunits = ["A/m", "A/m", "A/m"]
+
+  rather than:
+
+    h.a_valueunits.value.units = ["A/m", "A/m", "A/m"]
+
+  The last line is indeed valid only for OVF 2.0 but fails for OVF 1.0.
+  The former one, in contrast, works both for version 1.0 and 2.0.
 
 NOTE: The OVF file defines fields over a grid of cubes while the FieldLattice
   defines fields over points (the centers of the cubes, actually).
@@ -78,7 +108,7 @@ NOTE: The OVF file defines fields over a grid of cubes while the FieldLattice
   the spacing is, but is not used as a point in the mesh.
 """
 
-__all__ = ["OVF10", "OVF20", "OVFFile"]
+__all__ = ["OVF10", "OVF20", "OVFFile", "OVFValueUnits", "OVFValueLabels"]
 
 import struct
 from numpy import array, ndarray
@@ -95,8 +125,9 @@ def name_normalise(name):
         name = name.replace(c, "")
     return name.lower()
 
-class OVFReadError(Exception):
-    pass
+class OVFReadError(Exception): pass
+
+class OVFVersionError(Exception): pass
 
 class OVFNode(object):
     def __init__(self, subnodes=[], data=None):
@@ -269,14 +300,14 @@ def split_strings(ls):
 
 class OVFValueUnits:
     def __init__(self, s):
-        self.units = s.split()
+        self.units = s.split() if type(s) == str else s
 
     def __str__(self):
         return " ".join(self.units)
 
 class OVFValueLabels:
     def __init__(self, s):
-        self.labels = split_strings(s)
+        self.labels = split_strings(s) if type(s) == str else s
 
     def __str__(self):
         return " ".join(['"%s"' % l for l in self.labels])
@@ -407,7 +438,6 @@ class OVFDataSectionNode(OVFSectionNode):
             l = stream.next_line()
             if l.startswith("# End:"):
                 return
-
 
     def _read_binary(self, stream, root=None, data_size=8):
         endianness, float_type, expected_tag = \
@@ -581,10 +611,57 @@ class OVFRootNode(OVFSectionNode):
         else:
             return self.a_segment.a_header.a_valuedim.value
 
-    field_dim = property(_get_field_dim, None, None,
-                         "Return the size of the field.")
+    field_dim = property(_get_field_dim, None, None, "The size of the field.")
 
+    def _get_valueunits(self):
+        v = self.ovf_version
+        if v == OVF10:
+            return self.a_segment.a_header.a_valueunit.value
+        else:
+            return self.a_segment.a_header.a_valueunits.value
 
+    def _set_valueunits(self, units):
+        units = [units] if type(units) == str else units
+        v = self.ovf_version
+        if v == OVF10:
+            units_are_all_the_same = units.count(units[0]) == len(units)
+            assert units_are_all_the_same, \
+              ("OVF 1.0 does not support fields having components with "
+               "different units.")
+            self.a_segment.a_header.a_valueunit.value = str(units[0])
+        else:
+            assert v == OVF20
+            def unit_setter(idx):
+                return units[idx] if idx < len(units) else units[-1]
+            us = [unit_setter(idx) for idx in range(self.field_dim)]
+            self.a_segment.a_header.a_valueunits.value = OVFValueUnits(us)
+
+    valueunits = property(_get_valueunits, _set_valueunits, None,
+                          "The units of the components of the field "
+                          "(one string or a list of strings).")
+
+    def _get_valuelabels(self):
+        v = self.ovf_version
+        if v == OVF20:
+            return self.a_segment.a_header.a_valuelabels.value
+        else:
+            raise OVFVersionError("valuelabels is only available in OVF 2.0.")
+
+    def _set_valuelabels(self, labels):
+        v = self.ovf_version
+        if v == OVF20:
+            if type(labels) == str:
+                labels = ["%s_%d" % (labels, i)
+                          for i in range(self.field_dim)]
+            self.a_segment.a_header.a_valuelabels.value = \
+              OVFValueLabels(labels)
+
+    valuelabels = property(_get_valuelabels, _set_valuelabels, None,
+                           "The labels for the components of the field "
+                           "(a list of names, one for each component. when "
+                           "setting you can provide also a string, used as "
+                           "the basename of the field: _0, _1, _2, ... are "
+                           "appended to each component).")
 
     def write(self, stream, root=None):
         for n in self._subnodes:
@@ -736,7 +813,7 @@ class OVFFile:
 
         else:
             h.a_valuedim.value = fl.field_dim
-            h.a_valueunits.value = " 1.0"*fl.field_dim
+            h.a_valueunits.value = OVFValueUnits(" 1.0"*fl.field_dim)
             h.a_valuelabels.value = OVFValueLabels(' "1.0"'*fl.field_dim)
 
         # Finally replace self.content

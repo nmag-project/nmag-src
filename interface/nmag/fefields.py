@@ -12,10 +12,10 @@ def _set_what_msg(subfieldname, site=None):
     '''Internal function, used by _prepare_set_field when reporting error
     messages'''
     if site != None:
-        msg_where = "subfield %s at site %s" % (subfieldname, site)
+        return "subfield %s at site %s" % (subfieldname, site)
     else:
-        msg_where = "subfield %s" % subfieldname
- 
+        return "subfield %s" % subfieldname
+
 def _prepare_set_field(field, subfieldname, data, site=None,
                        scale_factor=1.0, normalise=False, check_site=False):
     """
@@ -44,7 +44,7 @@ def _prepare_set_field(field, subfieldname, data, site=None,
     if shape != shape_by_subfieldname[subfieldname]:
         msg = ("When trying to set %s we have a shape mismatch. The shape of "
                "the subfield data is '%s' but the shape of your data is '%s'."
-               "By the way, your data is '%s'." 
+               "By the way, your data is '%s'."
                % (_set_what_msg(subfieldname, site),
                   shape_by_subfieldname[subfieldname], shape, data))
         raise NmagUserError(msg)
@@ -121,7 +121,7 @@ def set_fielddata_from_function(field, subfieldname, function,
     log.debug("set_fielddata_from_function: Done.")
 
 # The following functions are for setting subfields.
-def set_fielddata_from_vector(field, subfieldname, data, 
+def set_fielddata_from_vector(field, subfieldname, data,
                               scale_factor=1.0, normalise=False):
     # First check that shape of data and shape of this subfield agree:
     log.debug("set_fielddata_from_vector: setting %s to '%s'."
@@ -142,7 +142,7 @@ def set_fielddata_from_vector(field, subfieldname, data,
 
         for site in site_ids:
             set_field_at_site(field, subfieldname, site, data,
-                              normalise=normalise, 
+                              normalise=normalise,
                               scale_factor=scale_factor)
 
     log.debug("set_fielddata_from_vector: Done.")
@@ -180,7 +180,7 @@ def flexible_set_fielddata(field, subfieldname, data, pos_unit_length,
 
     :Parameters:
 
-      `field` : OCaml Pill for field 
+      `field` : OCaml Pill for field
         The field that should be modified.
 
       `data` : list of floats, function or numpy array

@@ -5,7 +5,7 @@ TODO:
 -document me
 
 -split into different files for different fileformats?
- 
+
 
 """
 
@@ -45,7 +45,7 @@ def pytables_file_format_version(fh):
     file_format_version = fh.root._v_attrs.PYTABLES_FORMAT_VERSION
 
     log.debug("Pytables version of file %s is %s" % (fh.filename,file_format_version))
-    
+
     return map(int,file_format_version.split('.'))
 
 
@@ -63,7 +63,7 @@ def importtables():
                                                     version))
 
     log.debug("Using pytables version %s" % tables.__version__)
-        
+
     return tables
 
 
@@ -159,7 +159,7 @@ def tagfile(f,filetype,version):
         fh = open_pytables_file(f,'a')
     else:
         fh = f
-    
+
     if not hasattr(fh.root,'etc'):
         etcgroup = fh.createGroup("/", 'etc', 'Configuration and version data')
 
@@ -168,11 +168,11 @@ def tagfile(f,filetype,version):
         log.debug("Have tagged file %s with filetype '%s'" % (fh.filename,filetype))
     else:
         checktag_filetype(f,filetype)
-            
+
     if not hasattr(fh.root.etc,'fileversion'):
         fh.createArray("/etc", 'fileversion', [version],title='data file type version')
         log.debug("Have tagged file %s with version %s" % (fh.filename,version))
-    else: 
+    else:
         checktag_version(f,version)
 
     if type(f) == types.StringType: #was given string, need to close file
@@ -204,10 +204,10 @@ def checktag_filetype(f,filetype):
         #raise NfemUserError,"File %s is of type '%s' but you try to use it as '%s'" % (f.filename,f.root.etc.filetype[0],filetype)
 
     return filetype_okay
-    
+
 def checktag(f,filetype,version,alt=[]):
     """alt can be a list of 2-tuples that provide alternative combinations of filetype and version that will be accepted"""
-    
+
     types_versions = [(filetype,version)]+alt
 
     okay = [False]*len(types_versions)
@@ -235,8 +235,8 @@ def insert_file(h5fh,where,name,title,filename):
     fnode.attrs.path=os.path.abspath(filename)
     import socket
     fnode.attrs.host=socket.getfqdn()
-    
-    fnode.close()        
+
+    fnode.close()
 
 
 
@@ -250,7 +250,7 @@ def open_pytables_file(filename,mode='r'):
         _pytables_open_file_dict[filename] = 0 #currently open 0 times
 
     cur_open = _pytables_open_file_dict[filename]
-    
+
     log.log(15,"PYTABLES: About to open file %s in mode '%s', currently open %d times" % (filename,mode,cur_open))
     callers = nsim.snippets.get_callers_string().split('\n')[1:]
     log.debug("PYTABLES: open_pytables_file caller stack:\n" + "\n".join(callers))
@@ -360,7 +360,7 @@ def get_saved_fields_by_id(f):
 
     for field in fieldlist:
         saved_ids_by_fieldname[field] = get_ids_for_field(f,field)
-        #also record these ids for the global id list 
+        #also record these ids for the global id list
         all_ids = all_ids + saved_ids_by_fieldname[field].tolist()
 
     #make id list unique
@@ -383,7 +383,7 @@ def get_saved_fields_by_id(f):
     log.debug("get_saved_fields_by_id: %s" % debug_msg)
 
     return fields_by_id
-    
+
 
 
 
@@ -418,7 +418,7 @@ def _get_data_index_by_dofsite(h5fh,dofname):
     table = h5fh.getNode('/mesh','dofsites')
 
     numpy_indices = table[0].field(dofname)
-    
+
     indices=map(tuple,numpy_indices.tolist())
     data_index_by_site = dict( map(None,indices,range(len(indices))))
     return data_index_by_site
@@ -427,7 +427,7 @@ def _get_dofsite_by_index(h5fh,dofname):
     """because index is just range(len(dofsites)), this is a list"""
 
     checktag(h5fh,'nsimdata','0.1')
-    
+
     table = h5fh.getNode('/mesh','dofsites')
 
     #from IPython.Shell import IPShellEmbed
@@ -442,7 +442,7 @@ def _get_dofsite_by_index(h5fh,dofname):
     else:
         numpy_indices = table.read(start=0,stop=1,field=dofname)[0]
 
-    
+
 
     return numpy_indices
 
@@ -461,24 +461,12 @@ def get_units_by_dofname(f):
     checktag(f,'nsimdata','0.1')
     table = f.root.etc.metadatafields
 
-    #Pytables 2.0 seems to return a 128 character string (because that
-    #is the full length of the string),i.e. "E_Anis_Py [snip]", rather
-    #than only the non-white space characters,i.e. "E_Anis_Py"). We
-    #thus strip the white space off from the right.
-
-    mydict = dict( [ (string.rstrip(x['dofname']),x['unit'])
-                     for x in table.iterrows()] )
-
-
-    #mydict = dict( [ (x['dofname'],x['unit']) for x in table.iterrows()] )
-
-    #from IPython.Shell import IPShellEmbed
-    #ipshell = IPShellEmbed([])
-    #ipshell()
-
-
-
-
+    # Pytables 2.0 seems to return a 128 character string (because that
+    # is the full length of the string),i.e. "E_Anis_Py [snip]", rather
+    # than only the non-white space characters,i.e. "E_Anis_Py"). We
+    # thus strip the white space off from the right.
+    mydict = dict([(x['dofname'].rstrip(), x['unit'])
+                   for x in table.iterrows()])
     return mydict
 
 def get_time_unit(f):
@@ -507,7 +495,7 @@ def get_maxind_by_dofname(f):
     #from IPython.Shell import IPShellEmbed
     #ipshell = IPShellEmbed([])
     #ipshell()
-    
+
     return mydict
 
 def get_available_fields(f):
@@ -537,7 +525,7 @@ def append_averages(filename,names,values,units,floattype='32'):
     timer1.start('file_open')
     f=open_pytables_file(filename,'r+')
     timer1.stop('file_open')
-    
+
     checktag(f,'nsimdata','0.1')
 
     if hasattr(f.root.etc,'metadataaverages'):
@@ -552,7 +540,7 @@ def append_averages(filename,names,values,units,floattype='32'):
 
     else: #create metadata table
 
- 
+
         timer1.start('create_meta_data_and_table')
 
         #Create table with metadataaverages, keeping the names of the doftypes,
@@ -570,7 +558,7 @@ def append_averages(filename,names,values,units,floattype='32'):
 
         #Now populate this, one row per subfield name
         row=table.row
-        
+
         for name,unit in map(None,names,units):
             row['name']=name
             row['unit']=repr(unit)
@@ -631,7 +619,7 @@ def append_averages(filename,names,values,units,floattype='32'):
         #from IPython.Shell import IPShellEmbed
         #ipshell = IPShellEmbed([])
         #ipshell()
-           
+
         table = f.createTable(f.root.data,'averages',tablestruct,\
                               title='Spatial averages of fields', filters=myfilter)
 
@@ -644,7 +632,7 @@ def append_averages(filename,names,values,units,floattype='32'):
     timer1.start('populate_row')
 
     table = f.getNode(f.root.data,'averages')
-    
+
     row=table.row
 
     step = None
@@ -669,7 +657,7 @@ def append_averages(filename,names,values,units,floattype='32'):
     timer1.start('table_flush')
     table.flush()
     timer1.stop('table_flush')
-    
+
     if step == None:
 	raise StandardError,"Internal Error: 'step' was not in names. Names are %s" % names
     timesteps_in_h5_file.append(step)
@@ -700,21 +688,21 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
        - shapes, fields and units for all subfields
 
     - the mesh (if not, we stop)
-    
+
     - the sites of the dof (important for higher order basis functions)
       - if not, we'll save those
-      
+
          (difficulty: to get good compression, I need to have all sites in the same table.
          This means I need to create the table completely, before I write the first data to it.)
-         
+
     - the table for the field
       - if not, create
-      
+
     - then append field data to table
 
     - we write the fields in SI units
 
-    - positions (in the mesh data) are written in simulation units (add length scale to this,TODO Hans (fangohr 27/03/2007)) 
+    - positions (in the mesh data) are written in simulation units (add length scale to this,TODO Hans (fangohr 27/03/2007))
 
     :Parameters:
 
@@ -726,7 +714,7 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
         field,fieldunit). This is the list of fields that we are meant
         to save.
 
-      `all_fields_by_name` : dictionary 
+      `all_fields_by_name` : dictionary
         keys are field names, the values are tuples of (raw-ocaml
         field,fieldunit). This is the list of all fields of the
         simulation. It will only be used to save the metadata for all
@@ -753,18 +741,18 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
     :Returns:
 
        `None`
-        
+
     """
     timer2.start('all')
 
     myfloatCol = tables_floatCol(floattype)
 
-    
+
     #if step==2160 or True:
     #    print "Next line might fail, step=%d" % step
     #    import nmag
     #    nmag.ipython()
-    
+
     timer2.start('f_open')
     f = open_pytables_file(filename, 'r+')
     timer2.stop('f_open')
@@ -775,10 +763,10 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
 
     if not hasattr(f.root,'mesh'):
         raise IOError,"hdf5 file '%s' doesn't have mesh. Refuse to add data" % filename
-    
+
     if hasattr(f.root.etc,'metadatafields'):
         timer2.start('get_metadata_from_file')
-        
+
         #Check that fields provided are already known.
         known_dofnames = f.root.etc.metadatafields.cols.dofname[:]
         known_fields =  f.root.etc.metadatafields.cols.fieldname[:]
@@ -795,15 +783,15 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
 
         #This table keeps has entries of the type::
 
-        #  In [7]: f.root.etc.metadatafields[0]        
+        #  In [7]: f.root.etc.metadatafields[0]
         #  Out[7]: ('E_demag_Co', 'E_demag', '[]', "SI(1,['m',-1.0,'kg',1.0,'s',-2.0])")
-        #  
+        #
         #  In [8]: f.root.etc.metadatafields[1]
         #  Out[8]: ('E_demag_Py', 'E_demag', '[]', "SI(1,['m',-1.0,'kg',1.0,'s',-2.0])")
-        #  
+        #
         #  In [9]: f.root.etc.metadatafields[2]
         #  Out[9]: ('phi', 'phi', '[]', "SI(1,['A',1.0])")
-        
+
         #so we have easy access to the subfields, their fields, shape, and SI base units.
 
         timer2.start('write_metadata_to_file')
@@ -831,7 +819,7 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
         row=table.row
 
         log.debug("append_field(): Creating table root/etc/metadatafieldswith")
-        
+
         for fieldname,(field,units) in all_fields_by_name.items():
 
             #get dofs and maxinds:
@@ -848,7 +836,7 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
         table.flush()
 
         timer2.stop('write_metadata_to_file')
-        
+
 
     #Each dof can be defined on a particular subset of the mesh nodes
     #or (for higher order basis functions, at intermediate
@@ -926,7 +914,7 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
         log.debug("Written dof site table")
 
         timer2.stop('write_dofsites_to_file')
-        
+
 
     #check whether the right subgroups exit already
     if not hasattr(f.root,'data'):
@@ -955,7 +943,7 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
                 shape = 1
             else:
                 shape = ()
-            
+
             tablestruct['time']= tables_floatCol('64')(shape=shape) #always save time with 8 byte
             tablestruct['id']= tables.Int64Col(shape=shape)
             tablestruct['step']= tables.Int64Col(shape=shape)
@@ -966,7 +954,7 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
                 tablestruct[subfieldname]=myfloatCol(shape=data.shape)
 
             log.debug("Table struct for field %s is %s" % (fieldname,tablestruct))
-            
+
             myfilter = tables.Filters(complib='zlib',complevel=5)
             log.debug("About to call createTable (/root/data/fields/%s)" % fieldname)
             table = f.createTable(f.root.data.fields, fieldname, \
@@ -999,7 +987,7 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
             timer2.start('get_field_data_from_ocaml')
             data = numpy.array(ocaml.mwe_subfield_data(field,subfieldname))
             timer2.stop('get_field_data_from_ocaml')
-            
+
             #scale correctly (to be SI)
             x = simulation_units.conversion_factor_of(units).value
             log.debug("Conversion factor (SU->SI) for writing subfield '%s' is %g (units=%s)" % (subfieldname,x,units.dens_str()))
@@ -1009,7 +997,7 @@ def append_fields(filename,fields_by_name,all_fields_by_name,time_si,step,stage,
         timer2.start('table_append')
         tabdata.append()
         timer2.stop('table_append')
-        
+
         timer2.start('table_flush')
         table.flush()
         timer2.stop('table_flush')
@@ -1046,7 +1034,7 @@ def get_pos_from_dofsites(fh,dofsites):
 
     #output data
     dofpositions = numpy.zeros((nsites,dim),numpy.float64)
-    
+
     for i,dofsite in enumerate(dofsites):
         nodes = []
         for siteid in dofsite:
@@ -1062,7 +1050,7 @@ def get_pos_from_dofsites(fh,dofsites):
 
         dofpositions[i] = p
     return dofpositions
-            
+
 timer3 = nsim.timings.Timer('hdf5.get_counters_for_field')
 
 def get_counters_for_field(f, field):
@@ -1271,10 +1259,10 @@ def get_dof_row_data_in_meshpoint_order(fh,field,dofname,row):
         if max(target_indices)>len(target_array)-1:
             print "Something wrong here: max(target_indices)=%d>len(target_array)-1=%d-1" %\
                   (max(target_indices),len(target_array)-1)
-            print " type(target_indices)     ", type(target_indices)     
-            print " type(target_indices[0])  ", type(target_indices[0])  
-            print " target_indices           ", target_indices           
-            print " target_indices[0]        ", target_indices[0]        
+            print " type(target_indices)     ", type(target_indices)
+            print " type(target_indices[0])  ", type(target_indices[0])
+            print " target_indices           ", target_indices
+            print " target_indices[0]        ", target_indices[0]
 
             raise ValueError,"Internal problem: data is shorter than target indices values"
 
@@ -1301,7 +1289,7 @@ def get_dof_row_data_in_meshpoint_order(fh,field,dofname,row):
             #print "target_array[target_index]=",target_array[target_index]
         return target_array
 
-    
+
 
     #how big is the mesh
     npoints = len(fh.root.mesh.points)
@@ -1349,7 +1337,7 @@ def get_dof_row_data_in_meshpoint_order(fh,field,dofname,row):
 
     return dofpos, numpy_data, dofsites
 
-    
+
 
 #----------------------------------------------------------------------
 
@@ -1369,14 +1357,14 @@ def add_mesh(file,mesh,mesh_unit_length):
         be provided.
 
       `mesh` : Python mesh object
-        The Python object that contains the mesh 
+        The Python object that contains the mesh
 
       `unit_length` : SI object or None
         The SI object that defines what a length of 1.0 in mesh coordinates
         corresponds to in the real world.
 
         If we save the mesh from the mesher (using this function), then
-        we do not want to add a unit_length scale (so this parameter is optional). 
+        we do not want to add a unit_length scale (so this parameter is optional).
 
 
     """
@@ -1385,7 +1373,7 @@ def add_mesh(file,mesh,mesh_unit_length):
         f=file
     elif type(file)==types.StringType: #filename
         f=open_pytables_file(file,'r+')
-        
+
     meshgroup = f.createGroup("/", 'mesh', 'Mesh data')
 
     use_c_array = True
@@ -1431,7 +1419,7 @@ def add_mesh(file,mesh,mesh_unit_length):
         #For simplicity, we only use Int32Bit at the moment.
         #(fangohr 19/01/2007)
 
-        #simplices 
+        #simplices
         simplex_shape = (len(mesh.simplices),simp_dim)
         simplex_chunk = tables.Int32Atom(shape = simplex_shape)
 
@@ -1454,7 +1442,7 @@ def add_mesh(file,mesh,mesh_unit_length):
         simplexregion_chunk = tables.Int32Atom(shape=simplexregion_shape)
 
         simplexregion_c_array = \
-          my_tables_createCArray(f, meshgroup, 'simplicesregions', 
+          my_tables_createCArray(f, meshgroup, 'simplicesregions',
                                  simplexregion_shape, tables.Int32Atom,
                                  filter, 'Region ids (one for each simplex).')
 
@@ -1462,12 +1450,12 @@ def add_mesh(file,mesh,mesh_unit_length):
 
 
 	#periodic points:
-	
+
 	#Note that each line for periodic points may have a different number of indices:
-	#a corner may have 4 or 8 equivalent points (in 2d or 3d) but a point on the side may 
+	#a corner may have 4 or 8 equivalent points (in 2d or 3d) but a point on the side may
 	#just have one periodic repeat.
 
-	#We convert this into a CArray (which supports compression). We thus need 
+	#We convert this into a CArray (which supports compression). We thus need
 	#to convert the list of lists of irregular length into a regular matrix
 	#before we can convert to a numpy array.
 
@@ -1477,10 +1465,10 @@ def add_mesh(file,mesh,mesh_unit_length):
 
 	    periodicpointindices_shape = (len(mesh.periodicpointindices),max_len)
 
-	    #we use -1 as the token for None 
+	    #we use -1 as the token for None
 	    periodicpointindices_data = numpy.zeros(periodicpointindices_shape,dtype=numpy.int32)-1
 
-	    #populate numpy array with list-data 
+	    #populate numpy array with list-data
 	    for i,data in enumerate(mesh.periodicpointindices):
 		periodicpointindices_data[i,0:len(data)] = data
 
@@ -1501,7 +1489,7 @@ def add_mesh(file,mesh,mesh_unit_length):
         #to change our mind on this later, so I'll leave it in for now. (Tables
         #maybe better for larger meshes.)
         raise "MyError", "If we start writing tables, we need to modify reading routines"
-    
+
         filter = tables.Filters(complevel=5, complib="zlib")
 
         #Create table
@@ -1529,7 +1517,7 @@ def add_mesh(file,mesh,mesh_unit_length):
 	#
 	#I suspect we will never change to storing the positions in tables: the gain is small
 	#and the overhead of changing now (and providing backwards compatible reading routines)
-	#may well not justify the effort. 
+	#may well not justify the effort.
 
 
     #Add lengthscale if given
@@ -1551,12 +1539,12 @@ def add_mesh(file,mesh,mesh_unit_length):
 
         f.createArray('/mesh/scale','unit',repr(mesh_unit_length),\
                       title='SI object for coordinate to position conversion')
-        
+
         log.log(15,"Added mesh_unit_length scale (%s) to %s:/mesh/scale" %\
                   (mesh_unit_length,f.filename))
     else:
         log.log(15,"Not saving mesh_unit_length (non given)")
-        
+
     if type(file)==types.StringType: #we were given the filename, so we should close the file
         close_pytables_file(f)
 
@@ -1579,7 +1567,7 @@ def get_attribute(filename,leaf,name):
     data = fh.getNodeAttr(leaf,name)
     log.log(15,"Have just read %s/%s/%s = %s" % (filename,leaf,name,str(data)))
     close_pytables_file(fh)
-    
+
     return data
 
 
@@ -1599,7 +1587,7 @@ def average_data_has_step(filename,step):
         if not os.path.exists(filename):
             log.debug("average_data_has_step(filename=%s,step=%d): Couldn't open %s -> False" \
                       % (filename,step,filename))
-                
+
             return False
 
         fh = open_pytables_file(filename,'r')
@@ -1609,7 +1597,7 @@ def average_data_has_step(filename,step):
         if not hasattr(fh.root,'data'):
             log.debug("average_data_has_step(filename=%s,step=%d): Couldn't find /root/data in %s -> False" \
                       % (filename,step,filename))
-            
+
             close_pytables_file(fh)
             return False
         elif not hasattr(fh.root.data,'averages'):
@@ -1633,7 +1621,7 @@ def average_data_has_step(filename,step):
     else:
         log.debug("Have not found step %d in average table in %s" % (step,filename))
         result = False
-        
+
 
     return result
 
