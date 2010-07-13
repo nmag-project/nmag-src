@@ -27,7 +27,7 @@
      (= the system still won't segv!)
    - Gives the programmer a free tour of all of the low level system.
      (Good if he wants to learn about it in the first place, a disadvantage otherwise)
- 
+
   While I generally prefer approach (1), we will choose approach (2) for this
   particular application.
 
@@ -189,13 +189,13 @@ extern int _caml_petsc_error_nr_from_caml(int);
 static inline double get_cpu_cycle_counter(void)
 {
   uint64_t count=0;
-  
+
 #ifdef __tune_i686__
   /* XXX actually, this #ifdef is somewhat inappropriate. Should use something better! */
-  
+
   __asm__ volatile("rdtsc\n\t" : "=A"(count));
 #endif
-  
+
   return ((double)count);
 }
 
@@ -235,7 +235,6 @@ CAMLprim value caml_petsc_get_cpu_cycle_counters(value ml_unit)
 
   CAMLreturn(result);
 }
-
 
 static inline void petsc_checkinit(void)
 {
@@ -321,6 +320,14 @@ int petsc_error(int line,
   return 0;
 }
 
+/** Convert an integer (OCaml) to a MatStructure value */
+static MatStructure matstructure_from_int(int i) {
+  switch(i) {
+  case 1: return SAME_NONZERO_PATTERN;
+  case 2: return SAME_PRECONDITIONER;
+  default: return DIFFERENT_NONZERO_PATTERN;
+  }
+}
 
 CAMLprim value caml_petsc_init(value args, value rcfile,
 			       value help_string, value do_install_sighandler)
@@ -371,7 +378,7 @@ CAMLprim value caml_petsc_init(value args, value rcfile,
 		  &argv_to_petsc,
 		  String_val(rcfile),
 		  String_val(help_string));
-  
+
   if(Bool_val(do_install_sighandler))
     {
       /* printf("DDD petsc installing sighandler!\n");fflush(stdout); / * DDD */
@@ -402,7 +409,7 @@ CAMLprim value caml_petsc_finalize(value ml_unit)
   DEBUG_LOG("caml_petsc_finalize");
 
   petsc_checkinit();
-  
+
   PetscFinalize();
   CAMLreturn(Val_unit);
 }
@@ -477,7 +484,7 @@ static void finalize_petsc_mat(value block)
 static void finalize_petsc_ksp_block(value block)
 {
   KSP ksp;
-  
+
   /* XXX NOTE: auto-finalizing KSPs leads to a crash at the moment!
      XXX is this still true - should not be so anymore now, as I fixed that bug?! Check!
   */
@@ -499,7 +506,7 @@ static void finalize_petsc_ksp_block(value block)
 static void finalize_petsc_matnullspace_block(value block)
 {
   MatNullSpace nullsp;
-  
+
   /* XXX NOTE: auto-finalizing KSPs leads to a crash at the moment!
      XXX is this still true - should not be so anymore now, as I fixed that bug?! Check!
   */
@@ -541,12 +548,12 @@ static void finalize_petsc_ts_block(value block)
 
   Store_c_field(block,2,0);
   Store_c_field(block,3,0);
-  
+
   if(ml_cell1)
     {
       free(ml_cell1); /* cell1 and cell2 will be from the same malloc block */
     }
-  
+
   TSDestroy(ts);
 }
 
@@ -576,12 +583,12 @@ static void finalize_petsc_matfdcoloring(value block)
    Work-around for now: just do not pass on TS to the ML callback!
  */
 
-static PetscErrorCode _ts_rhs_function_wrapper(TS ts, double dt, 
+static PetscErrorCode _ts_rhs_function_wrapper(TS ts, double dt,
 					       Vec v_in, Vec v_out,
 					       void *callback_posn)
 {
   CAMLparam0();
-  
+
   value *callbacks_ml=(value *)callback_posn;
 
   CAMLlocal4(callback,callback_return,ml_v_in,ml_v_out);
@@ -589,7 +596,7 @@ static PetscErrorCode _ts_rhs_function_wrapper(TS ts, double dt,
   callback=callbacks_ml[0];
 
   if(callback==Val_unit)
-    {  
+    {
       raise_with_string(*caml_named_value(err_exn_name),"No Callback function for RHS registered!");
     }
 
@@ -603,12 +610,12 @@ static PetscErrorCode _ts_rhs_function_wrapper(TS ts, double dt,
 
   ml_v_in = alloc_final(2, no_finalize_petsc, sizeof(Vec), sizeof(Vec));
   Store_c_field(ml_v_in, 1, v_in);
-  
+
   ml_v_out = alloc_final(2, no_finalize_petsc, sizeof(Vec), sizeof(Vec));
   Store_c_field(ml_v_out, 1, v_out);
-  
+
   callback_return=callback3(callback,copy_double(dt),ml_v_in,ml_v_out);
-  
+
   CAMLreturn(_caml_petsc_error_nr_from_caml(Int_val(callback_return)));
 }
 
@@ -618,14 +625,14 @@ static PetscErrorCode _ts_rhs_jacobian_wrapper(TS ts, double dt,
 {
   value callback_args[5];
   value *callbacks_ml=(value *)callback_posn;
-  
+
   CAMLlocal4(callback,callback_return,ml_dt,ml_v_in);
   CAMLlocal3(ml_jacobi,ml_precond, ml_flag);
 
   callback=callbacks_ml[0];
 
   if(callback==Val_unit)
-    {  
+    {
       raise_with_string(*caml_named_value(err_exn_name),"No Callback function for Jacobian registered!");
     }
 
@@ -646,7 +653,7 @@ static PetscErrorCode _ts_rhs_jacobian_wrapper(TS ts, double dt,
   callback_args[1]=ml_v_in;
   callback_args[2]=ml_jacobi;
   callback_args[3]=ml_precond;
-  
+
   callback_return=callbackN(callback,4,callback_args);
 
   return _caml_petsc_error_nr_from_caml(Int_val(callback_return));
@@ -670,7 +677,7 @@ CAMLprim value caml_petsc_vec_create_v1(value ml_global_size, value ml_name)
   VecCreateSeq(PETSC_COMM_SELF,Int_val(ml_global_size),&v);
   PetscObjectSetName((PetscObject)v,String_val(ml_name));
   VecSetFromOptions(v);
-  
+
   CAMLlocal1(block);
   block = alloc_final(2, finalize_petsc_vec, sizeof(Vec), 15*sizeof(Vec));
   Store_c_field(block, 1,v);
@@ -692,7 +699,7 @@ CAMLprim value caml_petsc_vec_create_mpi(value ml_comm,value ml_global_size, val
   VecCreateMPI(comm,Int_val(ml_local_size),Int_val(ml_global_size),&v);
   PetscObjectSetName((PetscObject)v,String_val(ml_name));
   VecSetFromOptions(v);
-  
+
   CAMLlocal1(block);
   block = alloc_final(2, finalize_petsc_vec, sizeof(Vec), 15*sizeof(Vec));
   Store_c_field(block, 1,v);
@@ -784,7 +791,7 @@ CAMLprim value caml_petsc_vec_destroy(value ml_vec)
 
   DEBUG_LOG("caml_petsc_vec_destroy");
   vec=(Vec)Field(ml_vec,1);
-  
+
   if(vec!=0)
     {
       VecDestroy(vec);
@@ -802,7 +809,7 @@ CAMLprim value caml_petsc_mat_destroy(value ml_mat)
 
   DEBUG_LOG("caml_petsc_mat_destroy");
   mat=(Mat)Field(ml_mat,1);
-  
+
   if(mat!=0)
     {
       MatDestroy(mat);
@@ -844,7 +851,7 @@ CAMLprim value caml_petsc_matnullspace_destroy(value ml_mns)
       MatNullSpaceDestroy(mns);
       Store_c_field(Field(ml_mns,0),1,0);
     }
-  
+
   CAMLreturn(Val_unit);
 }
 
@@ -857,7 +864,7 @@ CAMLprim value caml_petsc_ts_destroy(value ml_ts)
 
   DEBUG_LOG("caml_petsc_ts_destroy");
   ts=(TS)Field(Field(ml_ts,0),1);
-  
+
   if(ts)
     {
       Store_field(ml_ts,1,Val_unit);
@@ -899,7 +906,7 @@ CAMLprim value caml_petsc_mat_describe(value ml_mat)
 
   DEBUG_LOG1("caml_petsc_mat_describe");
   mat=(Mat)Field(ml_mat,1);
-  
+
   ml_str=caml_alloc_string(1+2*sizeof(void *)); /* trailing \x00 */
   str=String_val(ml_str);
   snprintf(str,1+2*sizeof(void *),"%p",mat);
@@ -1079,9 +1086,9 @@ CAMLprim value caml_petsc_vec_global_size(value ml_vec)
 CAMLprim value caml_petsc_vec_duplicate(value ml_vec_orig)
 {
   CAMLparam1(ml_vec_orig);
-  
+
   Vec master, duplicate;
-  
+
   DEBUG_LOG("caml_petsc_vec_duplicate");
   petsc_checkinit();
   petsc_check_vec(ml_vec_orig);
@@ -1100,9 +1107,9 @@ CAMLprim value caml_petsc_vec_duplicate(value ml_vec_orig)
 CAMLprim value caml_petsc_vec_copy(value ml_vec_src, value ml_vec_dst)
 {
   CAMLparam2(ml_vec_src, ml_vec_dst);
-  
+
   Vec src,dst;
-  
+
   DEBUG_LOG("caml_petsc_vec_copy");
   petsc_checkinit();
   petsc_check_vec(ml_vec_src);
@@ -1119,7 +1126,7 @@ CAMLprim value caml_petsc_vec_copy(value ml_vec_src, value ml_vec_dst)
 CAMLprim value caml_petsc_vec_AXPBY(value alpha, value beta, value ml_vec_src, value ml_vec_dst)
 {
   CAMLparam4(alpha, beta, ml_vec_src, ml_vec_dst);
-  
+
   Vec src,dst;
   double alphabeta[2];
   double cycles_before, cycles_after;
@@ -1154,7 +1161,7 @@ CAMLprim value caml_petsc_vec_pointwise_mult(value ml_x, value ml_y,value ml_w)
 {
   CAMLparam3(ml_x, ml_y,ml_w);
   double cycles_before, cycles_after;
-  
+
   Vec vw, vx, vy;
 
   DEBUG_LOG("caml_petsc_vec_pointwise_mult");
@@ -1182,7 +1189,7 @@ CAMLprim value caml_petsc_vec_pointwise_divide(value ml_x, value ml_y,value ml_w
 {
   CAMLparam3(ml_x, ml_y,ml_w);
   double cycles_before, cycles_after;
-  
+
   Vec vw, vx, vy;
 
   DEBUG_LOG("caml_petsc_vec_pointwise_divide");
@@ -1225,7 +1232,7 @@ CAMLprim value caml_petsc_vec_extract(value ml_vec)
   petsc_check_vec(ml_vec);
 
   vec=(Vec)Field(ml_vec,1);
-  
+
   VecGetLocalSize(vec,&local_size);
   VecGetSize(vec,&global_size);
 
@@ -1238,24 +1245,24 @@ CAMLprim value caml_petsc_vec_extract(value ml_vec)
       VecCreateSeq(PETSC_COMM_SELF,global_size,&vec);
       VecCopy(vec,vec_local);
     }
-  
+
   CAMLlocal1(result);
 
   /* XXX I hope I do all this right... */
-  
+
   result=alloc(Double_wosize*global_size,Double_array_tag);
 
   /* XXX here, we get a slight typing problem... XXX CONTINUE HERE! */
 
   VecGetArray(vec_local,&data);
-  
+
   for(i=0;i<global_size;i++)
     {
       Store_double_field(result,i,data[i]);
     }
-  
+
   VecRestoreArray(vec_local,&data);
-  
+
   if(local_size!=global_size)	/* If we allocated that vector... */
     {
       VecDestroy(vec_local);	/* ...we have to destroy it. */
@@ -1268,16 +1275,16 @@ CAMLprim value caml_petsc_vec_extract(value ml_vec)
 CAMLprim value caml_petsc_vec_get_own_range(value ml_vec)
 {
   CAMLparam1(ml_vec);
-  
+
   Vec vec;
   PetscInt mybase, myend;
-  
+
   DEBUG_LOG("caml_petsc_vec_get_own_range");
   petsc_checkinit();
   petsc_check_vec(ml_vec);
-  
+
   vec=(Vec)Field(ml_vec,1);
-  
+
   VecGetOwnershipRange(vec,&mybase,&myend);
 
   CAMLlocal1(result);
@@ -1309,7 +1316,7 @@ CAMLprim value caml_petsc_vec_as_bigarray_open_raw(value ml_vec)
   petsc_check_vec(ml_vec);
 
   vec=(Vec)Field(ml_vec,1);
-  
+
   VecGetSize(vec,&dim);
 
   ierr=VecGetLocalSize(vec,&i_local_size[0]);
@@ -1336,7 +1343,7 @@ CAMLprim value caml_petsc_vec_as_bigarray_close_raw(value ml_vec, value ml_biga)
   vec=(Vec)Field(ml_vec,1);
 
   ierr=VecRestoreArray(vec,(Data_bigarray_val(ml_biga)));
-  
+
   CAMLreturn(Val_unit);
 }
 
@@ -1357,7 +1364,7 @@ CAMLprim value caml_petsc_bigarray_as_vec_open_raw(value ml_biga)
 			&v);
 
   /* Also do PetscObjectSetName(); VecSetFromOptions(); ? */
-  
+
   CAMLlocal1(block);
   block = alloc_final(2, finalize_petsc_vec, sizeof(Vec), 100000*sizeof(Vec));
   /* note the large size ratio above. There actually is a very good
@@ -1368,7 +1375,7 @@ CAMLprim value caml_petsc_bigarray_as_vec_open_raw(value ml_biga)
      been collected.
    */
   Store_c_field(block, 1,v);
-  
+
   CAMLreturn(block);
 }
 
@@ -1482,7 +1489,7 @@ CAMLprim value caml_petsc_matinfo_raw(value ml_mx, value ml_type)
   CAMLlocal1(result);
 
   /* XXX I hope I do all this right... */
-  
+
   nr_entries=sizeof(MatInfo)/sizeof(PetscLogDouble);
 
   result=alloc(Double_wosize*nr_entries,Double_array_tag);
@@ -1491,7 +1498,7 @@ CAMLprim value caml_petsc_matinfo_raw(value ml_mx, value ml_type)
 	     &minfo);
 
   p=(PetscLogDouble *)&minfo;
-  
+
   for(i=0;i<nr_entries;i++)
     {
       Store_double_field(result,i,p[i]);
@@ -1571,7 +1578,7 @@ CAMLprim value caml_petsc_mat_set(value ml_mx, value ml_row, value ml_col, value
 
   row=Int_val(ml_row);
   col=Int_val(ml_col);
-  
+
   if(row<0 || col<0) /* simple safeguard... */
     {
       raise_with_string(*caml_named_value(err_exn_name),
@@ -1606,7 +1613,7 @@ CAMLprim value caml_petsc_mat_inc(value ml_mx, value ml_row, value ml_col, value
 
   row=Int_val(ml_row);
   col=Int_val(ml_col);
-  
+
   if(row<0 || col<0) /* simple safeguard... */
     {
       raise_with_string(*caml_named_value(err_exn_name),
@@ -1679,7 +1686,7 @@ CAMLprim value caml_petsc_mat_setinc_vals(value ml_mx, value ml_row_indices,
 			"Row/column index array lengths do not match data array dimensions!");
     }
 
-  
+
   row_indices=Data_bigarray_val(ml_row_indices);
   col_indices=Data_bigarray_val(ml_row_indices);
   data=Data_bigarray_val(ml_data);
@@ -1734,7 +1741,7 @@ CAMLprim value caml_petsc_mat_get_size(value ml_mx)
   CAMLlocal1(result);
 
   result=alloc_tuple(2);
-  
+
   Store_field(result,0,Val_int(cols));
   Store_field(result,1,Val_int(rows));
 
@@ -1755,7 +1762,7 @@ CAMLprim value caml_petsc_mat_mult(value ml_mx, value ml_vec_src, value ml_vec_d
   petsc_check_mat(ml_mx);
   petsc_check_vec(ml_vec_src);
   petsc_check_vec(ml_vec_dst);
-  
+
   mat=(Mat)Field(ml_mx,1);
   vec_src=(Vec)Field(ml_vec_src,1);
   vec_dst=(Vec)Field(ml_vec_dst,1);
@@ -1783,7 +1790,7 @@ CAMLprim value caml_petsc_mat_mult_transpose(value ml_mx, value ml_vec_src, valu
   petsc_check_mat(ml_mx);
   petsc_check_vec(ml_vec_src);
   petsc_check_vec(ml_vec_dst);
-  
+
   mat=(Mat)Field(ml_mx,1);
   vec_src=(Vec)Field(ml_vec_src,1);
   vec_dst=(Vec)Field(ml_vec_dst,1);
@@ -1807,7 +1814,7 @@ CAMLprim value caml_petsc_mat_zero_entries(value ml_mx)
   DEBUG_LOG("caml_petsc_mat_zero_entries");
   petsc_checkinit();
   petsc_check_mat(ml_mx);
-  
+
   mat=(Mat)Field(ml_mx,1);
 
   MatZeroEntries(mat);
@@ -1831,7 +1838,7 @@ CAMLprim value caml_petsc_mat_reincarnate_also_known_as_duplicate_and_destroy(va
   DEBUG_LOG("caml_petsc_mat_reincarnate_also_known_as_duplicate_and_destroy");
   petsc_checkinit();
   petsc_check_mat(ml_mx);
-  
+
   mat_old=(Mat)Field(ml_mx,1);
 
   MatDuplicate(mat_old,MAT_COPY_VALUES,&mat_new);
@@ -1852,7 +1859,7 @@ CAMLprim value caml_petsc_mat_duplicate(value ml_copy_values, value ml_mx)
   DEBUG_LOG("caml_petsc_mat_duplicate");
   petsc_checkinit();
   petsc_check_mat(ml_mx);
-  
+
   mat_src=(Mat)Field(ml_mx,1);
 
   MatDuplicate(mat_src,(Bool_val(ml_copy_values)?MAT_COPY_VALUES:MAT_DO_NOT_COPY_VALUES),&mat_res);
@@ -1874,7 +1881,7 @@ CAMLprim value caml_petsc_mat_copy(value ml_same_nonzero_pattern, value ml_src, 
   petsc_checkinit();
   petsc_check_mat(ml_src);
   petsc_check_mat(ml_dst);
-  
+
   mat_src=(Mat)Field(ml_src,1);
   mat_dst=(Mat)Field(ml_dst,1);
 
@@ -1894,7 +1901,7 @@ CAMLprim value caml_petsc_mat_scale(value ml_mx, value ml_coeff)
   DEBUG_LOG("caml_petsc_mat_scale");
   petsc_checkinit();
   petsc_check_mat(ml_mx);
-  
+
   mat=(Mat)Field(ml_mx,1);
   coeff=Double_val(ml_coeff);
 
@@ -1917,7 +1924,7 @@ CAMLprim value caml_petsc_mat_shift(value ml_mx, value ml_coeff)
   DEBUG_LOG("caml_petsc_mat_shift");
   petsc_checkinit();
   petsc_check_mat(ml_mx);
-  
+
   mat=(Mat)Field(ml_mx,1);
   coeff=Double_val(ml_coeff);
 
@@ -1941,9 +1948,9 @@ CAMLprim value caml_petsc_mat_diagonal_scale(value ml_mx, value ml_opt_v_le, val
   DEBUG_LOG("caml_petsc_mat_diagonal_scale");
   petsc_checkinit();
   petsc_check_mat(ml_mx);
-  
+
   mat=(Mat)Field(ml_mx,1);
-  
+
   if(ml_opt_v_le != Val_unit)
     {
       petsc_check_vec(ml_opt_v_le);
@@ -1955,7 +1962,7 @@ CAMLprim value caml_petsc_mat_diagonal_scale(value ml_mx, value ml_opt_v_le, val
       petsc_check_vec(ml_opt_v_ri);
       v_ri=(Vec)Field(ml_opt_v_ri,1);
     }
-  
+
   MatDiagonalScale(mat,v_le,v_ri);
 
   CAMLreturn(Val_unit);
@@ -1974,7 +1981,7 @@ CAMLprim value caml_petsc_mat_get_ownership_range(value ml_mx)
   petsc_checkinit();
 
   mat=(Mat)Field(ml_mx,1);
-  
+
   MatGetOwnershipRange(mat,&mybase,&myend);
 
   CAMLlocal1(result);
@@ -1999,7 +2006,7 @@ CAMLprim value caml_petsc_mat_set_option(value ml_mx)
   petsc_check_mat(ml_mx);
 
   mat=(Mat)Field(ml_mx,1);
-  
+
   MatSetOption(mat,MAT_NEW_NONZERO_LOCATION_ERR);
 
   CAMLreturn(Val_unit);
@@ -2266,13 +2273,13 @@ CAMLprim value caml_petsc_ksp_set_pc_bjacobi_subtype(value ml_ksp,value ml_pc_ty
 
   PCBJacobiGetSubKSP(pc,&nr_local_blocks,&ix_first,&sub_ksps);
 
-   for (i=0; i<nr_local_blocks; i++) 
+   for (i=0; i<nr_local_blocks; i++)
      {
        KSPGetPC(sub_ksps[i],&sub_pc);
        PCSetType(sub_pc,pc_type);
      }
 
-  CAMLreturn(Val_unit); 
+  CAMLreturn(Val_unit);
 }
 
 
@@ -2289,29 +2296,21 @@ CAMLprim value caml_petsc_ksp_set_type(value ml_ksp,value ml_ksp_type) {
   CAMLreturn(Val_unit);
 }
 
-
 /* This is slightly tricky: a KSP must retain references to its matrices! */
 CAMLprim value caml_petsc_ksp_create_raw(value ml_comm,
 					 value ml_name, value ml_mat_a,
 					 value ml_mat_p, value ml_mat_structure)
 {
   CAMLparam5(ml_comm,ml_name, ml_mat_a, ml_mat_p, ml_mat_structure);
-  MPI_Comm comm;
   Mat mat_a, mat_p;
   KSP ksp;
-  MatStructure mat_structure;
-  comm=Comm_val(ml_comm);
+  MatStructure mat_struc = matstructure_from_int(Int_val(ml_mat_structure));
+  MPI_Comm comm = Comm_val(ml_comm);
 
   DEBUG_LOG("caml_petsc_ksp_create");
   petsc_checkinit();
   petsc_check_mat(ml_mat_a);
   petsc_check_mat(ml_mat_p);
-
-  switch(Int_val(ml_mat_structure)) {
-  case 1:  mat_structure = SAME_NONZERO_PATTERN; break;
-  case 2:  mat_structure = SAME_PRECONDITIONER; break;
-  default: mat_structure = DIFFERENT_NONZERO_PATTERN; break;
-  }
 
   mat_a=(Mat)Field(ml_mat_a,1);
   mat_p=(Mat)Field(ml_mat_p,1);
@@ -2319,7 +2318,7 @@ CAMLprim value caml_petsc_ksp_create_raw(value ml_comm,
   KSPCreate(comm,&ksp);
   PetscObjectSetName((PetscObject)ksp,String_val(ml_name));
 
-  KSPSetOperators(ksp, mat_a, mat_p, mat_structure);
+  KSPSetOperators(ksp, mat_a, mat_p, mat_struc);
 
   /* XXX Note: may want to do KSPGetPC(), PCSetType(),
      KSPSetTolerances() here.
@@ -2375,12 +2374,12 @@ CAMLprim value caml_petsc_matnullspace_create_raw(value ml_comm,
     {
       aiee("malloc() failure!");
     }
-  
+
   for(i=0;i<nr_vecs;i++)
     {
       vecs[i]=(Vec)Field(Field(ml_vecs,i),1);
     }
-  
+
   MatNullSpaceCreate(comm,Bool_val(ml_has_cnst),nr_vecs,vecs,&nullsp);
   free(vecs);
 
@@ -2423,13 +2422,13 @@ CAMLprim value caml_petsc_ksp_get_tolerances(value ml_ksp)
   Store_field(result,2,copy_double(dtol));
   Store_field(result,3,Val_int(maxits));
 
-  CAMLreturn(result);  
+  CAMLreturn(result);
 }
 
 /* Our convention: tolerance=0 means: do not set it */
 CAMLprim value caml_petsc_ksp_set_tolerances(value ml_ksp, value ml_rtol,
 					     value ml_atol, value ml_dtol,
-					     value ml_maxits) 
+					     value ml_maxits)
 {
   CAMLparam5(ml_ksp, ml_rtol, ml_atol, ml_dtol, ml_maxits);
   KSP ksp;
@@ -2454,12 +2453,15 @@ CAMLprim value caml_petsc_ksp_set_tolerances(value ml_ksp, value ml_rtol,
   ksp=(KSP)Field(Field(ml_ksp,0),1);
   KSPSetTolerances(ksp,rtol,atol,dtol,maxits);
 
-  CAMLreturn(Val_unit);  
+  CAMLreturn(Val_unit);
 }
 
-CAMLprim value caml_petsc_ksp_set_operators(value ml_ksp, value ml_mx, value ml_mx_precond)
+CAMLprim value caml_petsc_ksp_set_operators(value ml_ksp, value ml_mx,
+                                            value ml_mx_precond,
+                                            value ml_mat_structure)
 {
-  CAMLparam3(ml_ksp,ml_mx,ml_mx_precond);
+  CAMLparam4(ml_ksp, ml_mx, ml_mx_precond, ml_mat_structure);
+  MatStructure mat_struc = matstructure_from_int(Int_val(ml_mat_structure));
   KSP ksp;
   Mat mx, mx_precond;
 
@@ -2473,7 +2475,7 @@ CAMLprim value caml_petsc_ksp_set_operators(value ml_ksp, value ml_mx, value ml_
   mx=(Mat)Field(ml_mx,1);
   mx_precond=(Mat)Field(ml_mx_precond,1);
 
-  KSPSetOperators(ksp,mx,mx_precond,DIFFERENT_NONZERO_PATTERN);
+  KSPSetOperators(ksp, mx, mx_precond, mat_struc);
 
   /* Tell the GC about these operators */
   Store_field(ml_ksp,1,ml_mx);
@@ -2523,7 +2525,7 @@ CAMLprim value caml_petsc_ksp_solve_raw(value ml_ksp, value ml_x, value ml_b)
   x=(Vec)Field(ml_x,1);
   b=(Vec)Field(ml_b,1);
 
-  
+
   cycles_before=get_cpu_cycle_counter();
 #if PETSC_VERSION_LE(2, 2, 0)
   /* Register rhs and solution for the GC inside the KSP */
@@ -2575,7 +2577,7 @@ CAMLprim value caml_petsc_mpi_scatter_vec(value ml_comm,
 
   petsc_checkinit();
   petsc_check_vec(ml_vec_recv);
-  vec_recv=(Vec)Field(ml_vec_recv,1);     
+  vec_recv=(Vec)Field(ml_vec_recv,1);
 
   ba_lengths=Data_bigarray_val(ml_ba_lengths);
   ba_displacements=Data_bigarray_val(ml_ba_displacements);
@@ -2605,7 +2607,7 @@ CAMLprim value caml_petsc_mpi_scatter_vec(value ml_comm,
 		   MPI_DOUBLE,
 		   0,
 		   comm);
-  
+
       VecRestoreArray(vec_recv,&data_recv);
       VecRestoreArray(vec_master,&data_master);
     }
@@ -2708,7 +2710,7 @@ CAMLprim value caml_petsc_mpi_allgather_vec(value ml_comm,
   /* XXX We could do some speed improvements here - we can ensure we do not cons,
      and hence can get rid of value stack management... EVIL!
   */
-  
+
   MPI_Comm comm;
   Vec vec_seq=0, vec_par_piece_send;
   double *data_seq, *data_send;
@@ -2722,17 +2724,17 @@ CAMLprim value caml_petsc_mpi_allgather_vec(value ml_comm,
   petsc_checkinit();
   petsc_check_vec(ml_vec_par_piece_send);
   petsc_check_vec(ml_vec_seq);
-  
+
   vec_seq=(Vec)Field(ml_vec_seq,1);
   vec_par_piece_send=(Vec)Field(ml_vec_par_piece_send,1);
-  
+
   ba_lengths=Data_bigarray_val(ml_ba_lengths);
   ba_displacements=Data_bigarray_val(ml_ba_displacements);
-  
-  
+
+
   VecGetArray(vec_seq,&data_seq);
   VecGetArray(vec_par_piece_send,&data_send);
-  
+
   MPI_Allgatherv(data_send,
 		 ba_lengths[rank],
 		 MPI_DOUBLE,
@@ -2741,10 +2743,10 @@ CAMLprim value caml_petsc_mpi_allgather_vec(value ml_comm,
 		 ba_displacements,
 		 MPI_DOUBLE,
 		 comm);
-  
+
   VecRestoreArray(vec_par_piece_send,&data_send);
   VecRestoreArray(vec_seq,&data_seq);
-  
+
   CAMLreturn(Val_unit);
 }
 
@@ -2802,10 +2804,10 @@ CAMLprim value caml_petsc_matrix_call_on_rows_raw(value ml_mx,
   if(end_row == -1)end_row=end_own;
 
   /* Xavier Leroy greenlighted doing things this way, i.e. changing
-     the data entries of a bigarray data structure, in an email 
-     on the caml list. However, this is not explicitly allowed by 
+     the data entries of a bigarray data structure, in an email
+     on the caml list. However, this is not explicitly allowed by
      the official documentation. I asked the Caml team to adjust
-     the documentation so that this is officially permitted, but 
+     the documentation so that this is officially permitted, but
      they did not do so yet.
 
 
@@ -2814,7 +2816,7 @@ CAMLprim value caml_petsc_matrix_call_on_rows_raw(value ml_mx,
   */
   ba_indices=alloc_bigarray_dims(BIGARRAY_NATIVE_INT | BIGARRAY_C_LAYOUT,
 				 1, (int *) cols, ncols);
-  
+
   ba_vals=alloc_bigarray_dims(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,
 			      1, (PetscScalar *) vals, ncols);
 
@@ -2877,7 +2879,7 @@ CAMLprim value caml_petsc_matrix_call_on_rows_raw_defensive(value ml_mx,
 
       ba_vals=alloc_bigarray_dims(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,
 				  1, (PetscScalar *) vals, ncols);
-      
+
       callback3(ml_fun,Val_int(i),ba_indices,ba_vals);
 
       MatRestoreRow(mx,i,&ncols,&cols,&vals);
@@ -2901,7 +2903,7 @@ CAMLprim value caml_petsc_matrix_call_on_rows_raw_defensive(value ml_mx,
     int long_size=-1, j;
     for(i = start_row; i < end_row; i++) {
       MatGetRow(mx, i, & ncols, & cols, & vals);
-      /* We allocate the array only if we need it! */   
+      /* We allocate the array only if we need it! */
       if (ncols > long_size) {
          /* The GNU implementation of free accepts NULL,
           * but one never knows...
@@ -2999,7 +3001,7 @@ CAMLprim value caml_petsc_matrix_execute_polyplan_noassemble(value ml_plan_outer
   for(i=0;i<nr_plan_rows;i++)
     {
       plan_inner=Field(ml_plan_outer,i);
-      
+
       nr_plan_cols=Wosize_val(plan_inner);
 
       /* fprintf(stderr,"DDD PPA: row=%4d/%4d, cols=%4d\n",i,nr_plan_rows,nr_plan_cols);fflush(stderr); */
@@ -3022,11 +3024,11 @@ CAMLprim value caml_petsc_matrix_execute_polyplan_noassemble(value ml_plan_outer
 	      coeff=Double_val(Field(Field(plan_lr_v_cfo,m),0));
 	      field_indices=String_val(Field(Field(plan_lr_v_cfo,m),1));
 	      offsets=Field(Field(plan_lr_v_cfo,m),2);
-	  
+
 	      nr_factors=Wosize_val(offsets);
-	      
+
 	      accum_prod=coeff;
-	      
+
 	      for(p=0;p<nr_factors;p++)
 		{
 		  accum_prod*=data_sources[(int) field_indices[p]][Int_val(Field(offsets,p))];
@@ -3048,7 +3050,7 @@ CAMLprim value caml_petsc_matrix_execute_polyplan_noassemble(value ml_plan_outer
 	  nr_flushes_done++;
 	}
     }
-  
+
 
   /* Also ensure we have the diagonal entries... */
 
@@ -3077,7 +3079,7 @@ CAMLprim value caml_petsc_matrix_execute_polyplan_noassemble(value ml_plan_outer
 
 /* The internal representation of time-steppers is somewhat tricky,
    as these can hold a lot of context (vectors, matrices):
-   
+
    This context has to be kept referenced for GC, and the functions in
    that context must be locatable from statically-located-in-memory GC
    roots, so that we can use this address as a closure arg in a C
@@ -3114,7 +3116,7 @@ CAMLprim value caml_petsc_ts_create(value ml_unit)
   Store_c_field(ts_block, 1,ts);
   Store_c_field(ts_block, 2, &root_cells[0]);
   Store_c_field(ts_block, 3, &root_cells[1]);
-  
+
   ts_tuple=alloc_tuple(5);	/* (block, solution_vector, jacobian, precond, matfdcoloring) */
   Store_field(ts_tuple,0,ts_block);
   Store_field(ts_tuple,1,Val_unit);
@@ -3138,7 +3140,7 @@ CAMLprim value caml_petsc_ts_set_problem_type(value ml_ts,value ml_ptype)
 
   ts=(TS)Field(Field(ml_ts,0),1);
   int_ptype=Int_val(ml_ptype);
-  
+
   switch(int_ptype)
     {
     case 0:
@@ -3170,7 +3172,7 @@ CAMLprim value caml_petsc_ts_get_problem_type(value ml_ts)
   ts=(TS)Field(Field(ml_ts,0),1);
 
   TSGetProblemType(ts,&ptype);
-  
+
   switch(ptype)
     {
     case TS_LINEAR:
@@ -3245,7 +3247,7 @@ CAMLprim value caml_petsc_ts_set_initial_time_step(value ml_ts, value ml_time, v
 
   double_time=Double_val(ml_time);
   double_dt=Double_val(ml_dt);
-  
+
   TSSetInitialTimeStep(ts, double_time, double_dt);
 
   CAMLreturn(Val_unit);
@@ -3266,7 +3268,7 @@ CAMLprim value caml_petsc_ts_set_time_step(value ml_ts, value ml_dt)
   double_dt=Double_val(ml_dt);
 
   ts=(TS)Field(ml_ts,1);
-  
+
   TSSetTimeStep(ts, double_dt);
 
   CAMLreturn(Val_unit);
@@ -3283,7 +3285,7 @@ CAMLprim value caml_petsc_ts_get_time_step(value ml_ts)
   petsc_check_ts(ml_ts);
 
   ts=(TS)Field(Field(ml_ts,0),1);
-  
+
   TSGetTimeStep(ts, &double_dt);
 
   CAMLreturn(copy_double(double_dt));
@@ -3313,7 +3315,7 @@ CAMLprim value caml_petsc_ts_set_solution(value ml_ts, value ml_x)
 CAMLprim value caml_petsc_ts_set_duration(value ml_ts, value ml_maxsteps, value ml_maxtime)
 {
   CAMLparam3(ml_ts, ml_maxsteps, ml_maxtime);
-  int int_maxsteps; 
+  int int_maxsteps;
   double double_maxtime;
   TS ts;
 
@@ -3354,13 +3356,13 @@ CAMLprim value caml_petsc_ts_step(value ml_ts)
   TS ts;
   int steps;
   PetscReal ftime;
-  
+
   DEBUG_LOG("caml_petsc_ts_step");
   petsc_checkinit();
   petsc_check_ts(ml_ts);
 
   ts=(TS)Field(Field(ml_ts,0),1);
-  
+
   TSStep(ts,&steps,&ftime);
 
   CAMLlocal1(result);
@@ -3381,7 +3383,7 @@ CAMLprim value caml_petsc_ts_step(value ml_ts)
    kind, such as micromagnetical simulations (through the demagnetizing
    field interaction between any pair of magnetic moments), for which
    we just would like to use the trivial FDcoloring (every column
-   a different color). 
+   a different color).
 
    PPP Note: for now, this is a one-processor variant, where we do not
    try to distribute the matrix.
@@ -3432,7 +3434,7 @@ CAMLprim value caml_petsc_trivial_fdcoloring_size_n(value ml_mx_size)
   MatFDColoringCreate(m,iscoloring,&fdcoloring);
 
   /* It's actually a pity we had to build the matrix in the first place,
-     as we are destroying it right again. 
+     as we are destroying it right again.
    */
   MatDestroy(m);
 
@@ -3477,7 +3479,7 @@ CAMLprim value caml_petsc_ts_set_rhs_jacobian(value ml_ts, value ml_jacobi, valu
   /* Note: I think it is okay here to work without CAMLlocal1(...) - after all,
      protecting callbacks from the GC is what all this caml_named_value stuff is about...
   */
-  
+
   DEBUG_LOG("caml_petsc_ts_set_rhs_jacobian");
   petsc_checkinit();
   petsc_check_ts(ml_ts);
@@ -3487,13 +3489,13 @@ CAMLprim value caml_petsc_ts_set_rhs_jacobian(value ml_ts, value ml_jacobi, valu
   ts=(TS)Field(Field(ml_ts,0),1);
   jacobi=(Mat)Field(ml_jacobi,1);
   precond=(Mat)Field(ml_precond,1);
-  
+
   Store_field(ml_ts,2,ml_jacobi);
   Store_field(ml_ts,3,ml_precond);
 
   callback_ptr=(value *)Field(Field(ml_ts,0),3);
   *callback_ptr=ml_rhs_jacobian;
-  
+
   TSSetRHSJacobian(ts,jacobi,precond,_ts_rhs_jacobian_wrapper,callback_ptr);
 
   CAMLreturn(Val_unit);
@@ -3510,7 +3512,7 @@ CAMLprim value caml_petsc_ts_set_rhs_simple_jacobian(value ml_ts, value ml_j_siz
   MatFDColoring fdcoloring;
 
   mx_size=Int_val(ml_j_size);
-  
+
   DEBUG_LOG("caml_petsc_ts_set_rhs_simple_jacobian");
   petsc_checkinit();
   petsc_check_ts(ml_ts);
@@ -3603,7 +3605,7 @@ CAMLprim value caml_parmetis_v3_node_nd_raw(value ml_sites_per_cpu,
 		     &comm
 		     /* XXX hope it's okay to use this communicator! */
 		     );
-  
+
   fprintf(stderr,"ocaml: parmetis call #3\n");fflush(stderr);
 
   CAMLreturn(Val_unit);
@@ -3628,7 +3630,7 @@ CAMLprim value caml_metis_node_nd_raw(value ml_csr_offsets,
   DEBUG_LOG("caml_metis_node_nd_raw");
 
   /* fprintf(stderr,"ocaml: metis call #1\n");fflush(stderr); */
-  
+
   c_ordering[0]=0;
   options[0]=0; /* Use default options */
 
@@ -3646,7 +3648,7 @@ CAMLprim value caml_metis_node_nd_raw(value ml_csr_offsets,
 	       c_ordering,options,
 	       result_permutation,result_iperm
 	       );
-  
+
   /* fprintf(stderr,"ocaml: metis call #3\n");fflush(stderr); */
 
   CAMLreturn(Val_unit);
@@ -3791,19 +3793,19 @@ CAMLprim value caml_petsc_put_double_into_string(value ml_str, value ml_x)
 
   DEBUG_LOG("caml_petsc_put_double_into_string");
   if(string_length(ml_str)<8)
-    CAMLreturn(Val_unit);	
+    CAMLreturn(Val_unit);
   /* String too short - maybe we should raise an exception,
      but we just do nothing (rather than crashing the heap) */
 
   x=Double_val(ml_x);
   s_dst=String_val(ml_str);
   s_src=(char*)&x;
-  
-  for(i=0;i<8;i++) 
+
+  for(i=0;i<8;i++)
     {
       s_dst[i]=s_src[i];
     }
-  
+
   CAMLreturn(Val_unit);
 }
 

@@ -33,6 +33,13 @@ type matstructure_type =
     SAME_NONZERO_PATTERN | DIFFERENT_NONZERO_PATTERN | SAME_PRECONDITIONER | SUBSET_NONZERO_PATTERN
 ;;
 
+let int_from_matstructure mst =
+  match mst with
+    DIFFERENT_NONZERO_PATTERN -> 0
+  | SAME_NONZERO_PATTERN -> 1
+  | SAME_PRECONDITIONER -> 2
+;;
+
 (* mf *)
 type matoption_type =
     MAT_SYMMETRIC | MAT_HERMITIAN | MAT_STRUCTURALLY_SYMMETRIC
@@ -202,11 +209,11 @@ let matrix_create
   let () =
     match prealloc_diagonal with
       | None -> ()
-      | Some d -> matrix_set_prealloc mx d prealloc_off_diagonal 
+      | Some d -> matrix_set_prealloc mx d prealloc_off_diagonal
   in
   let () =
     (if auto_assembly
-     then matrix_assemble mx true 
+     then matrix_assemble mx true
      else ())
   in
     mx
@@ -248,16 +255,16 @@ external matrix_get_size: matrix -> int * int = "caml_petsc_mat_get_size";;
 (* This is slow, and hence presumably just for debugging... *)
 let matrix_nr_entries_per_row mx =
   let (rows,cols) = matrix_get_size mx in
-    Array.init rows 
+    Array.init rows
       (fun n -> Array.length (let (x,_) = matrix_get_row mx n in x))
 ;;
 
 
-external matrix_setinc_vals: 
+external matrix_setinc_vals:
     matrix ->
-      (int, int32_elt, c_layout) Array1.t -> 
-      (int, int32_elt, c_layout) Array1.t -> 
-      (float, float64_elt, c_layout) Array2.t -> 
+      (int, int32_elt, c_layout) Array1.t ->
+      (int, int32_elt, c_layout) Array1.t ->
+      (float, float64_elt, c_layout) Array2.t ->
       bool -> unit =
 	"caml_petsc_mat_setinc_vals"
 ;;
@@ -288,7 +295,12 @@ external ksp_create_raw: communicator -> string -> matrix -> matrix -> int -> ks
 external matnullspace_create_raw: communicator -> string -> bool -> vector array -> matnullspace = "caml_petsc_matnullspace_create_raw"
 
 
-external ksp_set_operators: ksp -> matrix -> matrix -> unit = "caml_petsc_ksp_set_operators"
+external ksp_set_operators_raw: ksp -> matrix -> matrix -> int -> unit = "caml_petsc_ksp_set_operators"
+
+let ksp_set_operators
+      ?(matrix_structure=DIFFERENT_NONZERO_PATTERN) ksp mx prec_mx =
+  ksp_set_operators_raw
+    ksp mx prec_mx (int_from_matstructure matrix_structure);;
 
 external ksp_set_matnullspace: ksp -> matnullspace -> unit = "caml_petsc_ksp_set_null_space"
 
@@ -298,13 +310,13 @@ external ksp_get_tolerances: ksp -> float * float * float * int = "caml_petsc_ks
 external ksp_set_tolerances: ksp -> float -> float -> float -> int -> unit = "caml_petsc_ksp_set_tolerances";;
 
 
-external _raw_matrix_execute_polyplan_noassemble: 
+external _raw_matrix_execute_polyplan_noassemble:
   ((int * int) * (float * string * int array) array) array array ->
   matrix ->
   vector array -> int -> unit = "caml_petsc_matrix_execute_polyplan_noassemble"
 ;;
 
-(* Note that matrix_execute_polyplan can only be used in somewhat strange context: 
+(* Note that matrix_execute_polyplan can only be used in somewhat strange context:
    First of all, we have to take care ourselves of zeroing the matrix first, and second,
    when in parallel execution, the master executes a polyplan, the slaves have to
    synchronously call MatAssemblyBegin/End to match the flushes on the master!
@@ -362,19 +374,19 @@ external vec_describe: vector -> string = "caml_petsc_vec_describe";;
 external mat_describe: matrix -> string = "caml_petsc_mat_describe";;
 external mat_view: matrix -> unit = "caml_petsc_mat_view";;
 
-external vec_scatter: communicator -> vector -> vector -> 
+external vec_scatter: communicator -> vector -> vector ->
   Nsimconf.c_int_bigarray1 -> (* lengths *)
   Nsimconf.c_int_bigarray1 -> (* displacements *)
   unit = "caml_petsc_mpi_scatter_vec"
 ;;
 
-external vec_gather: communicator -> vector -> vector -> 
+external vec_gather: communicator -> vector -> vector ->
   Nsimconf.c_int_bigarray1 -> (* lengths *)
   Nsimconf.c_int_bigarray1 -> (* displacements *)
   unit = "caml_petsc_mpi_gather_vec"
 ;;
 
-external vec_allgather: communicator -> vector -> vector -> 
+external vec_allgather: communicator -> vector -> vector ->
   Nsimconf.c_int_bigarray1 -> (* lengths *)
   Nsimconf.c_int_bigarray1 -> (* displacements *)
   unit = "caml_petsc_mpi_allgather_vec"
@@ -407,7 +419,7 @@ let _list_iteri f li =
   let rec walk n rest_li =
     match rest_li with
     | [] -> ()
-    | (hd::tl) -> 
+    | (hd::tl) ->
 	let () = f n hd in
 	walk (1+n) tl
   in walk 0 li
@@ -467,16 +479,16 @@ external petsc_matrix_ownership_range:
 
 
 external petsc_matrix_call_on_rows_raw:
-  matrix -> 
+  matrix ->
   (int -> simple_nativeint_bigarray -> simple_float_bigarray -> unit) ->
   int -> int ->
   unit = (* "caml_petsc_matrix_call_on_rows_raw" *) "caml_petsc_matrix_call_on_rows_raw_defensive"
 ;;
 
 let petsc_matrix_call_on_rows mx ?(start_row=(-1)) ?(end_row=(-1)) f =
-  petsc_matrix_call_on_rows_raw mx f start_row end_row 
+  petsc_matrix_call_on_rows_raw mx f start_row end_row
 ;;
-  
+
 let matrix_seq_to_ht mx =
   let ht = Hashtbl.create 97 in
   let () = petsc_matrix_call_on_rows mx
@@ -531,7 +543,7 @@ let with_petsc_vector_as_bigarray petsc_vec (f:((float, float64_elt, c_layout) A
       _vector_as_bigarray_close_raw petsc_vec biga;
     end
   with
-  | any_exception -> 
+  | any_exception ->
       begin
 	_vector_as_bigarray_close_raw petsc_vec biga;
 	raise any_exception
@@ -549,7 +561,7 @@ let with_petsc_vectors_as_bigarrays petsc_vecs f =
 	done
       end
   with
-  | any_exception -> 
+  | any_exception ->
       begin
 	for i=0 to Array.length v_biga-1 do
 	  let ix=Array.length v_biga-1-i in
@@ -568,7 +580,7 @@ let with_bigarray_as_petsc_vector biga (f: vector -> unit) =
       _bigarray_as_vector_close_raw vec;
     end
   with
-  | any_exception -> 
+  | any_exception ->
       begin
 	_bigarray_as_vector_close_raw vec;
 	raise any_exception
@@ -595,13 +607,8 @@ let ksp_create
     ?(name=_petsc_gensym "ksp")
     ?(matrix_structure=DIFFERENT_NONZERO_PATTERN)
     m1 m2 =
-  let ms = (* modified by mf *)
-    match matrix_structure with
-      | DIFFERENT_NONZERO_PATTERN -> 0
-      | SAME_NONZERO_PATTERN -> 1
-      | SAME_PRECONDITIONER -> 2
-  in
-    ksp_create_raw communicator name m1 m2 ms
+  ksp_create_raw
+    communicator name m1 m2 (int_from_matstructure matrix_structure)
 ;;
 
 let matnullspace_create
@@ -610,7 +617,6 @@ let matnullspace_create
     ?(has_constant=true) vecs =
   matnullspace_create_raw communicator name has_constant vecs
 ;;
-
 
 let ksp_set_tolerances_opt ksp opt_rtol opt_atol opt_dtol opt_maxit =
   let (rtol,atol,dtol,maxit) = ksp_get_tolerances ksp in
@@ -735,7 +741,7 @@ let proximity_improving_reordering adjacency =
   in
   let arr_result_order = Nsimconf.c_int_bigarray1_create nr_sites in
   let arr_result_sizes = Nsimconf.c_int_bigarray1_create 2
-      (* XXX THIS HAS TO BE CHANGED ONCE WE GO MULTIPROCESSOR 
+      (* XXX THIS HAS TO BE CHANGED ONCE WE GO MULTIPROCESSOR
 	 Presumably, this would even segfault if we run
 	 a single-cpu application on multiprocessors.
 	 Have to fetch the size from the MPI communicator?!?
@@ -773,7 +779,7 @@ let cluster_partitioning nr_pieces adjacency =
      and put it into piece_sizes *)
   let () =
     for i=0 to nr_sites-1 do
-      let piece = Nsimconf.c_int_to_int arr_result_clusternodes.{i} in 
+      let piece = Nsimconf.c_int_to_int arr_result_clusternodes.{i} in
 	piece_sizes.(piece) <- 1+piece_sizes.(piece)
     done
   in
@@ -782,7 +788,7 @@ let cluster_partitioning nr_pieces adjacency =
   let pieces = Array.init nr_pieces (fun n -> Array.make piece_sizes.(n) (-1)) in
   let () =
     for i=0 to nr_sites-1 do
-      let piece = Nsimconf.c_int_to_int arr_result_clusternodes.{i} in 
+      let piece = Nsimconf.c_int_to_int arr_result_clusternodes.{i} in
       let offset = piece_offsets.(piece) in
       let () = pieces.(piece).(offset) <- i in
       let () = piece_offsets.(piece) <- 1+piece_offsets.(piece) in
