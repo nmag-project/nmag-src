@@ -1900,8 +1900,9 @@ class Simulation(SimulationCore):
 
         Return value is a list of (timer_name,accumulated_time_in_seconds).
         """
-        return ocaml.lam_get_timers(self._lam,timers)
-
+        ts_timings = ocaml.lam_get_ts_timings(self._lam, "timestepper")
+        lam_timings = ocaml.lam_get_timers(self._lam,timers)
+        return [(x, None, y) for x, y in lam_timings] + ts_timings
 
     def set_pinning(self, values):
       """
