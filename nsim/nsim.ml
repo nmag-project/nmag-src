@@ -362,6 +362,8 @@ type par_timestepper_timings =
       mutable ptt_pc_setup_t: float;
       mutable ptt_pc_solve_n: float;
       mutable ptt_pc_solve_t: float;
+      mutable ptt_extra_n: float;
+      mutable ptt_extra_t: float;
     }
 ;;
 
@@ -377,6 +379,8 @@ let make_par_timestepper_timings () =
     ptt_pc_setup_t=0.0;
     ptt_pc_solve_n=0.0;
     ptt_pc_solve_t=0.0;
+    ptt_extra_n=0.0;
+    ptt_extra_t=0.0;
   }
 ;;
 
@@ -2134,8 +2138,8 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 		let () =
 		  (if not was_present
 		   then
-		     failwith
-		       "This should never happen: Sundials requested PC without making Jacobian first!"
+		     failwith "This should never happen: Sundials requested \
+                               PC without making Jacobian first!"
 		   else ())
 		in
 		  (* let () = Printf.printf "DDD [Node=%d] get_precond - duplicate jacobian\n%!" myrank in *)
@@ -2150,11 +2154,15 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 		in
 		let ksp = Mpi_petsc.ksp_create
                             ~communicator:(Mpi_petsc.petsc_get_comm_world())
+                            ~matrix_structure:Mpi_petsc.SAME_PRECONDITIONER
                             mx
                             mx
                 in
 		  (* let () = Printf.printf "DDD [Node=%d] get_precond - ksp_set_up\n%!" myrank in *)
+                (*let () = Mpi_petsc.ksp_set_initial_guess_nonzero ksp true in*)
+                let () = Mpi_petsc.ksp_set_type ksp "gmres" in
 		let () = Mpi_petsc.ksp_set_up ksp in
+
 		  (* let () = Printf.printf "DDD [Node=%d] get_precond - bjacobi\n%!" myrank in *)
 		let () = Mpi_petsc.ksp_set_pc_bjacobi_sub_type ksp "ilu" in
 		  (* let () = Printf.printf "DDD [Node=%d] get_precond - initial_guess_nonzero\n%!" myrank in *)
@@ -2335,40 +2343,45 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	let cvode_fun_preconditioner_setup args () =
 	  let (j_ok,time,gamma,ba_y,ba_ydot,ba_tmp1,ba_tmp2,ba_tmp3) = args in
 	  (* let () = Printf.printf "DDD [Node=%d] PC-Setup #1\n%!" myrank in *)
-	  let () =
-	    (if j_ok (* If sundials tells us we may re-use the jacobi matrix,
-			we do re-use the jacobi matrix *)
-	     then ()
-	     else cvode_fun_do_compute_jacobi time ba_y ba_ydot)
+          (* If sundials tells us we may re-use the jacobi matrix, we do
+             re-use the jacobi matrix *)
+	  let j_recomputed =
+	    if j_ok
+	    then false
+	    else
+              let () = cvode_fun_do_compute_jacobi time ba_y ba_ydot in true
 	  in
-	  let (jacobian,was_present) = get_jacobian () in
+	  let (jacobian, was_present) = get_jacobian () in
 	  let () =
 	    (if not was_present
 	     then
 	       let () = cvode_fun_do_compute_jacobi time ba_y ba_ydot in
-	       let () = Printf.printf "NOTE: This should never happen: sundials called PC Setup without building a Jacobian first!\n%!" in
+	       let () = Printf.printf "NOTE: This should never happen: \
+                                       sundials called PC Setup without \
+                                       building a Jacobian first!\n%!" in
 		 ()
 	     else ())
 	  in
 	  let t0 = Unix.gettimeofday() in
-	    (* let () = Printf.printf "DDD [Node=%d] PC-Setup #2\n%!" myrank in *)
-	  let (ksp,mx) = get_precond gamma in
-	    (* let () = Printf.printf "DDD [Node=%d] PC-Setup #3\n%!" myrank in *)
+	  let (ksp, mx) = get_precond gamma in
 	  let () =
-	    begin
-	      (* Maybe we should matrix_zero mx at this point? TF HF 24/01/2008 *)
-	      Mpi_petsc.matrix_copy lts.lts_pc_same_nonzero_pattern jacobian mx;
-	      Mpi_petsc.matrix_scale mx (-.gamma);
-	      Mpi_petsc.matrix_add_identity mx 1.0;
-	      Mpi_petsc.ksp_set_operators ksp mx mx; (* XXX Q: is this actually necessary? Suppose so... *)
-	      Mpi_petsc.ksp_set_up ksp;
-	    end
+            let mxstruc =
+              if j_recomputed
+              then Mpi_petsc.DIFFERENT_NONZERO_PATTERN
+              else Mpi_petsc.SAME_NONZERO_PATTERN
+            in
+              begin
+                Mpi_petsc.matrix_copy lts.lts_pc_same_nonzero_pattern jacobian mx;
+                Mpi_petsc.matrix_scale mx (-.gamma);
+                Mpi_petsc.matrix_add_identity mx 1.0;
+                Mpi_petsc.ksp_set_operators ~matrix_structure:mxstruc ksp mx mx;
+              end
 	  in
 	  let t1 = Unix.gettimeofday() in
 	  let () = pts_timings.ptt_pc_setup_n <- 1.0 +. pts_timings.ptt_pc_setup_n in
 	  let () = pts_timings.ptt_pc_setup_t <- pts_timings.ptt_pc_setup_t +. (t1-.t0) in
 	    (* let () = Printf.printf "DDD [Node=%d] PC-Setup #4\n%!" myrank in *)
-	    (true,0)
+	    (j_recomputed, 0)
 	in
 	  (* === CVODE PC-Solve === *)
 	let cvode_fun_preconditioner_solve args () =
@@ -2382,11 +2395,13 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	  in
 	  let (ksp,_) = get_precond gamma in
 	  let () = fill_pv_from_par_ba y_pcsolve_in_pv ba_rhs in
-	  let nr_iterations = Mpi_petsc.ksp_solve_raw ksp y_pcsolve_out_pv y_pcsolve_in_pv in
+	  let nr_iterations = Mpi_petsc.ksp_solve_raw ksp y_pcsolve_out_pv y_pcsolve_in_pv in (* this is really what scales badly!!! *)
 	  let () = fill_par_ba_from_pv ba_result y_pcsolve_out_pv in
 	  let t1 = Unix.gettimeofday() in
 	  let () = pts_timings.ptt_pc_solve_n <- 1.0 +. pts_timings.ptt_pc_solve_n in
 	  let () = pts_timings.ptt_pc_solve_t <- pts_timings.ptt_pc_solve_t +. (t1-.t0) in
+          let () = pts_timings.ptt_extra_n <- 1.0 +. pts_timings.ptt_extra_n in
+          let () = pts_timings.ptt_extra_t <- pts_timings.ptt_extra_t +. (t1_1 -. t0_1) in
 	    0
 	in
 	let timestepper_set_initial_from_phys ?(initial_time=0.0) ?(rel_tol=1e-6) ?(abs_tol=1e-6) () =
@@ -2540,6 +2555,8 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 		  pts_timings.ptt_pc_setup_t = 0.0;
 		  pts_timings.ptt_pc_solve_n = 0.0;
 		  pts_timings.ptt_pc_solve_t = 0.0;
+                  pts_timings.ptt_extra_n = 0.0;
+                  pts_timings.ptt_extra_t = 0.0;
 		  [||]
 		end
 	    | "REPORT" ->
@@ -2549,6 +2566,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 		  ("J*V",pts_timings.ptt_jv_n,pts_timings.ptt_jv_t);
 		  ("PCSetup",pts_timings.ptt_pc_setup_n,pts_timings.ptt_pc_setup_t);
 		  ("PCSolve",pts_timings.ptt_pc_solve_n,pts_timings.ptt_pc_solve_t);
+                  ("Extra",pts_timings.ptt_extra_n,pts_timings.ptt_extra_t);
 		|]
 	    | x ->
 		let () = Printf.fprintf stderr "Unknown timer command: '%s'\n%!" x in

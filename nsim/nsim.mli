@@ -173,6 +173,8 @@ type par_timestepper_timings = {
   mutable ptt_pc_setup_t : float;
   mutable ptt_pc_solve_n : float;
   mutable ptt_pc_solve_t : float;
+  mutable ptt_extra_n : float;
+  mutable ptt_extra_t : float;
 }
 val make_par_timestepper_timings : unit -> par_timestepper_timings
 type par_timestepper = {
