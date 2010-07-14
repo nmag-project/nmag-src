@@ -282,20 +282,39 @@ class OVFType:
         else:
             return "OOMMF OVF %s" % self.version_str
 
-def split_strings(ls):
-    s = ls.lstrip()
+def split_strings(s, delim='"'):
+    """Similar to s.split() but do not split whatherver is included between
+    two delimiters."""
+    OUTSIDE, INSIDE, SPACE = range(3)
+    state = SPACE
 
+    n = len(s)
+    i = 0
+    begin = 0
     pieces = []
-    while len(s) > 0:
-        second = s.find('"', 1)
-        assert second > 0 and s[0] == '"' and s[second] == '"', \
-          ("split_strings expects a number of strings delimited by \" and "
-           "separated by spaces, but it got: '%s'." % ls)
+    while i < n:
+        c = s[i]
+        inc = 1
+        if state == SPACE:
+            if not c.isspace():
+                begin = i
+                state = OUTSIDE
 
-        pieces.append(s[1: second])
+        elif state == OUTSIDE:
+            if c.isspace():
+                pieces.append(s[begin:i])
+                state = SPACE
+            elif c == delim:
+                state = INSIDE
 
-        s = s[second + 1:].lstrip()
+        else: # state == INSIDE
+            if c == delim:
+                state = OUTSIDE
 
+        i += inc
+
+    if state != SPACE:
+        pieces.append(s[begin:])
     return pieces
 
 class OVFValueUnits:
