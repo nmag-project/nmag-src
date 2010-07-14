@@ -2384,6 +2384,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	    (j_recomputed, 0)
 	in
 	  (* === CVODE PC-Solve === *)
+        let log_precond_ksp = Mpi_petsc.petsc_log_stage_register "TS_KSP" in
 	let cvode_fun_preconditioner_solve args () =
 	  (* let () = Printf.printf "[Node=%d] pc-solve\n%!" myrank in *)
 	  let t0 = Unix.gettimeofday() in
@@ -2395,13 +2396,13 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	  in
 	  let (ksp,_) = get_precond gamma in
 	  let () = fill_pv_from_par_ba y_pcsolve_in_pv ba_rhs in
+          let () = Mpi_petsc.petsc_log_stage_push log_precond_ksp in
 	  let nr_iterations = Mpi_petsc.ksp_solve_raw ksp y_pcsolve_out_pv y_pcsolve_in_pv in (* this is really what scales badly!!! *)
+          let () = Mpi_petsc.petsc_log_stage_pop () in
 	  let () = fill_par_ba_from_pv ba_result y_pcsolve_out_pv in
 	  let t1 = Unix.gettimeofday() in
 	  let () = pts_timings.ptt_pc_solve_n <- 1.0 +. pts_timings.ptt_pc_solve_n in
 	  let () = pts_timings.ptt_pc_solve_t <- pts_timings.ptt_pc_solve_t +. (t1-.t0) in
-          let () = pts_timings.ptt_extra_n <- 1.0 +. pts_timings.ptt_extra_n in
-          let () = pts_timings.ptt_extra_t <- pts_timings.ptt_extra_t +. (t1_1 -. t0_1) in
 	    0
 	in
 	let timestepper_set_initial_from_phys ?(initial_time=0.0) ?(rel_tol=1e-6) ?(abs_tol=1e-6) () =

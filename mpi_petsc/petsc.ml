@@ -55,6 +55,13 @@ type ts_rhs_jacobian = (float -> vector -> matrix -> matrix -> matstructure_type
 
 external petsc_init: string array -> string -> string -> bool -> bool = "caml_petsc_init"
 
+(* Types and functions to interface to the Petsc logging facilities *)
+type logstage = int;;
+external petsc_log_stage_register: string -> logstage
+         = "caml_petsc_log_stage_register"
+external petsc_log_stage_push: logstage -> unit = "caml_petsc_log_stage_push"
+external petsc_log_stage_pop: unit -> unit = "caml_petsc_log_stage_pop"
+
 external petsc_reset_cpu_cycle_counters: unit -> unit = "caml_petsc_reset_cpu_cycle_counters"
 
 external petsc_get_cpu_cycle_counters: unit -> (float * float * float) = "caml_petsc_get_cpu_cycle_counters"

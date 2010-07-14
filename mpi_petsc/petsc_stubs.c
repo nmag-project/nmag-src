@@ -3848,3 +3848,29 @@ CAMLprim value caml_petsc_read_mat(value read_file)
 
   CAMLreturn(block);
 }
+
+CAMLprim value caml_petsc_log_stage_register(value ml_stage_name) {
+  CAMLparam1(ml_stage_name);
+  const char *stage_name = String_val(ml_stage_name);
+  PetscLogStage stage;
+
+  petsc_checkinit();
+  PetscLogStageRegister(stage_name, & stage);
+  CAMLreturn(Val_int((int) stage));
+}
+
+CAMLprim value caml_petsc_log_stage_push(value ml_stage) {
+  CAMLparam1(ml_stage);
+  PetscLogStage stage = (PetscLogStage) Int_val(ml_stage);
+
+  petsc_checkinit();
+  PetscLogStagePush(stage);
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value caml_petsc_log_stage_pop(value ml_unit) {
+  CAMLparam1(ml_unit);
+  petsc_checkinit();
+  PetscLogStagePop();
+  CAMLreturn(Val_unit);
+}
