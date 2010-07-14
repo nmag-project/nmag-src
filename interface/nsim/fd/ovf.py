@@ -824,7 +824,7 @@ class OVFFile:
         segment_node = root_node.a_segment
         h = segment_node.a_header
         ss = [h.a_xstepsize, h.a_ystepsize, h.a_zstepsize]
-        dx, dy, dz = [0.5*ssi for ssi in ss]
+        dx, dy, dz = [0.5*ssi.value for ssi in ss]
 
         min_max_ndim = \
           [(h.a_xmin.value - dx, h.a_xmax.value + dx, h.a_xnodes.value),
@@ -833,7 +833,7 @@ class OVFFile:
 
         field_data = segment_node.a_data.field
         field_dim = root_node.field_dim
-        return FieldLattice(min_max_dim, dim=field_dim,
+        return FieldLattice(min_max_ndim, dim=field_dim,
                             data=field_data, order='F')
 
     def read(self, stream):
