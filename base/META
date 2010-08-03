@@ -1,0 +1,7 @@
+# Specifications for the "base" library:
+requires = "unix str bigarray"
+description = "Types and functionality at the base of the Nsim package"
+version = "0.1"
+browse_interfaces = " Base "
+archive(byte) = "deferred.cma"
+archive(native) = "deferred.cmxa"
