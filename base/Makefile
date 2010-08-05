@@ -19,16 +19,19 @@ OCAMLBLDFLAGS= $(OCAMLDEBUGFLAGS)
 CFLAGS=$(DEBUGFLAGS) $(NSIM_CFLAGS)
 LDFLAGS=$(DEBUGFLAGS)
 
-RESULT=deferred
+RESULT=base
 
-SOURCES=deferred.ml deferred.mli
+SOURCES=ba.ml ba.mli deferred.ml deferred.mli base.ml
 
 all: byte-code-library native-code-library
+
+base.mli: base.ml ba.mli deferred.mli
+	ocamlc -i base.ml > base.mli
 
 mrproper: clean
 	rm -f *~ *.cmi *.cmo *.top *.so *.o deps
 
-deps: META deferred.ml deferred.mli
+deps: META ba.ml ba.mli deferred.ml deferred.mli base.ml
 	touch deps
 
 .PHONY: mrproper
