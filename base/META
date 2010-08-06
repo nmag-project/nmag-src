@@ -1,5 +1,5 @@
 # Specifications for the "base" library:
-requires = "unix str bigarray"
+requires = "bigarray"
 description = "Types and functionality at the base of the Nsim package"
 version = "0.1"
 browse_interfaces = " Base Ba Deferred "

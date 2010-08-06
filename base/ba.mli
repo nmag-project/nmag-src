@@ -56,3 +56,6 @@ val short_ba: short_kind
 val create_sarray1: int -> sarray
 val create_sarray2: int -> int -> sarray2
 val create_sarray3: int -> int -> int -> sarray3
+
+val caml_unsafe_ba_int32_get_1: sarray -> int -> int
+val caml_unsafe_ba_int32_set_1: sarray -> int -> int -> unit

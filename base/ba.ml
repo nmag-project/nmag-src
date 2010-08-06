@@ -12,6 +12,9 @@
   Types and functionality at the base of the Nsim package.
  *)
 
+
+
+
 (* We use C layout *)
 type c_layout = Bigarray.c_layout
 let c_layout = Bigarray.c_layout
@@ -69,3 +72,9 @@ module I32 =
 
 I32.array1
 *)
+
+external caml_unsafe_ba_int32_get_1: sarray -> int -> int
+  = "caml_ba_int32_get_1"
+
+external caml_unsafe_ba_int32_set_1: sarray -> int -> int -> unit
+  = "caml_ba_int32_set_1"

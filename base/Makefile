@@ -21,7 +21,7 @@ LDFLAGS=$(DEBUGFLAGS)
 
 RESULT=base
 
-SOURCES=deferred.mli deferred.ml ba.mli ba.ml base.mli base.ml
+SOURCES=deferred.mli deferred.ml ba_stubs.c ba.mli ba.ml base.mli base.ml
 
 all: base.mli byte-code-library native-code-library
 
