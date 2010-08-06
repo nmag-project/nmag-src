@@ -7,7 +7,7 @@ AC_PREREQ(2.52)
 
 # AM_INIT_AUTOMAKE
 
-# Determines the 
+# Determines the
 # AC_CANONICAL_HOST
 
 # Libtool support
@@ -25,6 +25,7 @@ AX_COMPILER_VENDOR
 AX_CC_MAXOPT
 
 if test "$GCC" = "yes"; then
+  AX_CHECK_COMPILER_FLAGS(-Wall, [WARN_CFLAGS="-Wall"], [WARN_CFLAGS=""])
   AX_CHECK_COMPILER_FLAGS(-msse, [SSE_CFLAGS="-msse"], [SSE_CFLAGS=""])
   # Generate machine specific code?
   PORTABLE=yes
@@ -52,6 +53,7 @@ AC_CHECK_LIB([dl], [dlopen])
 #AC_CHECK_FUNCS([getenv stat])
 
 AC_SUBST([host_cpu])
+AC_SUBST([WARN_CFLAGS])
 AC_SUBST([SSE_CFLAGS])
 AC_SUBST([ARCH_CFLAGS])
 AC_SUBST([SIZEOF_INT], $ac_cv_sizeof_int)

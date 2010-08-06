@@ -4,6 +4,7 @@
 # The result is put in a file named 'arch.py'
 cc="@CC@"
 host_cpu="@host_cpu@"
+warn_cflags="@WARN_CFLAGS@"
 cflags="@CFLAGS@"
 sse_cflags="@SSE_CFLAGS@"
 arch_cflags="@ARCH_CFLAGS@"
