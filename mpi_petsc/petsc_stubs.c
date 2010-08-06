@@ -3849,13 +3849,21 @@ CAMLprim value caml_petsc_read_mat(value read_file)
   CAMLreturn(block);
 }
 
+#if PETSC_VERSION_LT(3, 0, 0)
+typedef int PetscLogStage;
+#endif
+
 CAMLprim value caml_petsc_log_stage_register(value ml_stage_name) {
   CAMLparam1(ml_stage_name);
   const char *stage_name = String_val(ml_stage_name);
   PetscLogStage stage;
 
   petsc_checkinit();
+#if PETSC_VERSION_LT(3, 0, 0)
+  PetscLogStageRegister(& stage, stage_name);
+#else
   PetscLogStageRegister(stage_name, & stage);
+#endif
   CAMLreturn(Val_int((int) stage));
 }
 

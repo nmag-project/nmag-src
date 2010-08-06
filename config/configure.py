@@ -31,9 +31,9 @@ except:
 # Some ugly architecture-dependent choices
 
 # We just check if this machine has Mac OS X library flags (sort of :-/)
-is_macos = False 
-                 
-if pyconfig.has_key('LDSHARED'): 
+is_macos = False
+
+if pyconfig.has_key('LDSHARED'):
     sh_cmnd = pyconfig['LDSHARED']
     if "bundle" in sh_cmnd:
         is_macos = True # Mac OS X
@@ -70,7 +70,8 @@ class Msg:
     def debug(self, msg):
         self.prnln(msg, log="debug")
 
-    def summary(self, msg):
+    def summary(self, task, status):
+        msg = task.rjust(30) + ": " + status
         self.prnln(msg, log="summary")
 
     def show(self, log, title):
@@ -338,7 +339,7 @@ if '--with-single-petsc-lib' in recognized_opts:
     processed_opts['--full-lib-name'] = True
 
 # Default assumption is that the user does not provide CFLAGS via a --cflags option:
-CFLAGS=None 
+user_CFLAGS=None
 
 # Add other paths
 for opt, arg in recognized:
@@ -363,10 +364,10 @@ for opt, arg in recognized:
                     if 'includedir' in key:
                         configs[key][4].insert(0, arg)
                 continue
-    if opt=='--cflags':
-        CFLAGS=arg
+    if opt == '--cflags':
+        user_CFLAGS = arg
         processed_opts[opt] = None
-    
+
     if not processed_opts.has_key(opt):
         msg.prnln("Warning: ignored option '%s'" % opt, "warning")
 
@@ -438,7 +439,6 @@ configuration["PETSC_ARCH"] = "" # I should check that this is supported
 configuration["PYCAML_OCAMLLDFLAGS"] = "" # I should check that this is supported
 configuration["OCAMLDEBUGFLAGS"] = "-g" # I should check that this is supported
 configuration["DEBUGFLAGS"] = "" # I should check that this is supported
-configuration["NSIM_CFLAGS"] = "-Wall" # I should check that this is supported
 configuration["PYCAML_OPT_DARWIN"] = "" # Remove?
 configuration["EXTRA_LIBRARY_PATH"] = "" # Remove?
 configuration["GCC_FLAGS_SHLIB"] = LDSHARED
@@ -486,21 +486,32 @@ exit_status = os.system("cd ac; ./configure")
 print "Exited from ./ac/configure script with status %d" % exit_status
 if exit_status !=  0: sys.exit(1)
 
-try:
-    import arch
-    CFLAGS_ARCH = arch.arch_cflags
-    sizeof_int = int(arch.sizeof_int)
+if user_CFLAGS != None:
+    CFLAGS = user_CFLAGS
 
-except:
-    msg.prnln("WARNING: Cannot import arch. Optimisation flags disabled!")
-    msg.prnln("WARNING: Cannot obtain sizeof(int): assuming sizeof(int) = 4.")
-    sizeof_int = 4
-    CFLAGS_ARCH=""
+else:
+    opt_CFLAGS = ""
+    arch_CFLAGS = ""
+    warn_CFLAGS = "" # I should check that this is supported
 
-if CFLAGS!=None:
-    CFLAGS_ARCH=CFLAGS
+    sizeof_int = 4 # often the case (64 bits cpus are lp64, typically)
 
-configuration["CFLAGS_ARCH"] = CFLAGS_ARCH
+    try:
+        import arch
+        warn_CFLAGS = arch.warn_cflags
+        opt_CFLAGS = arch.cflags
+        arch_CFLAGS = arch.arch_cflags
+        sizeof_int = int(arch.sizeof_int)
+
+    except:
+        msg.prnln("WARNING: Cannot import arch. Optimisation flags disabled!")
+        msg.prnln("WARNING: Cannot obtain sizeof(int): "
+                  "assuming sizeof(int) = 4.")
+
+    CFLAGS = " ".join([warn_CFLAGS, arch_CFLAGS, opt_CFLAGS])
+
+configuration["CFLAGS_ARCH"] = CFLAGS
+configuration["NSIM_CFLAGS"] = CFLAGS
 
 #----------------------------------------------------------------------------
 # We finally write the configuration to file(s): we produce four files
@@ -588,7 +599,7 @@ let c_int_to_int ci = Int$$.to_int ci;;
 (* functions to manipulate c_int-s *)
 let c_int_add x y = Int$$.add x y;;
 let c_int_sub x y = Int$$.sub x y;;
-let c_int_bigarray1_create size = 
+let c_int_bigarray1_create size =
   Bigarray.Array1.create
     c_int_kind Bigarray.c_layout size;;
 
@@ -605,8 +616,9 @@ cf.save('nsimconf.py', language='python')
 cf.save('nsimconf.ml', language='ocaml')
 
 # Recap configuration settings on the screen
-msg.summary("NumPy array support: %s" %
+msg.summary("NumPy array support",
             bool_to_yesno(cf.have("NUMPY_INCLUDE_PATH")))
+msg.summary("CFLAGS", CFLAGS)
 
 msg.show("warning", "Warning messages")
 msg.show("summary", "Configuration summary")
