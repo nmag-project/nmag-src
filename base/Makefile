@@ -21,15 +21,16 @@ LDFLAGS=$(DEBUGFLAGS)
 
 RESULT=base
 
-SOURCES=ba.ml ba.mli deferred.ml deferred.mli base.ml
+SOURCES=deferred.mli deferred.ml ba.mli ba.ml base.mli base.ml
 
-all: byte-code-library native-code-library
+all: base.mli byte-code-library native-code-library
 
-base.mli: base.ml ba.mli deferred.mli
+base.mli: ba.cmi deferred.cmi
 	ocamlc -i base.ml > base.mli
 
 mrproper: clean
-	rm -f *~ *.cmi *.cmo *.top *.so *.o deps
+	rm -f *~ *.cmi *.cmo *.cma *.cmxa *.top *.so *.o *.a deps
+	rm -f base.mli
 
 deps: META ba.ml ba.mli deferred.ml deferred.mli base.ml
 	touch deps

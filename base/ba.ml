@@ -58,4 +58,14 @@ let create_sarray1 = Bigarray.Array1.create short_ba c_layout;;
 let create_sarray2 = Bigarray.Array2.create short_ba c_layout;;
 let create_sarray3 = Bigarray.Array3.create short_ba c_layout;;
 
-module Deferred = Deferred;;
+(*
+module I32 =
+  struct
+    type elt = Bigarray.int_elt
+    type map = (int, elt) Bigarray.kind
+    type t
+
+  end
+
+I32.array1
+*)

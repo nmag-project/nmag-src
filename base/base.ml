@@ -12,5 +12,5 @@
   Types and functionality at the base of the Nsim package.
  *)
 
-module Ba = Ba;;
-module Deferred = Deferred;;
+module Ba = Ba              (* from ba.ml *)
+module Deferred = Deferred  (* from deferred.ml *)
