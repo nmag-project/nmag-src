@@ -12,7 +12,7 @@ INCDIRS=../snippets ../ccpla ../mesh ../fem ../mpi_petsc ../nsim_grammars ../hli
 # Where to find petsc and mpich2 libraries
 # LIBDIRS=$(EXTRA_LIBRARY_PATH) $(PETSC_LIBRARY_PATH) $(MPICH2_LIBRARY_PATH)
 
-CFLAGS=$(DEBUGFLAGS) $(PETSC_INCFLAGS) -O3 $(CFLAGS_ARCH)
+CFLAGS=$(DEBUGFLAGS) $(PETSC_INCFLAGS) $(NSIM_CFLAGS)
 LDFLAGS=$(DEBUGFLAGS) $(PETSC_LDFLAGS)
 
 # OCAMLMKLIB = ocamlmklib -ldopt -lpetscvec -ldopt -lpetscmat 

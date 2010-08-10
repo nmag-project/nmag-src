@@ -1182,10 +1182,11 @@ class Simulation(SimulationCore):
 
         self.region_name_list = map((lambda x:x[0]), region_names_and_mag_mats)
         if len(self.region_name_list) != self.mesh.numregions-1:
-            raise "Found inconsistency between the mesh you loaded and the " \
-                  "provided list of (region_name, materials). The mesh has " \
-                  "%d regions but the provided list has %d pairs." \
-                  % (self.mesh.numregions-1, len(self.region_name_list))
+            msg = ("Found inconsistency between the mesh you loaded and the "
+                   "provided list of (region_name, materials). The mesh has "
+                   "%d regions but the provided list has %d pairs."
+                   % (self.mesh.numregions-1, len(self.region_name_list)))
+            raise NmagUserError(msg)
 
         self.regionnames_by_regionid = {}
         i = 1
