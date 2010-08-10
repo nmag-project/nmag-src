@@ -12,29 +12,90 @@
   Types and functionality at the base of the Nsim package.
  */
 
-#if 0
+#include <caml/mlvalues.h>
 #include <caml/alloc.h>
-#include <caml/custom.h
+#include <caml/memory.h>
+#include <caml/custom.h>
 #include <caml/fail.h>
 #include <caml/intext.h>
-#include <caml/memory.h>
-#endif
-
-#include <caml/mlvalues.h>
 #include <caml/bigarray.h>
+
+#include <stdio.h>
 
 /* Highly specialised code for bigarrays */
 
+/* NOTE: we omit CAMLparamX as we are not allocating anything in the functions
+   below (and hence the GC is not interrupting their execution) */
+#define WITH_CAML_DECL 0
+
+#if WITH_CAML_DECL
+#  define OptCAMLparam0 CAMLparam0
+#  define OptCAMLparam1 CAMLparam1
+#  define OptCAMLparam2 CAMLparam2
+#  define OptCAMLparam3 CAMLparam3
+#  define OptCAMLparam4 CAMLparam3
+#  define OptCAMLparam5 CAMLparam3
+#  define OptCAMLreturn CAMLreturn
+#else
+#  define OptCAMLparam0()
+#  define OptCAMLparam1(a)
+#  define OptCAMLparam2(a, b)
+#  define OptCAMLparam3(a, b, c)
+#  define OptCAMLparam4(a, b, c, d)
+#  define OptCAMLparam5(a, b, c, d, e)
+#  define OptCAMLreturn(x) return (x)
+#endif
+
 /* Read/write int32 bigarrays without bound checks */
-value caml_ba_int32_get_1(value ba_v, value idx_v) {
+CAMLprim value caml_ba_int32_get1(value ba_v, value idx_v) {
+  OptCAMLparam2(ba_v, idx_v);
   struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
-  return Val_long(((int32 *) ba->data)[Long_val(idx_v)]);
+  OptCAMLreturn(Val_long(((int32 *) ba->data)[Long_val(idx_v)]));
 }
 
-value caml_ba_int32_set_1(value ba_v, value idx_v, value v_v) {
+CAMLprim value caml_ba_int32_set1(value ba_v, value idx_v, value v_v) {
+  OptCAMLparam3(ba_v, idx_v, v_v);
   struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
   ((int32 *) ba->data)[Long_val(idx_v)] = (int32) Long_val(v_v);
-  return Val_unit;
+  OptCAMLreturn(Val_unit);
+}
+
+CAMLprim value caml_ba_int32_get2(value ba_v, value idx1_v, value idx2_v) {
+  OptCAMLparam3(ba_v, idx1_v, idx2_v);
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
+  OptCAMLreturn(Val_long(((int32 *) ba->data)[ba->dim[1]*Long_val(idx1_v)
+                                              + Long_val(idx2_v)]));
+}
+
+CAMLprim value caml_ba_int32_set2(value ba_v, value idx1_v, value idx2_v,
+                                  value v_v) {
+  OptCAMLparam4(ba_v, idx1_v, idx2_v, v_v);
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
+  ((int32 *) ba->data)[ba->dim[1]*Long_val(idx1_v) + Long_val(idx2_v)]
+    = (int32) Long_val(v_v);
+  OptCAMLreturn(Val_unit);
+}
+
+CAMLprim value caml_ba_int32_get3(value ba_v,
+                                  value idx1_v, value idx2_v, value idx3_v) {
+  OptCAMLparam4(ba_v, idx1_v, idx2_v, idx3_v);
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
+  register size_t linear_idx
+    = ba->dim[2]*(ba->dim[1]*Long_val(idx1_v) + Long_val(idx2_v))
+      + Long_val(idx3_v);
+  OptCAMLreturn(Val_long(((int32 *) ba->data)[linear_idx]));
+}
+
+CAMLprim value caml_ba_int32_set3(value ba_v,
+                                  value idx1_v, value idx2_v, value idx3_v,
+                                  value v_v) {
+  OptCAMLparam5(ba_v, idx1_v, idx2_v, idx3_v, v_v);
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
+  register size_t linear_idx
+    = ba->dim[2]*(ba->dim[1]*Long_val(idx1_v) + Long_val(idx2_v))
+      + Long_val(idx3_v);
+  ((int32 *) ba->data)[linear_idx] = (int32) Long_val(v_v);
+  OptCAMLreturn(Val_unit);
 }
 
 
