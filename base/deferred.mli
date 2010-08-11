@@ -33,25 +33,34 @@ exception DeferredDeleted of string
 type 'a t
 (** The type for deferred quantities *)
 
-val init : string -> (unit -> 'a) -> 'a t
+type 'a creator = unit -> 'a
+(** Function to be called to create (allocate) a deferred quantity *)
+
+type 'a filler = 'a -> 'a
+(** Function to be called to fill a deferred quantity *)
+
+val init: ?creator:'a creator -> ?filler:'a filler -> string -> 'a t
 (** Create a new deferred quantity *)
 
-val activate_logging : bool -> unit
+val activate_logging: bool -> unit
 (* Sets whether the logging is activated or not *)
 
-val set_context : string -> unit
+val set_context: string -> unit
 (** Function to set a context name (useful to identify where deferred
     computations happen) *)
 
-val get : 'a t -> 'a
+val create: 'a t -> 'a
 (** Get a deferred quantity (computing it if necessary). *)
 
-val delete : ?msg:string -> 'a t -> unit
+val get: 'a t -> 'a
+(** Get a deferred quantity (computing it if necessary). *)
+
+val delete: ?msg:string -> 'a t -> unit
 (** Delete a deferred quantity so that it won't be accessible anymore. *)
 
-val reset : 'a t -> unit
+val reset: 'a t -> unit
 (** Reset a deferred quantity. The quantity is discarded and recomputed later,
     if necessary. *)
 
-val get_computation_count : 'a t -> int
+val get_computation_count: 'a t -> int
 (** Get the number of times a deferred quantity has been computed *)
