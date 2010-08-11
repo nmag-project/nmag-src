@@ -10,12 +10,15 @@
             (see <http://www.gnu.org/licenses/>)
  *)
 
+exception DeferredError of string
 exception DeferredUnable of string
 exception DeferredDeleted of string
 
 type 'a creator = unit -> 'a
 
 type 'a filler = 'a -> 'a
+
+type collective_filler = unit -> unit
 
 type 'a deferred_value =
    Deferred
@@ -24,18 +27,18 @@ type 'a deferred_value =
  | Deleted of string
 
 type 'a t =
-  { dfr_name: string;                     (* Name of the deferred quantity *)
-    dfr_creator: 'a creator option;       (* Creator function *)
-    dfr_filler: 'a filler option;         (* Filler function *)
-    mutable dfr_value: 'a deferred_value; (* Value *)
-    mutable dfr_count: int; }             (* Number of builds *)
+  { dfr_name: string;                       (* Name of deferred quantity *)
+    mutable dfr_creator: 'a creator option; (* Creator function *)
+    mutable dfr_filler: 'a filler option;   (* Filler function *)
+    mutable dfr_value: 'a deferred_value;   (* Value *)
+    mutable dfr_count: int; }               (* Number of builds *)
 
 let init ?creator ?filler name =
-  {dfr_name = name;
-   dfr_creator = creator;
-   dfr_filler = filler;
-   dfr_value = Deferred;
-   dfr_count = 0;}
+  { dfr_name = name;
+    dfr_creator = creator;
+    dfr_filler = filler;
+    dfr_value = Deferred;
+    dfr_count = 0; }
 ;;
 
 (* The current context *)
@@ -54,6 +57,10 @@ let logmsg what where =
   if !logging then
     Printf.printf "%s: quantity '%s' was %s.\n%!" !context what where
 ;;
+
+let set_filler d filler = d.dfr_filler <- filler
+
+let set_creator d creator = d.dfr_creator <- creator
 
 (* Create a deferred quantity (without filling it) and return it. *)
 let create d =
@@ -124,3 +131,41 @@ let reset d =
 ;;
 
 let get_computation_count d = d.dfr_count;;
+
+let set_collective_filler_opt5 d1 d2 d3 d4 d5 filler =
+  let check opt_d =
+    match opt_d with
+      None -> ()
+    | Some d ->
+        match d.dfr_value with
+          Created v -> d.dfr_value <- Filled v
+        | Filled v -> ()
+        | _ -> raise (DeferredError "collective filler didn't fill all \
+                                    the associated deferred quantities")
+  in
+  let check_all () =
+    begin check d1; check d2; check d3; check d4; check d5; end
+  in
+  let individual_filler v =
+    let () = filler () in
+    let () = check_all ()
+    in v
+  in
+  let set opt_d =
+    match opt_d with
+      None -> ()
+    | Some d -> set_filler d (Some individual_filler)
+  in
+    begin set d1; set d2; set d3; set d4; set d5; end
+;;
+
+let set_collective_filler2 a b =
+  set_collective_filler_opt5 None None None (Some a) (Some b);;
+
+(*let set_collective_filler3 a b c =
+  set_collective_filler_opt5 None None (Some a) (Some b) (Some c);;
+let set_collective_filler4 a b c d =
+  set_collective_filler_opt5 None (Some a) (Some b) (Some c) (Some d);;
+let set_collective_filler5 a b c d e =
+  set_collective_filler_opt5 (Some a) (Some b) (Some c) (Some d) (Some e);;*)
+

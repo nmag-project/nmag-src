@@ -39,6 +39,9 @@ type 'a creator = unit -> 'a
 type 'a filler = 'a -> 'a
 (** Function to be called to fill a deferred quantity *)
 
+type collective_filler = unit -> unit
+(** Function to be called to fill a number of related deferred quantities *)
+
 val init: ?creator:'a creator -> ?filler:'a filler -> string -> 'a t
 (** Create a new deferred quantity *)
 
@@ -48,6 +51,12 @@ val activate_logging: bool -> unit
 val set_context: string -> unit
 (** Function to set a context name (useful to identify where deferred
     computations happen) *)
+
+val set_creator: 'a t -> 'a creator option -> unit
+(** Set the creator for the deferred quantity *)
+
+val set_filler: 'a t -> 'a filler option -> unit
+(** Set the filler for the deferred quantity *)
 
 val create: 'a t -> 'a
 (** Get a deferred quantity (computing it if necessary). *)
@@ -64,3 +73,5 @@ val reset: 'a t -> unit
 
 val get_computation_count: 'a t -> int
 (** Get the number of times a deferred quantity has been computed *)
+
+val set_collective_filler2: 'a t -> 'b t -> (unit -> unit) -> unit

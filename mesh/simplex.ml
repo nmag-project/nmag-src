@@ -29,13 +29,6 @@ open Base.Ba
      mutable ms_ic_midpoint: float array;
      mutable ms_cc_radius: float;
      mutable ms_ic_radius: float;
-
-     (* Extended point coordinates as a matrix (last coordinate =1) *)
-     mutable ms_ext_point_coords: float array array option;                              (* this variables are now mutable in order to update *)
-     (* The inverse provides a concise way to get all the cofactors. *)                  (* them when we call the function scale_node_positions!! *)
-     (* Also, the j'th row of the inverse is just the j'th face equation! *)
-     mutable ms_inv_ext_point_coords: float array array option;
-     mutable ms_point_coords_det: float;
 *)
 
 type t = {
@@ -56,7 +49,7 @@ type t = {
       and radii (1*2 floats) *)
 }
 
-let my_build_point_matrices m0 =
+let my_build_point_matrices m0 () =
   let d = Mesh0.get_nr_dims m0 in
   let n = Mesh0.get_nr_simplices m0 in
   let ba = F.create3 n (d + 1) (d + 1) in
@@ -74,19 +67,24 @@ let my_build_point_matrices m0 =
                      in point_coords.{nr_row})))
   in ba
 
-let my_build_inv_point_matrices m0 deferred_point_matrices =
+let my_fill_inv_point_matrices_and_dets simplex () =
+  let m0 = simplex.msd_mesh0 in
   let d = Mesh0.get_nr_dims m0 in
   let n = Mesh0.get_nr_simplices m0 in
   let compute_det_and_inv = Snippets.det_and_inv (d + 1) in
-  let mxs = Deferred.get deferred_point_matrices in
-  let ba = F.create3 n (d + 1) (d + 1) in
+  let mxs = Deferred.get simplex.msd_ext_point_coords in
+  let inv_mxs = Deferred.create simplex.msd_inv_ext_point_coords in
+  let dets = Deferred.create simplex.msd_point_coords_det in
   let () =
-    F.iter32 ba
+    F.iter32 inv_mxs
       (fun nr_spx dst_matrix ->
          let src_matrix = F.to_ml2 (F.slice32 mxs nr_spx) in
          let det, ml_inv_matrix = compute_det_and_inv src_matrix in
-           F.set_all2 dst_matrix (fun i1 i2 -> ml_inv_matrix.(i1).(i2)))
-  in ba
+           begin
+             F.set_all2 dst_matrix (fun i1 i2 -> ml_inv_matrix.(i1).(i2));
+             F.set1 dets nr_spx det;
+           end)
+  in ()
 
 let init m0 =
   let d = Mesh0.get_nr_dims m0 in
@@ -94,25 +92,24 @@ let init m0 =
   let n = Mesh0.get_nr_simplices m0 in
   let fa1_creator () = F.create1 n in
   let fa2_creator () = F.create2 n dd in
-
-  let deferred_point_matrices =
-    Deferred.init
-      ~creator:(fun () -> my_build_point_matrices m0)
-      "ext_point_coords"
-  in
-  let deferred_inv_point_matrices =
-    Deferred.init
-      ~creator:(fun () -> my_build_inv_point_matrices m0 deferred_point_matrices)
-      "inv_ext_point_coords"
-  in
+  let fa3_creator () = F.create3 n dd dd in
+  let point_matrices =
+    Deferred.init ~creator:(my_build_point_matrices m0) "ext_point_coords" in
+  let inv_point_matrices =
+    Deferred.init ~creator:fa3_creator "inv_ext_point_coords" in
+  let point_coords_det = Deferred.init ~creator:fa1_creator "point_coords_det" in
   let ic_cc_data = Deferred.init ~creator:fa2_creator "ic_cc_data" in
-  let point_coords_det = Deferred.init ~creator:fa1_creator "point_coords_det"
-  in
+  let simplex =
     { msd_mesh0 = m0;
-      msd_ext_point_coords = deferred_point_matrices;
-      msd_inv_ext_point_coords = deferred_inv_point_matrices;
+      msd_ext_point_coords = point_matrices;
+      msd_inv_ext_point_coords = inv_point_matrices;
       msd_point_coords_det = point_coords_det;
       msd_ic_cc_data = ic_cc_data; }
+  in
+  let () =
+    Deferred.set_collective_filler2 inv_point_matrices point_coords_det
+      (my_fill_inv_point_matrices_and_dets simplex)
+  in simplex
 
 (** Get the point matrix for the given simplex. *)
 let get_point_matrix sx_data sx_id =
