@@ -52,17 +52,29 @@ module I32:
     val unsafe_set1: array1 -> int -> ml_elt -> unit
     val unsafe_set2: array2 -> int -> int -> ml_elt -> unit
     val unsafe_set3: array3 -> int -> int -> int -> ml_elt -> unit
+    val slice2: array2 -> int -> array1
+    val slice31: array3 -> int -> int -> array1
+    val slice32: array3 -> int -> array2
     val set1: array1 -> int -> ml_elt -> unit
+    val set2: array2 -> int -> int -> ml_elt -> unit
+    val set3: array3 -> int -> int -> int -> ml_elt -> unit
     val get1: array1 -> int -> ml_elt
+    val get2: array2 -> int -> int -> ml_elt
+    val get3: array3 -> int -> int -> int -> ml_elt
     val set_all1: array1 -> (int -> ml_elt) -> unit
     val set_all2: array2 -> (int -> int -> ml_elt) -> unit
     val set_all3: array3 -> (int -> int -> int -> ml_elt) -> unit
     val iter1: array1 -> (int -> ml_elt -> unit) -> unit
     val iter2: array2 -> (int -> int -> ml_elt -> unit) -> unit
     val iter3: array3 -> (int -> int -> int -> ml_elt -> unit) -> unit
+    val iter21: array2 -> (int -> array1 -> unit) -> unit
+    val iter31: array3 -> (int -> int -> array1 -> unit) -> unit
+    val iter32: array3 -> (int -> array2 -> unit) -> unit
     val init1: int -> (int -> ml_elt) -> array1
     val init2: int -> int -> (int -> int -> ml_elt) -> array2
     val init3: int -> int -> int -> (int -> int -> int -> ml_elt) -> array3
+    val from_ml2: ml_elt array array -> array2
+    val to_ml2: array2 -> ml_elt array array
   end
 
 module F:
@@ -83,15 +95,27 @@ module F:
     val unsafe_set1: array1 -> int -> ml_elt -> unit
     val unsafe_set2: array2 -> int -> int -> ml_elt -> unit
     val unsafe_set3: array3 -> int -> int -> int -> ml_elt -> unit
+    val slice2: array2 -> int -> array1
+    val slice31: array3 -> int -> int -> array1
+    val slice32: array3 -> int -> array2
     val set1: array1 -> int -> ml_elt -> unit
+    val set2: array2 -> int -> int -> ml_elt -> unit
+    val set3: array3 -> int -> int -> int -> ml_elt -> unit
     val get1: array1 -> int -> ml_elt
+    val get2: array2 -> int -> int -> ml_elt
+    val get3: array3 -> int -> int -> int -> ml_elt
     val set_all1: array1 -> (int -> ml_elt) -> unit
     val set_all2: array2 -> (int -> int -> ml_elt) -> unit
     val set_all3: array3 -> (int -> int -> int -> ml_elt) -> unit
     val iter1: array1 -> (int -> ml_elt -> unit) -> unit
     val iter2: array2 -> (int -> int -> ml_elt -> unit) -> unit
     val iter3: array3 -> (int -> int -> int -> ml_elt -> unit) -> unit
+    val iter21: array2 -> (int -> array1 -> unit) -> unit
+    val iter31: array3 -> (int -> int -> array1 -> unit) -> unit
+    val iter32: array3 -> (int -> array2 -> unit) -> unit
     val init1: int -> (int -> ml_elt) -> array1
     val init2: int -> int -> (int -> int -> ml_elt) -> array2
     val init3: int -> int -> int -> (int -> int -> int -> ml_elt) -> array3
+    val from_ml2: ml_elt array array -> array2
+    val to_ml2: array2 -> ml_elt array array
   end

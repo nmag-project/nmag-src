@@ -61,6 +61,9 @@ module type ACCESSOR =
     val unsafe_set1: array1 -> int -> ml_elt -> unit
     val unsafe_set2: array2 -> int -> int -> ml_elt -> unit
     val unsafe_set3: array3 -> int -> int -> int -> ml_elt -> unit
+    val slice2: array2 -> int -> array1
+    val slice31: array3 -> int -> int -> array1
+    val slice32: array3 -> int -> array2
   end
 
 module BaFunctor =
@@ -69,100 +72,134 @@ module BaFunctor =
       include Acc
 
       let set1 ba i v =
-        if i >= 0 && i < (Acc.dim1 ba)
-        then Acc.unsafe_set1 ba i v
+        if i >= 0 && i < (dim1 ba)
+        then unsafe_set1 ba i v
         else raise (Invalid_argument "Index out of bounds.")
 
       let get1 ba i =
-        if i >= 0 && i < (Acc.dim1 ba)
-        then Acc.unsafe_get1 ba i
+        if i >= 0 && i < (dim1 ba)
+        then unsafe_get1 ba i
+        else raise (Invalid_argument "Index out of bounds.")
+
+      let set2 ba i1 i2 v =
+        let n1, n2 = dim2 ba in
+        if i1 >= 0 && i1 < n1 && i2 >= 0 && i2 < n2
+        then unsafe_set2 ba i1 i2 v
+        else raise (Invalid_argument "Index out of bounds.")
+
+      let get2 ba i1 i2 =
+        let n1, n2 = dim2 ba in
+        if i1 >= 0 && i1 < n1 && i2 >= 0 && i2 < n2
+        then unsafe_get2 ba i1 i2
+        else raise (Invalid_argument "Index out of bounds.")
+
+      let set3 ba i1 i2 i3 v =
+        let n1, n2, n3 = dim3 ba in
+        if i1 >= 0 && i1 < n1 && i2 >= 0 && i2 < n2 && i3 >= 0 && i3 < n3
+        then unsafe_set3 ba i1 i2 i3 v
+        else raise (Invalid_argument "Index out of bounds.")
+
+      let get3 ba i1 i2 i3 =
+        let n1, n2, n3 = dim3 ba in
+        if i1 >= 0 && i1 < n1 && i2 >= 0 && i2 < n2 && i3 >= 0 && i3 < n3
+        then unsafe_get3 ba i1 i2 i3
         else raise (Invalid_argument "Index out of bounds.")
 
       let set_all1 ba fn =
-        let nm1 = (Acc.dim1 ba) - 1 in
+        let nm1 = (dim1 ba) - 1 in
           for i = 0 to nm1; do
-            Acc.unsafe_set1 ba i (fn i)
+            unsafe_set1 ba i (fn i)
           done
 
       let set_all2 ba fn =
-        let (n1, n2) = Acc.dim2 ba in
+        let (n1, n2) = dim2 ba in
           for i1 = 0 to n1 - 1; do
             for i2 = 0 to n2 - 1; do
-              Acc.unsafe_set2 ba i1 i2 (fn i1 i2)
+              unsafe_set2 ba i1 i2 (fn i1 i2)
             done
           done
 
       let set_all3 ba fn =
-        let (n1, n2, n3) = Acc.dim3 ba in
+        let (n1, n2, n3) = dim3 ba in
           for i1 = 0 to n1 - 1; do
             for i2 = 0 to n2 - 1; do
               for i3 = 0 to n3 - 1; do
-                Acc.unsafe_set3 ba i1 i2 i3 (fn i1 i2 i3)
+                unsafe_set3 ba i1 i2 i3 (fn i1 i2 i3)
               done
             done
           done
 
       let iter1 ba fn =
-        let nm1 = (Acc.dim1 ba) - 1 in
+        let nm1 = (dim1 ba) - 1 in
           for i = 0 to nm1; do
-            let () = fn i (Acc.unsafe_get1 ba i) in ()
+            let () = fn i (unsafe_get1 ba i) in ()
           done
 
       let iter2 ba fn =
-        let (n1, n2) = Acc.dim2 ba in
+        let (n1, n2) = dim2 ba in
           for i1 = 0 to n1 - 1; do
             for i2 = 0 to n2 - 1; do
-              let () = fn i1 i2 (Acc.unsafe_get2 ba i1 i2) in ()
+              let () = fn i1 i2 (unsafe_get2 ba i1 i2) in ()
             done
           done
 
       let iter3 ba fn =
-        let (n1, n2, n3) = Acc.dim3 ba in
+        let (n1, n2, n3) = dim3 ba in
           for i1 = 0 to n1 - 1; do
             for i2 = 0 to n2 - 1; do
               for i3 = 0 to n3 - 1; do
-                let () = fn i1 i2 i3 (Acc.unsafe_get3 ba i1 i2 i3) in ()
+                let () = fn i1 i2 i3 (unsafe_get3 ba i1 i2 i3) in ()
               done
             done
           done
-(*
+
       let iter21 ba fn =
         let n1, _ = dim2 ba in
           for i1 = 0 to n1 - 1; do
-            let slice = Bigarray.Array2.slice_left ba i1 in
-            let () = fn i1 slice in ()
-          done
-
-      let iter31 ba fn =
-        let n1, _, _ = dim3 ba in
-          for i1 = 0 to n1 - 1; do
-            let slice = Bigarray.Array3.slice_left_2 ba i1 in
+            let slice = slice2 ba i1 in
             let () = fn i1 slice in ()
           done
 
       let iter32 ba fn =
+        let n1, _, _ = dim3 ba in
+          for i1 = 0 to n1 - 1; do
+            let slice = slice32 ba i1 in
+            let () = fn i1 slice in ()
+          done
+
+      let iter31 ba fn =
         let n1, n2, _ = dim3 ba in
           for i1 = 0 to n1 - 1; do
             for i2 = 0 to n2 - 1; do
-              let slice = Bigarray.Array3.slice_left_1 ba i1 i2 in
+              let slice = slice31 ba i1 i2 in
               let () = fn i1 i2 slice in ()
             done
           done
-*)
+
       let init1 n fn =
-        let ba = Acc.create1 n in
+        let ba = create1 n in
         let () = set_all1 ba fn
         in ba
 
       let init2 n1 n2 fn =
-        let ba = Acc.create2 n1 n2 in
+        let ba = create2 n1 n2 in
         let () = set_all2 ba fn
         in ba
 
       let init3 n1 n2 n3 fn =
-        let ba = Acc.create3 n1 n2 n3 in
+        let ba = create3 n1 n2 n3 in
         let () = set_all3 ba fn
         in ba
+
+      let from_ml2 a2 =
+        let n1 = Array.length a2 in
+        let n2 = if n1 >= 1 then Array.length a2.(0) else 0 in
+          init2 n1 n2 (fun i1 i2 -> a2.(i1).(i2))
+
+      let to_ml2 a2 =
+        let n1, n2 = dim2 a2
+        in Array.init n1
+             (fun i1 -> Array.init n1 (fun i2 -> unsafe_get2 a2 i1 i2))
 
     end
 
@@ -186,6 +223,9 @@ module I32Accessor =
     let unsafe_set1 = i32_unsafe_set1
     let unsafe_set2 = i32_unsafe_set2
     let unsafe_set3 = i32_unsafe_set3
+    let slice2 = Bigarray.Array2.slice_left
+    let slice31 = Bigarray.Array3.slice_left_1
+    let slice32 = Bigarray.Array3.slice_left_2
   end
 
 module I32 = BaFunctor(I32Accessor)
@@ -210,6 +250,9 @@ module FAccessor =
     let unsafe_set1 = Bigarray.Array1.unsafe_set
     let unsafe_set2 = Bigarray.Array2.unsafe_set
     let unsafe_set3 = Bigarray.Array3.unsafe_set
+    let slice2 = Bigarray.Array2.slice_left
+    let slice31 = Bigarray.Array3.slice_left_1
+    let slice32 = Bigarray.Array3.slice_left_2
   end
 
 module F = BaFunctor(FAccessor)
