@@ -15,6 +15,7 @@
  *
  *)
 
+open Base
 open Base.Ba
 
 (*
@@ -49,11 +50,8 @@ type t = {
       and radii (1*2 floats) *)
 }
 
-let my_build_point_matrices m0 () =
+let my_fill_point_matrices m0 ba =
   let d = Mesh0.get_nr_dims m0 in
-  let n = Mesh0.get_nr_simplices m0 in
-  let ba = F.create3 n (d + 1) (d + 1) in
-  let () =
     F.iter32 ba
       (fun nr_spx matrix ->
          F.iter21 matrix
@@ -65,23 +63,32 @@ let my_build_point_matrices m0 () =
                   (fun nr_col ->
                      let point_coords = Mesh0.get_simplex_point m0 nr_spx nr_col
                      in point_coords.{nr_row})))
+
+let my_build_point_matrices m0 () =
+  let d = Mesh0.get_nr_dims m0 in
+  let n = Mesh0.get_nr_simplices m0 in
+  let ba = F.create3 n (d + 1) (d + 1) in
+  let () = my_fill_point_matrices m0 ba
   in ba
 
+(* NOTE: in the function above we build the inverses of the extended point
+     matrices. Notice that we do not reuse the data stored in
+     msd_ext_point_coords, since we want to be independent from that.
+ *)
 let my_fill_inv_point_matrices_and_dets simplex () =
   let m0 = simplex.msd_mesh0 in
   let d = Mesh0.get_nr_dims m0 in
   let n = Mesh0.get_nr_simplices m0 in
   let compute_det_and_inv = Snippets.det_and_inv (d + 1) in
-  let mxs = Deferred.get simplex.msd_ext_point_coords in
   let inv_mxs = Deferred.create simplex.msd_inv_ext_point_coords in
+  let () = my_fill_point_matrices m0 inv_mxs in
   let dets = Deferred.create simplex.msd_point_coords_det in
   let () =
     F.iter32 inv_mxs
-      (fun nr_spx dst_matrix ->
-         let src_matrix = F.to_ml2 (F.slice32 mxs nr_spx) in
-         let det, ml_inv_matrix = compute_det_and_inv src_matrix in
+      (fun nr_spx mx ->
+         let det, inv_mx = compute_det_and_inv (F.to_ml2 mx) in
            begin
-             F.set_all2 dst_matrix (fun i1 i2 -> ml_inv_matrix.(i1).(i2));
+             F.set_all2 mx (fun i1 i2 -> inv_mx.(i1).(i2));
              F.set1 dets nr_spx det;
            end)
   in ()
@@ -118,7 +125,7 @@ let get_point_matrix sx_data sx_id =
 
 (** Get the inverse point matrix for the given simplex. *)
 let get_inv_point_matrix sx_data sx_id =
-  let ba3 = Deferred.get sx_data.msd_ext_point_coords in
+  let ba3 = Deferred.get sx_data.msd_inv_ext_point_coords in
     Bigarray.Array3.slice_left_2 ba3 sx_id
 
 (** Get the n-th row of the inverse point matrix for the given simplex.
