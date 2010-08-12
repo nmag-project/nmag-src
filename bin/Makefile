@@ -5,12 +5,12 @@ SHELL=/bin/bash
 all: nsim nsim-raw
 
 nsim: nsim.in root.inc nsim-raw
-	. root.inc && \
+	. ./root.inc && \
 	sed -e 's|\$$NMAGBINDIR\$$|'"$$NMAG_BIN"'|g' nsim.in > $@ || rm $@
 	chmod u+x nsim
 
 nsim-raw: nsim-raw.in root.inc
-	. root.inc && \
+	. ./root.inc && \
 	sed -e 's|\$$NMAGROOTDIR\$$|'"$$NMAG_ROOT"'|g' nsim-raw.in > $@ || rm $@
 	chmod u+x $@
 
