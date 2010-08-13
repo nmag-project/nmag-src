@@ -161,8 +161,7 @@ val femfun_to_string : int * float femfun_summand array -> string
 val mwe_to_string : 'a mesh_with_elements -> string
 val print_mwe : Format.formatter -> 'a mesh_with_elements -> unit
 val element_shape_function_power_integral_factor : int array -> float
-val femfun_eval :
-  float array array ->
+val femfun_eval: Base.Ba.F.array2 ->
   'a * float femfun_summand array -> float array -> float
 val fuse_dL_powers : dL_power array -> dL_power array -> dL_power array
 val _femfun_from_hash :

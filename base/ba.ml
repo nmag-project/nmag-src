@@ -107,23 +107,23 @@ module BaFunctor =
 
       let set_all1 ba fn =
         let nm1 = (dim1 ba) - 1 in
-          for i = 0 to nm1; do
+          for i = 0 to nm1 do
             unsafe_set1 ba i (fn i)
           done
 
       let set_all2 ba fn =
         let (n1, n2) = dim2 ba in
-          for i1 = 0 to n1 - 1; do
-            for i2 = 0 to n2 - 1; do
+          for i1 = 0 to n1 - 1 do
+            for i2 = 0 to n2 - 1 do
               unsafe_set2 ba i1 i2 (fn i1 i2)
             done
           done
 
       let set_all3 ba fn =
         let (n1, n2, n3) = dim3 ba in
-          for i1 = 0 to n1 - 1; do
-            for i2 = 0 to n2 - 1; do
-              for i3 = 0 to n3 - 1; do
+          for i1 = 0 to n1 - 1 do
+            for i2 = 0 to n2 - 1 do
+              for i3 = 0 to n3 - 1 do
                 unsafe_set3 ba i1 i2 i3 (fn i1 i2 i3)
               done
             done
@@ -131,23 +131,23 @@ module BaFunctor =
 
       let iter1 ba fn =
         let nm1 = (dim1 ba) - 1 in
-          for i = 0 to nm1; do
+          for i = 0 to nm1 do
             let () = fn i (unsafe_get1 ba i) in ()
           done
 
       let iter2 ba fn =
         let (n1, n2) = dim2 ba in
-          for i1 = 0 to n1 - 1; do
-            for i2 = 0 to n2 - 1; do
+          for i1 = 0 to n1 - 1 do
+            for i2 = 0 to n2 - 1 do
               let () = fn i1 i2 (unsafe_get2 ba i1 i2) in ()
             done
           done
 
       let iter3 ba fn =
         let (n1, n2, n3) = dim3 ba in
-          for i1 = 0 to n1 - 1; do
-            for i2 = 0 to n2 - 1; do
-              for i3 = 0 to n3 - 1; do
+          for i1 = 0 to n1 - 1 do
+            for i2 = 0 to n2 - 1 do
+              for i3 = 0 to n3 - 1 do
                 let () = fn i1 i2 i3 (unsafe_get3 ba i1 i2 i3) in ()
               done
             done
@@ -155,22 +155,22 @@ module BaFunctor =
 
       let iter21 ba fn =
         let n1, _ = dim2 ba in
-          for i1 = 0 to n1 - 1; do
+          for i1 = 0 to n1 - 1 do
             let slice = slice2 ba i1 in
             let () = fn i1 slice in ()
           done
 
       let iter32 ba fn =
         let n1, _, _ = dim3 ba in
-          for i1 = 0 to n1 - 1; do
+          for i1 = 0 to n1 - 1 do
             let slice = slice32 ba i1 in
             let () = fn i1 slice in ()
           done
 
       let iter31 ba fn =
         let n1, n2, _ = dim3 ba in
-          for i1 = 0 to n1 - 1; do
-            for i2 = 0 to n2 - 1; do
+          for i1 = 0 to n1 - 1 do
+            for i2 = 0 to n2 - 1 do
               let slice = slice31 ba i1 i2 in
               let () = fn i1 i2 slice in ()
             done
@@ -200,7 +200,6 @@ module BaFunctor =
         let n1, n2 = dim2 a2
         in Array.init n1
              (fun i1 -> Array.init n1 (fun i2 -> unsafe_get2 a2 i1 i2))
-
     end
 
 module I32Accessor =
@@ -256,3 +255,30 @@ module FAccessor =
   end
 
 module F = BaFunctor(FAccessor)
+
+type matrix = farray2
+
+(* At the moment we multiply a bigarray matrix by an Array.t vector and return
+   an Array.t vector. *)
+let matrix_x_vec ?store_result mx v =
+  let dim_le, dim_ri = F.dim2 mx in
+  let () = (if dim_ri <> Array.length v
+            then failwith "matrix/vector size mismatch!"
+            else ())
+  in
+  let result =
+    match store_result with
+    | None -> Array.make dim_le 0.0
+    | Some x -> x
+  in
+  let rec sprod_row row pos so_far =
+    if pos = dim_ri
+    then so_far
+    else sprod_row row (1+pos) (so_far +. v.(pos)*.(F.unsafe_get1 row pos))
+  in
+  begin
+    for i=0 to dim_le-1 do
+      result.(i) <- sprod_row (F.slice2 mx i) 0 0.0;
+    done;
+    result;
+  end

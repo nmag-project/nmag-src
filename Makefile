@@ -19,20 +19,22 @@
 
 LOG=compilation.log
 
-MODULES = pyfem3 config mt19937 snippets qhull fastfields pycaml nlog mesh mpi_petsc fem sundials_sp ccpla nsim_grammars hlib bem3d nsim_anisotropy nsim
+MODULES=pyfem3 config base mt19937 snippets qhull fastfields pycaml nlog \
+ mesh mpi_petsc fem sundials_sp ccpla nsim_grammars hlib bem3d \
+ nsim_anisotropy nsim
 
-ROOT = ${PWD}
+ROOT=${PWD}
 PYTHON=python
-NSIM_DEB = $(ROOT)/bin/nsim_debug
-NSIM_RAW_EXE = $(ROOT)/bin/nsim-raw
+NSIM_DEB=$(ROOT)/bin/nsim_debug
+NSIM_RAW_EXE=$(ROOT)/bin/nsim-raw
 PYTEST_EXE=/usr/bin/py.test
-NSIM_PYTEST = $(ROOT)/bin/nsim --nologfile $(PYTEST_EXE) --
-NSIM_EXE1CPU = $(ROOT)/bin/nsim-1cpu
-PYFEM = $(ROOT)/pyfem3/pyfem3
-NMESHPP = $(ROOT)/bin/nmeshpp
+NSIM_PYTEST=$(ROOT)/bin/nsim --nologfile $(PYTEST_EXE) --
+NSIM_EXE1CPU=$(ROOT)/bin/nsim-1cpu
+PYFEM=$(ROOT)/pyfem3/pyfem3
+NMESHPP=$(ROOT)/bin/nmeshpp
 # ---------
 
-WHAT = all
+WHAT=all
 
 include config/common.inc
 
@@ -58,7 +60,12 @@ deps.config: config/deps config/configuration.inc
 	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
 	touch deps.config
 
-deps.mt19937: mt19937/deps deps.config
+deps.base: base/deps deps.config
+	(cd base && make mrproper libuninstall; \
+	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	touch deps.base
+
+deps.mt19937: mt19937/deps deps.base
 	(cd mt19937 && make mrproper libuninstall; \
 	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
 	touch deps.mt19937
@@ -144,7 +151,7 @@ deps.ddpla: ddpla/deps deps.mpi_petsc
 	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
 	touch deps.ddpla
 
-$(PYFEM): pyfem3/deps deps.mt19937 deps.snippets deps.qhull deps.fastfields deps.pycaml deps.mesh deps.fem deps.mpi_petsc deps.bem3d deps.ccpla deps.sundials_sp deps.nsim_grammars deps.nsim_anisotropy deps.nsim deps.hlib 
+$(PYFEM): pyfem3/deps deps.mt19937 deps.snippets deps.qhull deps.fastfields deps.pycaml deps.mesh deps.fem deps.mpi_petsc deps.bem3d deps.ccpla deps.sundials_sp deps.nsim_grammars deps.nsim_anisotropy deps.nsim deps.hlib
 	(cd pyfem3 && make mrproper libuninstall; \
 	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
 	touch deps.pyfem3
@@ -152,7 +159,7 @@ $(PYFEM): pyfem3/deps deps.mt19937 deps.snippets deps.qhull deps.fastfields deps
 build-bin: $(PYFEM)
 	(cd bin && $(MAKE) build-bin)
 
-deps.pyfem3_debug: pyfem3/deps deps.mt19937 deps.snippets deps.qhull deps.fastfields deps.pycaml deps.mesh deps.fem deps.mpi_petsc deps.bem3d deps.ccpla deps.sundials_sp deps.nsim_grammars deps.nsim_anisotropy deps.nsim deps.hlib 
+deps.pyfem3_debug: pyfem3/deps deps.mt19937 deps.snippets deps.qhull deps.fastfields deps.pycaml deps.mesh deps.fem deps.mpi_petsc deps.bem3d deps.ccpla deps.sundials_sp deps.nsim_grammars deps.nsim_anisotropy deps.nsim deps.hlib
 	(cd pyfem3 && sed -r 's/native-code$$/byte-code/g' Makefile > Makefile.debug && \
 	 make -f Makefile.debug mrproper libuninstall; \
 	 make -f Makefile.debug $(WHAT) && umask 0002 && \
@@ -181,7 +188,7 @@ interface/nsim/svnversion.py:
 	echo "svnversion = '"$$(svnversion -n .)"'" > interface/nsim/svnversion.py
 
 doc:
-	cd interface/nmag/manual; make 
+	cd interface/nmag/manual; make
 
 nmesh2pp:
 	chmod u+x $(NMESHPP)
@@ -218,5 +225,5 @@ checkhlib:
 	$(NSIM_PYTEST) -k test_hlib
 
 checkall:
-	$(NSIM_PYTEST) 
+	$(NSIM_PYTEST)
 

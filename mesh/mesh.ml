@@ -498,8 +498,7 @@ let mesh0_from_mesh mesh_points mesh_simplices =
    meshing module...
 *)
 let _simplex_surface_orientation_is_outward mesh sx nr_face =
-  let mx =
-    F.to_ml2 (Simplex.get_inv_point_matrix mesh.mm_simplex_data sx.ms_id) in
+  let mx = Simplex.get_inv_point_matrix mesh.mm_simplex_data sx.ms_id in
   let points = sx.ms_points in
   let dim = Array.length points.(0).mp_coords in
   let coords_opposing_point = points.(nr_face).mp_coords in
@@ -508,7 +507,7 @@ let _simplex_surface_orientation_is_outward mesh sx nr_face =
   let c_fp = coords_face_point in
   let rec walk n so_far =
     if n=dim then so_far
-    else walk (n+1) (so_far+.(c_op.(n)-.c_fp.(n))*.sx.ms_point_coords_det*.mx.(nr_face).(n))
+    else walk (n+1) (so_far+.(c_op.(n)-.c_fp.(n))*.sx.ms_point_coords_det*.mx.{nr_face, n})
   in
     (walk 0 0.0)<0.0
 ;;
@@ -6272,12 +6271,12 @@ let find_simplex mesh (origin_coords, origin_simplex) target_coords =
   let sd = mesh.mm_simplex_data in
   let get_inv_point_matrix = Simplex.get_inv_point_matrix sd in
   let this_is_roughly_okay sx_nr =
-    let sx_inv_point_mx = F.to_ml2 (get_inv_point_matrix sx_nr) in
+    let sx_inv_point_mx = get_inv_point_matrix sx_nr in
     let dim = Array.length target_coords in
     let ext_target_coords =
       Array.init (1+dim) (fun n -> if n < dim then target_coords.(n) else 1.0)
     in
-    let local_coords = mx_x_vec sx_inv_point_mx ext_target_coords in
+    let local_coords = matrix_x_vec sx_inv_point_mx ext_target_coords in
       array_position_if (fun x -> x > 1.01 || x < (-0.01)) local_coords 0 = (-1)
   in
   let rec walk cur_sx coords_now nr_face_coming_from =
@@ -6322,9 +6321,9 @@ let mesh_locate_point mesh point =
 	(1+mesh.mm_dim)
 	(fun n -> if n < mesh.mm_dim then point.(n) else 1.0)
     in
-    let sx_inv_point_mx = F.to_ml2 (get_inv_point_matrix sx.ms_id)
+    let sx_inv_point_mx = get_inv_point_matrix sx.ms_id
     in
-      (sx, mx_x_vec sx_inv_point_mx ext_coords)
+      (sx, matrix_x_vec sx_inv_point_mx ext_coords)
   in
   let walk_simplices () =
     let simplices = mesh.mm_simplices in

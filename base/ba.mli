@@ -119,3 +119,9 @@ module F:
     val from_ml2: ml_elt array array -> array2
     val to_ml2: array2 -> ml_elt array array
   end
+
+
+type matrix = farray2
+
+val matrix_x_vec:
+  ?store_result:float array -> matrix -> float array -> float array

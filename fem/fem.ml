@@ -1192,7 +1192,8 @@ let femfun_eval mx_dL (_,femfun) point_L_coords =
     let rec walk pos now =
       if pos=nr_factors then now
       else let next = dL_factors.(pos) in
-      walk (1+pos) now*.((mx_dL.(next.dlp_nr_L).(next.dlp_nr_dx))**(float_of_int next.dlp_pow))
+      walk (1+pos) now*.((F.get2 mx_dL next.dlp_nr_L next.dlp_nr_dx)
+                         **(float_of_int next.dlp_pow))
     in walk 0 1.0
   in
   let eval_L powers =
@@ -1392,13 +1393,13 @@ let femfun_numerical_integrator simplex_decomposition femfun (mesh, simplex_nr) 
   let simplex = mesh.mm_simplices.(simplex_nr) in
   let dim=Array.length simplex.ms_points.(0).mp_coords in
   let scratch_pos = Array.make (1+dim) 0.0 in
-  let mx_dL_dx = F.to_ml2 (Simplex.get_inv_point_matrix sd simplex_nr) in
-  let mx_dx_dL = F.to_ml2 (Simplex.get_point_matrix sd simplex_nr) in
+  let mx_dL_dx = Simplex.get_inv_point_matrix sd simplex_nr in
+  let mx_dx_dL = Simplex.get_point_matrix sd simplex_nr in
   let sx_volume = simplex.ms_point_coords_det/.(float_factorial dim) in
   let points_and_coeffs =
     Array.map
       (fun (coords_L,partial_volume) ->
-	let ext_pos = mx_x_vec ~store_result:scratch_pos mx_dx_dL coords_L in
+	let ext_pos = matrix_x_vec ~store_result:scratch_pos mx_dx_dL coords_L in
 	(Array.sub ext_pos 0 dim,
 	 (femfun_eval mx_dL_dx femfun coords_L)*.partial_volume))
       simplex_decomposition
@@ -1570,10 +1571,8 @@ let femfun_diff_x femfun nr_dx =
 ;;
 
 let femfun_integrate_over_simplex mesh (_,femfun) simplex =
-  let dL =
-    F.to_ml2 (Simplex.get_inv_point_matrix mesh.mm_simplex_data simplex.ms_id)
-  in
-  let dim = Array.length dL-1 in
+  let dL = Simplex.get_inv_point_matrix mesh.mm_simplex_data simplex.ms_id in
+  let dim = mesh.mm_dim in
   let integral =
     let nr_summands = Array.length femfun in
     let rec walk_summands sf n =
@@ -1590,7 +1589,7 @@ let femfun_integrate_over_simplex mesh (_,femfun) simplex =
 	    if nr_factor = nr_factors then sf
 	    else
 	      let factor = powers_dL.(nr_factor) in
-	      let dL_factor  = dL.(factor.dlp_nr_L).(factor.dlp_nr_dx) in
+	      let dL_factor = F.get2 dL factor.dlp_nr_L factor.dlp_nr_dx in
 	      let dL_factor_pow = int_power factor.dlp_pow dL_factor in
 		walk_factors (sf*.dL_factor_pow) (1+nr_factor)
 	  in walk_factors (coeff*.factor_L) 0
@@ -1613,10 +1612,8 @@ let femfun_integrate_over_simplex mesh (_,femfun) simplex =
 *)
 let femfun_integrate_over_simplex_face
       mesh ?(bare_integral=false) femfun simplex nr_face =
-  let dL =
-    F.to_ml2 (Simplex.get_inv_point_matrix mesh.mm_simplex_data simplex.ms_id)
-  in
-  let dim = Array.length dL-1 in
+  let dL = Simplex.get_inv_point_matrix mesh.mm_simplex_data simplex.ms_id in
+  let dim = mesh.mm_dim in
   let (_,_,(_,integrated_over_L)) = femfun_integrate_over_surface dim femfun nr_face in
   (* This will now only contain some dL factors.
      XXX change call signature!
@@ -1629,7 +1626,7 @@ let femfun_integrate_over_simplex_face
 	let contrib =
 	  Array.fold_left
 	    (fun sf factor ->
-	      let dL_factor  = dL.(factor.dlp_nr_L).(factor.dlp_nr_dx) in
+	      let dL_factor = F.get2 dL factor.dlp_nr_L factor.dlp_nr_dx in
 	      let dL_factor_pow = int_power factor.dlp_pow dL_factor in
 	      sf*.dL_factor_pow)
 	    coeff powers_dL
@@ -3262,7 +3259,7 @@ let probe_field (FEM_field (mwe,_,v_field) as field) ?dof_stem pos =
     try
       let (simplex,coords_L) = mesh_locate_point mwe.mwe_mesh pos in
 	(* Note: this raises Not_found if the point could not be located! *)
-      let inv_ext_point_coords = F.to_ml2 (get_inv_point_matrix simplex.ms_id) in
+      let inv_ext_point_coords = get_inv_point_matrix simplex.ms_id in
 	(* ^ Note: this cannot be None! *)
       let sx_id = simplex.ms_id in
       let elem = mwe.mwe_elements.(mwe.mwe_nel_by_simplex_index.(sx_id))
@@ -3931,7 +3928,7 @@ let make_coarse_fine_mwe
   let foreach_do x f = Array.iter f x in
   let foreach_do_n x f = Array.iteri f x in
   let coarse_get_inv_point_matrix n =
-    F.to_ml2 (Simplex.get_inv_point_matrix mesh_coarse.mm_simplex_data n)
+    Simplex.get_inv_point_matrix mesh_coarse.mm_simplex_data n
   in
   let () = foreach_do_n mwe_fine.mwe_dof_nrs_by_simplex_index
     (fun fine_sx_ix fine_dof_nrs ->
@@ -4007,7 +4004,7 @@ let make_coarse_fine_mwe
 		     let fine_dof_pos = Array.init (1+dim)
 		       (fun n -> if n < dim then fine_dof.dof_pos.(n) else 1.0)
 		     in
-		       mx_x_vec coarse_sx_mx_x_to_L fine_dof_pos)
+		       matrix_x_vec coarse_sx_mx_x_to_L fine_dof_pos)
 		  fine_dofs_and_el_ix
 	      in
 	      (* let () = (if coarse_sx_ix <> 0 then () else Printf.printf "coarse_L_coords_of_fine_sites: %s\n" (String.concat " : " (Array.to_list (Array.map float_array_to_string coarse_L_coords_of_fine_sites)))) in (* This indeed shows that the L-coordinate mapping works! *) *)
