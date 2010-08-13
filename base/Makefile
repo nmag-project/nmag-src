@@ -32,7 +32,7 @@ mrproper: clean
 	rm -f *~ *.cmi *.cmo *.cma *.cmxa *.top *.so *.o *.a deps
 	rm -f base.mli
 
-deps: META ba.ml ba.mli deferred.ml deferred.mli base.ml
+deps: META $(SOURCES)
 	touch deps
 
 .PHONY: mrproper

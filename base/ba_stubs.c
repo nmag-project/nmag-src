@@ -10,6 +10,9 @@
             (see <http://www.gnu.org/licenses/>)
 
   Types and functionality at the base of the Nsim package.
+
+  Inspired by the bigarray_stub.c code written by Manuel Serrano and
+  Xavier Leroy.
  */
 
 #include <caml/mlvalues.h>
@@ -46,58 +49,188 @@
 #  define OptCAMLreturn(x) return (x)
 #endif
 
+static void out_of_bounds(const char *where) {
+  caml_array_bound_error();
+}
+
+/* Generic functions for accessing bigarrays without bound checks
+   NOTE: we use & rather than && to avoid unwanted jump instructions.
+     Rationale: all the comparison will have to be executed unless
+     there is a bug in the code.
+ */
+#define BA_GET1(BA_DATATYPE, IDX2C, VAL2ML) \
+CAMLprim value caml_ba_ ## BA_DATATYPE ## _get1(value ba_v, value idx_v) { \
+  OptCAMLparam2(ba_v, idx_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  OptCAMLreturn(VAL2ML(((BA_DATATYPE *) ba->data)[IDX2C(idx_v)])); \
+}
+
+#define BA_SET1(BA_DATATYPE, IDX2C, VAL2C) \
+CAMLprim value caml_ba_ ## BA_DATATYPE ## _set1 \
+(value ba_v, value idx_v, value v_v) { \
+  OptCAMLparam3(ba_v, idx_v, v_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  ((BA_DATATYPE *) ba->data)[IDX2C(idx_v)] = VAL2C(v_v); \
+  OptCAMLreturn(Val_unit); \
+}
+
+#define BA_GET2(BA_DATATYPE, IDX2C, VAL2ML) \
+CAMLprim value caml_ba_ ## BA_DATATYPE ## _get2 \
+(value ba_v, value idx1_v, value idx2_v) { \
+  OptCAMLparam3(ba_v, idx1_v, idx2_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  OptCAMLreturn(VAL2ML(((BA_DATATYPE *) ba->data) \
+                       [ba->dim[1]*IDX2C(idx1_v) + IDX2C(idx2_v)])); \
+}
+
+#define BA_SET2(BA_DATATYPE, IDX2C, VAL2C) \
+CAMLprim value caml_ba_ ## BA_DATATYPE ## _set2 \
+  (value ba_v, value idx1_v, value idx2_v, value v_v) { \
+  OptCAMLparam4(ba_v, idx1_v, idx2_v, v_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  ((BA_DATATYPE *) ba->data)[ba->dim[1]*IDX2C(idx1_v) + IDX2C(idx2_v)] \
+    = VAL2C(v_v); \
+  OptCAMLreturn(Val_unit); \
+}
+
+#define BA_GET3(BA_DATATYPE, IDX2C, VAL2ML) \
+CAMLprim value caml_ba_ ## BA_DATATYPE ## _get3 \
+  (value ba_v, value idx1_v, value idx2_v, value idx3_v) { \
+  OptCAMLparam4(ba_v, idx1_v, idx2_v, idx3_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  register size_t linear_idx \
+    = ba->dim[2]*(ba->dim[1]*IDX2C(idx1_v) + IDX2C(idx2_v)) \
+      + IDX2C(idx3_v); \
+  OptCAMLreturn(VAL2ML(((BA_DATATYPE *) ba->data)[linear_idx])); \
+}
+
+#define BA_SET3(BA_DATATYPE, IDX2C, VAL2C) \
+CAMLprim value caml_ba_ ## BA_DATATYPE ## _set3 \
+  (value ba_v, value idx1_v, value idx2_v, value idx3_v, value v_v) { \
+  OptCAMLparam5(ba_v, idx1_v, idx2_v, idx3_v, v_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  register size_t linear_idx \
+    = ba->dim[2]*(ba->dim[1]*IDX2C(idx1_v) + IDX2C(idx2_v)) + IDX2C(idx3_v); \
+  ((BA_DATATYPE *) ba->data)[linear_idx] = VAL2C(v_v); \
+  OptCAMLreturn(Val_unit); \
+}
+
+/* Generic functions for accessing bigarrays WITH bound checks */
+#define BA_S_GET1(BA_DATATYPE, IDX2C, VAL2ML) \
+CAMLprim value caml_ba_s_ ## BA_DATATYPE ## _get1(value ba_v, value idx_v) { \
+  OptCAMLparam2(ba_v, idx_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  register size_t idx = IDX2C(idx_v); \
+  if (idx < ba->dim[0]) \
+    OptCAMLreturn(VAL2ML(((BA_DATATYPE *) ba->data)[idx])); \
+  out_of_bounds("caml_ba_s_" #BA_DATATYPE "_get1"); \
+  OptCAMLreturn(VAL2ML((BA_DATATYPE) 0)); \
+}
+
+#define BA_S_SET1(BA_DATATYPE, IDX2C, VAL2C) \
+CAMLprim value caml_ba_s_ ## BA_DATATYPE ## _set1 \
+(value ba_v, value idx_v, value v_v) { \
+  OptCAMLparam3(ba_v, idx_v, v_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  register size_t idx = IDX2C(idx_v); \
+  if (idx < ba->dim[0]) { \
+    ((BA_DATATYPE *) ba->data)[IDX2C(idx_v)] = VAL2C(v_v); \
+    OptCAMLreturn(Val_unit); \
+  } \
+  out_of_bounds("caml_ba_s_" #BA_DATATYPE "_set1"); \
+  OptCAMLreturn(Val_unit); \
+}
+
+#define BA_S_GET2(BA_DATATYPE, IDX2C, VAL2ML) \
+CAMLprim value caml_ba_s_ ## BA_DATATYPE ## _get2 \
+(value ba_v, value idx1_v, value idx2_v) { \
+  OptCAMLparam3(ba_v, idx1_v, idx2_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  register size_t idx1 = IDX2C(idx1_v), idx2 = IDX2C(idx2_v), \
+                  d2 = ba->dim[1]; \
+  if ((idx1 < ba->dim[0]) & (idx2 < d2)) \
+    OptCAMLreturn(VAL2ML(((BA_DATATYPE *) ba->data)[d2*idx1 + idx2])); \
+  out_of_bounds("caml_ba_s_" #BA_DATATYPE "_get2"); \
+  OptCAMLreturn(VAL2ML((BA_DATATYPE) 0)); \
+}
+
+#define BA_S_SET2(BA_DATATYPE, IDX2C, VAL2C) \
+CAMLprim value caml_ba_s_ ## BA_DATATYPE ## _set2 \
+  (value ba_v, value idx1_v, value idx2_v, value v_v) { \
+  OptCAMLparam4(ba_v, idx1_v, idx2_v, v_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  register size_t idx1 = IDX2C(idx1_v), idx2 = IDX2C(idx2_v), \
+                  d2 = ba->dim[1]; \
+  if ((idx1 < ba->dim[0]) & (idx2 < d2)) { \
+    ((BA_DATATYPE *) ba->data)[d2*idx1 + idx2] = VAL2C(v_v); \
+    OptCAMLreturn(Val_unit); \
+  } \
+  out_of_bounds("caml_ba_s_" #BA_DATATYPE "_set2"); \
+  OptCAMLreturn(Val_unit); \
+}
+
+#define BA_S_GET3(BA_DATATYPE, IDX2C, VAL2ML) \
+CAMLprim value caml_ba_s_ ## BA_DATATYPE ## _get3 \
+  (value ba_v, value idx1_v, value idx2_v, value idx3_v) { \
+  OptCAMLparam4(ba_v, idx1_v, idx2_v, idx3_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  size_t idx1 = IDX2C(idx1_v), idx2 = IDX2C(idx2_v), \
+         idx3 = IDX2C(idx2_v), d2 = ba->dim[1], d3 = ba->dim[2]; \
+  if ((idx1 < ba->dim[0]) & (idx2 < d2) & (idx3 < d3)) \
+    OptCAMLreturn(VAL2ML(((BA_DATATYPE *) ba->data) \
+                         [d3*(d2*idx1 + idx2) + idx3])); \
+  out_of_bounds("caml_ba_s_" #BA_DATATYPE "_get3"); \
+  OptCAMLreturn(VAL2ML((BA_DATATYPE) 0)); \
+}
+
+#define BA_S_SET3(BA_DATATYPE, IDX2C, VAL2C) \
+CAMLprim value caml_ba_s_ ## BA_DATATYPE ## _set3 \
+  (value ba_v, value idx1_v, value idx2_v, value idx3_v, value v_v) { \
+  OptCAMLparam5(ba_v, idx1_v, idx2_v, idx3_v, v_v); \
+  struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
+  size_t idx1 = IDX2C(idx1_v), idx2 = IDX2C(idx2_v), \
+         idx3 = IDX2C(idx2_v), d2 = ba->dim[1], d3 = ba->dim[2]; \
+  if ((idx1 < ba->dim[0]) & (idx2 < d2) & (idx3 < d3)) { \
+    ((BA_DATATYPE *) ba->data)[d3*(d2*idx1 + idx2) + idx3] = VAL2C(v_v); \
+    OptCAMLreturn(Val_unit); \
+  } \
+  out_of_bounds("caml_ba_s_" #BA_DATATYPE "_set3"); \
+  OptCAMLreturn(Val_unit); \
+}
+
 /* Read/write int32 bigarrays without bound checks */
-CAMLprim value caml_ba_int32_get1(value ba_v, value idx_v) {
-  OptCAMLparam2(ba_v, idx_v);
-  struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
-  OptCAMLreturn(Val_long(((int32 *) ba->data)[Long_val(idx_v)]));
-}
+BA_GET1(int32, Long_val, Val_long)
+BA_SET1(int32, Long_val, Long_val)
+BA_GET2(int32, Long_val, Val_long)
+BA_SET2(int32, Long_val, Long_val)
+BA_GET3(int32, Long_val, Val_long)
+BA_SET3(int32, Long_val, Long_val)
 
-CAMLprim value caml_ba_int32_set1(value ba_v, value idx_v, value v_v) {
-  OptCAMLparam3(ba_v, idx_v, v_v);
-  struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
-  ((int32 *) ba->data)[Long_val(idx_v)] = (int32) Long_val(v_v);
-  OptCAMLreturn(Val_unit);
-}
+BA_S_GET1(int32, Long_val, Val_long)
+BA_S_SET1(int32, Long_val, Long_val)
+BA_S_GET2(int32, Long_val, Val_long)
+BA_S_SET2(int32, Long_val, Long_val)
+BA_S_GET3(int32, Long_val, Val_long)
+BA_S_SET3(int32, Long_val, Long_val)
 
-CAMLprim value caml_ba_int32_get2(value ba_v, value idx1_v, value idx2_v) {
-  OptCAMLparam3(ba_v, idx1_v, idx2_v);
-  struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
-  OptCAMLreturn(Val_long(((int32 *) ba->data)[ba->dim[1]*Long_val(idx1_v)
-                                              + Long_val(idx2_v)]));
-}
+/* Read/write float bigarrays without bound checks
+   NOTE: copy_double involves an allocation (Alloc_small, I think).
+   we still use OptCAML... (inside the macro), since the double has already
+   been copied when the allocation happens (that is what is done in the
+   bigarray module itself). */
+BA_GET1(double, Long_val, copy_double)
+BA_SET1(double, Long_val, Double_val)
+BA_GET2(double, Long_val, copy_double)
+BA_SET2(double, Long_val, Double_val)
+BA_GET3(double, Long_val, copy_double)
+BA_SET3(double, Long_val, Double_val)
 
-CAMLprim value caml_ba_int32_set2(value ba_v, value idx1_v, value idx2_v,
-                                  value v_v) {
-  OptCAMLparam4(ba_v, idx1_v, idx2_v, v_v);
-  struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
-  ((int32 *) ba->data)[ba->dim[1]*Long_val(idx1_v) + Long_val(idx2_v)]
-    = (int32) Long_val(v_v);
-  OptCAMLreturn(Val_unit);
-}
-
-CAMLprim value caml_ba_int32_get3(value ba_v,
-                                  value idx1_v, value idx2_v, value idx3_v) {
-  OptCAMLparam4(ba_v, idx1_v, idx2_v, idx3_v);
-  struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
-  register size_t linear_idx
-    = ba->dim[2]*(ba->dim[1]*Long_val(idx1_v) + Long_val(idx2_v))
-      + Long_val(idx3_v);
-  OptCAMLreturn(Val_long(((int32 *) ba->data)[linear_idx]));
-}
-
-CAMLprim value caml_ba_int32_set3(value ba_v,
-                                  value idx1_v, value idx2_v, value idx3_v,
-                                  value v_v) {
-  OptCAMLparam5(ba_v, idx1_v, idx2_v, idx3_v, v_v);
-  struct caml_ba_array *ba = Caml_ba_array_val(ba_v);
-  register size_t linear_idx
-    = ba->dim[2]*(ba->dim[1]*Long_val(idx1_v) + Long_val(idx2_v))
-      + Long_val(idx3_v);
-  ((int32 *) ba->data)[linear_idx] = (int32) Long_val(v_v);
-  OptCAMLreturn(Val_unit);
-}
-
+BA_S_GET1(double, Long_val, copy_double)
+BA_S_SET1(double, Long_val, Double_val)
+BA_S_GET2(double, Long_val, copy_double)
+BA_S_SET2(double, Long_val, Double_val)
+BA_S_GET3(double, Long_val, copy_double)
+BA_S_SET3(double, Long_val, Double_val)
 
 #if 0
 

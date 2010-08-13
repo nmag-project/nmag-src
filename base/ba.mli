@@ -25,7 +25,7 @@ type c_layout = Bigarray.c_layout
 val c_layout: c_layout Bigarray.layout
 
 type i32_ml_elt = int
-type f64_ml_elt = float
+type f_ml_elt = float
 
 type i32array1 = (int32, Bigarray.int32_elt, c_layout) Bigarray.Array1.t
 type i32array2 = (int32, Bigarray.int32_elt, c_layout) Bigarray.Array2.t
@@ -79,7 +79,7 @@ module I32:
 
 module F:
   sig
-    type ml_elt = f64_ml_elt
+    type ml_elt = f_ml_elt
     type array1 = farray1
     type array2 = farray2
     type array3 = farray3

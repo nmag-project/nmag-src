@@ -18,7 +18,7 @@ let c_layout = Bigarray.c_layout
 
 (* ML types corresponding to the Bigarray types *)
 type i32_ml_elt = int
-type f64_ml_elt = float
+type f_ml_elt = float
 
 (* Handled types of bigarrays *)
 type i32array1 = (int32, Bigarray.int32_elt, c_layout) Bigarray.Array1.t;;
@@ -42,6 +42,46 @@ external i32_unsafe_set2: i32array2 -> int -> int -> i32_ml_elt -> unit
 external i32_unsafe_set3: i32array3 -> int -> int -> int -> i32_ml_elt -> unit
   = "caml_ba_int32_set3"
 
+external i32_get1: i32array1 -> int -> i32_ml_elt
+  = "caml_ba_s_int32_get1"
+external i32_get2: i32array2 -> int -> int -> i32_ml_elt
+  = "caml_ba_s_int32_get2"
+external i32_get3: i32array3 -> int -> int -> int -> i32_ml_elt
+  = "caml_ba_s_int32_get3"
+external i32_set1: i32array1 -> int -> i32_ml_elt -> unit
+  = "caml_ba_s_int32_set1"
+external i32_set2: i32array2 -> int -> int -> i32_ml_elt -> unit
+  = "caml_ba_s_int32_set2"
+external i32_set3: i32array3 -> int -> int -> int -> i32_ml_elt -> unit
+  = "caml_ba_s_int32_set3"
+
+(* Optimised C procedures to access float arrays *)
+external f_unsafe_get1: farray1 -> int -> f_ml_elt
+  = "caml_ba_double_get1"
+external f_unsafe_get2: farray2 -> int -> int -> f_ml_elt
+  = "caml_ba_double_get2"
+external f_unsafe_get3: farray3 -> int -> int -> int -> f_ml_elt
+  = "caml_ba_double_get3"
+external f_unsafe_set1: farray1 -> int -> f_ml_elt -> unit
+  = "caml_ba_double_set1"
+external f_unsafe_set2: farray2 -> int -> int -> f_ml_elt -> unit
+  = "caml_ba_double_set2"
+external f_unsafe_set3: farray3 -> int -> int -> int -> f_ml_elt -> unit
+  = "caml_ba_double_set3"
+
+external f_get1: farray1 -> int -> f_ml_elt
+  = "caml_ba_s_double_get1"
+external f_get2: farray2 -> int -> int -> f_ml_elt
+  = "caml_ba_s_double_get2"
+external f_get3: farray3 -> int -> int -> int -> f_ml_elt
+  = "caml_ba_s_double_get3"
+external f_set1: farray1 -> int -> f_ml_elt -> unit
+  = "caml_ba_s_double_set1"
+external f_set2: farray2 -> int -> int -> f_ml_elt -> unit
+  = "caml_ba_s_double_set2"
+external f_set3: farray3 -> int -> int -> int -> f_ml_elt -> unit
+  = "caml_ba_s_double_set3"
+
 module type ACCESSOR =
   sig
     type ml_elt
@@ -61,6 +101,12 @@ module type ACCESSOR =
     val unsafe_set1: array1 -> int -> ml_elt -> unit
     val unsafe_set2: array2 -> int -> int -> ml_elt -> unit
     val unsafe_set3: array3 -> int -> int -> int -> ml_elt -> unit
+    val get1: array1 -> int -> ml_elt
+    val get2: array2 -> int -> int -> ml_elt
+    val get3: array3 -> int -> int -> int -> ml_elt
+    val set1: array1 -> int -> ml_elt -> unit
+    val set2: array2 -> int -> int -> ml_elt -> unit
+    val set3: array3 -> int -> int -> int -> ml_elt -> unit
     val slice2: array2 -> int -> array1
     val slice31: array3 -> int -> int -> array1
     val slice32: array3 -> int -> array2
@@ -70,40 +116,6 @@ module BaFunctor =
   functor (Acc: ACCESSOR) ->
     struct
       include Acc
-
-      let set1 ba i v =
-        if i >= 0 && i < (dim1 ba)
-        then unsafe_set1 ba i v
-        else raise (Invalid_argument "Index out of bounds.")
-
-      let get1 ba i =
-        if i >= 0 && i < (dim1 ba)
-        then unsafe_get1 ba i
-        else raise (Invalid_argument "Index out of bounds.")
-
-      let set2 ba i1 i2 v =
-        let n1, n2 = dim2 ba in
-        if i1 >= 0 && i1 < n1 && i2 >= 0 && i2 < n2
-        then unsafe_set2 ba i1 i2 v
-        else raise (Invalid_argument "Index out of bounds.")
-
-      let get2 ba i1 i2 =
-        let n1, n2 = dim2 ba in
-        if i1 >= 0 && i1 < n1 && i2 >= 0 && i2 < n2
-        then unsafe_get2 ba i1 i2
-        else raise (Invalid_argument "Index out of bounds.")
-
-      let set3 ba i1 i2 i3 v =
-        let n1, n2, n3 = dim3 ba in
-        if i1 >= 0 && i1 < n1 && i2 >= 0 && i2 < n2 && i3 >= 0 && i3 < n3
-        then unsafe_set3 ba i1 i2 i3 v
-        else raise (Invalid_argument "Index out of bounds.")
-
-      let get3 ba i1 i2 i3 =
-        let n1, n2, n3 = dim3 ba in
-        if i1 >= 0 && i1 < n1 && i2 >= 0 && i2 < n2 && i3 >= 0 && i3 < n3
-        then unsafe_get3 ba i1 i2 i3
-        else raise (Invalid_argument "Index out of bounds.")
 
       let set_all1 ba fn =
         let nm1 = (dim1 ba) - 1 in
@@ -222,6 +234,12 @@ module I32Accessor =
     let unsafe_set1 = i32_unsafe_set1
     let unsafe_set2 = i32_unsafe_set2
     let unsafe_set3 = i32_unsafe_set3
+    let get1 = i32_get1
+    let get2 = i32_get2
+    let get3 = i32_get3
+    let set1 = i32_set1
+    let set2 = i32_set2
+    let set3 = i32_set3
     let slice2 = Bigarray.Array2.slice_left
     let slice31 = Bigarray.Array3.slice_left_1
     let slice32 = Bigarray.Array3.slice_left_2
@@ -243,12 +261,18 @@ module FAccessor =
     let dim2 ba = (Bigarray.Array2.dim1 ba, Bigarray.Array2.dim2 ba)
     let dim3 ba = (Bigarray.Array3.dim1 ba, Bigarray.Array3.dim2 ba,
                    Bigarray.Array3.dim3 ba)
-    let unsafe_get1 = Bigarray.Array1.unsafe_get
-    let unsafe_get2 = Bigarray.Array2.unsafe_get
-    let unsafe_get3 = Bigarray.Array3.unsafe_get
-    let unsafe_set1 = Bigarray.Array1.unsafe_set
-    let unsafe_set2 = Bigarray.Array2.unsafe_set
-    let unsafe_set3 = Bigarray.Array3.unsafe_set
+    let unsafe_get1 = f_unsafe_get1
+    let unsafe_get2 = f_unsafe_get2
+    let unsafe_get3 = f_unsafe_get3
+    let unsafe_set1 = f_unsafe_set1
+    let unsafe_set2 = f_unsafe_set2
+    let unsafe_set3 = f_unsafe_set3
+    let get1 = f_get1
+    let get2 = f_get2
+    let get3 = f_get3
+    let set1 = f_set1
+    let set2 = f_set2
+    let set3 = f_set3
     let slice2 = Bigarray.Array2.slice_left
     let slice31 = Bigarray.Array3.slice_left_1
     let slice32 = Bigarray.Array3.slice_left_2
