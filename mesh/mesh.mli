@@ -131,7 +131,7 @@ v}
    contents of [!opt_mesher_defaults] -- the global factory settings,
    so to speak, the authors' advice is not to use such a technique
    (except maybe for quick ad-hoc hacks), but rather use the
-   [copy_mesher_defaults] function to obtain a private copy of 
+   [copy_mesher_defaults] function to obtain a private copy of
    mesher defaults, and tune this by modifying individual members
    of the structure before passing it on to [mesh_region].
 
@@ -181,27 +181,42 @@ v}
    mesh every {i N} mesh-relaxation iterations. The user may implement
    other drivers which e.g. may even hand over strategic control to a
    foreign language, like Perl or Python.
-   
+
  *)
 
+
+module Simplex:
+  sig
+    type t
+
+    type idx = int
+    (** The simplex index *)
+
+    val init: Mesh0.t -> t
+    val get_point_matrix: t -> int -> Base.Ba.F.array2
+    val get_inv_point_matrix: t -> int -> Base.Ba.F.array2
+    val get_face_eqn: t -> int -> int -> Base.Ba.F.array1
+
+    val dummy : t
+  end
 
 (** {3 Geometry specification} *)
 
 type simplex_region = Body_Nr of int
 
-(** A mesh discretization of space may (and usually will) 
+(** A mesh discretization of space may (and usually will)
    cover different objects with different properties.
    One interesting question therefore is: which region
    does a simplex belong to, resp. which regions does
    a site (e.g. vertex) on the mesh belong to?
-   
+
    We just number regions, but use a special [simplex_region]
    type to make this idea more explicit through the type system.
 
    Normally, bodies are numbered 1,2,3,...; Numbers 0, -1, and -2
    are reserved: 0 means "outer space", -1 means "non-meshed region",
    and -2 is an error code.
-   
+
    Evidently, no simplex can belong to region -1. Nevertheless, a point
    in the mesh may belong to more than one region, and those at the
    mesh boundaries will always at least belong to region -1 plus one other
@@ -212,7 +227,7 @@ type simplex_region = Body_Nr of int
 {v
    [Error | Outside | Space | Body_Nr of int]
 v}
-   but one has to take into account that this information usually 
+   but one has to take into account that this information usually
    is also presented to some scripting language (such as python),
    and there is little to be gained from supporting two different
    labeling schemes, as virtually no scripting language has a comparable
@@ -235,7 +250,7 @@ type fem_geometry = {
    density function that tells by how much the size of a simplex should be
    blown up or shrunk. This furthermore contains a function that maps the
    vertex coordinates of a simplex to a region this simplex is supposed
-   to belong to. (XXX is easy to explain why we need this function? 
+   to belong to. (XXX is easy to explain why we need this function?
    (fangohr 26/03/2006))
  *)
 
@@ -273,7 +288,7 @@ type field = float array
    by meshphysics in an abstract way!
  *)
 
-(** 
+(**
    The [point] and [simplex] data structures are quite
    elaborate. While everything that is in them is present and done in
    that particular way for a good reason, one may wonder whether these
@@ -314,7 +329,7 @@ and simplex =
      mutable ms_in_body: simplex_region;
      (*
 	Circum-Circle and In-Circle.
-	
+
 	They are needed at least for the simplex quality test, but
 	keeping track of those allows us to do Delaunay triangulation
 	in D dimensions without having to refer to D+1 dimensions.
@@ -323,17 +338,11 @@ and simplex =
      mutable ms_ic_midpoint: float array;
      mutable ms_cc_radius: float;
      mutable ms_ic_radius: float;
-     
-     (* Extended point coordinates as a matrix (last coordinate =1) *)
-     mutable ms_ext_point_coords: float array array option;
+
      (* The inverse provides a concise way to get all the cofactors. *)
-     mutable ms_inv_ext_point_coords: float array array option;
+     (*mutable ms_inv_ext_point_coords: float array array option;*)
      mutable ms_point_coords_det: float;
    }
-
-val simplex_face_eqn: simplex -> int -> float array option
-
-val simplex_surface_1form_component: simplex -> int -> int -> float
 
 type la_functions =
     {
@@ -356,10 +365,11 @@ type la_functions =
 
 type mesh =
     {
-     mm_dim: int;
-     mm_la: la_functions;
-     mm_make_find_visible: (mesh -> float array -> (simplex * int));
-     mutable mm_fem_geometry: fem_geometry option;
+      mm_dim: int;
+      mutable mm_points: point array;
+      mm_la: la_functions;
+      mm_make_find_visible: (mesh -> float array -> (simplex * int));
+      mutable mm_fem_geometry: fem_geometry option;
 	(* Note: the slot above is required, as a mesh should know about its geometry
 	   e.g. to answer questions such as "what boundary condition is that given point on",
 	   but we make this mutable so that we can zero it out. This way, we can avoid
@@ -367,8 +377,9 @@ type mesh =
 	 *)
       mutable mm_boundaries: ((simplex_region * simplex_region)*((simplex_id*face_ix) array)) array;
       mutable mm_origins: (coords * simplex) array;
-      mutable mm_points: point array;
       mutable mm_simplices: simplex array;
+      mutable mm_mesh0: Mesh0.t;
+      mutable mm_simplex_data: Simplex.t;
       mutable mm_region_volumes: float array;
       mutable mm_vertex_distribution: int array; (* how many nodes go to what machine? *)
       (* NOTE: we still have to deal with removal of points and simplices.
@@ -383,6 +394,8 @@ type mesh =
     }
 
 val dummy_mesh : mesh
+
+val simplex_surface_1form_component: mesh -> Simplex.idx -> int -> int -> float
 
 val reordered_mesh : mesh -> int array -> mesh
 (** This function allows us to renumber and re-order the points in a mesh.
@@ -469,18 +482,18 @@ type meshgen_controller_command =
    different from the default one.
 
    A controller will return a command of this form to the mesh
-   relaxation engine. 
+   relaxation engine.
 
    Note that the first two commands will cause termination of mesh
    relaxation and produce a final mesh. Mesh relaxation will announce
    the reason why it finished to the outside by providing the
    corresponding [meshgen_controller_command] that stopped it within its result.
- *)   
+ *)
 
 type 'a mesher_defaults = {
     mutable mdefault_controller_initial_points_volume_ratio: float;                        (* functions defined but not used (constraints on pyfem) *)
     mutable mdefault_controller_splitting_connection_ratio: float;                         (* | *)
-    mutable mdefault_controller_exp_neigh_force_scale: float;                              (* __ *)   
+    mutable mdefault_controller_exp_neigh_force_scale: float;                              (* __ *)
   mutable mdefault_nr_probes_for_determining_volume : int;
   mutable mdefault_boundary_condition_debuglevel : int;
   mutable mdefault_boundary_condition_acceptable_fuzz : float;
@@ -488,31 +501,31 @@ type 'a mesher_defaults = {
   mutable mdefault_make_boundary_condition_simplex_classificator :
        int -> (* dim *)
       ((float array -> float) array) -> (* boundary conditions *)
-	float -> (*smallest allowed volume ratio *)							     
+	float -> (*smallest allowed volume ratio *)
        float array array -> (* simplex nodes coordinates *)
 	point_state array -> (* points states *)
 	     simplex_region;
   mutable mdefault_controller_movement_max_freedom : float;
   mutable mdefault_controller_topology_threshold : float;
-  mutable mdefault_controller_step_limit_min: int;     
+  mutable mdefault_controller_step_limit_min: int;
   mutable mdefault_controller_step_limit_max: int;
   mutable mdefault_controller_max_time_step : float;
   mutable mdefault_controller_time_step_scale : float;
   mutable mdefault_controller_tolerated_rel_movement : float;
-  
+
   (*KKK*)
-  mutable mdefault_controller_shape_force_scale: float; 
-  mutable mdefault_controller_volume_force_scale: float; 
-  mutable mdefault_controller_neigh_force_scale: float; 
-  mutable mdefault_controller_irrel_elem_force_scale: float; 
+  mutable mdefault_controller_shape_force_scale: float;
+  mutable mdefault_controller_volume_force_scale: float;
+  mutable mdefault_controller_neigh_force_scale: float;
+  mutable mdefault_controller_irrel_elem_force_scale: float;
 
   mutable mdefault_controller_thresh_add: float;
   mutable mdefault_controller_thresh_del: float;
-  mutable mdefault_initial_relaxation_weight: 
+  mutable mdefault_initial_relaxation_weight:
     int -> int -> float -> float -> float;
-  mutable mdefault_controller_initial_settling_steps: int;	     
-  mutable mdefault_controller_sliver_correction: float;	     
-  mutable mdefault_controller_smallest_allowed_volume_ratio: float;	     
+  mutable mdefault_controller_initial_settling_steps: int;
+  mutable mdefault_controller_sliver_correction: float;
+  mutable mdefault_controller_smallest_allowed_volume_ratio: float;
 
   mutable mdefault_controller_handle_point_density_fun :
     Mt19937.rng -> (float * float) -> float -> float -> point_fate;
@@ -550,7 +563,7 @@ val print_mesh : Format.formatter -> mesh -> unit
 
 
 val mesh_from_known_delaunay :
-  coords array -> (simplex_region * int array) array -> mesh 
+  coords array -> (simplex_region * int array) array -> mesh
 
 (** Make a mesh from vertex coordinates and data on simplices
    (i.e. what are the indices of the vertices of a given simplex,
@@ -565,7 +578,7 @@ val nearest_neighbours :
   float ->  coords array -> point_state array -> int array array * int array array
 
 val extract_topology_from_simplices :
-  int array array -> coords array -> 
+  int array array -> coords array ->
   int array array * int array array
 
 (**
@@ -584,13 +597,13 @@ val extract_topology_from_simplices :
 val make_simplex_lines_of_gravity_applicator :
   int ->
   (float array -> float array array -> float array -> float -> 'a) ->
-  float array array -> 'a 
+  float array array -> 'a
 
-val make_default_boundary_condition_simplex_classificator :  
+val make_default_boundary_condition_simplex_classificator :
   int -> ((float array -> float) array) -> float ->
   float array array -> point_state array -> simplex_region
 
-val mesh_align_external_indices : mesh -> unit 
+val mesh_align_external_indices : mesh -> unit
 
 val mesh_grow_bookkeeping_data :
   ?do_connectivity:bool ->
@@ -615,15 +628,15 @@ val mesh_from_points :
   (float array -> float) array ->
   ?triangulator:(float array array -> int array array) ->
   ?simplex_classificator:(float -> float array array -> point_state array -> simplex_region) ->
-  float -> point_state array -> float array array -> mesh 
+  float -> point_state array -> float array array -> mesh
 
 val mesh_simplex_nr_and_L_coords_of_point :
-  mesh -> float array -> (int * float array) option 
+  mesh -> float array -> (int * float array) option
 
 val default_meshgen_controller :
   'a mesher_defaults ->
   Mt19937.rng ->
-  int -> meshgen_controller_input -> int * meshgen_controller_command 
+  int -> meshgen_controller_input -> int * meshgen_controller_command
 
 (**
    This is the default controller. Anyone who wants to learn how to
@@ -642,7 +655,7 @@ val copy_mesher_defaults :
   ('b mesher_defaults ->
    Mt19937.rng ->
    'b -> meshgen_controller_input -> 'b * meshgen_controller_command) ->
-  'b -> 'b mesher_defaults 
+  'b -> 'b mesher_defaults
 
 (**
    When creating a new set of mesher defaults, it is usually
@@ -655,7 +668,7 @@ val copy_mesher_defaults :
    Rationale: If we did not make those two parameters function
    arguments, we could only generate ['a mesher_defaults] from ['a
    mesher_defaults] (with fixed ['a]), and would not be able to
-   replace the type of controller state with something new. 
+   replace the type of controller state with something new.
  *)
 
 
@@ -708,7 +721,7 @@ val make_meshgen_engine :
   'a mesher_defaults ->
   float array array ->
   float array array ->
-  fem_geometry -> meshgen_engine_command -> meshgen_engine_output 
+  fem_geometry -> meshgen_engine_command -> meshgen_engine_output
 
 val default_driver :
   meshgen_engine -> meshgen_engine_output
@@ -730,8 +743,8 @@ val mesh_a_piece :
            meshgen_engine_output) ->
   ?rng:Mt19937.rng ->
   ?immobile_points:coords array ->
-  ?mobile_points:coords array ->  
-  ?simply_points:coords array ->  
+  ?mobile_points:coords array ->
+  ?simply_points:coords array ->
   fem_geometry -> 'a mesher_defaults -> float -> meshgen_engine_output
 
 type mpi_meshgeom = {
@@ -754,12 +767,12 @@ val maybe_use_cached_mesh: string -> (unit -> mesh) -> mesh
 val mesh_it :
   ?cache_name:string ->
   ?gendriver:(int -> meshgen_engine -> meshgen_engine_output) ->
-  ?rng:Mt19937.rng -> 
-  ?fixed_points:float array array -> 
-  ?mobile_points:float array array -> 
-  ?simply_points:float array array -> 
+  ?rng:Mt19937.rng ->
+  ?fixed_points:float array array ->
+  ?mobile_points:float array array ->
+  ?simply_points:float array array ->
   fem_geometry -> 'a mesher_defaults -> float -> mesh
-	  
+
 val mesh_periodic_outer_box :
     ?gendriver:(int -> meshgen_engine -> meshgen_engine_output) ->
       ?rng:Mt19937.rng -> float array array ->
@@ -768,7 +781,7 @@ val mesh_periodic_outer_box :
 val mesh_boundaries_and_objects :
     ?gendriver:(int -> meshgen_engine -> meshgen_engine_output) ->
       ?rng:Mt19937.rng ->
-	coords array -> coords array -> coords array -> 
+	coords array -> coords array -> coords array ->
 	  fem_geometry -> 'a mesher_defaults -> float -> float array -> mesh
 
 val mesh_extract_surface:
@@ -785,15 +798,15 @@ val mesh_plotinfo :
      (* simplex: (point_indices,((cc_mid,cc_radius),(ic_mid,ic_radius),body_nr)) *)
     * int list array (* which bodies does the corresponding point belong to? *)
 
-val mesh_plotinfo_points : 
+val mesh_plotinfo_points :
   mesh -> float array array  (* point locations *)
 
-val mesh_plotinfo_pointsregions : 
+val mesh_plotinfo_pointsregions :
   mesh -> simplex_id array array (* regions that each point belongs to *)
 
 val mesh_plotinfo_simplicesregions : mesh -> int array (* region-id for each simplex *)
 
-val mesh_plotinfo_simplices : 
+val mesh_plotinfo_simplices :
   mesh -> point_id array array (* point ids for each simplex *)
 
 val mesh_plotinfo_links : mesh -> (point_id * point_id) array (* Point tuple for all links *)
@@ -802,7 +815,7 @@ val mesh_plotinfo_surfaces_and_surfacesregions : mesh -> point_id array array * 
 
 val mesh_plotinfo_regionvolumes : mesh -> float array  (* Returns a list of region volumes, one entry for each region. *)
 
-val mesh_plotinfo_periodic_points_indices : 
+val mesh_plotinfo_periodic_points_indices :
   mesh -> int array array (* indices of equivalent points for each periodic point *)
 
 val mesh_connectivity : mesh -> int list array
@@ -836,9 +849,9 @@ val bc_ellipsoid : float array -> float array -> float
 
 val bc_box : float array -> float array -> float array -> float
 
-val bc_helix : float array * float -> float array * float -> float array -> float 
+val bc_helix : float array * float -> float array * float -> float array -> float
 
-val bc_frustum : float array * float -> float array * float -> float array -> float 
+val bc_frustum : float array * float -> float array * float -> float array -> float
 
 val bc_convex_hull : float array array -> 'a
 
@@ -862,16 +875,16 @@ val fem_geometry_from_bodies :
   ?mesh_exterior:bool ->
   ?density:(float array -> float) ->
   float array * float array -> body array
-  -> mesh_with_body array 
+  -> mesh_with_body array
   -> fem_geometry
 
 val mesh2d_ps :
   ?scale:(float array -> float array) ->
   ?further_ps:(out_channel -> unit) -> mesh -> string -> unit
-(** Function that given a 2d mesh [mesh] and a filename [string] 
+(** Function that given a 2d mesh [mesh] and a filename [string]
    will create a postscript file containing that mesh. Optional inputs
    are currently undocumented. XXX *)
-      
+
 val mesh_locate_point: mesh -> coords -> (simplex * coords_L)
 (** Given a mesh and the coordinates of a point,
     return the simplex that contains this point,
@@ -880,19 +893,19 @@ val mesh_locate_point: mesh -> coords -> (simplex * coords_L)
 *)
 
 val scale_node_positions: mesh -> float -> unit
-  (** Given a mesh and a scaling factor, all the nodes of the 
+  (** Given a mesh and a scaling factor, all the nodes of the
       mesh are scaled by this common factor.
-*)	 
- 
+*)
+
 val write_mesh: string -> mesh -> unit
-(** Function that takes a filename [string] and a mesh [mesh] and 
+(** Function that takes a filename [string] and a mesh [mesh] and
    write the mesh as plain text into that file. The file format is very similar
    to the NEUTRAL file format of the NETGEN mesher (http:// XXX netgen).
 
    The file format consist of the following entries:
-   
+
     1. one line starting with '#' storing the current version of the file format
-    2. one line starting with '#' containing a summary of the size of the mesh with the following information: 
+    2. one line starting with '#' containing a summary of the size of the mesh with the following information:
      - the dimension of the space the mesh lives in ( for example [dim = 2])
      - the total number of nodes (vertices) (for example [nodes = 30])
      - the total number of simplicies (for example [simplices = 40])
@@ -906,7 +919,7 @@ val write_mesh: string -> mesh -> unit
 
    5. one line containing the number of surface elements, followed by one line per surface element. Each of those lines contains first the [Body_Nr] that surface element belongs to, and then a seqence of dim+1 integers which are indices of the nodes that define the surface element. For example:
 [0	18 24]
-*)   
+*)
 
 val read_mesh: string -> mesh option
 (** Given the filename [string] this will read a mesh file as written with [write_mesh] and return the [mesh] object. *)

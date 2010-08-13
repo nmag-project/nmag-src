@@ -1,25 +1,50 @@
 (* Nmag micromagnetic simulator
- * Copyright (C) 2010 University of Southampton
- * Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
- *
- * WEB:     http://nmag.soton.ac.uk
- * CONTACT: nmag@soton.ac.uk
- *
- * AUTHOR(S) OF THIS FILE: Matteo Franchin
- * LICENSE: GNU General Public License 2.0
- *          (see <http://www.gnu.org/licenses/>)
- *
- * This module defines the datastructures storing simplex information in
- * a mesh. It also contains various routines to build and retrieve such
- * information.
- *
+   Copyright (C) 2010 University of Southampton
+    Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
+
+    WEB:     http://nmag.soton.ac.uk
+    CONTACT: nmag@soton.ac.uk
+
+    AUTHOR(S) OF THIS FILE: Matteo Franchin
+    LICENSE: GNU General Public License 2.0
+             (see <http://www.gnu.org/licenses/>)
+
+    This module defines the datastructures storing simplex information in
+    a mesh. It also contains various routines to build and retrieve such
+    information.
+
+    NOTE 1: If you need to get simplex information repeatedly, you should
+      partially apply the functions. Example:
+
+      let get_it = Simplex.get_point_matrix sd in
+        for i = 0 to n; do
+          let mx = get_it i in ...
+        done
  *)
 
 type t
 
+type idx = int
+(** The simplex index *)
+
 val init: Mesh0.t -> t
-val get_point_matrix: t -> int -> Base.Ba.F.array2
-val get_inv_point_matrix: t -> int -> Base.Ba.F.array2
+(** Create a simplex object for the given mesh. The simplex object contains
+    information about all the simplices in the mesh. *)
+
+val get_num_points: t -> int
+(** Get number of points of the simplices *)
+
+val get_point_matrix: t -> idx -> Base.Ba.F.array2
+(** Get the point matrix for the given simplex index. See note 1. *)
+
+val get_point_matrix_det: t -> idx -> float
+(** Get the determinant of the point matrix for the given simplex index.
+    See note 1. *)
+
+val get_inv_point_matrix: t -> idx -> Base.Ba.F.array2
+(** Get the inverse of the point matrix for the given simplex index.
+    See note 1. *)
+
 val get_face_eqn: t -> int -> int -> Base.Ba.F.array1
 
 val dummy : t

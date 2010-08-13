@@ -32,6 +32,8 @@ open Base.Ba
      mutable ms_ic_radius: float;
 *)
 
+type idx = int
+
 type t = {
   msd_mesh0: Mesh0.t;
   (** The mesh to which this simplex info is attached to *)
@@ -49,6 +51,20 @@ type t = {
   (** incircle and circumcircle midpoints (d*2 floats)
       and radii (1*2 floats) *)
 }
+
+type simplex = t * idx
+(** The way we structure simplex data now (in this file) is different with
+    respect to the old one. Initially, we had an array of Mesh.simplex
+    structures, each containing the data related to one single simplex.
+    We now split all the fields of Mesh.simplex into separate Bigarray-s,
+    which is more memory-efficient (reduce number of ml-object headers).
+    We consequently loose the concept of single simplex, as we don't have
+    a datastructure similar to Mesh.simplex which contains all the info
+    relevant for one single simplex. However, the old code still provides
+    functions working on single simplices. We then need to provide a
+    replacement for the concept of Mesh.simplex. A Mesh.Simplex.simplex
+    is a tuple made of the simplex data (Simplex.t) plus the simplex index.
+    It should then be enough to retrieve all data for one single simplex. *)
 
 let my_fill_point_matrices m0 ba =
   let d = Mesh0.get_nr_dims m0 in
@@ -118,21 +134,28 @@ let init m0 =
       (my_fill_inv_point_matrices_and_dets simplex)
   in simplex
 
+let get_num_points sx_data = 1 + Mesh0.get_nr_dims sx_data.msd_mesh0
+
 (** Get the point matrix for the given simplex. *)
-let get_point_matrix sx_data sx_id =
+let get_point_matrix sx_data =
   let ba3 = Deferred.get sx_data.msd_ext_point_coords in
-    Bigarray.Array3.slice_left_2 ba3 sx_id
+    (fun sx_id -> Bigarray.Array3.slice_left_2 ba3 sx_id)
+
+(** Get the determinant of the point matrix for the given simplex. *)
+let get_point_matrix_det sx_data =
+  let ba1 = Deferred.get sx_data.msd_point_coords_det in
+    (fun sx_id -> F.get1 ba1 sx_id)
 
 (** Get the inverse point matrix for the given simplex. *)
-let get_inv_point_matrix sx_data sx_id =
+let get_inv_point_matrix sx_data =
   let ba3 = Deferred.get sx_data.msd_inv_ext_point_coords in
-    Bigarray.Array3.slice_left_2 ba3 sx_id
+    (fun sx_id -> Bigarray.Array3.slice_left_2 ba3 sx_id)
 
 (** Get the n-th row of the inverse point matrix for the given simplex.
     That corresponds to retrieve the coefficients of the equation of the n-th
     face of the simplex. *)
-let get_face_eqn sx_data sx_id n =
+let get_face_eqn sx_data sx_id =
   let mx = get_inv_point_matrix sx_data sx_id in
-    Bigarray.Array2.slice_left mx n
+    (fun n -> Bigarray.Array2.slice_left mx n)
 
 let dummy = init Mesh0.dummy

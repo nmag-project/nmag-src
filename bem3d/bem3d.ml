@@ -8,7 +8,7 @@ open Snippets;;
 open Mesh;;
 open Fem;;
 
-external lindholm_triangle_contributions_C: float -> float 
+external lindholm_triangle_contributions_C: float -> float
 array array -> unit =
     "caml_bem3d_raw_lindholm"
 ;;
@@ -32,13 +32,20 @@ external raw_lindholm_block_pbc: float ->
 let mwe_dof_3d_surface_triangles_and_space_angles_and_coords
     ~inside_property mwe (ix_local_by_ix_global,ix_global_by_ix_local)
     =
-  let simplices = mwe.mwe_mesh.mm_simplices in
+  let mesh = mwe.mwe_mesh in
+  let simplices = mesh.mm_simplices in
   let () =
-    (if mwe.mwe_mesh.mm_dim <> 3
+    (if mesh.mm_dim <> 3
      then failwith "mwe_dof_3d_surface_triangles: Need 3d mesh to extract surface triangles"
      else ())
   in
-  let region_is_inside r = 
+  let get_inv_point_matrix =
+    Simplex.get_inv_point_matrix mesh.mm_simplex_data in
+  let face_eqn sx_nr face_nr =
+    let mx = get_inv_point_matrix sx_nr in
+      Array.init 4 (fun i -> mx.{face_nr, i})
+  in
+  let region_is_inside r =
     let props = try Hashtbl.find mwe.mwe_properties_by_region r with | Not_found -> [||] in
       (array_position inside_property props 0) <> -1
   in
@@ -61,7 +68,7 @@ let mwe_dof_3d_surface_triangles_and_space_angles_and_coords
 	   else site.(0))
       ix_global_by_ix_local
   in
-  let local_index_by_mesh_index = 
+  let local_index_by_mesh_index =
     let a = Array.make (Array.length mwe.mwe_mesh.mm_points) (-1) in
     let () =
       Array.iteri (fun ix_local ix_mesh -> a.(ix_mesh) <- ix_local)
@@ -116,24 +123,21 @@ let mwe_dof_3d_surface_triangles_and_space_angles_and_coords
 		  array_one_shorter bdof_indices nr_opposing_point
 		in
 		let this_surface_outward_normal =
-		  match sx.ms_inv_ext_point_coords with
-		    | None -> failwith "mwe_dof_3d_surface_triangles: need triangle face equations"
-		    | Some s_face_eqns ->
-			let s_face_eqn = s_face_eqns.(nr_opposing_point) in
-			let s_normal = Array.sub s_face_eqn 0 3 in
-			let rescaling_factor =
-			  (if (hyperplane_eval
-				 s_face_eqn
-				 sx.ms_points.(nr_opposing_point).mp_coords > 0.0)
-			   then (-1.0) else 1.0) (* ensure outward-pointing normal XXX Check that this really is outward-pointing. Actually should be! *)
-			  /. (sqrt (euclidean_len_sq s_normal))
-			in
-			  begin
-			    for i=0 to 3-1 do
-			      s_normal.(i) <- rescaling_factor*.s_normal.(i);
-			    done;
-			    s_normal
-			  end
+                  let s_face_eqn = face_eqn sx.ms_id nr_opposing_point in
+                  let s_normal = Array.sub s_face_eqn 0 3 in
+                  let rescaling_factor =
+                      (if (hyperplane_eval
+                              s_face_eqn
+                              sx.ms_points.(nr_opposing_point).mp_coords > 0.0)
+                      then (-1.0) else 1.0) (* ensure outward-pointing normal XXX Check that this really is outward-pointing. Actually should be! *)
+                      /. (sqrt (euclidean_len_sq s_normal))
+                  in
+                      begin
+                      for i=0 to 3-1 do
+                          s_normal.(i) <- rescaling_factor*.s_normal.(i);
+                      done;
+                      s_normal
+                      end
 		in
 		  collect_all_surfaces_from_this_simplex
 		    (1+nr_opposing_point)
@@ -157,7 +161,7 @@ let mwe_dof_3d_surface_triangles_and_space_angles_and_coords
 
    Note 1: when interpreting the diagram, please take great care:
    gamma is a symmetric matrix - it is just that the (i+1) indices mean
-   in all the places where they show up: 
+   in all the places where they show up:
    "we would like to have indices 1,2,3; but actually, L has indices 0,1,2".
 
    Note 2: simple considerations show that for some special geometrical arrangements,
@@ -196,7 +200,7 @@ let lindholm_triangle_contributions =
 	target.(i) <- z.(i)*.inv_len;
       done
   in
-  let pi=4.0*.atan 1.0 
+  let pi=4.0*.atan 1.0
   and r0 = Array.make 3 0.0
   and r1 = Array.make 3 0.0
   and r2 = Array.make 3 0.0
@@ -217,7 +221,7 @@ let lindholm_triangle_contributions =
   and buffer0 = Array.make 3 0.0
   and buffer1 = Array.make 3 0.0
   and buffer2 = Array.make 3 0.0
-  and area = ref 0.0 
+  and area = ref 0.0
   in
     fun ?store_zeta observer p0 p1 p2 ->
       begin
@@ -252,7 +256,7 @@ let lindholm_triangle_contributions =
 		xprod eta0 v_zeta xi0;
 		xprod eta1 v_zeta xi1;
 		xprod eta2 v_zeta xi2;
-		(* XXX should not need the pervasives qualifier here! 
+		(* XXX should not need the pervasives qualifier here!
 		   OTOH if I remove it, I get conflicts with a (no longer
 		   existing) Nlog.log function. Oh dear, this may be a subtle
 		   linking issue waiting to be sorted out...
@@ -284,7 +288,7 @@ let lindholm_triangle_contributions =
 		   -.zeta*.(sprod gamma2 v_log))
 		in
 		  begin
-		    (match store_zeta with 
+		    (match store_zeta with
 		       | None -> ()
 		       | Some z ->
 			   begin
@@ -324,7 +328,7 @@ let lindholm_triangle_contributions_ng =
 	target.(i) <- z.(i)*.inv_len;
       done
   in
-  let pi=4.0*.atan 1.0 
+  let pi=4.0*.atan 1.0
   and r0 = Array.make 3 0.0
   and r1 = Array.make 3 0.0
   and r2 = Array.make 3 0.0
@@ -345,7 +349,7 @@ let lindholm_triangle_contributions_ng =
   and buffer0 = Array.make 3 0.0
   and buffer1 = Array.make 3 0.0
   and buffer2 = Array.make 3 0.0
-  and area = ref 0.0 
+  and area = ref 0.0
   in
     fun ~outward_surface_normal ~store_lh012 ~observer p0 p1 p2 ->
       begin
@@ -380,7 +384,7 @@ let lindholm_triangle_contributions_ng =
 		xprod eta0 v_zeta xi0;
 		xprod eta1 v_zeta xi1;
 		xprod eta2 v_zeta xi2;
-		(* XXX should not need the pervasives qualifier here! 
+		(* XXX should not need the pervasives qualifier here!
 		   OTOH if I remove it, I get conflicts with a (no longer
 		   existing) Nlog.log function. Oh dear, this may be a subtle
 		   linking issue waiting to be sorted out...
@@ -467,7 +471,7 @@ let lindholm_make_bdof_row
 	  end
 	in
 	let () =
-	  (if high_precision then lindholm_triangle_contributions_C_ld 
+	  (if high_precision then lindholm_triangle_contributions_C_ld
 	   else lindholm_triangle_contributions_C)
 	    min_dist args
 	in
@@ -608,7 +612,7 @@ let apply_bem_hmatrix (hmx,v_diagonal,v_buffer) v_target v_src =
     Mpi_petsc.vector_AXPBY 1.0 1.0 v_buffer v_target;
   end
 ;;
-       
+
 
 (* === PERIODIC BOUNDARY CONDITIONS, PERIODIC-LINDHOLM === *)
 
@@ -621,11 +625,11 @@ let apply_bem_hmatrix (hmx,v_diagonal,v_buffer) v_target v_src =
 
    - has no zeroes outside a unit sphere
    - is positive in a neighbourhood of the origin(!)
-   - is positive in a region which has the large-scale 
+   - is positive in a region which has the large-scale
      shape of our sample (e.g. a sphere, a disc, a box,
      etc.), and negative in the "outside" regions.
 
-   * Lattice periodicity data, in the form of 3 optional 
+   * Lattice periodicity data, in the form of 3 optional
      lattice vectors (BEM will only work in 3d anyway due
      to the Lindholm formula!) - so we may have periodicity
      in just one or one or two directions.
@@ -640,8 +644,8 @@ let apply_bem_hmatrix (hmx,v_diagonal,v_buffer) v_target v_src =
      independent check with increased resolution...)
 
    How do we take care of "cutting off too early"? Basically, we would
-   have to validate against contributions obtained by doing (part 
-   of?) the next layer. However, this presumably then should be up 
+   have to validate against contributions obtained by doing (part
+   of?) the next layer. However, this presumably then should be up
    to the user. So, we should at least make sure we design this in such
    a way that we allow the computation of individual entries...
 
@@ -656,9 +660,9 @@ let global_shape_approximating_lattice_points_and_greyfactors
        inside the shape boundary, this is 0.3. *)
     ~oversampling_steps
     ~fun_global_shape
-    ~v_lattice 
+    ~v_lattice
     (* If we want periodicity in only one or two directions,
-       we can get this by just using a null vector as the 
+       we can get this by just using a null vector as the
        corresponding lattice yslvector.
     *)
     ~cell_rescaling (* >1, we use the inverse. *)
@@ -706,7 +710,7 @@ let global_shape_approximating_lattice_points_and_greyfactors
       (fun _ v_subpos ->
 	 begin
 	   for i=0 to dim-1 do
-	     delta.(i) <- 
+	     delta.(i) <-
 	       (float_of_int v_subpos.(i))-.
 	       (float_of_int (oversampling_steps.(i)-1))*.0.5;
 	     real_pos.(i) <- pos.(i);
@@ -791,14 +795,14 @@ Array.iter (fun (xyz,s) -> Printf.printf "%5.3f: %4.2f  %4.2f  %4.2f\n" s xyz.(0
 let pbc_lindholm_triangle_contributions_ng
     ~oversampling_steps
     ~fun_global_shape
-    ~v_lattice 
+    ~v_lattice
     ~cell_rescaling (* >1, we use the inverse. *)
     =
   let points_and_greyfactors =
     global_shape_approximating_lattice_points_and_greyfactors
       ~oversampling_steps
       ~fun_global_shape
-      ~v_lattice 
+      ~v_lattice
       ~cell_rescaling
   in
   let v_buffer = Array.make 3 0.0 in
@@ -809,7 +813,7 @@ let pbc_lindholm_triangle_contributions_ng
       ~observer
       p0 p1 p2 ->
 	begin
-	  for i=0 to 3-1 do 
+	  for i=0 to 3-1 do
 	    v_buffer.(i) <- 0.0;
 	    store_lh012.(i) <- 0.0;
 	  done;
@@ -834,14 +838,14 @@ let pbc_lindholm_triangle_contributions_ng
 let pbc_lindholm_triangle_contributions
     ~oversampling_steps
     ~fun_global_shape
-    ~v_lattice 
+    ~v_lattice
     ~cell_rescaling (* >1, we use the inverse. *)
     =
   let points_and_greyfactors =
     global_shape_approximating_lattice_points_and_greyfactors
       ~oversampling_steps
       ~fun_global_shape
-      ~v_lattice 
+      ~v_lattice
       ~cell_rescaling
   in
   let store_lh012 = Array.make 3 0.0 in
@@ -851,7 +855,7 @@ let pbc_lindholm_triangle_contributions
       observer
       p0 p1 p2 ->
 	begin
-	  for i=0 to 3-1 do 
+	  for i=0 to 3-1 do
 	    store_lh012.(i) <- 0.0;
 	  done;
 	  for i=0 to Array.length points_and_greyfactors-1 do
@@ -862,11 +866,11 @@ let pbc_lindholm_triangle_contributions
 		done;
 		let lh_res =
 		  lindholm_triangle_contributions ?store_zeta
-		    displaced_observer p0 p1 p2 
+		    displaced_observer p0 p1 p2
 		in
 		  for i=0 to 3-1 do
 		    (let fc = classify_float lh_res.(i) in
-		       if fc = FP_nan || fc = FP_infinite 
+		       if fc = FP_nan || fc = FP_infinite
 		       then failwith (Printf.sprintf "BEM matrix contribution (observer=%s p0=%s p1=%s p2=%s): %f" (float_array_to_string displaced_observer) (float_array_to_string p0) (float_array_to_string p1) (float_array_to_string p2) lh_res.(i))
 		       else ());
 		    store_lh012.(i) <- store_lh012.(i)+.lh_res.(i)*.greyfactor
@@ -880,7 +884,7 @@ let pbc_lindholm_triangle_contributions
 (* === Eventually, it turned out that it is most appropriate to do the bulk of the boundary
    element matrix computation in C, as we then can make better use of the SIMD capabilities
    of modern processors. This has to be combined with (1) support for macrogeometry "faraway"
-   boundaries, and (2) means to build only part of a boundary element matrix, 
+   boundaries, and (2) means to build only part of a boundary element matrix,
    for parallelization. Let us temporarily call this new interface "new_and_shiny" (short: _nas)
    to have a tag for it. Eventually, this will replace the present mess.
    === *)
@@ -952,12 +956,12 @@ let nas_partially_fill_bem_matrix_row_constrained
     match lattice_info with
       | None -> [|(identity_3d,[|1.0|],[|[|0.0;0.0;0.0|]|])|]
       | Some (v_otrans,v_nr_ot_gf_disp) ->
-	  let () = 
+	  let () =
 	    Array.iter
 	      (fun (otrans,greyfactor,displacement) ->
 		 Printf.printf "GF POS: %s val: %6.4f\n%!" (float_array_to_string displacement) greyfactor
 	      )
-	      v_nr_ot_gf_disp 
+	      v_nr_ot_gf_disp
 	  in
 	    Array.mapi
 	    (fun nr_otrans otrans ->
@@ -1067,12 +1071,12 @@ let nas_partially_fill_bem_matrix_col_constrained
     match lattice_info with
       | None -> [|(identity_3d,[|1.0|],[|[|0.0;0.0;0.0|]|])|]
       | Some (v_otrans,v_nr_ot_gf_disp) ->
-	  let () = 
+	  let () =
 	    Array.iter
 	      (fun (otrans,greyfactor,displacement) ->
 		 Printf.printf "GF POS: %s val: %6.4f\n%!" (float_array_to_string displacement) greyfactor
 	      )
-	      v_nr_ot_gf_disp 
+	      v_nr_ot_gf_disp
 	  in
 	    Array.mapi
 	    (fun nr_otrans otrans ->

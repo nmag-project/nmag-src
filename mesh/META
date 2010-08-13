@@ -1,5 +1,5 @@
 # Specifications for the "mesh" library:
-requires = "bigarray snippets qhull mt19937 gsl nlog"
+requires = "bigarray snippets base qhull mt19937 gsl nlog"
 description = "General simplicial Meshing"
 version = "0.1"
 browse_interfaces = " Mesh "

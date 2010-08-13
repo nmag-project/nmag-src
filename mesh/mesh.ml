@@ -109,8 +109,10 @@
 
 open Snippets;;
 open Correct_broken_mesh;;
+open Base
+open Base.Ba
 
-let version () = 
+let version () =
   String.concat ":" ["$Id$";
 		      (Snippets.version());
 		      (Qhull.version());
@@ -129,7 +131,7 @@ let version () = Snippets.md5
 (* Get logger: *)
 
 (* This is the logger with the handler from Python (relatively slow) *)
-let meshlogger = Nlog.getLogger "nmesh.ocaml";; 
+let meshlogger = Nlog.getLogger "nmesh.ocaml";;
 
 (* let meshlogger = Nlog.getLogger "dev-mesh";; *)
 let logdebug = meshlogger Nlog.Debug;;
@@ -294,7 +296,7 @@ let make_fem_geometry
    fem_geo_bounding_box=bb;
    fem_geo_density=density;
    fem_geo_boundaries=boundaries;
-   fem_geo_piece_hints= hints; 
+   fem_geo_piece_hints= hints;
    fem_geo_simplex_classificator=simplex_classificator;
  }
 ;;
@@ -320,6 +322,7 @@ let make_fem_geometry
    We should at least declare them as "not for public use". Better yet,
    provide a clear outside interface which will be used by meshphysics as well!
  *)
+
 
 type point =
     {
@@ -363,6 +366,12 @@ and simplex =
 	- Some of the vertices are in the bulk of different bodies.
 	- All vertices are on a boundary between the same bodies.
       *)
+
+
+
+
+
+
      (*
 	Circum-Circle and In-Circle.
 
@@ -375,59 +384,17 @@ and simplex =
      mutable ms_cc_radius: float;
      mutable ms_ic_radius: float;
 
-     (* Extended point coordinates as a matrix (last coordinate =1) *)
-     mutable ms_ext_point_coords: float array array option;                              (* this variables are now mutable in order to update *)
-     (* The inverse provides a concise way to get all the cofactors. *)                  (* them when we call the function scale_node_positions!! *)
-     (* Also, the j'th row of the inverse is just the j'th face equation! *)
-     mutable ms_inv_ext_point_coords: float array array option;
+     (* The inverse provides a concise way to get all the cofactors. *)
+     (*mutable ms_inv_ext_point_coords: float array array option;*)
      mutable ms_point_coords_det: float;
+
    }
 ;;
 
-let simplex_face_eqn sx n =
-  match sx.ms_inv_ext_point_coords with
-  | None -> None
-  | Some mx -> Some mx.(n)
-;;
-
-
-(* DDD NOTE: this is to repair a deeper problem.
-   Note that our approach here is not particularly efficient.
-   Should re-write simplex_surface_1form_component properly
-   sometime later on when we take another close look on the
-   meshing module...
-*)
-let _simplex_surface_orientation_is_outward sx nr_face =
-  match sx.ms_inv_ext_point_coords with
-    | None -> failwith "simplex_surface_orientation_is_outward: need sx_ms_inv_ext_point_coords!"
-    | Some mx ->
-	let points = sx.ms_points in
-	let dim = Array.length points.(0).mp_coords in
-	let coords_opposing_point = points.(nr_face).mp_coords in
-	let coords_face_point = points.(if nr_face=0 then 1 else 0).mp_coords in
-	let c_op = coords_opposing_point in
-	let c_fp = coords_face_point in
-	let rec walk n so_far =
-	  if n=dim then so_far
-	  else walk (n+1) (so_far+.(c_op.(n)-.c_fp.(n))*.sx.ms_point_coords_det*.mx.(nr_face).(n))
-	in
-	  (walk 0 0.0)<0.0
-;;
-    
-
-
-let simplex_surface_1form_component sx nr_face nr_component =
-  (* The "outward-pointing" surface 1-form
-     is just given by the first dim components 
-     of sx.ms_inv_ext_point_coords, multiplied
-     with the determinant of the extended point
-     coordinates. So:
-  *)
-  match sx.ms_inv_ext_point_coords with
-    | None -> failwith "simplex_surface_1form_component: need sx_ms_inv_ext_point_coords!"
-    | Some mx ->
-	let z = sx.ms_point_coords_det*.mx.(nr_face).(nr_component) in
-	  if _simplex_surface_orientation_is_outward sx nr_face then z else -.z
+let simplex_face_eqn (sd, sx_nr) n =
+  let mx = Simplex.get_inv_point_matrix sd sx_nr in
+  let _, dd = F.dim2 mx
+  in Array.init dd (fun i -> mx.{n, i})
 ;;
 
 type la_functions =
@@ -456,10 +423,12 @@ let make_la_functions dim =
 
 type mesh =
     {
-     mm_dim: int;
-     mm_la: la_functions;
-     mm_make_find_visible: (mesh -> float array -> (simplex * int));
-     mutable mm_fem_geometry: fem_geometry option;
+      mm_dim: int;
+      mutable mm_points: point array;
+
+      mm_la: la_functions;
+      mm_make_find_visible: (mesh -> float array -> (simplex * int));
+      mutable mm_fem_geometry: fem_geometry option;
 	(* Note: the slot above is required, as a mesh should know about its geometry
 	   e.g. to answer questions such as "what boundary condition is that given point on",
 	   but we make this mutable so that we can zero it out. This way, we can avoid
@@ -469,8 +438,9 @@ type mesh =
 	((simplex_region * simplex_region)*((simplex_id*face_ix) array)) array;
       (* A vector of (simplex_id,nr_face) per combination of regions. *)
       mutable mm_origins: (coords * simplex) array;
-      mutable mm_points: point array;
       mutable mm_simplices: simplex array;
+      mutable mm_mesh0: Mesh0.t;
+      mutable mm_simplex_data: Simplex.t;
       mutable mm_region_volumes: float array;
       mutable mm_vertex_distribution: int array; (* how many nodes go to what machine? *)
       (* NOTE: we still have to deal with removal of points and simplices.
@@ -497,6 +467,8 @@ let dummy_mesh =
      mm_origins = [||];
      mm_points = [||];
      mm_simplices = [||];
+     mm_mesh0 = Mesh0.dummy;
+     mm_simplex_data = Simplex.dummy;
      mm_region_volumes = [||];
      mm_vertex_distribution = [||];
      mm_periodic_points = [||];
@@ -504,7 +476,68 @@ let dummy_mesh =
      mm_have_incircle_circumcircle = false;
      mm_have_regions = false;
     };;
-  
+
+
+(* TRANSITION FUNCTION *)
+let mesh0_from_mesh mesh_points mesh_simplices =
+  let point_array = Array.map (fun mp -> mp.mp_coords) mesh_points in
+  let region_and_simplex_array =
+    Array.map
+      (fun ms ->
+         let Body_Nr region_nr = ms.ms_in_body
+         in (region_nr, Array.map (fun mp -> mp.mp_id) ms.ms_points))
+      mesh_simplices
+  in
+    Mesh0.init_from_arrays point_array region_and_simplex_array
+;;
+
+(* DDD NOTE: this is to repair a deeper problem.
+   Note that our approach here is not particularly efficient.
+   Should re-write simplex_surface_1form_component properly
+   sometime later on when we take another close look on the
+   meshing module...
+*)
+let _simplex_surface_orientation_is_outward mesh sx nr_face =
+  let mx =
+    F.to_ml2 (Simplex.get_inv_point_matrix mesh.mm_simplex_data sx.ms_id) in
+  let points = sx.ms_points in
+  let dim = Array.length points.(0).mp_coords in
+  let coords_opposing_point = points.(nr_face).mp_coords in
+  let coords_face_point = points.(if nr_face=0 then 1 else 0).mp_coords in
+  let c_op = coords_opposing_point in
+  let c_fp = coords_face_point in
+  let rec walk n so_far =
+    if n=dim then so_far
+    else walk (n+1) (so_far+.(c_op.(n)-.c_fp.(n))*.sx.ms_point_coords_det*.mx.(nr_face).(n))
+  in
+    (walk 0 0.0)<0.0
+;;
+
+let simplex_surface_1form_component mesh sx_nr nr_face nr_component =
+  (* The "outward-pointing" surface 1-form
+     is just given by the first dim components
+     of sx.ms_inv_ext_point_coords, multiplied
+     with the determinant of the extended point
+     coordinates. So:
+  *)
+  let sx = mesh.mm_simplices.(sx_nr) in
+  let mx = Simplex.get_inv_point_matrix mesh.mm_simplex_data sx_nr in
+  let d = Simplex.get_point_matrix_det mesh.mm_simplex_data sx_nr in
+  let z = d *. mx.{nr_face, nr_component} in
+    if _simplex_surface_orientation_is_outward mesh sx nr_face then z else -.z
+;;
+
+
+
+
+
+
+
+
+
+
+
+
 
 let reordered_mesh mesh ix_new_by_ix_old =
   let () = Printf.fprintf stderr "XXX NOTE: the reordered_mesh function has not been tested toroughly yet! Tests: (a) re-ordering under involution should give the same mesh back, (b) serialization of re-ordered mesh should be exactly as long as that of original mesh.\n" in
@@ -539,7 +572,7 @@ let reordered_mesh mesh ix_new_by_ix_old =
 	   })
   in
   let new_simplices =
-    Array.mapi 
+    Array.mapi
       (fun nr_sx old_sx ->
 	 {ms_id=nr_sx;
 	  ms_points=Array.map (fun pt_old -> new_points.(old_to_new pt_old.mp_id)) old_sx.ms_points;
@@ -551,8 +584,6 @@ let reordered_mesh mesh ix_new_by_ix_old =
 	  ms_ic_midpoint=old_sx.ms_ic_midpoint;
 	  ms_cc_radius=old_sx.ms_cc_radius;
 	  ms_ic_radius=old_sx.ms_ic_radius;
-	  ms_ext_point_coords=old_sx.ms_ext_point_coords;
-	  ms_inv_ext_point_coords=old_sx.ms_inv_ext_point_coords;
 	  ms_point_coords_det=old_sx.ms_point_coords_det;
 	 })
       mesh.mm_simplices
@@ -560,7 +591,7 @@ let reordered_mesh mesh ix_new_by_ix_old =
     (* Simplex neighbour array still points to the old simplices. Replace by new ones: *)
   let () =
     Array.iter
-      (fun sx -> 
+      (fun sx ->
 	 let v_neighbours = sx.ms_neighbours in
 	   for i=0 to Array.length v_neighbours-1 do
 	     match v_neighbours.(i) with
@@ -581,6 +612,9 @@ let reordered_mesh mesh ix_new_by_ix_old =
 	     pt_old.mp_belongs_to
       ) mesh.mm_points
   in
+  let mesh0 = mesh0_from_mesh new_points new_simplices in
+  let simplex_data = Simplex.init mesh0
+  in
     (* Make the new mesh... *)
     {
       mm_dim=mesh.mm_dim;
@@ -591,6 +625,8 @@ let reordered_mesh mesh ix_new_by_ix_old =
       mm_origins=mesh.mm_origins;
       mm_points=new_points;
       mm_simplices=new_simplices;
+      mm_mesh0 = mesh0;
+      mm_simplex_data = simplex_data;
       mm_region_volumes=mesh.mm_region_volumes;
       mm_vertex_distribution=mesh.mm_vertex_distribution; (* may no longer make sense! *)
       mm_periodic_points=new_periodicity;
@@ -692,7 +728,7 @@ type 'state mesher_defaults =
     {
      mutable mdefault_controller_initial_points_volume_ratio: float;                        (* functions defined but not used (constraints on pyfem) *)
      mutable mdefault_controller_splitting_connection_ratio: float;                         (* | *)
-     mutable mdefault_controller_exp_neigh_force_scale: float;                              (* __ *)       
+     mutable mdefault_controller_exp_neigh_force_scale: float;                              (* __ *)
 
      mutable mdefault_nr_probes_for_determining_volume: int;
      mutable mdefault_boundary_condition_debuglevel: int;
@@ -705,7 +741,7 @@ type 'state mesher_defaults =
       *)
      mutable mdefault_make_boundary_condition_simplex_classificator:
        int -> (* dim *)
-      ((float array -> float) array) -> (* boundary conditions *)							       
+      ((float array -> float) array) -> (* boundary conditions *)
        float ->                         (* smallest_allowed_volume_ratio*)
        float array array -> (* simplex nodes coordinates *)
 	point_state array -> (* points states *)
@@ -801,7 +837,7 @@ let reduce_array arr =                                             (* function t
       else add_el (1+ix) (new_elem::elem_sf)
   in
   add_el 0 []
-    
+
 ;;
 
 let register_point ht key =                                         (* function to register a point in a hashtable *)
@@ -858,9 +894,9 @@ let report_mesh_quality bins mesh =
     in
     let () = loginfo (Printf.sprintf "\tMesh quality (%d points, %d simplices): " nr_points nr_simplices) in
       for i = 0 to bins-1 do
-	loginfo (Printf.sprintf "%6d simplices (%5.1f %%) with quality in range [%3.2f - %3.2f] %!" quality.(i) 
-		    (100.*.float_of_int(quality.(i))/.(float_of_int nr_simplices)) 
-		    (intvl*.(float_of_int(i))) 
+	loginfo (Printf.sprintf "%6d simplices (%5.1f %%) with quality in range [%3.2f - %3.2f] %!" quality.(i)
+		    (100.*.float_of_int(quality.(i))/.(float_of_int nr_simplices))
+		    (intvl*.(float_of_int(i)))
 		    (intvl*.(float_of_int(i+1))) )
       done
 ;;
@@ -868,7 +904,7 @@ let report_mesh_quality bins mesh =
 
 let array_filter_double p arr =                                                                 (* this function splits the entry of an array in two sets, the *)
   let pre_result = Array.copy arr in                                                            (* ones satisfying the condition and the ones which don't, returning *)
-  let len = Array.length arr in                                                                 (* both arrays. *) 
+  let len = Array.length arr in                                                                 (* both arrays. *)
   let rec walk nr_good nr_bad pos_src =
     if pos_src = len
     then (Array.sub pre_result 0 nr_good, Array.sub pre_result nr_good nr_bad)
@@ -899,7 +935,7 @@ let scalar_prod arr1 arr2 =                                                     
 ;;
 
 let mx_sum m1 m2 =                                                                              (* entry-wise sum of two matrix with the same dimensions *)
-  let rows_m1 = Array.length m1 in                                                              
+  let rows_m1 = Array.length m1 in
   let cols_m1 = Array.length m1.(0) in
   let new_m =  Array.make_matrix rows_m1 cols_m1 0.0 in
   for i = 0 to rows_m1-1 do
@@ -999,9 +1035,9 @@ let nearest_neighbours dim =
   let scratch_points_simplex = Array.init nr_vertices (fun _ -> Array.make dim 0.0) in
     fun
       ?(triangulator=Qhull.delaunay)                                      (* we want to pass also the states of points to the triangulator *)
-      ?(simplex_classificator = (fun _ _ _ -> Body_Nr 1))                                  (* so that we can remove most of the flat ones on the interface *) 
+      ?(simplex_classificator = (fun _ _ _ -> Body_Nr 1))                                  (* so that we can remove most of the flat ones on the interface *)
       ?(fun_filter_region = (fun (Body_Nr x) -> x > 0))
-      smallest_allowed_ratio 
+      smallest_allowed_ratio
       points states ->
 
 	let () = logdebug (Printf.sprintf "function: nearest_neighbours (%d points)%!" (Array.length points) )
@@ -1019,26 +1055,26 @@ let nearest_neighbours dim =
 	  done
 	in
 
-	let ht_pointstate = Hashtbl.create (Array.length points) in                        (* for each point we want to know the associated state *)  
+	let ht_pointstate = Hashtbl.create (Array.length points) in                        (* for each point we want to know the associated state *)
                                                                                            (* after the triangulation, so that the classificator *)
                                                                                            (* can use this information *)
-	let () = logdebug (Printf.sprintf "\nnn-points - %d " (Array.length points)) in 
+	let () = logdebug (Printf.sprintf "\nnn-points - %d " (Array.length points)) in
 
 	let () = for ix=0 to (Array.length points)-1 do
 	    ignore(Hashtbl.add ht_pointstate ix states.(ix))
 	  done
 	in
 
-	let triangulate_points = triangulator points in 
-	
+	let triangulate_points = triangulator points in
+
 	let sx_states_arr =                                                                (* associate the right state to each point of the new triangulation *)
 	  Array.map (fun sx -> Array.map (fun x -> Hashtbl.find  ht_pointstate x) sx ) triangulate_points
 	in
 
- 
+
 	let fun_filter_bad_region = (fun (Body_Nr x) -> x <= 0) in                         (* the simplices are kept if they belong to the *)
 	                                                                                   (* region with Body_Nr 1 (given by the classificator) *)
-	let all_simplices =                                                                
+	let all_simplices =
 	  Array.mapi                                                                        (* classify the simplex obtained from the delaunay *)
 	    (fun ix s ->                                                                    (* triangulation of the given set of points *)
 	      let () = fill_sps s in
@@ -1048,7 +1084,7 @@ let nearest_neighbours dim =
 
 	let relevant_simplices =                                                            (* the relevant simplices are extracted from the list *)
 	  array_filter (fun (region,_) -> fun_filter_region region) all_simplices           (* the default filter can be overidden! *)
-	in 
+	in
 
 	let irrelevant_simplices =                                                           (* the simplices are classified only wrt the *)
 	  array_filter (fun (region,_) -> fun_filter_bad_region region) all_simplices        (* region assigned by the classificator *)
@@ -1056,7 +1092,7 @@ let nearest_neighbours dim =
 	  (Array.map (fun (region, pt_ixs) -> pt_ixs) relevant_simplices,                    (* return vertices of each simplex *)
 	  Array.map (fun (region, pt_ixs) -> pt_ixs) irrelevant_simplices )
 ;;
- 
+
 let extract_topology_from_simplices relevant_simplices points =                               (* this function creates two lists of lists: *)
 	let nr_points = Array.length points in                                                (* - each entry of the list, associated to the *)
 	let nr_nn_by_point = Array.make nr_points 0 in                                        (* node with the corresponding index, stores a *)
@@ -1091,12 +1127,12 @@ let extract_topology_from_simplices relevant_simplices points =                 
                                                                                              (* nearest neighbours every point has *)
                                                                                              (* So, we already can allocate the result array *)
 											     (* with the proper shape *)
-	  let nn_by_point = Array.init nr_points 
+	  let nn_by_point = Array.init nr_points
 	    (fun ix -> Array.make nr_nn_by_point.(ix) 0) in
-	  let nn_by_point_both_ways = Array.init nr_points 
+	  let nn_by_point_both_ways = Array.init nr_points
 	    (fun ix -> Array.make nr_nn_by_point_both_ways.(ix) 0) in
                                                                                              (* nr_nn_by_point is no longer needed now. *)
-											     (* Hence, we recycle it to an array that tells *) 
+											     (* Hence, we recycle it to an array that tells *)
 											     (* us for every point with number x the lowest *)
 											     (* occupied entry in nn_by_point.(x). Note that *)
 											     (* we fill our NN arrays backwards! ???? - GB - *)
@@ -1139,10 +1175,10 @@ let extract_topology_from_simplices relevant_simplices points =                 
  *)
 
 let make_simplex_lines_of_gravity_applicator dim =                                (* function which takes the dimension of the space,  *)
-										  (* the coordinates of a simplex and a function *) 
+										  (* the coordinates of a simplex and a function *)
   let nr_vertices = dim+1 in                                                      (* and applies the function with arguments centerOfMass, *)
   let ext_det_fun = determinant (dim+1) in                                        (* linesOfGravity and their length, and the *)
-  let scratchpad_cog = Array.make dim 0.0 in                                      (* volume of the simplex *) 
+  let scratchpad_cog = Array.make dim 0.0 in                                      (* volume of the simplex *)
   let scratchpad_logs = Array.init nr_vertices (fun _ -> Array.copy scratchpad_cog) in
   let scratchpad_log_lens = Array.make nr_vertices 0.0 in
   (* It is also useful to have the lengths of those lines readily available. *)
@@ -1189,19 +1225,19 @@ let make_simplex_lines_of_gravity_applicator dim =                              
    unfortunately perhaps not all of them...)
  *)
 
-let make_default_boundary_condition_simplex_classificator 
-    dim 
-    boundary_conditions 
+let make_default_boundary_condition_simplex_classificator
+    dim
+    boundary_conditions
     smallest_allowed_ratio
-    points states =               
+    points states =
   let rec separate_points ix mobile_sf immobile_sf boundary_sf =
-    if ix = dim+1 
+    if ix = dim+1
     then (mobile_sf, immobile_sf, boundary_sf)
-    else 
-      match states.(ix) with 
-        | Mobile ->  separate_points (ix+1) (mobile_sf+1) immobile_sf boundary_sf 
-	| Immobile -> separate_points (ix+1) mobile_sf (immobile_sf+1) boundary_sf 
-	| Boundary -> separate_points (ix+1) mobile_sf immobile_sf (boundary_sf+1) 
+    else
+      match states.(ix) with
+        | Mobile ->  separate_points (ix+1) (mobile_sf+1) immobile_sf boundary_sf
+	| Immobile -> separate_points (ix+1) mobile_sf (immobile_sf+1) boundary_sf
+	| Boundary -> separate_points (ix+1) mobile_sf immobile_sf (boundary_sf+1)
 	| _  -> separate_points (ix+1) mobile_sf immobile_sf boundary_sf (* Pinned : not used *)
   in
   let nr_mob, nr_imm, nr_bou = separate_points 0 0 0 0 in
@@ -1210,10 +1246,10 @@ let make_default_boundary_condition_simplex_classificator
   (* useful for DDD but setting it as a log message costs in terms of mesh generation time *)
 *)
   let (cog, logs, log_lens, vol) =
-    
-    let nr_vertices = dim+1 in                                         
-    let ext_det_fun = determinant (dim+1) in                           
-    let scratchpad_cog = Array.make dim 0.0 in                         
+
+    let nr_vertices = dim+1 in
+    let ext_det_fun = determinant (dim+1) in
+    let scratchpad_cog = Array.make dim 0.0 in
     let scratchpad_logs = Array.init nr_vertices (fun _ -> Array.copy scratchpad_cog) in
     let scratchpad_log_lens = Array.make nr_vertices 0.0 in
       (* It is also useful to have the lengths of those lines readily available. *)
@@ -1221,13 +1257,13 @@ let make_default_boundary_condition_simplex_classificator
       (* ... as well as the volume. For this, we need extended coordinates.
 	 Note that the code above already inits the extra coord to 1. *)
     let avg_weight = 1.0/. (float_of_int nr_vertices) in
-    let () = 
+    let () =
       for k=0 to dim-1 do
 	scratchpad_ext_coords.(0).(k) <- points.(0).(k);
 	scratchpad_cog.(k) <- points.(0).(k);
       done
     in
-    let () =   
+    let () =
       for i=1 to nr_vertices-1 do
 	for k=0 to dim-1 do
 	  scratchpad_ext_coords.(i).(k) <- points.(i).(k);
@@ -1241,7 +1277,7 @@ let make_default_boundary_condition_simplex_classificator
       done
     in
       (* Now that we have the center of gravity, make the logs. *)
-    let () = 
+    let () =
       for i=0 to nr_vertices-1 do
 	for k=0 to dim-1 do
 	  scratchpad_logs.(i).(k) <- points.(i).(k) -. scratchpad_cog.(k);
@@ -1253,34 +1289,34 @@ let make_default_boundary_condition_simplex_classificator
       (scratchpad_cog, scratchpad_logs, scratchpad_log_lens, scratchpad_vol)
   in
   let f_dim = float_of_int dim in
-  let max_log_len = float_array_max log_lens in                                  
-  let expected_volume_order_of_magnitude = max_log_len**f_dim in                                 
+  let max_log_len = float_array_max log_lens in
+  let expected_volume_order_of_magnitude = max_log_len**f_dim in
 
   let ratio = abs_float(vol /. expected_volume_order_of_magnitude) in                 (* condition on the volume of the simplices *)
-  
+
 (*
   let () = Printf.printf "ratio: %f \n%!"  ratio in   (* useful for DDD but setting it as a log message costs in terms of mesh generation time *)
 *)
   let condition =
-    array_all_satisfy  
-      (fun bc ->          
+    array_all_satisfy
+      (fun bc ->
 	array_all_satisfy
-	  
+
 	  (fun point -> bc point > 0.0 )
-	  
-	  (Array.map 
+
+	  (Array.map
 	      (fun log ->
 		array_pointwise (fun l c -> 0.9*.l +. c)                              (* condition on the points inside the simplex very close to *)
-		  log cog )                                                           (* vertices (used to prevent the misclassification of simplices *)  
+		  log cog )                                                           (* vertices (used to prevent the misclassification of simplices *)
 	      logs)                                                                   (* on boundaries of concave objects) *)
-	  
+
  	&& bc cog > 0.0
       )
       boundary_conditions
-  in 
-    if condition 
+  in
+    if condition
     then
-      if ratio < smallest_allowed_ratio &&  nr_bou = dim+1 
+      if ratio < smallest_allowed_ratio &&  nr_bou = dim+1
       then
 	Body_Nr 0  (* flat simplex on the surface *)
       else
@@ -1673,9 +1709,9 @@ let mesh_from_known_delaunay                                                    
   let msimplices = do_for_simplex_vertices_with_counter
     (fun nr_simplex (region,point_indices) ->
       let sorted_ci = Array.copy point_indices in
-      let points = Array.map point_nr sorted_ci in                                            (* initialize the points *) 
+      let points = Array.map point_nr sorted_ci in                                            (* initialize the points *)
       let ext_coords =                                                                        (* create the matrix to compute the volume *)
-	Array.init (dim+1)                                                                    (* of the simplex by its determinant *) 
+	Array.init (dim+1)                                                                    (* of the simplex by its determinant *)
 	  (fun row ->
 	    if row=dim
 	    then Array.make (dim+1) 1.0
@@ -1684,12 +1720,11 @@ let mesh_from_known_delaunay                                                    
 		(fun col -> points.(col).mp_coords.(row)))
       in
       let (det_ext_coords, inv_ext_coords) =                                                  (* compute the variables used to derive the *)
-	try det_inv ext_coords                                                                (* volume of the simplex and the equations of *) 
+	try det_inv ext_coords                                                                (* volume of the simplex and the equations of *)
 	with | Division_by_zero -> (0.0, Array.make_matrix (dim+1) dim 0.0)                   (* its faces (facets) *)
       in
       let () = (* Ensure our coord indices really are sorted. *)
-	Array.sort (fun x y -> if x < y then (-1) else if x > y then 1 else 0)
-	  sorted_ci in
+	Array.sort compare sorted_ci in
       (* Remember for all points of this simplex that they belong to this simplex. *)
       let new_simplex =
 	{
@@ -1707,13 +1742,11 @@ let mesh_from_known_delaunay                                                    
 	  ms_ic_midpoint = [||];
 	  ms_cc_radius = (-1.0);
 	  ms_ic_radius = (-1.0);
-	  ms_ext_point_coords = Some ext_coords;
-	  ms_inv_ext_point_coords = Some inv_ext_coords;
 	  ms_point_coords_det = det_ext_coords;
 	}
       in
       let () =
-	Array.iter                                                                         (* for each point find the simplices it belongs to *)  
+	Array.iter                                                                         (* for each point find the simplices it belongs to *)
 	  (fun ix -> point_belongs_to.(ix) <- new_simplex::(point_belongs_to.(ix)))
 	  point_indices in
 	new_simplex
@@ -1724,6 +1757,8 @@ let mesh_from_known_delaunay                                                    
       (fun n p -> p.mp_belongs_to <- (Array.of_list point_belongs_to.(n)))
       mpoints
   in
+  let mesh0 = mesh0_from_mesh mpoints msimplices in
+  let simplex_data = Simplex.init mesh0 in
   let mesh =
     {mm_dim=dim;
      mm_la = make_la_functions dim;
@@ -1733,9 +1768,11 @@ let mesh_from_known_delaunay                                                    
      mm_origins = [||];
      mm_points = mpoints;
      mm_simplices = msimplices;
+     mm_mesh0 = mesh0;
+     mm_simplex_data = simplex_data;
      mm_region_volumes = _region_volumes msimplices;
      mm_vertex_distribution=[|Array.length mpoints|];
-     mm_periodic_points = [||]; 
+     mm_periodic_points = [||];
      mm_have_connectivity=false;
      mm_have_incircle_circumcircle=false;
      mm_have_regions=false;
@@ -1749,7 +1786,7 @@ let mesh_from_known_delaunay                                                    
 ;;
 
 
-(* Note: the function f will get called as f (Body_Nr large) (Body_Nr small) simplex nr_face *) 
+(* Note: the function f will get called as f (Body_Nr large) (Body_Nr small) simplex nr_face *)
 (* NOT USED - GREAT!! gb *)
 let for_mesh_interfaces mesh f =
   let simplices = mesh.mm_simplices in
@@ -1820,7 +1857,7 @@ let for_mesh_interfaces mesh f =
 
 let solid_angle_3d_at_mesh_vertex ?(fun_is_inside=(fun sx -> sx.ms_in_body <> Body_Nr 0)) mesh_point =
   let simplices = mesh_point.mp_belongs_to in                              (* computes the solid angle spanned by a simplex as seen by the *)
-  let nr_simplices = Array.length simplices in                             (* the vertex *) 
+  let nr_simplices = Array.length simplices in                             (* the vertex *)
   let rec walk n angle_so_far =
     if n=nr_simplices then angle_so_far
     else if not (fun_is_inside simplices.(n)) then walk (1+n) angle_so_far
@@ -1915,11 +1952,11 @@ let mesh_from_points
       done;
     done
   in
-  let simplices =                                                                                 (* take all the simplices whose body_nr is 0 or 1, *) 
-    array_filter (fun ((Body_Nr x),s) -> x <> (-1))						  (* as given by the classificator *) 
+  let simplices =                                                                                 (* take all the simplices whose body_nr is 0 or 1, *)
+    array_filter (fun ((Body_Nr x),s) -> x <> (-1))						  (* as given by the classificator *)
       (Array.map
 	 (fun s ->
-	   let () = init_scratch_simplex_coords s in                                             
+	   let () = init_scratch_simplex_coords s in
 	   let points_states_arr = Array.map (fun pt_ix -> pts_states.(pt_ix)) s                  (* list of states associated to the points of the simplex *)
 	   in
 	   let count_mob_pts = ref 0 in                                                           (* count mobile points in the list of vertices *)
@@ -1937,14 +1974,10 @@ let mesh_from_points
 	 all_raw_simplices)                                                                       (* is in the outer space (body_nr 0) or should be removed (body_nr -1) *)
   in
 
-    mesh_from_known_delaunay points_coords simplices                                              (* create the mesh out of the list of simplices (giving each simplex) *) 
-;;                                                                                               
+    mesh_from_known_delaunay points_coords simplices                                              (* create the mesh out of the list of simplices (giving each simplex) *)
+;;
 
 (* XXX MUST BE RE-WRITTEN!
-
-   Maybe, this should just check whether the topology information is
-   present, and if not, grow it. Dynamical mesh changes may then just
-   invalidate it...
 
     XXX NOTE: For now, this is overly primitive, indeed O(nr simplices).
    Even with a quite naive approach, we can at least do O(nr simplices)^(1/d),
@@ -1952,14 +1985,16 @@ let mesh_from_points
 
    Note: simplex surface points belong to more than one simplex.
    We just return one of them, and corresponding coordinates.
- *)
-(* NOT USED - GREAT!! gb *)
 
-let mesh_simplex_nr_and_L_coords_of_point mesh point_coords =                         
+   NOTE: Currently not used
+ *)
+let mesh_simplex_nr_and_L_coords_of_point mesh point_coords =
   let dim = Array.length point_coords in
   let dim_ext = dim+1 in
   let nr_simplices = Array.length mesh.mm_simplices in
   let scratch_pos_ext = Array.make dim_ext 0.0 in
+  let get_inv_point_matrix =
+    Simplex.get_inv_point_matrix mesh.mm_simplex_data in
   let mx_x_pos_ext_writeto_scratch mx =
     begin
       for i=0 to dim_ext-1 do
@@ -1968,11 +2003,11 @@ let mesh_simplex_nr_and_L_coords_of_point mesh point_coords =
 	   the result vector with contributions from the one extra
 	   projective coordinate, which is 1.
 	 *)
-	scratch_pos_ext.(i) <- mx.(i).(dim);
+	scratch_pos_ext.(i) <- mx.{i, dim};
       done;
       for i=0 to dim_ext-1 do
 	for k=0 to dim-1 do
-	  scratch_pos_ext.(i) <- scratch_pos_ext.(i) +. mx.(i).(k)*.point_coords.(k);
+	  scratch_pos_ext.(i) <- scratch_pos_ext.(i) +. mx.{i, k}*.point_coords.(k);
 	done;
       done;
     end
@@ -1982,23 +2017,20 @@ let mesh_simplex_nr_and_L_coords_of_point mesh point_coords =
     then None
     else
       let simplex = mesh.mm_simplices.(nr_simplex) in
-      match simplex.ms_inv_ext_point_coords with
-      | None -> find_point_L_coords (nr_simplex+1)
-      | Some mx_iepc ->
-	  let () = mx_x_pos_ext_writeto_scratch mx_iepc in
-	  (*
-	  let () = Printf.printf "Simplex %3d: %s\n L-coords: %20s backmapped: %20s\n\n"
-	      nr_simplex
-	      (String.concat " -- " (Array.to_list (Array.map (fun ix -> float_array_to_string mesh.mm_points.(ix).mp_coords) simplex.ds_points)))
-	      (float_array_to_string scratch_pos_ext)
-	      (float_array_to_string (mx_x_vec ((fun (Some x) -> x) simplex.ds_ext_point_coords) scratch_pos_ext))
-	  in
-	   *)
-	  let pos_first_negative = array_position_if (fun x -> x<0.0) scratch_pos_ext 0 in
-	  if pos_first_negative = (-1)
-	  then
-	    Some (nr_simplex, Array.copy scratch_pos_ext)
-	  else find_point_L_coords (nr_simplex+1)
+      let mx_iepc = get_inv_point_matrix nr_simplex in
+      let () = mx_x_pos_ext_writeto_scratch mx_iepc in
+      (*
+      let () = Printf.printf "Simplex %3d: %s\n L-coords: %20s backmapped: %20s\n\n"
+          nr_simplex
+          (String.concat " -- " (Array.to_list (Array.map (fun ix -> float_array_to_string mesh.mm_points.(ix).mp_coords) simplex.ds_points)))
+          (float_array_to_string scratch_pos_ext)
+          (float_array_to_string (mx_x_vec ((fun (Some x) -> x) simplex.ds_ext_point_coords) scratch_pos_ext))
+      in *)
+      let pos_first_negative = array_position_if (fun x -> x<0.0) scratch_pos_ext 0
+      in
+        if pos_first_negative = (-1)
+        then Some (nr_simplex, Array.copy scratch_pos_ext)
+        else find_point_L_coords (nr_simplex+1)
   in find_point_L_coords 0
 ;;
 
@@ -2013,12 +2045,12 @@ let default_meshgen_controller mdefaults rng so_far input =
     RRR
 *)
   let is_positive_square_number x =                                                                   (* function to catch the square numbers: condition *)
-    if x<=0 then false                                                                                (* on the mesh step for a retriangulation, starting *) 
-    else let presumed_root = truncate ((float_of_int x)**(1.0/.2.0)+.0.5) in                          (* counting from step=10 *) 
+    if x<=0 then false                                                                                (* on the mesh step for a retriangulation, starting *)
+    else let presumed_root = truncate ((float_of_int x)**(1.0/.2.0)+.0.5) in                          (* counting from step=10 *)
     presumed_root*presumed_root = x
   in
-  if so_far=0                                                                                         (* Ok, we do not yet know anything... go on with *) 
-  then                                                                                                (* the mesh relaxation using a default value for *)  
+  if so_far=0                                                                                         (* Ok, we do not yet know anything... go on with *)
+  then                                                                                                (* the mesh relaxation using a default value for *)
     return (Time_step (mdefaults.mdefault_controller_time_step_scale,so_far+1))                       (* time step *)
   else if so_far >= mdefaults.mdefault_controller_step_limit_max && so_far >= (50 + !last_addition_deletion_points)
   then                                                                                                (* extract mesh only after 50 steps from the *)
@@ -2028,7 +2060,7 @@ let default_meshgen_controller mdefaults rng so_far input =
 	 Present scheme: whenever the step number is of the form (cubic number+10).
        *)
   else if
-    is_positive_square_number (so_far-10) && so_far < mdefaults.mdefault_controller_step_limit_max    
+    is_positive_square_number (so_far-10) && so_far < mdefaults.mdefault_controller_step_limit_max
   then                                                                                                (* step = positive square number: *)
     let () = last_addition_deletion_points := so_far in                                               (* at these steps the mesher checks the density *)
     let fates =                                                                                       (* of points, whose limits are more relaxed at the *)
@@ -2052,7 +2084,7 @@ let default_meshgen_controller mdefaults rng so_far input =
   else if
     (so_far > mdefaults.mdefault_controller_step_limit_min &&                                         (* the mesh has reached a point of equilibrium and *)
      input.mci_largest_rel_movement_in_mesh < mdefaults.mdefault_controller_tolerated_rel_movement)   (* it will stop the relaxation as soon as the min *)
-  then                                                                                                (* number of steps is reached *)  
+  then                                                                                                (* number of steps is reached *)
     let () = loginfo (Printf.sprintf "F-EQ with largest rel movement = %f" input.mci_largest_rel_movement_in_mesh) in
     return (Force_Equilibrium_Reached input.mci_largest_rel_movement_in_mesh)
   else
@@ -2070,8 +2102,8 @@ let default_meshgen_controller mdefaults rng so_far input =
       then 1.0                                                                                        (* to get things going. *)
       else input.mci_largest_effective_force_in_mesh
     in
-      if effective_largest_force = 0.0                                                                (* if force = 0 we reached the equilibrium and *) 
-      then                                                                                            (* we extract the mesh *) 
+      if effective_largest_force = 0.0                                                                (* if force = 0 we reached the equilibrium and *)
+      then                                                                                            (* we extract the mesh *)
 	return (Force_Equilibrium_Reached input.mci_largest_rel_movement_in_mesh)
       else
 	return                                                                                        (* do a time step taking the minimum between the *)
@@ -2100,9 +2132,9 @@ let opt_mesher_defaults=
   ref
     {
       mdefault_controller_initial_points_volume_ratio= 0.9;               (* functions defined but not used (constraints on pyfem) *)
-      mdefault_controller_splitting_connection_ratio= 1.6;                (* | *) 
+      mdefault_controller_splitting_connection_ratio= 1.6;                (* | *)
       mdefault_controller_exp_neigh_force_scale= 0.9;                     (* __ *)
-     
+
       mdefault_nr_probes_for_determining_volume=100000;
       mdefault_boundary_condition_acceptable_fuzz=1.0e-6;                 (* each object is defined by a function which is >0 inside and <0 outside *)
       mdefault_boundary_condition_max_nr_correction_steps=200;
@@ -2111,7 +2143,7 @@ let opt_mesher_defaults=
 	make_default_boundary_condition_simplex_classificator;
       (* -- *)
       mdefault_relaxation_debuglevel=0;
-      mdefault_controller_movement_max_freedom = 3.0;                    (* ...freedom relaxes the conditions on the insertion/deletion of points, *)   
+      mdefault_controller_movement_max_freedom = 3.0;                    (* ...freedom relaxes the conditions on the insertion/deletion of points, *)
       mdefault_controller_topology_threshold=0.2;                        (* the topology threshold and the next time step *)
       mdefault_controller_step_limit_min=500;
       mdefault_controller_step_limit_max=1000;
@@ -2124,7 +2156,7 @@ let opt_mesher_defaults=
 									 (* do not hit us that badly, but we do want to eventually do some real, potentially *)
 									 (* topology-changing work anyway. *)
       mdefault_controller_tolerated_rel_movement=0.002;
-      
+
                                                                          (* default values for the weigth to apply to the forces *)
       mdefault_controller_shape_force_scale=0.1;
       mdefault_controller_volume_force_scale= 0.0;
@@ -2136,13 +2168,13 @@ let opt_mesher_defaults=
       mdefault_controller_thresh_del = 2.0;                              (* the shape force when the volume of the simplex is very small) *)
       mdefault_controller_sliver_correction= 1.0;
       mdefault_controller_smallest_allowed_volume_ratio= 1.0;
-      
+
       mdefault_initial_relaxation_weight=                                	  (* linear function from init_val to final_val in the first *)
 	(fun iteration_step max_step init_val final_val ->                        (* max_step time steps, then final_val *)
 	  init_val +. (final_val -. init_val) *.
 	    (min 1. ((float_of_int iteration_step)/.(float_of_int max_step)))
 	);
-      
+
       mdefault_relaxation_force_fun=                                     (* force acting between two mobile nodes: it is simply a repulsing force  *)
 	(fun reduced_distance ->
 	  if reduced_distance > 1.0
@@ -2164,12 +2196,12 @@ let opt_mesher_defaults=
 	  then
 	    let dice = Mt19937.int rng 100 in
 	      if dice < 10 (*+ int_of_float((thresh_add -. avg_density)*.30.0)*)                        (* vith small density the point is inserted with 10% *)
-	      then                                                                                      (* probability *)     
-		let () = logdebug (Printf.sprintf "Dtl (dens_avg=%f) - adding point.%!" avg_density) in 
+	      then                                                                                      (* probability *)
+		let () = logdebug (Printf.sprintf "Dtl (dens_avg=%f) - adding point.%!" avg_density) in
 		  (*Do_Nothing_With_Point *)Add_Another_Point
 	      else Do_Nothing_With_Point
 	  else if avg_force < 0.07 then                                                                 (* if the force from neighbours is lower than 0.07 *)
-	    let dice = Mt19937.int rng 100 in                                                           (* the point is inserted with 20% probability *)  
+	    let dice = Mt19937.int rng 100 in                                                           (* the point is inserted with 20% probability *)
 	      if dice < 20 (* Chance of 1/5 *)
 	      then
 		let () = logdebug (Printf.sprintf "Ftl (avg_force=%f) - adding point.%!" avg_force) in
@@ -2177,14 +2209,14 @@ let opt_mesher_defaults=
 	      else Do_Nothing_With_Point
        else
 	    if avg_density > thresh_del (* Density much too high here *)                                (* if density is too large the point is removed with *)
-       then                                                                                             (* probability 30% + 10% for each integer exceeding *) 
+       then                                                                                             (* probability 30% + 10% for each integer exceeding *)
 	 let dice = Mt19937.int rng 100 in                                                              (* the threshold *)
 	   if dice < 30+int_of_float((avg_density-.thresh_del)*.10.0)  (* Chance of ...*)
 	   then
 	     let () = logdebug (Printf.sprintf "Dth (dens_avg=%f) - axing point.%!" avg_density) in
 	       (*Do_Nothing_With_Point*)Delete_Point
 	   else Do_Nothing_With_Point
-	     
+
        else
 	 if avg_force > 0.5 (* Density much too high here *)                                            (* if the force from neighbours is greater than 0.5 *)
        then                                                                                             (* the point is removed with probability 40% + 10% for *)
@@ -2194,8 +2226,8 @@ let opt_mesher_defaults=
 	     let () = logdebug (Printf.sprintf "Fth (avg_force=%f) - axing point.%!" avg_force) in
 	       (*Do_Nothing_With_Point*)Delete_Point
 	   else Do_Nothing_With_Point
-	     
-	     
+
+
        else Do_Nothing_With_Point);
       mdefault_meshgen_controller=default_meshgen_controller;                                           (* set the initial state of the controller, as well *)
       mdefault_meshgen_controller_initial=0;                                                            (* as the controller itself *)
@@ -2207,7 +2239,7 @@ let copy_mesher_defaults m new_controller new_initial_state =
   {
    mdefault_controller_initial_points_volume_ratio=m.mdefault_controller_initial_points_volume_ratio;   (* functions defined but not used (constraints on pyfem) *)
    mdefault_controller_splitting_connection_ratio=m.mdefault_controller_splitting_connection_ratio;     (* | *)
-   mdefault_controller_exp_neigh_force_scale=m.mdefault_controller_exp_neigh_force_scale;               (* __ *) 
+   mdefault_controller_exp_neigh_force_scale=m.mdefault_controller_exp_neigh_force_scale;               (* __ *)
 
    mdefault_nr_probes_for_determining_volume=m.mdefault_nr_probes_for_determining_volume;
    mdefault_boundary_condition_acceptable_fuzz=m.mdefault_boundary_condition_acceptable_fuzz;
@@ -2275,29 +2307,28 @@ type meshgenerator_point =
 *)
 
 let _enforce_boundary_conditions                                                       (* function which moves the points pushed outside the *)
-    mdefaults                                                                          (* boundaries of an object back within the boundaries *) 
+    mdefaults                                                                          (* boundaries of an object back within the boundaries *)
     scratchpad_coords
     fun_take_gradient_store_result
     bcs point =
-  let debuglevel=mdefaults.mdefault_boundary_condition_debuglevel in
   let acceptable_fuzz = mdefaults.mdefault_boundary_condition_acceptable_fuzz in
   let max_nr_correction_steps=mdefaults.mdefault_boundary_condition_max_nr_correction_steps in
   let nr_bcs = Array.length bcs
   and coords = point.coords_here in
   let dim = Array.length coords in
   let rec find_first_violated n =
-    if n = nr_bcs 
+    if n = nr_bcs
     then (-1)                                                            (* Finished, none violated *)
     else
-      
+
       if bcs.(n) coords >= (0.0-.acceptable_fuzz)
     then find_first_violated (n+1)
     else
       let () = point.state <- Boundary in                                (* the points which are moved back on the boundary are classified as boundary points *)
-	n                                                                (* the number of the boundary in the sequence is returned whenever the point is outside *) 
+	n                                                                (* the number of the boundary in the sequence is returned whenever the point is outside *)
   in
   let rec correct_point nr_step =                                        (* if the point doesn't exceed any boundary condition the function returns -1, *)
-    if nr_step >= max_nr_correction_steps                                (* otherwise the number of steps necessary for the euler method to push the point back *)  
+    if nr_step >= max_nr_correction_steps                                (* otherwise the number of steps necessary for the euler method to push the point back *)
     then
       ()
     else
@@ -2321,7 +2352,7 @@ let _enforce_boundary_conditions                                                
 		  scratchpad_coords bcs.(first_violated) coords
 	      in
 	      let len_grad_sq = euclidean_len_sq scratchpad_coords in
-                                                                	  (* length of gradient tells us how much the function will grow    *) 
+                                                                	  (* length of gradient tells us how much the function will grow    *)
 									  (* if we walk one unit distance in the direction of the gradient. *)
 									  (*   								    *)
 									  (* As we are too small, we will do so, but we will walk	    *)
@@ -2329,13 +2360,13 @@ let _enforce_boundary_conditions                                                
 									  (*   								    *)
 									  (* (-bc_val/len_grad) unit distances.				    *)
 									  (*   								    *)
-									  (* or, what is the same,  (-bc_val/len_grad_sq) times the gradient.*) 
+									  (* or, what is the same,  (-bc_val/len_grad_sq) times the gradient.*)
 		if len_grad_sq = 0.0
 		then failwith
 		  (Printf.sprintf "Failure: grad(boundary condition)=0 close to the boundary (pos=%s)!" (float_array_to_string coords))
 		else
 		  let scale = (0.0-.bc_val)/.len_grad_sq in
-		    
+
 		    begin
 		      for i = 0 to dim-1 do
 			coords.(i) <- coords.(i) +. scale*.scratchpad_coords.(i);
@@ -2350,7 +2381,7 @@ let _enforce_boundary_conditions                                                
 ;;
 
 let _enforce_boundary_conditions_reversed                                  (* this function does the same thing as the _enforce_boundary_conditions one *)
-    mdefaults                                                              (* but now the points are pushed from the interior of the object on the closest *)    
+    mdefaults                                                              (* but now the points are pushed from the interior of the object on the closest *)
     scratchpad_coords                                                      (* boundary: it is used to push all the points very close to the boundary, on the *)
     fun_take_gradient_store_result                                         (* boundary itself, in the final_mesh_from_points function *)
     bcs coords =
@@ -2392,7 +2423,7 @@ let _enforce_boundary_conditions_reversed                                  (* th
 		    scratchpad_coords bcs.(first_violated) coords
 		in
 		let len_grad_sq = euclidean_len_sq scratchpad_coords in
-		let scale = 
+		let scale =
 		  if len_grad_sq = 0.0
 		  then 1.0e-6
 		  else (0.0-.bc_val)/.len_grad_sq in
@@ -2412,30 +2443,30 @@ let _enforce_boundary_conditions_reversed                                  (* th
 let final_mesh_from_points
     dim
     ?(triangulator=Qhull.delaunay)
-    ?(simplex_classificator = make_default_boundary_condition_simplex_classificator dim)   
-    boundary_conditions smallest_allowed_ratio pts_states points_coords all_raw_simplices =                                        
-                                                                                           
-(*  let all_raw_simplices = triangulator points_coords in                                                        (* prepare the arguments for the default classificator *)  
-*)  let surface_classificator s =                                                            
-    let simplex_points_states = Array.map (fun pt_ix -> pts_states.(pt_ix)) s in           
+    ?(simplex_classificator = make_default_boundary_condition_simplex_classificator dim)
+    boundary_conditions smallest_allowed_ratio pts_states points_coords all_raw_simplices =
+
+(*  let all_raw_simplices = triangulator points_coords in                                                        (* prepare the arguments for the default classificator *)
+*)  let surface_classificator s =
+    let simplex_points_states = Array.map (fun pt_ix -> pts_states.(pt_ix)) s in
     let simplex_points_coords = Array.map (fun pt_ix -> points_coords.(pt_ix)) s in
-    (simplex_classificator boundary_conditions smallest_allowed_ratio simplex_points_coords simplex_points_states,s) 
+    (simplex_classificator boundary_conditions smallest_allowed_ratio simplex_points_coords simplex_points_states,s)
     in
 (* let () = Array.iter (fun s -> let () = Array.iter (fun p_ix -> Printf.printf "%s " (float_array_to_string points_coords.(p_ix))) s in Printf.printf "\n%!") all_raw_simplices in *)
   let simplices =                                                                                              (* apply the function to the  list of simplices *)
-    array_filteri (fun ix ((Body_Nr x),s) -> 
+    array_filteri (fun ix ((Body_Nr x),s) ->
 (*      let () = loginfo (Printf.sprintf "sx %d - final-mesh-from-points: body nr %d%!" ix x) in
 *)      x > 0)
       (Array.map (fun sx -> surface_classificator sx) all_raw_simplices)
   in
   let () = Printf.printf "final_mesh_from_points: %d simplices\n%!" (Array.length simplices) in
-    mesh_from_known_delaunay points_coords simplices                                                           (* call the function which tells the simplices about *) 
+    mesh_from_known_delaunay points_coords simplices                                                           (* call the function which tells the simplices about *)
 ;;                                                                                                             (* their points and viceversa *)
 
-                                                  
+
   (* Note 1: this will NOT destructively modify any points_coords! *)
   (*								*)
-  (* Note 2: points close to the boundary will feel no balancing force *) 
+  (* Note 2: points close to the boundary will feel no balancing force *)
   (* from the outside, hence be pushed with quite a large force into the *)
   (* boundary! *)
 
@@ -2445,8 +2476,8 @@ let final_mesh_from_points
   (*   internal recursion external, i.e. return a closure which has to be *)
   (*   fed with a command which either is Continue, or Readout, so that *)
   (*   one can get intermediate visualization of what is going on. We handle *)
-  (*   this problem via a special "driver" function. *)  
-                                                                                                   
+  (*   this problem via a special "driver" function. *)
+
 
 type meshgen_engine_command = Mesh_Engine_Do_Extract | Mesh_Engine_Do_Step
 (**
@@ -2501,16 +2532,15 @@ let make_meshgen_engine
 
   let region_constrained_density x =                                                                               (* it returns the density function associated
 														      to the object if the point is inside it,
-														      0 otherwise *) 
+														      0 otherwise *)
     if (array_all_satisfy (fun bc -> bc x > mdefaults.mdefault_boundary_condition_acceptable_fuzz) boundary_conditions)
     then density x
     else 0.0
   in
   let fun_rng = (fun x -> Mt19937.float rng x) in
-  let debuglevel = mdefaults.mdefault_relaxation_debuglevel in
-  let force_fun=mdefaults.mdefault_relaxation_force_fun in                                                         (* function which defines the force between 
+  let force_fun=mdefaults.mdefault_relaxation_force_fun in                                                         (* function which defines the force between
 														      two mobile points within the object *)
-  let bforce_fun=mdefaults.mdefault_boundary_node_force_fun in                                                     (* function which defines the force between 
+  let bforce_fun=mdefaults.mdefault_boundary_node_force_fun in                                                     (* function which defines the force between
 														      a  point (also fixed) and a fixed point *)
 
   let shape_force_scale = mdefaults.mdefault_controller_shape_force_scale in                                       (* parameters of the mesher *)
@@ -2526,7 +2556,7 @@ let make_meshgen_engine
     ref (Array.map Array.copy (Array.append immobile_points_coords moving_points_coords)) in
   let inv_rod_length = 1.0 /. rod_length
   and controller_input =                      (* mci: mesher controller input *)
-    {mci_bound_pt_between_immobiles = false;  (* boundary point between immobiles *)                                                           
+    {mci_bound_pt_between_immobiles = false;  (* boundary point between immobiles *)
      mci_dimension = dim;                     (* dimension of the space *)
      mci_size_last_time_step=0.0;             (* time step *)
      mci_max_node_rel_movement_since_last_triangulation=0.0; (* max ratio [distFromLastTriang/a0 *density^(1/dim)]; controlled by topology_threshold *)
@@ -2535,7 +2565,7 @@ let make_meshgen_engine
      mci_node_avg_density=Array.map (fun _ -> (0.0,0.0)) !ref_our_points_coords; (* (densityRatio, avgForce); controlled by dens<100 and ??? *)
     }
 
-  and scratchpad_vec = Array.make dim 0.0                                                                           (* functions used to overwrite vectors 
+  and scratchpad_vec = Array.make dim 0.0                                                                           (* functions used to overwrite vectors
 														     keeping memory of their initial value *)
   and scratchpad_old_coords = Array.make dim 0.0
   (* The two scratchpad values below are used in the local function determine_forces(): *)
@@ -2562,7 +2592,7 @@ let make_meshgen_engine
       points_coords
   in
 
-  let correct_state_boundary_points boundary_points_indices blank_points =               (* function used to set the right state of  boundary points after 
+  let correct_state_boundary_points boundary_points_indices blank_points =               (* function used to set the right state of  boundary points after
 											    each retriangulation *)
     Array.iter
       (fun bp_ix -> blank_points.(bp_ix).state <- Boundary)
@@ -2571,7 +2601,7 @@ let make_meshgen_engine
 
   let ref_points = ref (make_points !ref_our_points_coords) in                           (* reference to the initialized vectors - so that we can change them *)
 
-  let classificator =                                                                    (* classificator used to remove bad simplices after each retriangulation *) 
+  let classificator =                                                                    (* classificator used to remove bad simplices after each retriangulation *)
     mdefaults.mdefault_make_boundary_condition_simplex_classificator dim  boundary_conditions
   in
 
@@ -2583,19 +2613,19 @@ let make_meshgen_engine
       !ref_our_points_coords  (Array.map (fun p -> p.state) !ref_points)
   in
 
-  let calculate_nn_topology simplices =                                                  (* function used to calculate the topology of the triangulation:  
-											    a list of arrays where each array represents 
-											    the connection between the point associated to the index of the 
-											    array in the list and its neighbours: it is returned in two forms, 
+  let calculate_nn_topology simplices =                                                  (* function used to calculate the topology of the triangulation:
+											    a list of arrays where each array represents
+											    the connection between the point associated to the index of the
+											    array in the list and its neighbours: it is returned in two forms,
 											    one way and both ways *)
      extract_topology_from_simplices
        simplices
        !ref_our_points_coords
   in
-  let current_simplices, current_irrelevant_simplices = calculate_topology() in          (* calculate topology considering only the relevant simplices 
+  let current_simplices, current_irrelevant_simplices = calculate_topology() in          (* calculate topology considering only the relevant simplices
 											 based on the decision of the classificator *)
-  let current_topology, current_topology_both_ways = 
-    calculate_nn_topology 
+  let current_topology, current_topology_both_ways =
+    calculate_nn_topology
       current_simplices in
 
   let ref_current_topology = ref current_topology in                                     (* references to the current topology and list of simplices *)
@@ -2609,7 +2639,7 @@ let make_meshgen_engine
 
   let mirror_on_surfaces_htb = Hashtbl.create current_topology_elements_total_length     (* hashtbl to keep track of the boundary surfaces used
 											    as mirroring planes or lines *)
-  in 
+  in
   let ref_sx_vols = ref (Array.init (Array.length (!ref_current_simplices)) (fun i -> 0.0))  (* reference to the array of volumes of the simplices in
 											     the mesh: they are all initialized at 0 *)
   in
@@ -2618,13 +2648,13 @@ let make_meshgen_engine
      Now, first implement all the controller actions
      ---- *)
   let visual_mesh () =                                                                   (* Used for Force_Equilibrium_Reached and Step_Limit_Reached: *)
-    let the_mesh = 
-      mesh_from_points dim 
-	boundary_conditions 
-        ~simplex_classificator:classificator 
+    let the_mesh =
+      mesh_from_points dim
+	boundary_conditions
+        ~simplex_classificator:classificator
 	smallest_allowed_ratio
-	(Array.map (fun p -> p.state) !ref_points) 
-	!ref_our_points_coords  
+	(Array.map (fun p -> p.state) !ref_points)
+	!ref_our_points_coords
     in
     let () = the_mesh.mm_fem_geometry <- Some fem_geometry in
       the_mesh
@@ -2632,9 +2662,9 @@ let make_meshgen_engine
 
   let rec extract_mesh () =
     let nr_points = Array.length (!ref_our_points_coords ) in
-      
+
     let () = logdebug (Printf.sprintf "Extract mesh - %d points %!" nr_points) in
-      
+
     let filt = array_filter
       (fun p ->                                                                                        (* only the points with "low" density *)
 	let (dens, force) = controller_input.mci_node_avg_density.(p) in dens < 100.                   (* are passed to the final triangulation process *)
@@ -2643,7 +2673,7 @@ let make_meshgen_engine
     let new_our_points_coords = Array.map (fun i -> !ref_our_points_coords.(i)) filt in
     let () = ref_our_points_coords := new_our_points_coords in
 
-    let new_simplices, new_irrelevant_simplices = calculate_topology() in                              (* new topology *)                      
+    let new_simplices, new_irrelevant_simplices = calculate_topology() in                              (* new topology *)
     let new_topology, new_topology_both_ways = calculate_nn_topology new_simplices in
     let () = ref_current_topology_both_ways := new_topology_both_ways in
     let () = ref_points :=  make_points !ref_our_points_coords in
@@ -2654,7 +2684,7 @@ let make_meshgen_engine
     let sum_immoboundary_neighbours = ref 0 in                                                         (* move all the points with boundary or *)
     let () = for pt_ix = 0 to (Array.length !ref_points)-1 do                                          (* immobile neighbours on the boundary *)
 	let () = sum_immoboundary_neighbours := 0 in                                                   (* if the difference between the initial *)
-	                                                                                               (* and the final position is small, they are *) 
+	                                                                                               (* and the final position is small, they are *)
 	let move_p = coords_points_to_boundary.(pt_ix) in                                              (* kept in the new position on the boundary *)
 
 	let neighbours_indices = !ref_current_topology_both_ways.(pt_ix) in
@@ -2672,9 +2702,9 @@ let make_meshgen_engine
 	in
 	  if !sum_immoboundary_neighbours > 0
 	  then
-	    let () = _enforce_boundary_conditions_reversed                                              (* enforce boundary condition reversed *)                
+	    let () = _enforce_boundary_conditions_reversed                                              (* enforce boundary condition reversed *)
 	    mdefaults                                                                                   (* pushes the point on the boundary itself *)
-	    scratchpad_vec grad_dim                                                                    
+	    scratchpad_vec grad_dim
 	    boundary_conditions move_p
 	    in
 	      ()
@@ -2708,15 +2738,15 @@ let make_meshgen_engine
 	  a.(j) <- t ;
 	end
     in
-    let () = Array.iter 
+    let () = Array.iter
 	( fun sx ->
-	  let () = 
+	  let () =
 	    for i=0 to dim do
 	      for c=0 to dim-1 do
 		scratch_points_coords.(i).(c) <- !ref_points.(sx.(i)).coords_here.(c)
 	      done;
 	      scratch_points_coords.(i).(dim) <- 1.0
-	    done   
+	    done
 	  in
 	  let det = determinant (dim+1) scratch_points_coords in
 	  if det < 0.
@@ -2725,18 +2755,18 @@ let make_meshgen_engine
 	  else ()
 	 ) !ref_current_simplices
     in
-    let points_coords = Array.map (fun p -> p.coords_here) !ref_points in                               
+    let points_coords = Array.map (fun p -> p.coords_here) !ref_points in
     let the_mesh =                                                                                      (* call the final triangulator, which removes the *)
       final_mesh_from_points                                                                            (* slivers on the surface and all the simplices which *)
 	dim                                                                                               (* are in the outside of largely concave  objects *)
-	boundary_conditions                                                                               (* for instance at the outer connections of the elements *) 
-	mdefaults.mdefault_controller_smallest_allowed_volume_ratio	
+	boundary_conditions                                                                               (* for instance at the outer connections of the elements *)
+	mdefaults.mdefault_controller_smallest_allowed_volume_ratio
 	(Array.map (fun p -> p.state)!ref_points)                                                         (* in the 9 rings example *)
 	points_coords (!ref_current_simplices) in
     let () = the_mesh.mm_fem_geometry <- Some fem_geometry in
     let () = logdebug (Printf.sprintf "... extracted!%!") in
       the_mesh                                                                                          (* return the final mesh *)
-	
+
   and retriangulate () =
                                                    (* *)
     let new_simplices, new_irrelevant_simplices = calculate_topology()
@@ -2779,7 +2809,7 @@ let make_meshgen_engine
       in
       ref_current_simplices := Array.append new_simplices new_relevants;                                     (* append the recovered simplices to the *)
       ref_current_irrelevant_simplices := irrelevants;                                                       (* list of relevant simplices *)
-      
+
       let new_topology, new_topology_both_ways = calculate_nn_topology !ref_current_simplices in             (* calculate topology *)
       ref_current_topology := new_topology;
       ref_current_topology_both_ways := new_topology_both_ways;
@@ -2788,15 +2818,15 @@ let make_meshgen_engine
       for i = 0 to (Array.length !ref_points)-1 do
 	let pi = !ref_points.(i) in
 	for c = 0 to dim-1 do
-	  pi.coords_start.(c) <- pi.coords_here.(c);                                                         (* pi.coords_start: this variable is not used !! *) 
+	  pi.coords_start.(c) <- pi.coords_here.(c);                                                         (* pi.coords_start: this variable is not used !! *)
 	done;
       done;
       ref_sx_vols := Array.init (Array.length (!ref_current_simplices)) (fun i -> 0.0);                      (* reference to the list of simplices *)
 
     end;
-  
+
   and mirror_simplices fates =
-    let nr_simplices = (Array.length !ref_current_simplices) in                                                   
+    let nr_simplices = (Array.length !ref_current_simplices) in
     let () = logdebug (Printf.sprintf "mirror_simplices - nr simplices: %d" nr_simplices) in
                                                                                                                     (* on the boundary of an object when *)
                                                                                                                     (* the internal angles are somewhat *)
@@ -2809,20 +2839,20 @@ let make_meshgen_engine
 	if pt_ix_so_far = (dim+1) then
 	  (bound,intern,immobiles)
 	else
-	  if states_arr.(pt_ix_so_far) = Boundary                                      (* fill boundary points list *)   
-	  then 
+	  if states_arr.(pt_ix_so_far) = Boundary                                      (* fill boundary points list *)
+	  then
 	    filter_pt
 	      (pt_ix_so_far+1)
 	      (vertices.(pt_ix_so_far)::bound)
 	      intern immobiles
 	  else if states_arr.(pt_ix_so_far) = Immobile                                 (* fill boundary points list and increase immobile points counter *)
-          then                                                                                
+          then
 	    filter_pt
 	      (pt_ix_so_far+1)
 	      (vertices.(pt_ix_so_far)::bound)
 	      intern (immobiles+1)                                                     (* fill internal points list *)
-	  else if states_arr.(pt_ix_so_far) = Mobile 
-	  then 
+	  else if states_arr.(pt_ix_so_far) = Mobile
+	  then
 	    filter_pt
 	      (pt_ix_so_far+1)
 	      bound
@@ -2867,8 +2897,8 @@ let make_meshgen_engine
 	else point
     in
 
-    let () = Hashtbl.clear mirror_on_surfaces_htb in                                              (* empty the hashtable *)         
-       
+    let () = Hashtbl.clear mirror_on_surfaces_htb in                                              (* empty the hashtable *)
+
     let rec work sx_ix points_to_add =                                                            (* function to add the mirrored points to the list *)
       if sx_ix = nr_simplices                                                                     (* of mesh points *)
 
@@ -2882,7 +2912,7 @@ let make_meshgen_engine
 	    ref_our_points_coords:= new_points_total;
 
 	    Array.append fates                                                                    (* fates for the new points *)
-	      (Array.init (List.length points_to_add)                      
+	      (Array.init (List.length points_to_add)
 		 (fun i -> (*let () = logdebug (Printf.sprintf "Bad surface simplex - mirroring internal point ") in (*  GB *) *)
 			     Do_Nothing_With_Point));
 	  end
@@ -2946,7 +2976,7 @@ let make_meshgen_engine
           let dist = sqrt (euclidean_distance_sq surf_points.(0) surf_points.(1) ) in                                (* the operation is similar to the 2D case: *)
 	  let middle_point = array_pointwise (fun x0 x1 -> 0.5*.(x0+.x1)) surf_points.(0) surf_points.(1) in         (* we consider nrPoints-1 and treat them as *)
 	  let middle_pt_density = max 1.0e-6 (density middle_point) in                                               (* it were 3 points in a 2D space *)
-	  let middle_pt_rod_length = rod_length /. (middle_pt_density ** dim_root_exponent) in                       (* the condition now is that the distance *) 
+	  let middle_pt_rod_length = rod_length /. (middle_pt_density ** dim_root_exponent) in                       (* the condition now is that the distance *)
 	    if (dist > 1.2*. middle_pt_rod_length) && (volume_ratio vertices 3) > 3e-2                               (* between the two mirroring points is *)
 	      && (outer_region_constrained_density middle_point)                                                     (* larger than 1.2 the rod lenght at their *)
 	    then [middle_point]                                                                                      (* middle point and volume ratio > 3e-2*)
@@ -2954,7 +2984,7 @@ let make_meshgen_engine
 	in
 
 
-	let node_action_3D surface_pts vertex_point dim  =                                                           (* action on the nodes to mirror in 3D *)
+	(*let node_action_3D surface_pts vertex_point dim  =                                                           (* action on the nodes to mirror in 3D *)
 
 	  let angle = solid_angle_from_internal_point surface_pts vertex_point dim in                                (* all the points on the mirroring surface *)
 	  let vertices = Array.append surface_pts [|vertex_point|] in                                                (* are considered and the we use a plane as *)
@@ -2963,7 +2993,7 @@ let make_meshgen_engine
 		   [new_point]
 	    else
 	      []
-	in
+	in*)
 
 	let all_couples list =                                                                                       (* function that returns all the couples *)
 	  let len = List.length list in                                                                              (* out of the elements of a list *)
@@ -2984,13 +3014,13 @@ let make_meshgen_engine
 	  if dim = 2                                                                               (* 3 nodes to deal with *)
 	  then
 	    if ( List.length bound_vcs = dim+1)                                                    (* 3 nodes to run on *)
-	    then 
+	    then
 	      let nodes_to_shift = ref bound_vcs in
 	      let rec add_elements ix elems_so_far =
 		if ix = dim+1
 		then elems_so_far
 		else
-		  let surf_points = Array.of_list (List.tl !nodes_to_shift) in                     (* apply node_action_2D to all the points in turn *) 
+		  let surf_points = Array.of_list (List.tl !nodes_to_shift) in                     (* apply node_action_2D to all the points in turn *)
 		  let () = Array.sort compare surf_points in                                       (* cycling on them; if the point is inserted and the *)
 		  let vert_point = List.hd !nodes_to_shift in                                      (* boundary appears for the first time, then add point *)
 		  let add_elem =  node_action_2D surf_points vert_point in                         (* to the mesh *)
@@ -3020,7 +3050,7 @@ let make_meshgen_engine
 	  else if dim = 3
 	  then
 	    if ( List.length bound_vcs >=2)                                                          (* add the middle point between all the couples of boundary *)
-	    then                                                                                     (* points with the properties of node_action_3D_all *)  
+	    then                                                                                     (* points with the properties of node_action_3D_all *)
 	      let all_possible_lines = all_couples bound_vcs in
 	      let len = List.length all_possible_lines in
 	      let rec list_loop ix elems_so_far =
@@ -3033,7 +3063,7 @@ let make_meshgen_engine
 		    then list_loop (1+ix) (add_elem@elems_so_far)
 		    else list_loop (1+ix) elems_so_far
 	      in
-(*            **this part of the function introduces to many points so far!!**  
+(*            **this part of the function introduces to many points so far!!**
               let further_point =
 		if ( List.length bound_vcs =3) && ( List.length intern_vcs =1)
 		then
@@ -3089,12 +3119,12 @@ let make_meshgen_engine
 	       ref_points := make_points new_points_total;                           (* state of boundary points (all the points are set as *)
 	       correct_state_boundary_points (hashtbl_keys boundary_points_indices) !ref_points; (* mobile after each retriangulation ) and reset *)
 	       controller_input.mci_node_avg_density                                             (* the density of each point to be passed to the *)
-	       <- Array.map (fun _ -> (0.0,0.0)) !ref_our_points_coords;                         (* controller *) 
+	       <- Array.map (fun _ -> (0.0,0.0)) !ref_our_points_coords;                         (* controller *)
 	   end)
       else
 	match point_fates.(ix) with                                                   (* depending on the point_fates flag (given by the *)
 	  | Do_Nothing_With_Point ->                                                  (* mdefault_controller_handle_point_density_fun function *)
-	      let () =                                                                (* when called on the input.mci_node_avg_density) the point *) 
+	      let () =                                                                (* when called on the input.mci_node_avg_density) the point *)
 		if ix < (nr_ref_points-nr_immobile_points) && !ref_points.(nr_immobile_points+ix).state = Boundary (* can be removed, kept or a new *)
 		then Hashtbl.add boundary_points_indices (ix+index_corr+nr_immobile_points) 1                      (* point can be inserted nearby *)
 		else ()
@@ -3136,11 +3166,11 @@ let make_meshgen_engine
 	for i =0 to dim-1 do
 	  scratchpad_vec_force.(i) <- force.(i);
 	done
-      else                                                                                                     (* if the force pushes the point beyond the 
+      else                                                                                                     (* if the force pushes the point beyond the
 													       limit defined by the boundary condition, the
 													       force is scaled so that its value is only
 													       sufficient to push the point on the boundary,
-													       not beyond; such new force is then copied in 
+													       not beyond; such new force is then copied in
 													       the temporary array *)
 	let () = grad_dim scratchpad_vec_force_gradient boundary_condition point in
 	let grad_bc = scratchpad_vec in
@@ -3155,37 +3185,37 @@ let make_meshgen_engine
      controller_input.mci_bound_pt_between_immobiles <- false;                                                  (* mci stands for mesher controller input! *)
 	                                                                                                        (* set the largest effective force to zero,
 														the flag for bounding point between immobile
-														points to false *) 
+														points to false *)
      controller_input.mci_largest_effective_force_in_mesh <- 0.0;
       for ix = 0 to (Array.length !ref_points)-1 do
 	let p = !ref_points.(ix) in                                                                             (* Clear all force vectors.
-														   XXX Note for future optimization: 
+														   XXX Note for future optimization:
 														   need not do so for fixed or pinned points. *)
 	for c = 0 to dim-1 do p.force_here.(c) <- 0.0 done;
 	p.nr_forces <-0;
 	p.sum_abs_forces<-0.0;
-      done;                                                                                             
+      done;
       for ix = 0 to (Array.length !ref_points)-1 do                                                             (* loop over all the points *)
 	let p = !ref_points.(ix) in
-	let neighbours_indices = !ref_current_topology.(ix) in                                                  (* get the indices of the neighbours *) 
+	let neighbours_indices = !ref_current_topology.(ix) in                                                  (* get the indices of the neighbours *)
 	let nr_neighbours = Array.length neighbours_indices in
 	for nn = 0 to nr_neighbours-1 do
 	  let n_ix = neighbours_indices.(nn) in
 	  let neighbour = !ref_points.(n_ix) in
-	  if p.state = Immobile                                                      (* Force between Immobile points *) 
-	                                                                             (* if the neighbour is immobile no 
+	  if p.state = Immobile                                                      (* Force between Immobile points *)
+	                                                                             (* if the neighbour is immobile no
 											need to calculate the repelling force *)
 	      && neighbour.state = Immobile
-	  then () 
+	  then ()
 	  else
 	    let avg_density =
 	      ((p.density_here +. neighbour.density_here))*. 0.5 in
-	                                                                            (* Note that it is less work to calculate this than the 
-										       density at the midpoint. Note also that zero densities 
+	                                                                            (* Note that it is less work to calculate this than the
+										       density at the midpoint. Note also that zero densities
 										       here would eventually produce NaN point coordinates! *)
 	    let inv_length_scale = inv_rod_length *. (avg_density ** dim_root_exponent)                          (* value used for the calculation
 														    of the largest effective force *)
-	    in  
+	    in
 	    begin
                                                                                     (* Initialize our scratchpad vector to the distance vector *)
 	      for i = 0 to dim-1 do
@@ -3235,8 +3265,8 @@ let make_meshgen_engine
 		    let force_contrib_coord_i =                                     (* add the force scaled with the neighbour force scale
 										    to the list of forces acting on this node as well as
 										    its neighbour (inverted in direction ???) *)
-		      neigh_force_scale *.force_factor *. scratchpad_vec.(i) 
-		    in                                                               
+		      neigh_force_scale *.force_factor *. scratchpad_vec.(i)
+		    in
 		      p.force_here.(i)
 		      <- p.force_here.(i) +. force_contrib_coord_i;
 		      neighbour.force_here.(i)
@@ -3250,7 +3280,7 @@ let make_meshgen_engine
 
 (* ######################### AUXILIARY FUNCTIONS ############################ *)
 
-      let initial_relaxation_weight =                                                (*   weight used to limit the contribution from shape and 
+      let initial_relaxation_weight =                                                (*   weight used to limit the contribution from shape and
 											  volume forces at the beginning of the mesh relaxation *)
 	mdefaults.mdefault_initial_relaxation_weight
 	  step_so_far
@@ -3290,30 +3320,30 @@ let make_meshgen_engine
 
       let pt_belongs_to =                                                                             (* for each node a hash table will contain the
 													 index of simplices connected to the node *)
-	Array.init (Array.length !ref_points) (fun _ -> Hashtbl.create 
+	Array.init (Array.length !ref_points) (fun _ -> Hashtbl.create
 	  (2 * int_of_float (float_factorial (dim+1))))  in
 
-      let solid_angle =                                                                               (* in 2D and 3D for each node a hash table will 
-													 contain the solid angle covered by each of the 
-													 simplices it belongs to; it will be used for 
+      let solid_angle =                                                                               (* in 2D and 3D for each node a hash table will
+													 contain the solid angle covered by each of the
+													 simplices it belongs to; it will be used for
 													 the computation of the equivalent voronoi volume
-													 associated to the node; in 1D or higher dimension 
-													 such a volume uses a different kind of heuristic 
-													 estimation, considering the number of neighbours 
+													 associated to the node; in 1D or higher dimension
+													 such a volume uses a different kind of heuristic
+													 estimation, considering the number of neighbours
 													 instead of their angular extension. *)
-	Array.init (Array.length !ref_points) (fun _ -> Hashtbl.create 
+	Array.init (Array.length !ref_points) (fun _ -> Hashtbl.create
 	  (2 * int_of_float (float_factorial (dim+1)))) in
-	
+
       let solid_angle_per_pt = Array.init (Array.length !ref_points) (fun i -> 0.0) in                (* total solid angle covered by each node *)
 
       let nr_vertices = dim+1 in                                                                       (* initialise the volume matrix *)
       let vol_mat = Array.make_matrix nr_vertices nr_vertices 0.0 in
 
-      let vertices = Array.make_matrix nr_vertices dim 0.0 in                                          (* initialise the various arrays 
+      let vertices = Array.make_matrix nr_vertices dim 0.0 in                                          (* initialise the various arrays
 													 (to be used in each simplex) *)
       let nodes = Array.make_matrix nr_vertices dim 0.0 in
 
-      let all_raw_simplices = !ref_current_simplices in                                               (* references to the current good and bad simplices *) 
+      let all_raw_simplices = !ref_current_simplices in                                               (* references to the current good and bad simplices *)
       let all_raw_irrelevant_simplices = !ref_current_irrelevant_simplices in
 
       let shape_force_transf = Array.make_matrix dim dim 0.0 in                                       (* initialization of the arrays used to store
@@ -3322,15 +3352,15 @@ let make_meshgen_engine
       let irrelev_sx_shape_forces = Array.make_matrix nr_vertices dim 0.0 in
 
       let vol_forces = Array.make_matrix nr_vertices dim 0.0 in
- 
+
       let center_mass = Array.init dim (fun i ->  0.0 )   in                                          (* initialization of the center of mass and normal ??? *)
       let normal = Array.init dim (fun i ->  0.0 ) in
       let sx_coords = Array.make_matrix nr_vertices dim 0.0 in                                         (* initialization of the simplex coordinates *)
 
-      let () = for sx_ix=0 to (Array.length (!ref_current_simplices))-1 do                            (* loop over all the simplices *) 
+      let () = for sx_ix=0 to (Array.length (!ref_current_simplices))-1 do                            (* loop over all the simplices *)
 	let pts_ix = (!ref_current_simplices).(sx_ix) in                                              (* indices of nodes for the current simplex *)
 
-	let () = for i=0 to nr_vertices-1 do                                                           (* add the current simplex index in the 
+	let () = for i=0 to nr_vertices-1 do                                                           (* add the current simplex index in the
 													 hash table of each of its nodes *)
 	    Hashtbl.add pt_belongs_to.( pts_ix.(i)) sx_ix 1;
 	  for j=0 to dim-1 do                                                                         (* store the coordinates of the points in
@@ -3340,7 +3370,7 @@ let make_meshgen_engine
 	done
 	in
 
-	let () = for j=0 to dim-1 do                                                                  (* compute center of mass of the simplex *) 
+	let () = for j=0 to dim-1 do                                                                  (* compute center of mass of the simplex *)
 	    center_mass.(j) <- center_mass_component j vertices;
 	  done
 	in
@@ -3348,7 +3378,7 @@ let make_meshgen_engine
 	let cm_density = max 1.0e-6 (density center_mass) in                                          (* density at the center of mass *)
 	let rod_scaled = rod_length /. (cm_density ** dim_root_exponent) in                           (* rod lenght scaled wrt the density at CM *)
 	let ideal_vol = ideal_vol_sx rod_scaled dim in                                                (* ideal volume of the simplex with the
-												      edges equal to the ideal rod lenght at the CM *) 
+												      edges equal to the ideal rod lenght at the CM *)
 
 	let nodes_to_shift = ref vertices in                                                          (* reference to the nodes: it will be used to
 												      compute the solid angle spanned by the simplex
@@ -3362,26 +3392,26 @@ let make_meshgen_engine
 	done
 	in
 
-	let fact_dim = float_factorial dim in                                                         (* save the volume of the simplex 
+	let fact_dim = float_factorial dim in                                                         (* save the volume of the simplex
 													 in the !ref_sx_vols array *)
 	let volume = abs_float ((determinant (dim+1) vol_mat)/.(fact_dim)) in
 
 	if is_obj_nan volume  || (volume/.ideal_vol < 1e-2)                                           (* hack to avoid volumes calculated with a
-													 division by zero in the computation 
+													 division by zero in the computation
 													 of the determinant *)
 	then
-	  !ref_sx_vols.(sx_ix) <- 0.0                                                                 (* the angles are not computed in this case *) 
+	  !ref_sx_vols.(sx_ix) <- 0.0                                                                 (* the angles are not computed in this case *)
 	else
 
 	  let () = !ref_sx_vols.(sx_ix) <- volume in
 
-	  for i=0 to (nr_vertices-1) do                                                                (* compute the solid angle spanned by the 
+	  for i=0 to (nr_vertices-1) do                                                                (* compute the solid angle spanned by the
 													 current simplex from each node of the simplex:
 													 ND -> ang = 1.0 ( to be careful!! )
 													 1D -> ang = pi,
 													 2D -> ang = arccos(r1 dot r2),
 													 3D => ang = triangle_space_angle_3d in snippets
-													 where ri is a vector connecting the node under 
+													 where ri is a vector connecting the node under
 													 examination to one of the others of the same simplex *)
 
 	    let alpha =
@@ -3405,7 +3435,7 @@ let make_meshgen_engine
 
 (* ################# DENSITY FROM VORONOI ############################## *)                            (* Update of the point density *)
 
-      let () = for pt_ix = nr_immobile_points to (Array.length !ref_points)-1 do                       (* loop over the mobile points *) 
+      let () = for pt_ix = nr_immobile_points to (Array.length !ref_points)-1 do                       (* loop over the mobile points *)
 	let p = !ref_points.(pt_ix) in
 
 	let () = match p.state                                                                         (* print state, coordinates and total
@@ -3422,11 +3452,11 @@ let make_meshgen_engine
 	in
 	let sx_ixs = hashtbl_keys pt_belongs_to.(pt_ix) in                                              (* for the current node extract the
 													list of simplices it belongs to *)
-	let () = logdebug (Printf.sprintf "\n solid angles: %s %!" 
+	let () = logdebug (Printf.sprintf "\n solid angles: %s %!"
 			      (float_array_to_string (hashtbl_keys solid_angle.(pt_ix)) )) in
 	let angles_from_ht = hashtbl_keys solid_angle.(pt_ix) in                                        (* for the current node extract the
 													   list of solid angles spanned by the simplices
-													   it belongs to *) 
+													   it belongs to *)
 	let nr_angles = Array.length angles_from_ht in
 	let angle =                                                                                     (* total angle spanned by the simplices
 													   containing the current node *)
@@ -3444,16 +3474,16 @@ let make_meshgen_engine
 
 	let nr_sx = Array.length sx_ixs in                                                              (* number of simplices the node belongs to *)
 
-	let voronoi_vol = 	                                                                        (* voronoi volume associated to the node pt_ix 
+	let voronoi_vol = 	                                                                        (* voronoi volume associated to the node pt_ix
 													   - in the case of a corner point we have nr = 1
-													   and we set the voronoi volume to sxVol/dim, 
+													   and we set the voronoi volume to sxVol/dim,
 													   a bit larger than the other ones, which are
-													   sumSxVols/(dim+1) from having 4 nodes in a 
+													   sumSxVols/(dim+1) from having 4 nodes in a
 													   3D simplex, so that the node has less probability
 													   to be removed because its density is a bit
 													   smaller than the real one
 													*)
-	  if nr_sx = 1 
+	  if nr_sx = 1
           then
             !ref_sx_vols.(sx_ixs.(0))/.(float_of_int (dim))
           else
@@ -3465,13 +3495,13 @@ let make_meshgen_engine
 	    walk 0 0.0
 	in
 
-	let sum_immobile_neighbours = ref 0 in	                                                       (* if the point is a boundary point, 
-													  count number of neighbours whose state 
+	let sum_immobile_neighbours = ref 0 in	                                                       (* if the point is a boundary point,
+													  count number of neighbours whose state
 													  is Immobile; if they are two or more,
-													  remove the point because it could 
+													  remove the point because it could
 													  affect the integrity of the mesh
 													  (it could be inserted at the interface
-													  with a previous meshed object whose 
+													  with a previous meshed object whose
 													  connectivity doesn't include this point)
 												       *)
 	let () =
@@ -3491,9 +3521,9 @@ let make_meshgen_engine
 	  else ()
 	in
 
-	let eff_rod_length = rod_length *. ((density  p.coords_here)**(0.0-.dim_root_exponent)) in  	(* we use the volume of a sphere 
+	let eff_rod_length = rod_length *. ((density  p.coords_here)**(0.0-.dim_root_exponent)) in  	(* we use the volume of a sphere
 													   with radius = 1/2*effective_rod_length
-													   (where the effective rod lenght is 
+													   (where the effective rod lenght is
 													   the rod lenght scaled with the density
 													   on the point)  as reference volume *)
 	let ideal_local_vol = (volume_d_sphere dim)*.(eff_rod_length*.0.5)**(float_of_int dim) in
@@ -3504,7 +3534,7 @@ let make_meshgen_engine
 													   volume to the nodes on the boundaries *)
 
 	  if !sum_immobile_neighbours > 1                                                               (* if the point is a boundary point and has
-													   two or more neighbours which are 
+													   two or more neighbours which are
 													   immobile points, set its volume to a
 													   very small value so that the density is very high
 													   and it is very likely to be removed *)
@@ -3513,8 +3543,8 @@ let make_meshgen_engine
 	    1e-4 *. ideal_local_vol (* set a tiny voronoi volume (high density)
 					  so that the node will be deleted *)
 
-	  else if angle = 0.0                                                                           (* the classificator killed or set as belonging 
-													   to Body_Nr 0 (???) all the simplices sharing 
+	  else if angle = 0.0                                                                           (* the classificator killed or set as belonging
+													   to Body_Nr 0 (???) all the simplices sharing
 													   this node: let's kill also the node then! *)
 	  then (* set a tiny voronoi volume (high density) so that the node will be deleted *)
 	    1e-4 *. ideal_local_vol
@@ -3526,8 +3556,8 @@ let make_meshgen_engine
 	      then 4.*.pi /. angle                                                                      (*   - 3D: 4pi/angle				   *)
 	      else if dim =1 then 1.5                                                                   (*   - ND: (dim+1)!/(nr of simplices)		   *)
 	      else  (float_factorial (dim+1)) /. (float_of_int nr_sx) (* dim > 3 *)                     (*         (the way a sphere volume scales with	   *)
-	    in                                                                                          (*          the dimension *) 
-	    if p.state = Boundary then                                                                  
+	    in                                                                                          (*          the dimension *)
+	    if p.state = Boundary then
 	      1.2 *. voronoi_vol *. corr_factor                                                         (* allow higher density at boundaries *)
 	    else
 	      voronoi_vol *. corr_factor
@@ -3537,7 +3567,7 @@ let make_meshgen_engine
 	  ideal_local_vol /. voronoi_equivalent                                                         (* node adding-removing algorithm *)
 	in
 
-	let average_force =                                                                             (* average sum of *neighbour* forces *) 
+	let average_force =                                                                             (* average sum of *neighbour* forces *)
 	  if angle = 0.0                                                                                (* to be passed to the controller *)
 	  then 1e4 (* weird case: let's kill the node! *)
 	  else if p.nr_forces = 0
@@ -3599,7 +3629,7 @@ let make_meshgen_engine
 	let vol = !ref_sx_vols.(sx_ix) in                                                             	(* volume of the given simplex *)
 
         let ideal_vol = 1.0 *. ideal_vol_sx rod_scaled dim in                                          	(* ideal volume slightly larger than the correct one,
-													   in order to have some pressure on the nodes 
+													   in order to have some pressure on the nodes
 													   - set to the volume itself until we have a
 													   proper implementation of the force (now is
 													   sort of destructive force....)*)
@@ -3662,14 +3692,14 @@ let make_meshgen_engine
 	   with the shape_force-scale and the initial_relaxation_weight
 	   only forces perpendicular to the lines of gravity are considered
 	 *)
-	let shape_force_orig_basis = mx_mult m (mx_mult shape_force_transf inv_m) in            (* the shape force matrix is tranformed back in the 
+	let shape_force_orig_basis = mx_mult m (mx_mult shape_force_transf inv_m) in            (* the shape force matrix is tranformed back in the
 												out-of-axis (initial) *)
 
 	  let corr_for_vol offset =                                                             (* correction to deal with sliver-like simplices: *)
 	    if vol/.ideal_vol = 0.0	                                                        (* the force increases with the log(idealVol/realVol) *)
 	    then 0.0                                                                            (* in that case *)
-	    else                                                                                
- 	      max 1.0 ( offset +.(log (ideal_vol/.vol)))                                        
+	    else
+ 	      max 1.0 ( offset +.(log (ideal_vol/.vol)))
 	  in
 	  let vol_corr =
 	    if dim <= 2 then corr_for_vol 0.
@@ -3689,9 +3719,9 @@ let make_meshgen_engine
 	  let () = for j=0 to dim-1 do
 	      shape_forces.(i).(j) <-
 		initial_relaxation_weight *.  vol_corr *.  shape_force_scale*.angular_force_on_node_i.(j); (* the force is scaled with the initial *)
-	    done                                                                                           (* relaxation weight and the shape_force_scale *)   
+	    done                                                                                           (* relaxation weight and the shape_force_scale *)
 	  in                                                                                               (* the vol_corr increase the strenght in slivers *)
-	    
+
 	    if proj > 0.0 && sliver_correction > 0.0                                                       (* if the sliver_correction parameter is > 0 *)
 	    then                                                                                           (* also  a longitudinal (wrt the lines of gravity) *)
 	      let longit_force_on_node_i = array_pointwise (-.) orig_shape_force_on_node_i  angular_force_on_node_i in (* component of the shape force is used *)
@@ -3706,20 +3736,20 @@ let make_meshgen_engine
       in
 
 (* ############################## FORCES ON IRRELEVANT SIMPLICES ################################ *)
-                                                                (* *)  
+                                                                (* *)
       let irrelevant_simplex_evolve sx_ix sx_points points_ix =                                             (* this forces apply to simplices which *)
                                                                                                             (* are classified as belonging to the outer *)
                                                                                                             (* space by the classificator *)
-	let () = 
-	  for i=0 to nr_vertices-1 do                                                                   
-	    for j=0 to dim-1 do                                                                             (* initialize the force *)  
-	      irrelev_sx_shape_forces.(i).(j) <- 0.0;           
+	let () =
+	  for i=0 to nr_vertices-1 do
+	    for j=0 to dim-1 do                                                                             (* initialize the force *)
+	      irrelev_sx_shape_forces.(i).(j) <- 0.0;
 	    done
 	    done
 	in
-   	let points_to_consider =                                                                            (* the points we are interested in are *)  
-	  let rec find_points so_far pos =                                                                  (* only those which are mobile, the application *)  
-	    if so_far = nr_vertices                                                                          (* of this force on the others is useless *)  
+   	let points_to_consider =                                                                            (* the points we are interested in are *)
+	  let rec find_points so_far pos =                                                                  (* only those which are mobile, the application *)
+	    if so_far = nr_vertices                                                                          (* of this force on the others is useless *)
 	    then
 	      Array.of_list pos
 	    else if (!ref_points.(points_ix.(so_far)).state) = Mobile
@@ -3733,19 +3763,19 @@ let make_meshgen_engine
 	  then  irrelev_sx_shape_forces
 	  else
 	    let () = for i=0 to nr_vertices-1 do                                                           (* copy vertices to avoid changes of points *)
-		for j=0 to dim-1 do                                                                       (* to avoid changes of coordinates *)  
+		for j=0 to dim-1 do                                                                       (* to avoid changes of coordinates *)
 		  nodes.(i).(j) <- sx_points.(i).(j);
 
 		done
 		done
 	    in
 
-	    let () = for j=0 to dim-1 do                                                                  (* re-write the coordinates wrt the centre of mass *)  
+	    let () = for j=0 to dim-1 do                                                                  (* re-write the coordinates wrt the centre of mass *)
 		center_mass.(j) <- center_mass_component j nodes;
 	      done
 	    in
 
-	    let () = for i=0 to len_ptc-1 do                                                              (* identify the bad nodes located inside an object *)  
+	    let () = for i=0 to len_ptc-1 do                                                              (* identify the bad nodes located inside an object *)
 		for j=0 to dim-1 do                                                                       (* exert a contracting force between the node and *)
 		  irrelev_sx_shape_forces.(points_to_consider.(i)).(j) <-                                 (* the centre of mass *)
 		    irrel_elem_force_scale *. (center_mass.(j)-. nodes.(points_to_consider.(i)).(j))
@@ -3757,7 +3787,7 @@ let make_meshgen_engine
 
 (* ############################## ADD FORCES ################################ *)
 
-      let force_total = Array.init (Array.length !ref_points) (fun i -> Array.make dim 0.0)               (* create a vector for the collection of total*) 
+      let force_total = Array.init (Array.length !ref_points) (fun i -> Array.make dim 0.0)               (* create a vector for the collection of total*)
       in                                                                                                  (* forces *)
 
       for sx_ix=0 to (Array.length all_raw_simplices)-1 do                                                (* fill the force vector with force from shape *)
@@ -3814,10 +3844,10 @@ let make_meshgen_engine
 	let p = !ref_points.(ix) in                                                          (* add the other forces *)
 	  if dim = 2 && solid_angle_per_pt.(ix) < 0.75*.pi                                   (* near the corners the only force comes from the neighbours *)
 	  then
-	    () 
+	    ()
 	  else if dim = 3 && solid_angle_per_pt.(ix) < 0.85*.pi                              (* near the corners the only force comes from the neighbours *)
 	  then
-	    () 
+	    ()
 	  else
 	for c = 0 to dim-1 do                                                                (* add forces to the nodes *)
 	  p.force_here.(c) <- p.force_here.(c) +.  force_total.(ix).(c)
@@ -3878,7 +3908,7 @@ let make_meshgen_engine
 	let p = !ref_points.(i) in
 	if p.state = Immobile                                                                     (* don't relax the Immobile points *)
 	then ()
-	else                                                                                      (* update node coordinates if it is Mobile *) 
+	else                                                                                      (* update node coordinates if it is Mobile *)
 	  let coords = p.coords_here                                                              (* or Boundary (can move along the boundary) *)
 	  and force = p.force_here in
 	    begin
@@ -3907,7 +3937,7 @@ let make_meshgen_engine
 	      boundary_conditions p;
 	    p.density_here <- density coords;
 	    (
-	     let displacement = sqrt(euclidean_distance_sq coords scratchpad_old_coords) in        (* compute the displacement of the node *) 
+	     let displacement = sqrt(euclidean_distance_sq coords scratchpad_old_coords) in        (* compute the displacement of the node *)
 	     let rel_displacement = displacement/.rod_length *.(p.density_here**(dim_root_exponent)) in (* and compute the relative displacement *)
                                                                                                    (* to be given to the controller for the next *)
 	     if rel_displacement > controller_input.mci_largest_rel_movement_in_mesh               (* command to perform *)
@@ -3927,7 +3957,7 @@ let make_meshgen_engine
 	    controller_input.mci_max_node_rel_movement_since_last_triangulation <- rel_dist;
       done;
     end
-  in 
+  in
 
 (* Okay, now we have all the actions we want. *)
 
@@ -3935,15 +3965,15 @@ let make_meshgen_engine
     match cmd with
     | Force_Equilibrium_Reached f ->                                                   (* the time_step 0.0 call is needed to enforce boundary points *)
 	let () = logdebug (Printf.sprintf "Force_Equilibrium_Reached f - %d mobile points %!" (Array.length !ref_our_points_coords - nr_immobile_points) ) in
-	let () = time_step 0.0 in 
+	let () = time_step 0.0 in
 	Some (cmd,extract_mesh())
     | Step_Limit_Reached iteration_nr ->
-	let () = logdebug (Printf.sprintf "Step_Limit_Reached iteration_nr - %d mobile points %!" (Array.length !ref_our_points_coords - nr_immobile_points) ) in 
-	let () = time_step 0.0 in 
+	let () = logdebug (Printf.sprintf "Step_Limit_Reached iteration_nr - %d mobile points %!" (Array.length !ref_our_points_coords - nr_immobile_points) ) in
+	let () = time_step 0.0 in
 	  Some (cmd,extract_mesh())
     | Retriangulate iteration_nr ->
 	begin
-	  let () = logdebug (Printf.sprintf "Retriangulate - %d mobile points %!" (Array.length !ref_our_points_coords - nr_immobile_points)) in 
+	  let () = logdebug (Printf.sprintf "Retriangulate - %d mobile points %!" (Array.length !ref_our_points_coords - nr_immobile_points)) in
 	    retriangulate();
 	    determine_forces iteration_nr;
 	    None;
@@ -3952,17 +3982,17 @@ let make_meshgen_engine
 	let _ = pin_unpin_nodes states in
 	None
     | Determine_Forces iteration_nr ->
-	let () = logdebug (Printf.sprintf "Determine_Forces iteration_nr - %d mobile points %!" (Array.length !ref_our_points_coords - nr_immobile_points)) in 
+	let () = logdebug (Printf.sprintf "Determine_Forces iteration_nr - %d mobile points %!" (Array.length !ref_our_points_coords - nr_immobile_points)) in
 	let () = determine_forces iteration_nr in
 	  None
     | Change_points_and_retriangulate (fates,iteration_nr) ->
 	begin
 	  let () = logdebug (Printf.sprintf "Change points and retriangulate - %d mobile points %!" (Array.length !ref_our_points_coords - nr_immobile_points) ) in
 	  let new_fates = mirror_simplices fates in
-	  let () = logdebug (Printf.sprintf "New fates nr: %d" (Array.length new_fates)) in  
+	  let () = logdebug (Printf.sprintf "New fates nr: %d" (Array.length new_fates)) in
 	    change_points (Array.sub new_fates nr_immobile_points
 			      (Array.length !ref_our_points_coords - nr_immobile_points));
-	    
+
             determine_forces iteration_nr;
 	    None;
 	end
@@ -3974,7 +4004,7 @@ let make_meshgen_engine
 	  None;
 	end
   in
-  let () = determine_forces 0 in (* It's good to have guartantees these are set up beforehand. *)          (* operations performed on the base of the *) 
+  let () = determine_forces 0 in (* It's good to have guartantees these are set up beforehand. *)          (* operations performed on the base of the *)
   let rec engine controller_state driver_command =                                                         (* controller commands *)
     match driver_command with
     | Mesh_Engine_Do_Step ->
@@ -4101,15 +4131,15 @@ let mesh_a_piece
     ?(driver=default_driver)
     ?(rng= Mt19937.make 97)
     ?(immobile_points=[||]) (* fixed points: the mesher will not move them *)
-    ?(mobile_points= [||]) (* - if it is [||], no mobile points are defined 
+    ?(mobile_points= [||]) (* - if it is [||], no mobile points are defined
 			      by the user and the mesher after sampling the space uses
-			      an initial set of points randomly distributed (+ fixed points ) 
+			      an initial set of points randomly distributed (+ fixed points )
 			      - if it is [|a,b,...|] the mesher uses the set of
 			      mobile points as the initial distribution of points
 			   *)
-    ?(simply_points= [||]) (* if given, the user wants to mesh simply this points: 
-			      mind that an object should be still given (for the fem geometry)!!! gb *) 
-    
+    ?(simply_points= [||]) (* if given, the user wants to mesh simply this points:
+			      mind that an object should be still given (for the fem geometry)!!! gb *)
+
     fem_geometry
     mdefaults
     (* mdefaults catches "things we usually do not want to worry about, but are glad
@@ -4132,7 +4162,7 @@ let mesh_a_piece
 
   let () = loginfo (Printf.sprintf "mesh_a_piece: %d boundaries." (Array.length boundary_condition_funs)) in
 
-  let relative_density_fun = fem_geometry.fem_geo_density in                     (* density function used to set the initial distribution 
+  let relative_density_fun = fem_geometry.fem_geo_density in                     (* density function used to set the initial distribution
 										    of points *)
 
   let clamped_relative_density_fun pos =                                         (* function that sets the density function to zero
@@ -4164,7 +4194,7 @@ let mesh_a_piece
       let () = loginfo (Printf.sprintf "Using only the fixed points given by the user!%!") in (* DDD *)
       let new_mdefaults =
 	copy_mesher_defaults mdefaults
-	  mdefaults.mdefault_meshgen_controller 
+	  mdefaults.mdefault_meshgen_controller
 	  mdefaults.mdefault_meshgen_controller_initial
       in
 	                                      (* We use a quite bad hack to incorporate the hint flags. This is not nice. *)
@@ -4178,13 +4208,13 @@ let mesh_a_piece
 	      ~rod_length:length_scale
 	      new_mdefaults
 	      simply_points  (* this is the list of immobile points to be used *)
-	      [||]           (* no initial set of mobile points *)  
+	      [||]           (* no initial set of mobile points *)
 	      fem_geometry
 	  in
 	    driver engine
 	end
-    else                                            (* the user wants to start from a set of mobile points (plus fixed one possibly) *) 
-      let points = 
+    else                                            (* the user wants to start from a set of mobile points (plus fixed one possibly) *)
+      let points =
 	if Array.length mobile_points = 0
 	then                                        (* generate a set of random points from the boundary conditions defining the object *)
 	  let (est_max, est_avg) =
@@ -4202,7 +4232,7 @@ let mesh_a_piece
 	       packing efficiency.
 	       We use D-type lattices here. Note that those may provide
 	       a quite crude estimate in some dimensions.
-	       
+
 	       However, our estimates are bound to be crude anyway, as we do not
 	       have any control over the amount of surface and its structure,
 	       and the structure of density variations. It is reasonable
@@ -4230,17 +4260,17 @@ let mesh_a_piece
 	  in
 	    (* XXX Note: actually, the original way of estimating the number
 	       of points required turned out to be far too crude:
-	       
+
 	       let new_points_required=max (dim+1) ((int_of_float est_nr_nodes)
 	       - Array.length immobile_points) in
-	       
+
 	       Reason: as points on the surface count as full points, but take
 	       up much less space, as they do not contribute to a full volume,
 	       we place far too few points on the inside.
-	       
+
 	       Note that it is anyway better to slightly over-estimate and axe points
 	       than to under-estimate.
-	       
+
 	       Further note: there is even a serious bug in the original approach:
 	       We provided all the other boundary points which we found so far - even ones which
 	       correspond to very different boundaries! Hence, this generally gives far more points
@@ -4255,14 +4285,14 @@ let mesh_a_piece
 	      new_points_required
 	  in rand_points
 	else
-	  mobile_points                                        (* uses the set of initial mobile points given by the user *)	
+	  mobile_points                                        (* uses the set of initial mobile points given by the user *)
       in
 	(* the mesher will now use the mobile points from the user or from the random distribution as initial points *)
       let nr_new_points = Array.length points in
       let nr_immobile_points = Array.length immobile_points in
       let () = loginfo (Printf.sprintf " mesh_a_piece nr_new_points=%d nr_immobile_points=%d" nr_new_points nr_immobile_points) in
 
-      let engine =                                           
+      let engine =
 	make_meshgen_engine
 	  ~rng:rng
 	  ~rod_length:length_scale
@@ -4275,7 +4305,7 @@ let mesh_a_piece
 	  (* XXX PROBLEM: if fem_geo was given, we should see that
 	     any mesh we get from this also does contain that fem
 	     geo. (Right now, we add that info manually further down!
-	     
+
 	     -> The boundary between mesh_it and mesh_a_piece must
 	     be shifted: mesh_a_piece should return a full mesh,
 	     not a mgo!  *)
@@ -4334,14 +4364,14 @@ let mesh_it_work_forward                                                        
 
   let bnr_1 = Body_Nr 1 in
   let the_mesh =
-    mesh_from_known_delaunay                                                         (* function to tell the points about the simplices they belong to and viceversa *) 
+    mesh_from_known_delaunay                                                         (* function to tell the points about the simplices they belong to and viceversa *)
       	points_coords
 	(Array.map (fun sx_indices -> (bnr_1,sx_indices)) simplices)
   in
   let () = the_mesh.mm_fem_geometry <- Some fem_geometry in
 
   let () = mesh_grow_bookkeeping_data                                                (* tell each simplex which are its neighbours, compute in (circum) circles and *)
-    ~do_connectivity:true                                                            (* tell each simplex about the region it belongs to *)  
+    ~do_connectivity:true                                                            (* tell each simplex about the region it belongs to *)
     ~do_incircle_circumcircle:true
     ~do_regions:true the_mesh
   in
@@ -4353,9 +4383,9 @@ let mesh_it_work_forward                                                        
 ;;
 
 let mesh_it_work
-    ~gendriver      (* driver *)                                                             
+    ~gendriver      (* driver *)
     ~rng            (* random generator *)
-    ~fixed_points   (* fixed points - included the possible periodic ones *) 
+    ~fixed_points   (* fixed points - included the possible periodic ones *)
     ~mobile_points  (* mobile points - they are given initially and can be (re)moved by the mesher *)
     ~simply_points  (* fixed points - the mesher uses only these ones for the generation of the mesh *)
     ht_periodic_pts_to_save (* hashtable where each entry is an array of "same" periodic points *)
@@ -4364,32 +4394,32 @@ let mesh_it_work
     length_scale    (* desired rod lenght of the mesh *)
     =
 
-  let local_mobile_points = ref mobile_points in                         (* reference to the mobile points array 
+  let local_mobile_points = ref mobile_points in                         (* reference to the mobile points array
                                                                             - used in order to add or remove points *)
   let pieces = fem_geometry.fem_geo_boundaries in                        (* objects to be meshed *)
   let nr_pieces = Array.length pieces in                                 (* number of objects to be meshed *)
   let forall_simplices mesh f = Array.iter f mesh.mm_simplices in        (* functions to loop over all the points and simplices *)
   let forall_points mesh f = Array.iter f mesh.mm_points in
 
-  let register_point_ix ht coords region_nr=                             (* function to register points in a hashtable associated 
-                                                                            to the region they belong to *)  
+  (*let register_point_ix ht coords region_nr=                             (* function to register points in a hashtable associated
+                                                                            to the region they belong to *)
     try
       Hashtbl.find ht coords
     with
     | Not_found ->
 	let () = Hashtbl.add ht coords region_nr
 	in region_nr
-  in
+  in*)
 
 
   let add_meshdata_of_piece_nr                                                    (* dht_immobile_points is a hash table mapping coords-vector => index *)
       n                                                                           (* which will be modified destructively by putting in all the new	*)
       li_simplices_pcoords_sf                                                     (* boundary points which we discover as well.				*)
-      li_surfaces_pcoords_sf                                                      (*  We use the value to index-count points.                           *)     
-      dht_immobile_points 							  
-      points_preventing_surface_pb 
+      li_surfaces_pcoords_sf                                                      (*  We use the value to index-count points.                           *)
+      dht_immobile_points
+      points_preventing_surface_pb
       ?(simply_points=[||])
-      =		
+      =
 
     let fem_geo_piece =                                                           (* copy the fem_geometry data structure related to the n-th object
                                                                                       in a local fem_geometry data structure *)
@@ -4407,25 +4437,25 @@ let mesh_it_work
     in
 
     let bcs = Array.map (fun (x,y) -> y) fem_geo_piece.fem_geo_boundaries in
-      
+
     let create_mesh given_mobile_points given_immobile_points fem_geometry boundary_cs rod_length =
-      
-      	  
+
+
       let (good_mobile_pts, bad_mobile_pts) =                                         (* separate the mobile points in good or bad
 											 a point is classified as good if it satisfies
-											     all the boundary conditions of the given object *) 
+											     all the boundary conditions of the given object *)
 	array_filter_double
 	  ( fun p ->
 	      array_all_satisfy
 		( fun bc -> (bc p) >= (0.0 -. mdefaults.mdefault_boundary_condition_acceptable_fuzz))
 		boundary_cs
 	  )
-	  given_mobile_points  (* reference to the mobile points array *)      
+	  given_mobile_points  (* reference to the mobile points array *)
       in
-	
+
       let (good_immobile_pts, bad_immobile_pts) =                                         (* separate the immobile points in good or bad
 											     a point is classified as good if it satisfies
-											     all the boundary conditions of the given object *) 
+											     all the boundary conditions of the given object *)
 	array_filter_double
 	  ( fun p ->
 	      array_all_satisfy
@@ -4434,24 +4464,24 @@ let mesh_it_work
 	  )
 	  given_immobile_points
       in
-	
+
       (* if some mobile points are coincident with some immobile points, use only the latter ones *)
       let filt_mobile_points = array_filter (fun mob -> array_all_satisfy (fun imm -> imm <> mob) good_immobile_pts) good_mobile_pts in
-	
+
       let mgo =                                               (* mesh generated object *)
 	mesh_a_piece ~driver:(gendriver n) ~rng:rng
 	  ~immobile_points:good_immobile_pts
-	  (* DDD - BE VERY CAREFUL WITH THIS CHOICE!!! 
-	     (hashtbl_keys dht_immobile_points) (* should we use "good_immobile_pts" ??? - in that case the mesher doesn't know 
+	  (* DDD - BE VERY CAREFUL WITH THIS CHOICE!!!
+	     (hashtbl_keys dht_immobile_points) (* should we use "good_immobile_pts" ??? - in that case the mesher doesn't know
 	     about the neighbour of the object, and it is more likely to generate broken meshes *)
 	  *)
-	  ~mobile_points:filt_mobile_points                           (* only the filtered good points are used to generate the mesh *)   
+	  ~mobile_points:filt_mobile_points                           (* only the filtered good points are used to generate the mesh *)
 	  ~simply_points:simply_points                        (* if given, the mesher uses only these ones for the generation of the mesh *)
 	  fem_geometry mdefaults rod_length
       in
-      let partial_mesh = 
+      let partial_mesh =
 	match mgo with                                        (* the object returned by the mesh_a_piece function contains the mesh
-								 plus the information about what stopped the mesher to evolve, hence 
+								 plus the information about what stopped the mesher to evolve, hence
 								 we need to extract the mesh from this object *)
 	  | Mesh_Engine_Finished_Step_Limit_Reached(m,nr) ->
 	      let () = loginfo (Printf.sprintf "Piece #%d reached meshing step limit. points=%d" n (Array.length m.mm_points)) in
@@ -4464,12 +4494,12 @@ let mesh_it_work
 	      let () = loginfo (Printf.sprintf "Piece #%d reached equilibrium forces. points=%d" n (Array.length m.mm_points)) in
 		m
 	  | _ -> impossible()  (* This should never happen! *)
-	      
+
       in
       let () = partial_mesh.mm_fem_geometry <- Some fem_geo_piece in                  (* we attach the fem geometry which generated the mesh to the mesh final structure *)
-      
+
       let () = loginfo (Printf.sprintf "Mesh piece: points=%d simplices=%d%!" (Array.length partial_mesh.mm_points) (Array.length partial_mesh.mm_simplices)) in
-	
+
       (* Ensure that we do know for every point which region it belongs to.
 	 Note that this uses its own, and pretty strong, heuristics based on
 	 the boundary conditions.
@@ -4479,14 +4509,14 @@ let mesh_it_work
 	 we are interested in. Note that for this mesh, we only know about Body_Nr 0 (= outside) and
 	   Body_Nr 1 (= inside), and retain just those simplices which are "inside". We furthermore
 	   keep track of boundary points.
-	   
+
 	   Eventually, we will have to fuse topology information from mesh parts. How to do this?
-	   
+
 	   * Every simplex is represented as a vector of points, where every point is given
            just by its coordinates.
-	   
+
 	   * We have guarantees that points which we consider fixed really do not move!
-	   
+
 	   * Eventually, we will use a hash that maps a point-coordinates vector to a point number
          and use this to label points and give simplices as vectors of such integer labels.
 	*)
@@ -4498,19 +4528,19 @@ let mesh_it_work
 	if  Array.length hint_points > 0 then
 	  let () = loginfo (Printf.sprintf "Meshing object from hints") in
 	  let ht_good_points = Hashtbl.create 1000 in                       (* hashtable to store the points within the object specified by the bcs *)
-	    
+
 	  let good_simplices =                                              (* take only the simplices whose points are within the hint object function; for these  *)
 	    array_filter                                                    (* simplices, register the point in the hashtable of good points *)
 	      ( fun sx_indices ->
-		let point_in_obj p = 
+		let point_in_obj p =
 		  array_all_satisfy
 		    ( fun bc -> (bc p) >= (0.0 -. mdefaults.mdefault_boundary_condition_acceptable_fuzz))
 		    bcs
-		in 
+		in
                 let condition = array_all_satisfy (fun ix -> point_in_obj hint_points.(ix)) sx_indices in
-		let () = 
-		  if condition then                                                      
-		    Array.iter (fun ix -> let num = register_point ht_good_points hint_points.(ix) in ()) sx_indices
+		let () =
+		  if condition then
+		    Array.iter (fun ix -> let (*num*) _ = register_point ht_good_points hint_points.(ix) in ()) sx_indices
 		  else  ()
 		in
 		  condition
@@ -4518,25 +4548,25 @@ let mesh_it_work
 	      hint_simplices
 	  in
 
-	  let simplices_with_corrected_indices =                  (* we need to change the indices in the good simplices according to the new list of (good) points *)  
-	    Array.map 
-	      (fun sx -> 
-		Array.map 
-		  (fun old_index -> Hashtbl.find ht_good_points hint_points.(old_index) ) 
-		  sx) 
+	  let simplices_with_corrected_indices =                  (* we need to change the indices in the good simplices according to the new list of (good) points *)
+	    Array.map
+	      (fun sx ->
+		Array.map
+		  (fun old_index -> Hashtbl.find ht_good_points hint_points.(old_index) )
+		  sx)
 	      good_simplices
 	  in
-	    
+
 	  let ordered_points = array_sorted (fun a b -> (Hashtbl.find ht_good_points a) - (Hashtbl.find ht_good_points b) ) (hashtbl_keys ht_good_points) in
 	                                                                    (* mesh the hint object as it is, giving only a temporary value *)
 									    (* to the simplex region to match the function argument type *)
-	      
-	  let hint_m =  mesh_from_known_delaunay ordered_points (Array.map (fun sx_ix -> (Body_Nr 0, sx_ix)) simplices_with_corrected_indices )   
-	  in 
+
+	  let hint_m =  mesh_from_known_delaunay ordered_points (Array.map (fun sx_ix -> (Body_Nr 0, sx_ix)) simplices_with_corrected_indices )
+	  in
           let () = hint_m.mm_fem_geometry <- Some fem_geo_piece in        (* we attach the fem geometry which generated the mesh to the mesh final structure *)
-	    
+
 	  let () = loginfo (Printf.sprintf "Mesh hint: points=%d simplices=%d%!" (Array.length hint_m.mm_points) (Array.length hint_m.mm_simplices)) in
-	
+
 	  let () = mesh_grow_bookkeeping_data ~do_regions:true ~do_connectivity:true hint_m in
 	    hint_m
 	else
@@ -4544,10 +4574,9 @@ let mesh_it_work
 	  create_mesh !local_mobile_points (hashtbl_keys dht_immobile_points) fem_geo_piece bcs length_scale
     in
     (* not very nice way to define this reference, but it matches the definition of the same quantity for the current mesh *)
-    let simplices_in_previous_mesh = ref (Array.to_list (Array.copy (Array.of_list li_simplices_pcoords_sf))) in 
-    let simplices_from_previous_mesh = Array.copy (Array.of_list li_simplices_pcoords_sf) in 
+    let simplices_in_previous_mesh = ref (Array.to_list (Array.copy (Array.of_list li_simplices_pcoords_sf))) in
     let r_inner_simplices = ref li_simplices_pcoords_sf in
-    let (boundary_body_nr,_) = fem_geometry.fem_geo_boundaries.(n) in  (* extract the simplex region from 
+    let (boundary_body_nr,_) = fem_geometry.fem_geo_boundaries.(n) in  (* extract the simplex region from
 									  the tuple (region, boundary condition to meet) *)
     let () = loginfo (Printf.sprintf "forall_simplices!") in
     let simplices_in_current_mesh = ref [] in
@@ -4559,7 +4588,7 @@ let mesh_it_work
 		 Here, we used a classifier which does try to spit out
 		 the correct body nr, by looking at boundaries.
 	       *)
-	  then                                                                (* add simplex to the list of inner and partial simplices *) 
+	  then                                                                (* add simplex to the list of inner and partial simplices *)
 	    let () = simplices_in_current_mesh := (Array.map (fun p -> p.mp_coords) sx.ms_points):: !simplices_in_current_mesh in
 	    r_inner_simplices := (Array.map (fun p -> p.mp_coords) sx.ms_points):: !r_inner_simplices
 	  else
@@ -4571,7 +4600,7 @@ let mesh_it_work
 	(fun pt ->
 	  match pt.mp_in_body with
 	  | _::_::_ -> (* Length >= 2 *)                                      (* the point belong to at least two regions, so it
-									         must be on the boundary and therefore it becomes 
+									         must be on the boundary and therefore it becomes
 									         an immobile point *)
 	      ignore(register_point dht_immobile_points pt.mp_coords)
 	  | _ -> ())
@@ -4592,46 +4621,46 @@ let mesh_it_work
 									          that is the simplex is not on a body-outerSpace boundary *)
 	    array_all_satisfy (fun x -> x >= 0) backref
 	  in
-	  let check_surface_elem =                                             (* true if all the neighbours are in the same body, 
+	  let check_surface_elem =                                             (* true if all the neighbours are in the same body,
 									          that is the simplex is not on a body-body surface *)
-	    array_all_satisfy 
+	    array_all_satisfy
 	      (fun x ->
 		match x with
 		  | Some y -> y.ms_in_body = sx.ms_in_body
-		  | None -> 1 = 1) 
+		  | None -> 1 = 1)
 	      neigh
 	  in
 	  let surface_simplices =
-	    if check_outer_elem 
+	    if check_outer_elem
 	    then
-	      if check_surface_elem then 
+	      if check_surface_elem then
 		[]
-	      else 
+	      else
 		let rec find_interior_surface_nodes ix surface_sf =          (* find the nodes laying on the surface *)
-		  if ix = nr_neigh then surface_sf 
+		  if ix = nr_neigh then surface_sf
 		  else
-		    let pos = 
+		    let pos =
 		      (array_position_if                                       (* index of the neighbour which belongs to a different region *)
 			  (fun n ->
 			    match n with
 			      | Some m -> m.ms_in_body <> region
-			      | None -> 1 = 1 
+			      | None -> 1 = 1
 			  )
 			  neigh ix)
 		    in
-		      if pos > (-1) then                                       (* there is a neighbour which belongs to a different region *) 
+		      if pos > (-1) then                                       (* there is a neighbour which belongs to a different region *)
 			let arr = (Array.map (fun p -> p.mp_coords) (array_one_shorter sx.ms_points pos)) in  (* create an array of coords with all the points but *)
 			                                                                                      (* the one in the interior of the object: surface of the object *)
 			let () = (Array.sort compare arr) in
 			  find_interior_surface_nodes (pos+1) (arr:: surface_sf)                              (* add this new surface to the list *)
-			                                                                                      (* - could the same surface be saved *) 
-			                                                                                      (* more than once ?? gb *) 
+			                                                                                      (* - could the same surface be saved *)
+			                                                                                      (* more than once ?? gb *)
 		      else
 			find_interior_surface_nodes (ix+1) surface_sf
 		in find_interior_surface_nodes 0 []
 	    else
 	      let rec find_surface_nodes ix surface_sf =                            (* find the surface with the outer space and add it to the list*)
-		if ix = nr_neigh then surface_sf 
+		if ix = nr_neigh then surface_sf
 		else
 		  let pos = (array_position (-1) backref ix) in
 		    if pos > (-1) then
@@ -4643,22 +4672,22 @@ let mesh_it_work
 	      in
 		find_surface_nodes 0 []
 
-	  in 
+	  in
 	  let len = List.length  surface_simplices in
 	    current_surface_simplices :=
 	      let rec add_item list_sf ix =
-		if ix = len 
-		then list_sf 
-		else add_item ((List.nth surface_simplices ix)::list_sf) (1+ix) 
+		if ix = len
+		then list_sf
+		else add_item ((List.nth surface_simplices ix)::list_sf) (1+ix)
 	      in
 		add_item !current_surface_simplices 0
 	)
     in
     let () = loginfo (Printf.sprintf "end forall_simplices 2!") in
-    let v_bodies_surfaces = [|Array.of_list (!r_surface_simplices); Array.of_list (!current_surface_simplices) |] 
+    let v_bodies_surfaces = [|Array.of_list (!r_surface_simplices); Array.of_list (!current_surface_simplices) |]
     in
       (* verify bodies surface:
-	 check if there is any problem between 
+	 check if there is any problem between
 	 the current surface simplices and each
 	 of the surface simplices found so far *)
 
@@ -4698,16 +4727,16 @@ let mesh_it_work
 
       (* ... and then in the mesh previously created ... *)
 
-      let (new_sxs_previous_mesh,pre_obj_ix) = 
-	
+      let (new_sxs_previous_mesh,pre_obj_ix) =
+
 	let rec find_previous_obj obj_ix simplices_sf =
-	  if (Array.length simplices_sf) > 0 
+	  if (Array.length simplices_sf) > 0
 	  then
-	    (simplices_sf,obj_ix-1) 
+	    (simplices_sf,obj_ix-1)
 	  else
 	    let simplices =
-	      try 
-		let new_fem_geometry = 
+	      try
+		let new_fem_geometry =
 		  {fem_geo_dim = fem_geometry.fem_geo_dim;
 		   fem_geo_bounding_box = fem_geometry.fem_geo_bounding_box;
 		   (* XXX Note that we have a problem here if some part of the mesh has FAR smaller volume
@@ -4722,16 +4751,16 @@ let mesh_it_work
 		in
 
 		let point_in_obj_condition = (fun ((Body_Nr x),bc) p -> bc p > 0.0-.1.0e-6) new_fem_geometry.fem_geo_boundaries.(0) middle_pt in
-		if point_in_obj_condition  
+		if point_in_obj_condition
 		then
 		  (* the boundary conditions for the filter are weakened *)
-		  let new_mobile_points = array_filter (fun p -> array_all_satisfy (fun ((Body_Nr x),bc) -> bc p > 0.0-.1.0e-6) new_fem_geometry.fem_geo_boundaries ) (hashtbl_keys dht_immobile_points) in 
-		  
+		  let new_mobile_points = array_filter (fun p -> array_all_satisfy (fun ((Body_Nr x),bc) -> bc p > 0.0-.1.0e-6) new_fem_geometry.fem_geo_boundaries ) (hashtbl_keys dht_immobile_points) in
+
 		  let (mob_pts, imm_pts) = array_filter_double ( fun p -> array_all_satisfy (fun fixp -> p <> fixp) fixed_points) new_mobile_points in
-		  
+
 		  let corrected_previous_mesh = create_mesh mob_pts (Array.append [|middle_pt|] imm_pts) new_fem_geometry  [|(fun x -> 1.0)|] (0.01*.length_scale) in
-		  Array.map (fun s -> Array.map (fun p -> p.mp_coords) s.ms_points ) corrected_previous_mesh.mm_simplices 
-		  
+		  Array.map (fun s -> Array.map (fun p -> p.mp_coords) s.ms_points ) corrected_previous_mesh.mm_simplices
+
 		else
 		  [||]
 	      with
@@ -4743,15 +4772,15 @@ let mesh_it_work
       in
 
       (* remove simplices associated to the retriangulated obj from previous mesh *)
-      
+
       (* for each point there is only one previous object to update, therefore we need the index for only one entry of the fem_geometry array *)
-      let bc = (fun ((Body_Nr x),b) -> b ) (Array.sub fem_geometry.fem_geo_boundaries pre_obj_ix 1).(0) in 
+      let bc = (fun ((Body_Nr x),b) -> b ) (Array.sub fem_geometry.fem_geo_boundaries pre_obj_ix 1).(0) in
       let simplices_in_previous_mesh_to_remove = array_filter (fun sx -> array_all_satisfy ( fun p -> (bc p) > 0.0-.1.0e-6 ) sx) (Array.of_list !simplices_in_previous_mesh) in
 
-      let clean_previous_simplices = 
-	List.filter (fun sx -> 
-	  array_all_satisfy (fun sx_to_delete -> sx_to_delete <> sx) simplices_in_previous_mesh_to_remove 
-		    ) !simplices_in_previous_mesh  
+      let clean_previous_simplices =
+	List.filter (fun sx ->
+	  array_all_satisfy (fun sx_to_delete -> sx_to_delete <> sx) simplices_in_previous_mesh_to_remove
+		    ) !simplices_in_previous_mesh
       in
 
       (* add new simplices to the list of simplices *)
@@ -4768,18 +4797,18 @@ let mesh_it_work
       ignore(register_point dht_immobile_points middle_pt)
 
     done
-	 
+
     in
 
     let () = r_inner_simplices := List.append !simplices_in_current_mesh !simplices_in_previous_mesh in
-    let () = r_surface_simplices := 
-      List.append (!current_surface_simplices) (!r_surface_simplices) 
-    in 
-      
+    let () = r_surface_simplices :=
+      List.append (!current_surface_simplices) (!r_surface_simplices)
+    in
+
       (!r_inner_simplices,!r_surface_simplices,dht_immobile_points, points_preventing_surface_pb)
   in
 
-  let mesh_from_pieces_meshdata 
+  let mesh_from_pieces_meshdata
       li_simplices_pcoords      (* list of simplices where for each simplex we have the list of coordinates of its points *)
       dht_immobile_points       (* list of immobile points *)
       =
@@ -4788,22 +4817,22 @@ let mesh_it_work
     let result_simplices =
       Array.map (Array.map (register_point dht_immobile_points)) (Array.of_list li_simplices_pcoords)   (* NOT CLEAR!!! gb  *)
     in
-    
+
     let nr_points = Hashtbl.length dht_immobile_points in
     let result_points = Array.make nr_points [||] in
-    let () = 
+    let () =
       Hashtbl.iter
 	(fun coords ix ->
-          result_points.(ix) <- coords) 
-	dht_immobile_points 
+          result_points.(ix) <- coords)
+	dht_immobile_points
     in
     let bnr_1 = Body_Nr 1 in
-      
+
    let () = loginfo (Printf.sprintf "MESH POINTS:\n%s\nMESH SIMPLICES:\n%s\n"
 			(String.concat "\n" (Array.to_list (Array.map float_array_to_string result_points)))
 			(String.concat "\n" (Array.to_list (Array.map int_array_to_string result_simplices))))
    in
-      
+
     let fused_mesh =
       mesh_from_known_delaunay                                                            (* tell the points about the simplices they belong to and vice-versa *)
 	result_points                                                                     (* this is the point to hack if we want to keep meshing a previous generated mesh *)
@@ -4824,15 +4853,15 @@ let mesh_it_work
 ###############
 *)
 
-  let () = loginfo (Printf.sprintf "\nenter walk_pieces") in 
+  let () = loginfo (Printf.sprintf "\nenter walk_pieces") in
 
   (* Everything together now *)
-  let rec walk_pieces 
-      nr_piece 
-      li_simplices_pcoords_sf 
-      li_surfaces_pcoords_sf 
-      dht_immobile_points 
-      dht_points_preventing_surface_pb 
+  let rec walk_pieces
+      nr_piece
+      li_simplices_pcoords_sf
+      li_surfaces_pcoords_sf
+      dht_immobile_points
+      dht_points_preventing_surface_pb
       ?(simply_points=[||])
       =
     (* We work with decreasing nr_piece, with piece #0 being "outer space"
@@ -4840,29 +4869,29 @@ let mesh_it_work
        with convex corners than with concave ones. The "outside" will usually
        have quite many concave corners.
      *)
-    if nr_piece < 0                    (* return the list of simplices, the list of surfaces, 
+    if nr_piece < 0                    (* return the list of simplices, the list of surfaces,
 					  the list of fixed points and that of new points introduced
-				          to prevent a broken mesh 
+				          to prevent a broken mesh
 				       *)
-    then 
-      (li_simplices_pcoords_sf, li_surfaces_pcoords_sf, dht_immobile_points, dht_points_preventing_surface_pb) 
+    then
+      (li_simplices_pcoords_sf, li_surfaces_pcoords_sf, dht_immobile_points, dht_points_preventing_surface_pb)
 
     else
       let (new_li_simplices_pcoords_sf, new_li_surfaces_pcoords_sf, new_dht_immobile_points, new_dht_points_preventing_surface_pb) =
-	add_meshdata_of_piece_nr 
+	add_meshdata_of_piece_nr
 	  nr_piece                                 (* piece number - 1 *)
-	  li_simplices_pcoords_sf                  (* list of simplices where for each simplex we have the 
-                                                      list of coordinates of its points, so far *)  
-	  li_surfaces_pcoords_sf                   (* list of surface simplices where for each simplex we 
+	  li_simplices_pcoords_sf                  (* list of simplices where for each simplex we have the
+                                                      list of coordinates of its points, so far *)
+	  li_surfaces_pcoords_sf                   (* list of surface simplices where for each simplex we
                                                       have the list of coordinates of its points, so far *)
 	  dht_immobile_points                      (* hashtable with all the immobile points, so far *)
 	  dht_points_preventing_surface_pb         (* hashtable with all the points preventing broken mesh at surfaces, so far *)
           ~simply_points:simply_points             (* used when we know the points to be added to prevent a broken mesh and we *)
       in                                           (* call the function walk_pieces the second time *)
-      walk_pieces 
-	(nr_piece-1) 
-	new_li_simplices_pcoords_sf 
-	new_li_surfaces_pcoords_sf 
+      walk_pieces
+	(nr_piece-1)
+	new_li_simplices_pcoords_sf
+	new_li_surfaces_pcoords_sf
 	new_dht_immobile_points
 	new_dht_points_preventing_surface_pb
 	~simply_points:simply_points
@@ -4876,72 +4905,73 @@ let mesh_it_work
 
   (* the function walk_pieces is called twice: the first time to obtain the list of points to introduce
      in order to prevent a broken mesh (and the fixed points are only those fixed at the python interface),
-     the second time to retriangulate the object adding the aforementioned ones to the list of fixed points, 
-     as well as the mobile ones, and setting all of them as simply_points, so that there is no relaxation of the mesh 
+     the second time to retriangulate the object adding the aforementioned ones to the list of fixed points,
+     as well as the mobile ones, and setting all of them as simply_points, so that there is no relaxation of the mesh
   *)
 
-  let (li_simplices_pcoords_sf, li_surfaces_pcoords_sf, 
+  let (li_simplices_pcoords_sf, li_surfaces_pcoords_sf,
       dht_immobile_points, dht_points_preventing_surface_pb) =
-    walk_pieces 
-      (nr_pieces-1) 
-      [] 
-      [] 
-      dht_immobile_points_initial 
+    walk_pieces
+      (nr_pieces-1)
+      []
+      []
+      dht_immobile_points_initial
       dht_points_preventing_surface_pb
       ~simply_points:simply_points
   in
-    
+
   let () = logdebug (
-      let outcome_str = 
-	if Array.length (hashtbl_keys dht_points_preventing_surface_pb) = 0 
+      let outcome_str =
+	if Array.length (hashtbl_keys dht_points_preventing_surface_pb) = 0
 	then "none."
 	else (String.concat "\n" (Array.to_list (Array.map float_array_to_string (hashtbl_keys dht_points_preventing_surface_pb))))
-      in 
-	Printf.sprintf "New points to be added for prevention of a broken mesh: %s%!" outcome_str) 
+      in
+	Printf.sprintf "New points to be added for prevention of a broken mesh: %s%!" outcome_str)
   in
 
-  let dht_simply_points = Hashtbl.create 1000 in                (* hashtable to store all the points 
-								   obtained from the first run of the mesher *)  
+  let dht_simply_points = Hashtbl.create 1000 in                (* hashtable to store all the points
+								   obtained from the first run of the mesher *)
 
   let () = List.iter                                            (* add the points from the simplices to the list of simply_points *)
     (fun sx ->
-      Array.iter 
+      Array.iter
 	( fun p -> ignore(register_point dht_simply_points p) )
-	sx) 
+	sx)
     li_simplices_pcoords_sf
   in
-                                                                (* no need to set the mesher parameters in order to have no relaxation *)   
-                                                                (* because we use the simply_points option to call the mesher *)   
+                                                                (* no need to set the mesher parameters in order to have no relaxation *)
+                                                                (* because we use the simply_points option to call the mesher *)
 
   let () = Array.iter                                           (* add the "preventing" points to the set of simply_points *)
-    ( fun p -> ignore(register_point dht_simply_points p) ) 
-    (hashtbl_keys dht_points_preventing_surface_pb) 
+    ( fun p -> ignore(register_point dht_simply_points p) )
+    (hashtbl_keys dht_points_preventing_surface_pb)
   in
 
+(*
   let (final_li_simplices_pcoords_sf, final_li_surfaces_pcoords_sf, final_dht_immobile_points, final_dht_points_preventing_surface_pb) =
-    (li_simplices_pcoords_sf, li_surfaces_pcoords_sf, 
+    (li_simplices_pcoords_sf, li_surfaces_pcoords_sf,
       dht_immobile_points, dht_points_preventing_surface_pb)
       in
-(*
-    walk_pieces 
-      (nr_pieces-1) 
-      [] 
-      [] 
+
+    walk_pieces
+      (nr_pieces-1)
+      []
+      []
       (Hashtbl.create 0)                                  (* we create these hashtables in order to match the type of the argument but we don't *)
       (Hashtbl.create 0)                                  (* use them because we call the function mesh_a_piece with the simply_points option *)
-      ~simply_points: (hashtbl_keys dht_simply_points) 
+      ~simply_points: (hashtbl_keys dht_simply_points)
   in
   let broken_pts_len = Array.length (hashtbl_keys final_dht_points_preventing_surface_pb) in
   let () = loginfo (
-      let outcome_str = 
-	if broken_pts_len = 0 
+      let outcome_str =
+	if broken_pts_len = 0
 	then "none."
 	else (String.concat "\n" (Array.to_list (Array.map float_array_to_string (hashtbl_keys dht_points_preventing_surface_pb))))
-      in 
+      in
 	Printf.sprintf "New points to be added for prevention of a broken mesh after their first insertion: %s%!" outcome_str)
   in
-  let () = 
-    if broken_pts_len > 0 
+  let () =
+    if broken_pts_len > 0
     then let () = loginfo ("Mesh is broken, no way.") in failwith ""
     else ()
   in
@@ -4957,12 +4987,12 @@ let mesh_it_work
     *)
   in
   let pts_coords = Array.map (fun p -> p.mp_coords) result_mesh.mm_points in
-  let arr_periodic_pts = 
-    Array.map 
-      ( fun key -> 
+  let arr_periodic_pts =
+    Array.map
+      ( fun key ->
 	  let periodic_points = Hashtbl.find ht_periodic_pts_to_save key in
-          Array.map (fun p -> array_position p pts_coords 0 ) periodic_points 
-      ) 
+          Array.map (fun p -> array_position p pts_coords 0 ) periodic_points
+      )
       (hashtbl_keys ht_periodic_pts_to_save) in
 
   let () = result_mesh.mm_periodic_points <- arr_periodic_pts in
@@ -4996,10 +5026,10 @@ let mesh_periodic_outer_box
   let ht_periodic_pts_to_save = Hashtbl.create 100 in            (* hashtable to store the periodic points; each entry is a lists of "same" *)
                                                                  (* (in the periodic sense) points *)
   let forall_points mesh f = Array.iter f mesh.mm_points in
- 
+
   let add_meshdata_of_outer_box iter_nr mask bbox dht_immobile_points =
-    
-    let () = Printf.printf "MASK = %s \n%!" (bool_array_to_string mask) in 
+
+    let () = Printf.printf "MASK = %s \n%!" (bool_array_to_string mask) in
     let len = Array.length mask in
     let unmasked_components =                                                 (* extract the components which won't be masked *)
       let rec find_comp ix comp_sf =
@@ -5014,28 +5044,28 @@ let mesh_periodic_outer_box
     in
     let unmasked_len = Array.length unmasked_components in
     let corrected_density =                                                    (* set the coordinates of the unmasked components as those of *)
-      (fun x ->                                                                (* the bounding box *) 
-	 fem_geometry.fem_geo_density 
-	   (let copy_bbox = Array.copy (fst bbox) in 
+      (fun x ->                                                                (* the bounding box *)
+	 fem_geometry.fem_geo_density
+	   (let copy_bbox = Array.copy (fst bbox) in
 	    let () = for i=0 to unmasked_len-1 do
 	      copy_bbox.(unmasked_components.(i)) <- x.(i)
 	    done
 	    in copy_bbox
-	   ) 
+	   )
       )
-    in 
-      
+    in
+
     let new_corner_nw = Periodic.mask_coords mask (fst bbox) (snd bbox) (fst bbox) in
     let new_corner_se = Periodic.mask_coords mask (fst bbox) (snd bbox) (snd bbox) in
 
     let boundary_condition =
       (fun x -> Periodic.bc_box new_corner_nw new_corner_se x)
     in
-    let () = Array.iter (fun arr -> Printf.printf "starting immobile %s\n%!" (float_array_to_string arr)) (hashtbl_keys dht_immobile_points) in   
+    let () = Array.iter (fun arr -> Printf.printf "starting immobile %s\n%!" (float_array_to_string arr)) (hashtbl_keys dht_immobile_points) in
     let immobiles =
       let table = (Hashtbl.create 100) in
       let mask_arr = Periodic.maskarr mask (fst bbox) (snd bbox) (hashtbl_keys dht_immobile_points) in
-      let () = Array.iter (fun arr -> Printf.printf "immobile %s\n%!" (float_array_to_string arr)) mask_arr in 
+      let () = Array.iter (fun arr -> Printf.printf "immobile %s\n%!" (float_array_to_string arr)) mask_arr in
       let () =
 	for i = 0 to (Array.length mask_arr)-1 do
 	  ignore(register_point table mask_arr.(i) )
@@ -5077,20 +5107,20 @@ let mesh_periodic_outer_box
 	   (* all the copies of the mesh generated along a periodic entity (edge or face) *)
 	  let parallel_directions = Periodic.unmask_coords mask pt.mp_coords (fst bbox) (snd bbox) in
 (*	  let () = Array.iter (fun p -> Printf.printf "parallel %s\n%!" (float_array_to_string p)) parallel_directions in
-*)	  let () =     
-	    if Periodic.nr_true mask = fem_geometry.fem_geo_dim-1  
-	    then                                                                          (* store the periodic points (only when a direction is 
-											     completed) to be later saved in the nmesh file *) 
-(*              let () = Printf.printf "periodic_pts_to_save: %s\n%!"                                 
+*)	  let () =
+	    if Periodic.nr_true mask = fem_geometry.fem_geo_dim-1
+	    then                                                                          (* store the periodic points (only when a direction is
+											     completed) to be later saved in the nmesh file *)
+(*              let () = Printf.printf "periodic_pts_to_save: %s\n%!"
 		(String.concat " - "(Array.to_list (Array.map float_array_to_string parallel_directions)))
 	      in
-*)	      Hashtbl.add ht_periodic_pts_to_save (Hashtbl.length ht_periodic_pts_to_save) parallel_directions 
+*)	      Hashtbl.add ht_periodic_pts_to_save (Hashtbl.length ht_periodic_pts_to_save) parallel_directions
 	  in
 	    (* the points of a mesh generated along a periodic entity are always stored as immobile *)
-	  Array.iter 
-	    ( fun p -> 
+	  Array.iter
+	    ( fun p ->
 	      ignore(register_point dht_immobile_points p )
-	     ) parallel_directions 
+	     ) parallel_directions
 	)
     in
     dht_immobile_points
@@ -5108,16 +5138,16 @@ let mesh_periodic_outer_box
   let sub_face_directions filt =                                      (* all the directions needed for the required periodic mesh *)
     Periodic.periodic_directions (Array.map (fun x -> x = 1.0) filt)
   in
-    
+
   (* array with all the masks needed to generate the required periodic mesh *)
   let mask_array = sub_face_directions filter in
 
   let corner_points = Periodic.corner_points fem_geometry.fem_geo_bounding_box in
-  
+
   let ht_fixed_points = Hashtbl.create 100 in
     (* we store the corner points as well as the fixed points as immobile points for the generation of the next periodic mesh *)
   let () = Array.iter (fun p -> Hashtbl.add ht_fixed_points p (Hashtbl.length ht_fixed_points)) (reduce_array (Array.append fixed_points corner_points)) in
-    
+
   let dht_immobile_points =
     let rec walk so_far immobile_points =
       if so_far = (Array.length mask_array) then
@@ -5127,9 +5157,9 @@ let mesh_periodic_outer_box
 	walk (so_far+1) immobile_points
     in
     walk 0 ht_fixed_points
-  in 
+  in
   let () = Printf.printf "Finished periodic points\n%!" in
-    
+
   (dht_immobile_points, Periodic.merge_periodic_pts ht_periodic_pts_to_save)
 ;;
 
@@ -5250,9 +5280,9 @@ let mesh_plotinfo_surfaces_and_surfacesregions mesh =
 	  let nodes_arr = surf_elem in
 	  let dim = (Array.length nodes_arr) in
 	  if dim >= 2
-	  then 
+	  then
 	    let () =
-	      Hashtbl.replace ht_surfaces 
+	      Hashtbl.replace ht_surfaces
 		(Array.map (fun pt -> pt.mp_id) nodes_arr)
 		((fun (Body_Nr x) -> x) region)
 	    in ()
@@ -5263,9 +5293,9 @@ let mesh_plotinfo_surfaces_and_surfacesregions mesh =
   in (* Now convert dictionarry into two arrays (with data in same order): YYY*)
   let dataarray = hashtbl_to_array ht_surfaces in
   let surfsimplices = Array.make (Array.length dataarray) [||] in
-  let regionids = Array.make (Array.length dataarray) (-3) in 
+  let regionids = Array.make (Array.length dataarray) (-3) in
   let ()= Array.iteri (
-      fun i data -> let (ssimp,region) = data in 
+      fun i data -> let (ssimp,region) = data in
       let () = surfsimplices.(i) <- ssimp in
       let () = regionids.(i) <- region in ()
     ) dataarray
@@ -5275,11 +5305,11 @@ in (surfsimplices,regionids);;
 let mesh_plotinfo_links mesh =
   let ht_links = Hashtbl.create 1000 in
   let forall_simplices f = Array.iter f mesh.mm_simplices in
-  let () = forall_simplices 
+  let () = forall_simplices
     (fun sx -> do_for_any_two_of sx.ms_points (
 	fun p q -> Hashtbl.replace ht_links (p.mp_id,q.mp_id) true)
     )
-  in 
+  in
     map_hashtbl_to_array (fun k v -> k) ht_links;;
 
 
@@ -5299,9 +5329,9 @@ let mesh_plotinfo_links_faster mesh =
   let ht_links = Hashtbl.create 1000 in
   let forall_simplices f = Array.iter f mesh.mm_simplices in
   let pre_key = Array.make 2 0 in  (* Use mutable array to avoid repeated allocation of memory *)
-  let () = forall_simplices 
+  let () = forall_simplices
     (fun sx -> do_for_any_two_of sx.ms_points (
-	fun p q -> 
+	fun p q ->
 	  let () = pre_key.(0) <- p.mp_id in
 	  let () = pre_key.(1) <- q.mp_id in
 	  let _ = try Hashtbl.find ht_links pre_key with
@@ -5318,7 +5348,7 @@ let mesh_plotinfo_points mesh =
 let mesh_plotinfo_pointsregions mesh =
   let npoints = Array.length mesh.mm_points in
   let pointregions = Array.make npoints [||] in
-  let () = 
+  let () =
     for i=0 to (npoints-1) do
       pointregions.(i) <- Array.of_list (List.map (fun (Body_Nr x) -> x) mesh.mm_points.(i).mp_in_body);
     done
@@ -5328,25 +5358,25 @@ let mesh_plotinfo_pointsregions mesh =
 let mesh_plotinfo_simplices mesh =
   let nsimplices = Array.length mesh.mm_simplices in
   let simplices = Array.make nsimplices [||] in
-  let () = 
+  let () =
     for i=0 to (nsimplices-1) do
-      simplices.(i) <- Array.map (fun point -> point.mp_id) mesh.mm_simplices.(i).ms_points; 
+      simplices.(i) <- Array.map (fun point -> point.mp_id) mesh.mm_simplices.(i).ms_points;
     done
   in simplices;;
 
 let mesh_plotinfo_simplicesregions mesh =
   let nsimplices = Array.length mesh.mm_simplices in
   let simplicesregions = Array.make nsimplices (-3) in
-  let () = 
+  let () =
     for i=0 to (nsimplices-1) do
-      simplicesregions.(i) <- 
+      simplicesregions.(i) <-
 	let Body_Nr x = mesh.mm_simplices.(i).ms_in_body in x;
     done
   in simplicesregions;;
-  
+
 
 let mesh_plotinfo_periodic_points_indices mesh =
-  mesh.mm_periodic_points 
+  mesh.mm_periodic_points
 
 
 
@@ -5809,12 +5839,12 @@ let (body_difference_11,body_difference_1n) =
 
 
 
-let extract_structures_from_hints hints =                                           (* extract the mesh associated to each hint; all the mesh is extracted, *) 
-  Array.map                                                                         (* so we need another function which filters only the part within the hint body *) 
+let extract_structures_from_hints hints =                                           (* extract the mesh associated to each hint; all the mesh is extracted, *)
+  Array.map                                                                         (* so we need another function which filters only the part within the hint body *)
     (fun (mesh, body) ->
       (mesh_plotinfo_points mesh, mesh_plotinfo_simplices mesh)
-    ) 
-    hints 
+    )
+    hints
 
 
 
@@ -5826,41 +5856,41 @@ let fem_geometry_from_bodies                                                    
     =
   let dim = Array.length corner_nw in
 
-  let body_bcs =                                                                     (* boundary conditions from the objects defined by the user *) 
+  let body_bcs =                                                                     (* boundary conditions from the objects defined by the user *)
     Array.map (fun (Body (t,bc)) -> body_trafo_apply_to_bc t bc) bodies
   in
 
-  let hints_bcs =                                                                    (* boundary conditions from objects extracted from loaded meshes *) 
-    Array.map 
+  let hints_bcs =                                                                    (* boundary conditions from objects extracted from loaded meshes *)
+    Array.map
       (fun (mesh, body) ->
         let (Body (t,bc)) = body in
-	  body_trafo_apply_to_bc t bc) 
+	  body_trafo_apply_to_bc t bc)
       hints
   in
-    
+
   let () = Printf.printf "Dimension of hints_bcs array: %d\n%!" (Array.length hints_bcs) in
 
   let body_bcs = Array.append  body_bcs hints_bcs in                                 (* the total boundary conditions include also the hints ones, which come at last *)
   let body_bcs =                                                                     (* and therefore will be "meshed" first *)
-    ( let bc_outer = bc_box corner_nw corner_se in 
-	if mesh_exterior                                                             (* include the outer box in the list of boundary conditions if the user wants to mesh it *) 
-	then Array.append [|fun pos -> Array.fold_left (fun sf bc -> min sf (0.0-.(bc pos))) (bc_outer pos) body_bcs|] body_bcs    
-	  
+    ( let bc_outer = bc_box corner_nw corner_se in
+	if mesh_exterior                                                             (* include the outer box in the list of boundary conditions if the user wants to mesh it *)
+	then Array.append [|fun pos -> Array.fold_left (fun sf bc -> min sf (0.0-.(bc pos))) (bc_outer pos) body_bcs|] body_bcs
+
         else Array.map (fun bc -> fun pos -> Array.fold_left (fun sf bn -> min sf (bn pos)) (bc_outer pos) [|bc|]) body_bcs)
   in
     (* The simplex classificator we are using here just looks in which body the center of gravity
        is located. This is a very simplistic, but usually quite effective heuristics.
     *)
   let body_finder pos = array_position_if (fun bc -> bc pos > 0.0) body_bcs 0 in
-  let classificator =
+  let (*classificator*) _ =
     make_simplex_lines_of_gravity_applicator dim
       (fun center_of_gravity lines_of_gravity log_lens vol ->
 	Body_Nr (1+body_finder center_of_gravity))
   in
   let geo_piece_hints =                                                               (* add empty tuples for all the bcs which don't correspond to an hint object *)
-    let bcs_len = Array.length body_bcs in 
+    let bcs_len = Array.length body_bcs in
     let hints_obj = extract_structures_from_hints hints in
-    let hints_len = Array.length hints_obj in   
+    let hints_len = Array.length hints_obj in
       Array.append (Array.make (bcs_len - hints_len) ([||],[||]))  hints_obj
   in
     {
@@ -5868,7 +5898,7 @@ let fem_geometry_from_bodies                                                    
       fem_geo_bounding_box = bounding_box;
       fem_geo_density = density;
       fem_geo_boundaries = (Array.mapi (fun n bc -> ((Body_Nr (if mesh_exterior then n else 1+n)),bc)) body_bcs);
-      fem_geo_piece_hints = geo_piece_hints; 
+      fem_geo_piece_hints = geo_piece_hints;
       fem_geo_simplex_classificator = (fun x -> Body_Nr 1);       (* the classificator is hacked: double check if this is the right behaviour *)
     }
 ;;
@@ -5933,20 +5963,20 @@ let mesh_boundaries_and_objects
     ?(gendriver=(fun _ -> default_driver))                                   (* driver *)
     ?(rng= Mt19937.make 97)                                                  (* random number generator *)
     raw_fixed_points                                                         (* fixed points *)
-    raw_mobile_points                                                        (* mobile points - they are given initially and can be 
+    raw_mobile_points                                                        (* mobile points - they are given initially and can be
                                                                                 (re)moved by the mesher *)
     simply_points                                                            (* points without cleaning of surface (or interior) bad simplices *)
     fem_geometry                                                             (* kernel of the functions defining the objects + their transformations *)
     mdefaults                                                                (* mesher parameters *)
     length_scale                                                             (* rod lenght of the mesh *)
-    filter                                                                   (* periodicity flags *) 
+    filter                                                                   (* periodicity flags *)
     =
 
-  let () = logdebug (Printf.sprintf "\nenter mesh_boundaries_and_objects") in 
+  let () = logdebug (Printf.sprintf "\nenter mesh_boundaries_and_objects") in
 
-(*  
-    UNUSED: IT WAS INTENDED TO OBTAIN A MESH DIRECTLY FROM QHULL, WITH 
-    ALL ITS PROBLEMS ON THE SURFACES 
+(*
+    UNUSED: IT WAS INTENDED TO OBTAIN A MESH DIRECTLY FROM QHULL, WITH
+    ALL ITS PROBLEMS ON THE SURFACES
 if (Array.length simply_points > 0 )                                       (* mesh the points without "cleaning" the mesh *)
   then
     let pts_states = Array.map (fun p -> Boundary) simply_points in
@@ -5958,15 +5988,15 @@ if (Array.length simply_points > 0 )                                       (* me
 	mdefaults
 	pts_states
 	simply_points
-  else                                                                       (* proper generation of the mesh from the given objects *)                          
-*)    
-  let (corner_nw, corner_se) = fem_geometry.fem_geo_bounding_box in                   
-  let bounding_box = bc_box corner_nw corner_se in                           (* function defining the bounding box *) 
+  else                                                                       (* proper generation of the mesh from the given objects *)
+*)
+  let (corner_nw, corner_se) = fem_geometry.fem_geo_bounding_box in
+  let bounding_box = bc_box corner_nw corner_se in                           (* function defining the bounding box *)
 
   let ht_no_repeated_points =                                                (* hashtable to avoid presence of double points *)
-    Hashtbl.create 
-      ((Array.length raw_fixed_points)+(Array.length raw_mobile_points)) 
-  in 
+    Hashtbl.create
+      ((Array.length raw_fixed_points)+(Array.length raw_mobile_points))
+  in
 
   let point_in_ht point =                                                    (* check if a point is already in the hashtable *)
     let already_in = Hashtbl.mem ht_no_repeated_points point in
@@ -5996,20 +6026,20 @@ if (Array.length simply_points > 0 )                                       (* me
 
   let fixed_points =                                                         (* filter out all the fixed points that are outside the bounding box
                                                                                 or appear twice in the list of given points  *)
-    array_filter (fun p -> 
-      (bounding_box p) > (0.0 -. mdefaults.mdefault_boundary_condition_acceptable_fuzz) && point_in_ht p) 
+    array_filter (fun p ->
+      (bounding_box p) > (0.0 -. mdefaults.mdefault_boundary_condition_acceptable_fuzz) && point_in_ht p)
       raw_fixed_points
   in
   let mobile_points =                                                        (* filter out all the mobile points that are outside the bounding box
                                                                                 or appear twice in the list of given points  *)
-    array_filter 
-      (fun p -> 
-	(bounding_box p) > (0.0 -. mdefaults.mdefault_boundary_condition_acceptable_fuzz) && point_in_ht p) 
+    array_filter
+      (fun p ->
+	(bounding_box p) > (0.0 -. mdefaults.mdefault_boundary_condition_acceptable_fuzz) && point_in_ht p)
       raw_mobile_points
   in
 
   let (periodic_points, ht_periodic_pts_to_save) =                                                      (* if one or more of the flags in the periodicity vector is set to
-                                                                                one, perform the associate "periodization" in the corresponding 
+                                                                                one, perform the associate "periodization" in the corresponding
                                                                                 dimensions *)
     if List.exists (fun x -> x = 1.0) (Array.to_list filter)
     then
@@ -6019,22 +6049,22 @@ if (Array.length simply_points > 0 )                                       (* me
     else
       [||],(Hashtbl.create 1)
   in
-  let initial_points =                                                        (* set the initial points of the mesh; if a periodicity along one 
-                                                                                 or more axis is given, include the generated periodic points to 
-                                                                                 the set of fixed points *)  
+  let initial_points =                                                        (* set the initial points of the mesh; if a periodicity along one
+                                                                                 or more axis is given, include the generated periodic points to
+                                                                                 the set of fixed points *)
     reduce_array (Array.append fixed_points periodic_points)
   in
-  let () = logdebug (Printf.sprintf "\ngo to mesh_it_work") in 
+  let () = logdebug (Printf.sprintf "\ngo to mesh_it_work") in
   mesh_it_work                                                                (* eventually call the mesher! *)
-    ~gendriver:gendriver 
-    ~rng:rng 
-    ~fixed_points:initial_points 
-    ~mobile_points:mobile_points 
-    ~simply_points:simply_points  (* all the conditions on the points within the boundaries are useless if we use 
-				     this feature, but it shouldn't be a problem. gb *) 
+    ~gendriver:gendriver
+    ~rng:rng
+    ~fixed_points:initial_points
+    ~mobile_points:mobile_points
+    ~simply_points:simply_points  (* all the conditions on the points within the boundaries are useless if we use
+				     this feature, but it shouldn't be a problem. gb *)
     ht_periodic_pts_to_save
-    fem_geometry 
-    mdefaults 
+    fem_geometry
+    mdefaults
     length_scale
     (* this is the result of mesh_from_pieces_meshdata*)
 ;;
@@ -6211,7 +6241,8 @@ let mesh_do_reorder_vertices mesh permutation =
 
 (* ** internal only ** *)
 let find_simplex_exit_point_and_nr_face simplex target_point entry_point nr_entry_face =
-  let nr_faces = Array.length simplex.ms_points
+  let nr_faces =
+    let simplex_data, _ = simplex in Simplex.get_num_points simplex_data
   in
   let rec walk nr_face min_param exit_point nr_exit_face =
     if nr_face >= nr_faces
@@ -6224,14 +6255,12 @@ let find_simplex_exit_point_and_nr_face simplex target_point entry_point nr_entr
       if nr_face = nr_entry_face
       then walk (1+nr_face) min_param exit_point nr_exit_face
       else
-	match (simplex_face_eqn simplex nr_face) with
-	| None -> raise Not_found
-	| Some a ->
-	    let param = line_hyperplane_intersection_param entry_point target_point a
-	    in
-	      if param > 0.0 && param < min_param
-	      then walk (nr_face+1) param (line_point entry_point target_point param) nr_face
-	      else walk (nr_face+1) min_param exit_point nr_exit_face
+	let a = simplex_face_eqn simplex nr_face in
+        let param = line_hyperplane_intersection_param entry_point target_point a
+        in
+          if param > 0.0 && param < min_param
+          then walk (nr_face+1) param (line_point entry_point target_point param) nr_face
+          else walk (nr_face+1) min_param exit_point nr_exit_face
   in
     walk 0 max_float entry_point (-1)
 ;;
@@ -6239,39 +6268,36 @@ let find_simplex_exit_point_and_nr_face simplex target_point entry_point nr_entr
 
 (* ** internal only ** *)
 
-let find_simplex (origin_coords, origin_simplex) target_coords =
-  let this_is_roughly_okay sx =
-    let sx_inv_ext_point_coords =
-      match sx.ms_inv_ext_point_coords with
-	| None -> impossible()
-	| Some x -> x
-    in
+let find_simplex mesh (origin_coords, origin_simplex) target_coords =
+  let sd = mesh.mm_simplex_data in
+  let get_inv_point_matrix = Simplex.get_inv_point_matrix sd in
+  let this_is_roughly_okay sx_nr =
+    let sx_inv_point_mx = F.to_ml2 (get_inv_point_matrix sx_nr) in
     let dim = Array.length target_coords in
     let ext_target_coords =
       Array.init (1+dim) (fun n -> if n < dim then target_coords.(n) else 1.0)
     in
-    let local_coords = mx_x_vec sx_inv_ext_point_coords ext_target_coords in
+    let local_coords = mx_x_vec sx_inv_point_mx ext_target_coords in
       array_position_if (fun x -> x > 1.01 || x < (-0.01)) local_coords 0 = (-1)
   in
-  let rec walk simplex_now coords_now nr_face_coming_from =
+  let rec walk cur_sx coords_now nr_face_coming_from =
+    let cur_sx_nr = cur_sx.ms_id in
     let (exit_point, nr_exit_face) =
       find_simplex_exit_point_and_nr_face
-	simplex_now target_coords coords_now nr_face_coming_from
+	(sd, cur_sx_nr) target_coords coords_now nr_face_coming_from
     in
       if nr_exit_face = (-1)
-      then
-	simplex_now
+      then cur_sx
       else
-	match simplex_now.ms_neighbours.(nr_exit_face) with
+	match cur_sx.ms_neighbours.(nr_exit_face) with
 	  | None ->
-	      if this_is_roughly_okay simplex_now
-	      then simplex_now
-	      else
-		raise Not_found
+	      if this_is_roughly_okay cur_sx_nr
+	      then cur_sx
+	      else raise Not_found
 	  | Some neighbour_simplex ->
 	      walk neighbour_simplex
 		exit_point
-		simplex_now.ms_neighbour_backrefs.(nr_exit_face)
+		cur_sx.ms_neighbour_backrefs.(nr_exit_face)
   in
     walk origin_simplex origin_coords (-1)
 ;;
@@ -6282,6 +6308,8 @@ let mesh_locate_point mesh point =
   let () = ensure_mesh_has_incircle_circumcircle mesh in
   let origins = mesh.mm_origins in
   let nr_origins = Array.length origins in
+  let get_inv_point_matrix =
+    Simplex.get_inv_point_matrix mesh.mm_simplex_data in
     (* If all else fails, we have to do point location the hard way:
        walk all mesh simplices.
 
@@ -6294,12 +6322,9 @@ let mesh_locate_point mesh point =
 	(1+mesh.mm_dim)
 	(fun n -> if n < mesh.mm_dim then point.(n) else 1.0)
     in
-    let sx_inv_ext_point_coords =
-      match sx.ms_inv_ext_point_coords with
-	| None -> impossible()
-	| Some x -> x
+    let sx_inv_point_mx = F.to_ml2 (get_inv_point_matrix sx.ms_id)
     in
-      (sx,mx_x_vec sx_inv_ext_point_coords ext_coords)
+      (sx, mx_x_vec sx_inv_point_mx ext_coords)
   in
   let walk_simplices () =
     let simplices = mesh.mm_simplices in
@@ -6316,7 +6341,7 @@ let mesh_locate_point mesh point =
 	  else
 	    let sx_found =
 	      try
-		Some (find_simplex (sx.ms_ic_midpoint,sx) point)
+		Some (find_simplex mesh (sx.ms_ic_midpoint,sx) point)
 	      with | Not_found -> None
 	    in
 	      match sx_found with
@@ -6338,7 +6363,7 @@ let mesh_locate_point mesh point =
     if nr_origin = nr_origins then walk_simplices ()
     else
       try
-	let sx = find_simplex origins.(nr_origin) point in
+	let sx = find_simplex mesh origins.(nr_origin) point in
 	  (* We succeeded in locating the simplex.
 	     Now, exchange the origin from which
 	     we located the point successfully with the
@@ -6360,24 +6385,24 @@ let mesh_locate_point mesh point =
 let scale_node_positions mesh scaling_factor =                   (* this function scales the nodes of a mesh
 								    by a common scaling factor *)
   let dim = Array.length mesh.mm_points.(0).mp_coords in
-  let () = Array.iter 
+  let () = Array.iter
       (fun pt ->
 	for i=0 to dim-1 do
 	  pt.mp_coords.(i) <- scaling_factor *. pt.mp_coords.(i)  (* update information for all the points *)
 	done)
-      mesh.mm_points 
-  in 
-  let () = Array.iteri 	                                                  
+      mesh.mm_points
+  in
+  let () = Array.iteri
     (fun sx_ix sx ->
       let sx_points_coords =                                      (* update information for all the simplices *)
-	(Array.map (fun pt -> pt.mp_coords) sx.ms_points)        
-      in                                                         
+	(Array.map (fun pt -> pt.mp_coords) sx.ms_points)
+      in
       let (ic_midpoint,ic_radius) =
 	simplex_incircle_midpoint_radius dim sx_points_coords
-	    
+
       and (cc_midpoint,cc_radius) =
 	simplex_circumcircle_midpoint_radius dim sx_points_coords
-      in 
+      in
       let () =
 	begin
 	  sx.ms_cc_midpoint <- cc_midpoint;
@@ -6394,23 +6419,14 @@ let scale_node_positions mesh scaling_factor =                   (* this functio
 	   else
 	     Array.init (dim+1)
 	       (fun col -> sx.ms_points.(col).mp_coords.(row)))
-      in
-      let (new_det_ext_coords, new_inv_ext_coords) =
-	try det_and_inv (dim+1) new_ext_coords
-       with | Division_by_zero -> (0.0, Array.make_matrix (dim+1) dim 0.0)
-      in
-      let () = sx.ms_ext_point_coords <- Some new_ext_coords in
-      let () = sx.ms_inv_ext_point_coords <- Some new_inv_ext_coords in
-      let () = sx.ms_point_coords_det <- new_det_ext_coords  
-
-(*      let () = mesh.mm_origins.(sx_ix) <- (ic_midpoint,sx)          (* the mm_origins seems to be an empty *)   
-                                                                      (* vector, and therefore we don't update it *) 
+(*      let () = mesh.mm_origins.(sx_ix) <- (ic_midpoint,sx)          (* the mm_origins seems to be an empty *)
+                                                                      (* vector, and therefore we don't update it *)
 *)
       in ()
     )
-    mesh.mm_simplices 
-  in 
-    mesh.mm_region_volumes <- _region_volumes mesh.mm_simplices        (* update information about the mesh *)   
+    mesh.mm_simplices
+  in
+    mesh.mm_region_volumes <- _region_volumes mesh.mm_simplices        (* update information about the mesh *)
 
 ;;
 
@@ -6438,7 +6454,7 @@ let write_mesh filename mesh =
   let points_coords = Array.map (fun p -> p.mp_coords) mesh.mm_points in
 
   let forall_simplices f = Array.map f mesh.mm_simplices in
-  
+
   let points_indices_region_of_simplices =
     forall_simplices
       (fun sx ->
@@ -6448,13 +6464,13 @@ let write_mesh filename mesh =
 	      scratch_points_coords_for_sx.(i).(c) <- sx.ms_points.(i).mp_coords.(c)
 	    done;
 	    scratch_points_coords_for_sx.(i).(dim) <- 1.0
-	  done   
+	  done
 	in
 	let det = determinant (dim+1) scratch_points_coords_for_sx in             (* this re-orderingn should be *)
 	let scratch_sx_indices = Array.map (fun p -> p.mp_id) sx.ms_points in     (* useless now because such operation *)
 	let sx_indices =                                                          (* is performed when we extract the mesh *)
 	  let () =                                                                (* but I keep it for the cases where *)
-	    if det < 0.                                                           (* a given mesh is loaded and then re-saved *) 
+	    if det < 0.                                                           (* a given mesh is loaded and then re-saved *)
 	    then
 	      let aux = scratch_sx_indices.(0) in
 	      let () = scratch_sx_indices.(0) <- scratch_sx_indices.(1) in
@@ -6478,7 +6494,7 @@ let write_mesh filename mesh =
     let () = Array.sort compare sorted_surf_ixs in
     try    (* the comparison is done on the sorted list of face point indices *)
       let (regions_sf,det) = Hashtbl.find ht_surface_regions_info sorted_surf_ixs in
-	Hashtbl.replace ht_surface_regions_info sorted_surf_ixs ((region::regions_sf),det) 
+	Hashtbl.replace ht_surface_regions_info sorted_surf_ixs ((region::regions_sf),det)
     with
     | Not_found ->
 	  let () =   (* the first time I compute&store the determinant of the unsorted indices, so later on I know which region to print first *)
@@ -6486,12 +6502,12 @@ let write_mesh filename mesh =
 	      for c=0 to dim-1 do
 		scratch_points_coords_for_face.(i).(c) <- points_coords.(surf_ixs.(i)).(c)
 	      done;
-	    done   
+	    done
 	  in
 	  let det = determinant (Array.length surf_ixs) scratch_points_coords_for_face in
 	  Hashtbl.add ht_surface_regions_info sorted_surf_ixs ([region],det)
   in
-  let () = 
+  let () =
     Array.iter (fun sx ->
       let region = sx.ms_in_body in
       let backref = sx.ms_neighbour_backrefs in
@@ -6500,19 +6516,19 @@ let write_mesh filename mesh =
       let check_outer_elem =
 	array_all_satisfy (fun x -> x >= 0) backref
       in
-	let () = 
+	let () =
 	  if check_outer_elem then
-	    () 
+	    ()
 	  else
 	    let rec find_surface_nodes ix =
-	      if ix = nr_neigh then () 
+	      if ix = nr_neigh then ()
 	      else
 		let pos = (array_position (-1) backref ix) in
 		if pos > (-1) then
 		  let surf_ixs = (array_one_shorter (Array.map (fun p -> p.mp_id) sx.ms_points) pos) in
 		  let () = register_surf_in_ht surf_ixs ((fun (Body_Nr r) -> r) region) in
-		  let () = register_surf_in_ht surf_ixs (-1) in 
-		  find_surface_nodes (1+pos) 
+		  let () = register_surf_in_ht surf_ixs (-1) in
+		  find_surface_nodes (1+pos)
 		else
 		  ()
 	    in
@@ -6525,16 +6541,16 @@ let write_mesh filename mesh =
 	    | None -> 1 = 1
 			    ) neigh
 	in
-	if check_surface_elem 
+	if check_surface_elem
 	then
 	  ()
 	else
 	  let rec find_interior_surface_nodes ix =
-	    if ix = nr_neigh then () 
+	    if ix = nr_neigh then ()
 	    else
-	      let pos = (array_position_if (fun n -> 
-		match n with 
-		| Some m -> m.ms_in_body <> region    
+	      let pos = (array_position_if (fun n ->
+		match n with
+		| Some m -> m.ms_in_body <> region
 		| None -> 1 = 1 )
 			   neigh ix)
 	      in
@@ -6560,7 +6576,7 @@ let write_mesh filename mesh =
     Printf.fprintf output_file "# PYFEM mesh file version %s\n" format_version
   in
   let () =
-    Printf.fprintf output_file "# dim = %d \t nodes = %d \t simplices = %d \t surfaces = %d \t periodic = %d\n%!" dim nodes_nr simplices_nr (Array.length (hashtbl_keys ht_surface_regions_info)) periodic_nr 
+    Printf.fprintf output_file "# dim = %d \t nodes = %d \t simplices = %d \t surfaces = %d \t periodic = %d\n%!" dim nodes_nr simplices_nr (Array.length (hashtbl_keys ht_surface_regions_info)) periodic_nr
   in
   let write_coords coords =
     begin
@@ -6585,13 +6601,13 @@ let write_mesh filename mesh =
     Printf.fprintf output_file "%d\n" (Array.length (hashtbl_keys ht_surface_regions_info));
     Hashtbl.iter (fun face (regions,determ) ->
       let second_region::first_region::tail = regions in
-      let () = 
+      let () =
 	if determ > 0.0
 	then
-	  Printf.fprintf output_file "\t%d %d\t" first_region second_region 
-	else 
-	  Printf.fprintf output_file "\t%d %d\t" second_region first_region 
-      in 
+	  Printf.fprintf output_file "\t%d %d\t" first_region second_region
+	else
+	  Printf.fprintf output_file "\t%d %d\t" second_region first_region
+      in
       let () = Array.iter (fun x -> Printf.fprintf output_file "%d "  x) face in
       Printf.fprintf output_file "\n%!"
 		 ) ht_surface_regions_info
@@ -6599,18 +6615,18 @@ let write_mesh filename mesh =
   let write_periodic () =
     let ht_mesh_points = Hashtbl.create (Array.length points_coords) in           (* hashtbl to support the storage of periodic points in
 										     the mesh structure *)
-    
+
     let () = Array.iteri (fun pt_ix p -> Hashtbl.add ht_mesh_points p pt_ix ) points_coords in
-    Array.iteri 
-      (fun arr_i periodic_same -> 
-	let () = 
+    Array.iteri
+      (fun arr_i periodic_same ->
+	let () =
 	  let () = Printf.fprintf output_file "\t%d\t" arr_i in
 	  Array.iter (fun pt_index -> Printf.fprintf output_file "%d " (Hashtbl.find ht_mesh_points points_coords.(pt_index))) periodic_same  in
 	Printf.fprintf output_file "\n%!"
       ) mesh.mm_periodic_points
-      
+
   in
-  
+
   begin
     Printf.fprintf output_file "%d\n" nodes_nr;
     Array.iter write_coords points_coords;
@@ -6661,15 +6677,15 @@ let read_mesh filename =
 	      RRR
 *)
 	       let () = logdebug (Printf.sprintf "Going to the points section\n%!") in
-	       let points_line_offset = 3 in 
+	       let points_line_offset = 3 in
 		let the_points =
 		  Array.mapi
 		    (fun line_nr line ->
 		      let pieces = Str.split rx_nonnumber line
 		      in
 		      let coords = Array.of_list (List.map float_of_string pieces) in
-		      if Array.length coords <> dim 
-		      then 
+		      if Array.length coords <> dim
+		      then
 			let failstring = filename^" - LINE "^(string_of_int (line_nr + points_line_offset + 1))^": Wrong number of point coordinates" in
 			failwith failstring
 		      else coords
@@ -6683,73 +6699,73 @@ let read_mesh filename =
 		    (fun line_nr line ->
 		      let pieces = Str.split rx_nonnumber line in
 		      if List.length pieces <> (dim+2)
-		      then 
+		      then
 			let failstring = filename^" - LINE "^(string_of_int (line_nr + simplices_line_offset + 1))^": Wrong number of simplex coordinates" in
 			failwith failstring
 		      else
 			let sx_region = List.hd pieces in
 			let sx_indices = List.tl pieces in
 			let indices = Array.of_list (List.map int_of_string sx_indices ) in
-			if (Array.length indices <> (dim+1)) 
-			then 
+			if (Array.length indices <> (dim+1))
+			then
 			  let failstring = filename^" - LINE "^(string_of_int (line_nr + simplices_line_offset + 1))^": Wrong number of points for a simplex" in
 			  failwith failstring
 			else let wrong_inx = (array_position_if (fun i -> i>=nodes_nr) indices 0) in
 	                if wrong_inx > (-1)
-			  then 
+			  then
 			  let failstring = filename^" - LINE "^(string_of_int (line_nr + simplices_line_offset + 1))^": Index "^(string_of_int (wrong_inx+1))^" out of range" in
-			  failwith failstring 
+			  failwith failstring
 			else let sorted_copy = array_sorted compare indices in
                         if (sorted_array_has_duplicate (fun a b -> a = b) sorted_copy) then
 			  let failstring = filename^" - LINE "^(string_of_int (line_nr + simplices_line_offset + 1))^": Duplicate index" in
-			  failwith failstring 
-			else 
+			  failwith failstring
+			else
 			  try
 			    let region = (fun n -> Body_Nr n ) (int_of_string sx_region)
 			    in
 			    region, indices
 			  with
 			  | _ -> let failstring = filename^" - LINE "^(string_of_int (line_nr + simplices_line_offset + 1))^": Wrong number of simplex region" in
-			      failwith failstring 
+			      failwith failstring
 		    )
 		    ( Array.sub lines simplices_line_offset simplices_nr)
 		in
 		let () = logdebug (Printf.sprintf "Going to the surfaces section") in
 		let surfaces_line_offset = (4+nodes_nr+1+simplices_nr) in
-		let the_surfaces =
+		let (*the_surfaces*) _ =
 		  Array.mapi
 		    (fun line_nr line ->
 		      let pieces = Str.split rx_nonnumber line in
 		      if List.length pieces <> (dim+2)
-		      then 
+		      then
 			let () = loginfo (Printf.sprintf  "Warning: surface information not complete (don't worry, I can deal with it)") in
 			((Body_Nr (-3)), (Body_Nr (-3)), [||]) (* this value is simply to match the other condition of if statement *)
 		      else
 			let sx_region1::sx_region2::list_tail = pieces in
 			let sx_indices = list_tail in
 			let indices = Array.of_list (List.map int_of_string sx_indices ) in
-			if Array.length indices <> dim 
-			then 
+			if Array.length indices <> dim
+			then
 			  let failstring = filename^" - LINE "^(string_of_int (line_nr + surfaces_line_offset + 1))^": Wrong number of points for a surface" in
 			  failwith failstring
 			else let wrong_inx = (array_position_if (fun i -> i>=nodes_nr) indices 0) in
 	                if wrong_inx > (-1)
-			  then 
+			  then
 			  let failstring = filename^" - LINE "^(string_of_int (line_nr + surfaces_line_offset + 1))^": Index "^(string_of_int (wrong_inx+1))^" out of range" in
-			  failwith failstring 
+			  failwith failstring
 			else let sorted_copy = array_sorted compare indices in
                         if (sorted_array_has_duplicate (fun a b -> a = b) sorted_copy) then
 			  let failstring = filename^" - LINE "^(string_of_int (line_nr + surfaces_line_offset + 1))^": Duplicate index" in
-			  failwith failstring 
-			else 
+			  failwith failstring
+			else
 			  try
 			    let region1 = (fun n -> Body_Nr n ) (int_of_string sx_region1) in
 			    let region2 = (fun n -> Body_Nr n ) (int_of_string sx_region2) in
 			      (region1, region2, indices)
 			  with
-			  | _ -> 
+			  | _ ->
 			      let failstring = filename^" - LINE "^(string_of_int (line_nr + surfaces_line_offset + 1))^": Wrong number of simplex region" in
-			      failwith failstring 
+			      failwith failstring
 		    )
 		    ( Array.sub lines (4+nodes_nr+1+simplices_nr) surfaces_nr)
 		in
@@ -6762,13 +6778,13 @@ let read_mesh filename =
 		      let indices = Array.of_list (List.map int_of_string periodic_pts_indices ) in
 			let wrong_inx = (array_position_if (fun i -> i>=nodes_nr) indices 0) in
 	                if wrong_inx > (-1)
-			  then 
+			  then
 			  let failstring = filename^" - LINE "^(string_of_int (line_nr + periodic_line_offset + 1))^": Index "^(string_of_int (wrong_inx+1))^" out of range" in
-			  failwith failstring 
+			  failwith failstring
 			else let sorted_copy = array_sorted compare indices in
                         if (sorted_array_has_duplicate (fun a b -> a = b) sorted_copy) then
 			  let failstring = filename^" - LINE "^(string_of_int (line_nr + periodic_line_offset + 1))^": Duplicate index" in
-			  failwith failstring 
+			  failwith failstring
 			else
 			  indices
 		    )
@@ -6789,7 +6805,7 @@ let read_mesh filename =
                            mesh.mm_points.(indices.(i)).mp_in_body <- region::regs_in_pnt
 		       done)
 		  the_simplices
-		  
+
 		in
 		let () = logdebug (Printf.sprintf "after simplices") in
 		let () = logdebug (Printf.sprintf "going to mesh-grow-bookkeeping-data ") in
@@ -6804,25 +6820,25 @@ let read_mesh filename =
 		       if pos != (-1)
 		       then
 			 let rec find_surf_facets pos_sf =
-			   if pos_sf = nr_vertices 
+			   if pos_sf = nr_vertices
 			   then ()
 			   else
-			     let () = 
-			       if backrefs.(pos_sf) = (-1) 
+			     let () =
+			       if backrefs.(pos_sf) = (-1)
 			       then
 				 let surf_points_ixs = Array.map ( fun p -> p.mp_id) (array_one_shorter sx.ms_points pos_sf) in
 				   Array.iter (
-				     fun p_ix -> 
+				     fun p_ix ->
 				       try ignore( List.find (fun r -> r = (Body_Nr (-1))) mesh.mm_points.(p_ix).mp_in_body  )
 				       with
-					 | Not_found -> 
+					 | Not_found ->
 					     mesh.mm_points.(p_ix).mp_in_body  <- ((Body_Nr (-1))::mesh.mm_points.(p_ix).mp_in_body )
 				   ) surf_points_ixs
 			       else ()
-			     in 
+			     in
 			       find_surf_facets (1+pos_sf)
 			 in
-			   find_surf_facets pos 
+			   find_surf_facets pos
 		       else
 			 ()
 		  )
@@ -6882,25 +6898,25 @@ let read_mesh_from_points_and_simplices nodes_arr simplices_indices_arr region_a
 	     if pos != (-1)
 	     then
 	       let rec find_surf_facets pos_sf =
-		 if pos_sf = nr_vertices 
+		 if pos_sf = nr_vertices
 		 then ()
 		 else
-		   let () = 
-		     if backrefs.(pos_sf) = (-1) 
+		   let () =
+		     if backrefs.(pos_sf) = (-1)
 		     then
 		       let surf_points_ixs = Array.map ( fun p -> p.mp_id) (array_one_shorter sx.ms_points pos_sf) in
 			 Array.iter (
-			   fun p_ix -> 
+			   fun p_ix ->
 			     try ignore( List.find (fun r -> r = (Body_Nr (-1))) mesh.mm_points.(p_ix).mp_in_body  )
 			     with
-			       | Not_found -> 
+			       | Not_found ->
 				   mesh.mm_points.(p_ix).mp_in_body  <- ((Body_Nr (-1))::mesh.mm_points.(p_ix).mp_in_body )
 			 ) surf_points_ixs
 		     else ()
-		   in 
+		   in
 		     find_surf_facets (1+pos_sf)
 	       in
-		 find_surf_facets pos 
+		 find_surf_facets pos
 	     else
 	       ()
 	)
@@ -7055,3 +7071,5 @@ let mesh_it
       | Some "" -> do_the_real_work ()
       | Some x -> maybe_use_cached_mesh x do_the_real_work
 ;;
+
+module Simplex = Simplex

@@ -3,7 +3,15 @@ Introduction
 
 This document describe the stylistic choices which the Nsim developers are
 trying to follow.
- 
+
+LOCAL(STATIC) FUNCTIONS AND OBJECTS: we encourage the usage of the prefix
+my_ to embed in the name of functions and objects the fact that they are
+meant to be local and are not exposed outside of the current module/file.
+
+ABSTRACT TYPES: types should be abstract when possible, and we should use
+methods to access the fields. That also prevents the name scoping problem
+of OCaml (i.e. two structures cannot have members with the same name).
+
 
 Abbreviations used in the code
 ==============================

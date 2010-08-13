@@ -186,10 +186,11 @@ val femfun_linsubs :
 val _raw_femfun_integrate : float femfun_summand array -> int -> float femfun
 val femfun_integrate :
   int * float femfun_summand array -> int -> float femfun
+(*
 val femfun_numerical_integrator :
   (float array * float) array ->
   'a * float femfun_summand array ->
-  Mesh.simplex -> (float array -> float) -> float
+  Mesh.simplex -> (float array -> float) -> float*)
 val _raw_femfun_integrate_over_surface :
   int ->
   int * float femfun_summand array -> int -> int * int array * float femfun
@@ -199,9 +200,9 @@ val femfun_integrate_over_surface :
 val _raw_femfun_diff_x : float femfun_summand array -> int -> float femfun
 val femfun_diff_x : int * float femfun_summand array -> int -> float femfun
 val femfun_integrate_over_simplex :
-  'a * float femfun_summand array -> Mesh.simplex -> float
+  Mesh.mesh -> 'a * float femfun_summand array -> Mesh.simplex -> float
 val femfun_integrate_over_simplex_face :
-  ?bare_integral:bool ->
+  Mesh.mesh -> ?bare_integral:bool ->
   int * float femfun_summand array -> Mesh.simplex -> int -> float
 val mwe_subfield_info :
   'a mesh_with_elements ->
@@ -252,7 +253,7 @@ val square_mesh : int -> int -> float -> float -> Mesh.mesh
 val site_face_nrs : Mesh.simplex -> Mesh.point_id array -> int list
 val mwe_dof_jumps :
   'a mesh_with_elements -> (int * int, string list) Hashtbl.t
-val make_mwe :  
+val make_mwe :
   string ->
   ?debug:bool ->
   ?retain_simplex_info_pmid:bool ->

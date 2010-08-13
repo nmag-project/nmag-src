@@ -14,7 +14,7 @@
   XXX Some of the stuff in here should be migrated to a mumag
   package, as it's not fem-element specific...
 
-  ocamlc -I ../nsim_grammars -I ../fastfields -I ../diffop_parser -I ../qhull -I ../snippets -I ../mesh -I ../nlog -I ../mpi_petsc -I ../sundials -i fem.ml 
+  ocamlc -I ../nsim_grammars -I ../fastfields -I ../diffop_parser -I ../qhull -I ../snippets -I ../mesh -I ../nlog -I ../mpi_petsc -I ../sundials -i fem.ml
 
 *)
 
@@ -49,8 +49,9 @@
 
 open Snippets;;
 open Mesh;;
+open Base.Ba;;
 
-let version () = 
+let version () =
   String.concat ":" ["$Id$";
 		      (Snippets.version());
 		      (Mesh.version());
@@ -98,7 +99,7 @@ let print_dof_region_spec drs =		(* DDD *)
 
 type dof_region_logic = Ddiffop_parser.dof_logic;;
 
-(* A data vector shortening selection (dvss) will consist of information about 
+(* A data vector shortening selection (dvss) will consist of information about
    subfield name stems plus associated region logic. (Note: every subfield name
    may only appear ONCE in here!)
 
@@ -138,7 +139,7 @@ let dvss_to_string dvss =
 	  Printf.sprintf "#[DVSS: %s]"
 	    (String.concat "; "
 	       (Array.to_list
-		  (Array.map 
+		  (Array.map
 		     (fun (stem, dof_region_logic) ->
 			(Printf.sprintf "%s => %s" stem
 			   (dof_region_logic_to_string dof_region_logic)))
@@ -211,7 +212,7 @@ type 'num femfun_summand =
    }
 ;;
 
-type 'num femfun = (int * 'num femfun_summand array);; 
+type 'num femfun = (int * 'num femfun_summand array);;
 (* The integer is the number of the femfun - we number them by order of occurrence *)
 
 let ht_all_femfuns_by_fem = Hashtbl.create 17;; (* raw_femfun -> (nr,raw_femfun) = femfun *)
@@ -320,7 +321,7 @@ type dof =
       *)
      mutable dof_disappears_across: (simplex * int) list;
      mutable dof_sx_nel_ix_fillcount: int;
-     mutable dof_sx_nel_ix: int array;     
+     mutable dof_sx_nel_ix: int array;
      (* simplex, nr of element, nr of entry in the element.
 
 	This originally was:
@@ -334,8 +335,8 @@ type dof =
 	single int?  On 32-bit machines, OCaml integers give us
 	sign+30 valid bits. Doing the math, we see that this is not
 	really sufficient, so we use this scheme instead:
-	
-	We choose pairs of integers to represent one sx_nel_ix 
+
+	We choose pairs of integers to represent one sx_nel_ix
 	entry, in this form:
 
         simplex-nr ; (nr_element<<16 + element_index)
@@ -364,7 +365,7 @@ let dof_sx_nel_ix_extend ?(extra=25) dof =
 
 let dof_sx_nel_ix_add dof sx nel ix =
   let fillcount = dof.dof_sx_nel_ix_fillcount in
-  let () = 
+  let () =
     (if 2*fillcount = Array.length dof.dof_sx_nel_ix
      then dof_sx_nel_ix_extend dof
      else ())
@@ -391,7 +392,7 @@ let dof_sx_nel_ix_iter simplices dof f =
 let dof_sx_nel_ix_find simplices dof pred =
   let sx_nel_ix = dof.dof_sx_nel_ix in
   let fillcount = dof.dof_sx_nel_ix_fillcount in
-  let rec walk n = 
+  let rec walk n =
     if n = fillcount then raise Not_found
     else
       let sx = simplices.(sx_nel_ix.(2*n)) in
@@ -408,7 +409,7 @@ let dof_sx_nel_ix_find simplices dof pred =
 let dof_sx_nel_ix_reduce simplices dof f x0 =
   let sx_nel_ix = dof.dof_sx_nel_ix in
   let fillcount = dof.dof_sx_nel_ix_fillcount in
-  let rec walk n x = 
+  let rec walk n x =
     if n = fillcount then x
     else
       let sx = simplices.(sx_nel_ix.(2*n)) in
@@ -438,7 +439,7 @@ let dof_name_to_string dof_name =
 *)
 
 type 'a mwe_made_by =
-  | MWEMB_make_mwe of 
+  | MWEMB_make_mwe of
       (string *
        (int * string array) array * (* properties by region *)
        (int array) * (* This replaces fun_outer_region: outer region array indexed by site-id, 0=not an outer site *)
@@ -471,7 +472,7 @@ type 'a mwe_made_by =
 
    NOTE: this massive and complicated data structure actually seems
    not to be used much at all - after all, if we set up the whole thing,
-   then each DOF will know about its shape function anyway, so there is 
+   then each DOF will know about its shape function anyway, so there is
    little reason why the *sites* should retain knowledge about which simplex
    and which abssite they belong to...
 *)
@@ -502,7 +503,7 @@ type 'num mesh_with_elements =
      (* which dof also appears where else? length: nr_dofs, non-periodic entries: [||]
      *)
      (* Note that among the nontrivial entries in mwe_dof_periodic_images,
-	there are some that are special: those where pi.(j).(0) = j, i.e. those 
+	there are some that are special: those where pi.(j).(0) = j, i.e. those
 	where the leading dof index in the array is the index of the group, so this is
 	"the master dof's home entry" for periodicity info. We use these entries to
 	"equalize" fields.
@@ -520,7 +521,7 @@ type 'num mesh_with_elements =
 	sharing between primary and derived mwes!
      *)
      mwe_dof_neighbour_pairs: (int array * int array) array option ref;
-     (* This is tricky: the "option ref" behaviour is as below; 
+     (* This is tricky: the "option ref" behaviour is as below;
 	the outermost array is indexed by subfield index,
 	and the inner arrays are parallel and give all pairs of dofs
 	which have all tensor indices =0 that belong to neighbouring sites.
@@ -542,13 +543,13 @@ type 'num mesh_with_elements =
 	in the number of entries an array may have (~2M, meaning ~200000 DOFs)!
      *)
      mwe_dof_funs_volumes: float array option ref;
-     (* These inverse volumes are needed to approximately map a co-field to a field - 
+     (* These inverse volumes are needed to approximately map a co-field to a field -
 	if we want to stick with sparse operators at the expense of some mathematical
 	cleanliness...
       *)
      mwe_distribution: int array;
      (* How to distribute entries across multiple nodes -
-	might be superseded/obsoleted by the following entry 
+	might be superseded/obsoleted by the following entry
 	sometime in the future (presumably not, as we also use it
 	to read off the cvode vector distribution): *)
      mwe_dofs_and_distribution_by_dvss:
@@ -581,7 +582,7 @@ type 'num fem_field = FEM_field of
   'num mesh_with_elements * dvss * Mpi_petsc.vector;;
 
 type 'num fem_cofield = FEM_cofield of
-  'num mesh_with_elements * dvss * Mpi_petsc.vector;;	   
+  'num mesh_with_elements * dvss * Mpi_petsc.vector;;
 
 let the_dof_name mwe dof = (* Note that every dof must belong to some element! *)
   let nel_ix = dof.dof_sx_nel_ix.(1) in
@@ -621,12 +622,12 @@ let dof_belongs_to mwe dof region_logic =
   let properties_by_region = mwe.mwe_properties_by_region in
   let no_props=[||] in
   let regions = dof.dof_in_body in
-  let region_has_property r p = 
+  let region_has_property r p =
     let props = try Hashtbl.find properties_by_region r with | Not_found -> no_props in
     let nr_props = Array.length props in
     let rec check_prop n =
       if n = nr_props then false
-      else if p = props.(n) then true 
+      else if p = props.(n) then true
       else check_prop (1+n)
     in check_prop 0
   in
@@ -646,19 +647,19 @@ let dof_belongs_to mwe dof region_logic =
     in walk xs
   and
       dlog_not x = not (dlog x)
-  and 
+  and
       dlog_nregions n = List.length regions = n
   and
-      dlog_all str = 
+      dlog_all str =
     let rec walk rest =
-      match rest with 
+      match rest with
 	| [] -> true
 	| (head::tail) -> if region_has_property head str then walk tail else false
     in walk regions
   and
-      dlog_some str = 
+      dlog_some str =
     let rec walk rest =
-      match rest with 
+      match rest with
 	| [] -> false
 	| (head::tail) -> if region_has_property head str then true else walk tail
     in walk regions
@@ -709,12 +710,12 @@ let mwe_shortvec_info mwe dvss =
 	  let ht_dof_nrs = Hashtbl.create 100 in
 	  (* let ddd = Printf.printf "DDD CPU %d mwe \"%s\" distrib %s\n%!" (Mpi_petsc.comm_rank (Mpi_petsc.petsc_get_comm_world())) mwe.mwe_name (int_array_to_string mwe.mwe_distribution) in *)
 	  let distrib = Array.make (Array.length mwe.mwe_distribution) 0 in
-	  let () = 
+	  let () =
 	    array_foreach_do mwe.mwe_dofs
 	      (fun dof ->
-		 if dvss_constraint mwe dof dvss 
+		 if dvss_constraint mwe dof dvss
 		 then
-		   if Hashtbl.mem ht_dof_nrs dof.dof_nr 
+		   if Hashtbl.mem ht_dof_nrs dof.dof_nr
 		   then ()
 		   else
 		     let () = Hashtbl.add ht_dof_nrs dof.dof_nr true in
@@ -727,14 +728,14 @@ let mwe_shortvec_info mwe dvss =
 	  let () = Array.iteri (fun nr_short nr_long -> v_long_to_short.(nr_long) <- nr_short) v_short_to_long in
 	  let entry = (v_long_to_short,v_short_to_long,distrib) in
 	  let canonical_entry = ref entry in
-	  let () = hashtbl_foreach_do mwe.mwe_dofs_and_distribution_by_dvss 
+	  let () = hashtbl_foreach_do mwe.mwe_dofs_and_distribution_by_dvss
 	    (fun _ ((_,old_stl,_) as old_entry) ->
 	       if old_stl = v_short_to_long then canonical_entry := old_entry else ())
 	  in
 	  let () = Hashtbl.add mwe.mwe_dofs_and_distribution_by_dvss dvss (!canonical_entry)
 	  in
 	  let result = !canonical_entry in
-	  let ddd = 
+	  let ddd =
 	    let (lts,stl,distrib) = result in
 	      logdebug (Printf.sprintf "mwe_shortvec_info (CPU %d mwe: %s dvss: %s): (lts=#[array length=%d],stl=#[array length=%d],distrib=%s"
 			  (Mpi_petsc.comm_rank (Mpi_petsc.petsc_get_comm_world()))
@@ -745,8 +746,8 @@ let mwe_shortvec_info mwe dvss =
 	    result
 ;;
 
-let boundary_shortvec_info dof_stem mwe boundary_spec = 
-  let the_region_logic = 
+let boundary_shortvec_info dof_stem mwe boundary_spec =
+  let the_region_logic =
     parse_or_error
       Ddiffop_lexer.token
       Ddiffop_parser.region_logic (* parser entry point *)
@@ -1383,21 +1384,18 @@ let femfun_integrate femfun nr_L =
    Note that the numfun must be able to handle extended point coordinates.
  *)
 
-let femfun_numerical_integrator simplex_decomposition femfun simplex =
+
+(* XXX It doesn't seem to be used. Is it obsolete? mf 12 Aug 2010 *)
+let femfun_numerical_integrator simplex_decomposition femfun (mesh, simplex_nr) =
+  let m0 = mesh.mm_mesh0 in
+  let sd = mesh.mm_simplex_data in
+  let simplex = mesh.mm_simplices.(simplex_nr) in
   let dim=Array.length simplex.ms_points.(0).mp_coords in
   let scratch_pos = Array.make (1+dim) 0.0 in
-  let mx_dL_dx = 
-    match simplex.ms_inv_ext_point_coords with
-    | None -> failwith "Essential simplex information missing!"
-    | Some m -> m
-  in
-  let mx_dx_dL =
-    match simplex.ms_ext_point_coords with
-    | None -> failwith "Essential simplex information missing!"
-    | Some m -> m
-  in
+  let mx_dL_dx = F.to_ml2 (Simplex.get_inv_point_matrix sd simplex_nr) in
+  let mx_dx_dL = F.to_ml2 (Simplex.get_point_matrix sd simplex_nr) in
   let sx_volume = simplex.ms_point_coords_det/.(float_factorial dim) in
-  let points_and_coeffs = 
+  let points_and_coeffs =
     Array.map
       (fun (coords_L,partial_volume) ->
 	let ext_pos = mx_x_vec ~store_result:scratch_pos mx_dx_dL coords_L in
@@ -1409,7 +1407,6 @@ let femfun_numerical_integrator simplex_decomposition femfun simplex =
     Array.fold_left
       (fun sf (pos,coeff) -> sf+.(numfun pos)*.coeff) 0.0 points_and_coeffs
 ;;
-
 
 
 (* Integration over surface:
@@ -1572,14 +1569,9 @@ let femfun_diff_x femfun nr_dx =
 	    result
 ;;
 
-let femfun_integrate_over_simplex (_,femfun) simplex =
-  let dL = match simplex.ms_inv_ext_point_coords with
-  | None -> failwith "Simplex needs inv_ext_point_coords!"
-        (* Any properly constructed mesh will provide this!
-	   XXX But maybe, we nevertheless should
-	   raise another exception here.
-	 *)
-  | Some x -> x
+let femfun_integrate_over_simplex mesh (_,femfun) simplex =
+  let dL =
+    F.to_ml2 (Simplex.get_inv_point_matrix mesh.mm_simplex_data simplex.ms_id)
   in
   let dim = Array.length dL-1 in
   let integral =
@@ -1598,7 +1590,7 @@ let femfun_integrate_over_simplex (_,femfun) simplex =
 	    if nr_factor = nr_factors then sf
 	    else
 	      let factor = powers_dL.(nr_factor) in
-	      let dL_factor  = dL.(factor.dlp_nr_L).(factor.dlp_nr_dx) in 
+	      let dL_factor  = dL.(factor.dlp_nr_L).(factor.dlp_nr_dx) in
 	      let dL_factor_pow = int_power factor.dlp_pow dL_factor in
 		walk_factors (sf*.dL_factor_pow) (1+nr_factor)
 	  in walk_factors (coeff*.factor_L) 0
@@ -1619,14 +1611,10 @@ let femfun_integrate_over_simplex (_,femfun) simplex =
 (* XXX for now, this is just a cut&paste hack, which duplicates
    femfun_integrate_over_simplex. Redo these two functions properly!
 *)
-let femfun_integrate_over_simplex_face ?(bare_integral=false) femfun simplex nr_face =
-  let dL = match simplex.ms_inv_ext_point_coords with
-  | None -> failwith "Simplex needs inv_ext_point_coords!"
-        (* Any properly constructed mesh will provide this!
-	   XXX But maybe, we nevertheless should
-	   raise another exception here.
-	 *)
-  | Some x -> x
+let femfun_integrate_over_simplex_face
+      mesh ?(bare_integral=false) femfun simplex nr_face =
+  let dL =
+    F.to_ml2 (Simplex.get_inv_point_matrix mesh.mm_simplex_data simplex.ms_id)
   in
   let dim = Array.length dL-1 in
   let (_,_,(_,integrated_over_L)) = femfun_integrate_over_surface dim femfun nr_face in
@@ -1655,11 +1643,11 @@ let femfun_integrate_over_simplex_face ?(bare_integral=false) femfun simplex nr_
 	 Also note that we explicitly have to use abs_float to get the positive volume.
 	 This may be traced back to a hidden implicit convention to use positively
 	 oriented L-coordinates for integration.
-	 
+
 	 Note furthermore that the necessity of this volume factor already can be seen from
 	 dimensions: dL entries have dimensions 1/Length (x has dimension Length,
 	 L has dimension 1), and we need Length**(dim-1).
-	 
+
 	 (Originally, I included an extra factor -1 here - this turned out to be wrong!)
       *)
 ;;
@@ -1669,7 +1657,7 @@ let femfun_integrate_over_simplex_face ?(bare_integral=false) femfun simplex nr_
 *)
 
 let mwe_subfield_info mwe subfield_name =
-  let (_,subfield_indices) = 
+  let (_,subfield_indices) =
     try
       array_find (fun (n,_) -> n=subfield_name) mwe.mwe_subfields
     with
@@ -1677,13 +1665,13 @@ let mwe_subfield_info mwe subfield_name =
       failwith (Printf.sprintf "mwe_subfield_info: unknown subfield '%s' in mwe '%s'"
 		  subfield_name mwe.mwe_name)
   in
-  let sites_and_relevant_dofs = 
+  let sites_and_relevant_dofs =
     array_mapfilter
       (fun (site,dofs) ->
 	 if Array.length dofs = 0
 	 then None
 	 else Some (site,dofs.(0).dof_pos,dofs))
-      (map_hashtbl_to_array 
+      (map_hashtbl_to_array
 	 ~sorter:(fun (k1,_) (k2,_) -> compare k1 k2)
 	 (fun site_ix dofs ->
 	    (site_ix,
@@ -1712,18 +1700,19 @@ let mwe_ensure_has_volumes mwe =
 	  (fun sx nel ix ->
 	     let elem = mwe.mwe_elements.(nel) in
 	     let dof_femfun = elem.el_dof_funs.(ix) in
-	     let vol_contrib = femfun_integrate_over_simplex dof_femfun sx in
+	     let vol_contrib =
+               femfun_integrate_over_simplex mwe.mwe_mesh dof_femfun sx in
 	     let images = mwe.mwe_dof_periodic_images.(nr_dof) in
 	       if Array.length images <=1 then
 		 v_vols.(nr_dof) <- v_vols.(nr_dof)+.vol_contrib
 	       else
-		 Array.iter 
+		 Array.iter
 		   (fun ix_img ->
 		      (* let () = Printf.printf "PERIODIC-VOL %s: dof %4d += %f\n%!" mwe.mwe_name ix_img vol_contrib in *)
 		      v_vols.(ix_img) <- v_vols.(ix_img)+.vol_contrib) images)
       done
     in
-    let () = 
+    let () =
       for nr_dof=0 to nr_dofs-1 do
 	mwe.mwe_dofs.(nr_dof).dof_volume <- v_vols.(nr_dof);
       done
@@ -1931,7 +1920,7 @@ let copy_cofield_into (FEM_cofield (mwe_s,r_s,v_s)) ((FEM_cofield (mwe_d,r_d,v_d
 *)
 
 let make_field ?(name=gensym "Field_") ?(restriction=None) ?constant_value mwe =
-  let nr_dof = 
+  let nr_dof =
     match restriction with
       | None -> Array.length mwe.mwe_dofs
       | Some restr ->
@@ -1951,7 +1940,7 @@ let make_field ?(name=gensym "Field_") ?(restriction=None) ?constant_value mwe =
 ;;
 
 let make_cofield ?(name=gensym "Cofield_") ?(restriction=None) ?constant_value mwe =
-  let nr_dof = 
+  let nr_dof =
     match restriction with
       | None -> Array.length mwe.mwe_dofs
       | Some restr ->
@@ -1997,7 +1986,7 @@ let field_axpby ((FEM_field (mwe_target,rt,v_target)) as target)
 let cofield_to_field ?target ?(box_method=false) ((FEM_cofield (mwe,_,v)) as cofield) =
   let () = ensure_cofield_is_unrestricted cofield in
   let gs =
-    if box_method 
+    if box_method
     then
       let () = mwe_ensure_has_volumes mwe in
       let v_vols = match !(mwe.mwe_dof_funs_volumes) with
@@ -2005,7 +1994,7 @@ let cofield_to_field ?target ?(box_method=false) ((FEM_cofield (mwe,_,v)) as cof
 	| Some v -> v
       in
       fun ?output ~input () ->
-	let v_out = 
+	let v_out =
 	  match output with
 	    | None ->
 		let v = Mpi_petsc.vector_create (Array.length mwe.mwe_dofs) (gensym "field-") in
@@ -2043,17 +2032,17 @@ let field_to_cofield ?target ?(box_method=false) ((FEM_field (mwe,_,v)) as field
     | None -> impossible()
     | Some v -> v
   in
-  let () = 
+  let () =
     (if box_method=false
-     then      
+     then
        failwith "NOTE: field_to_cofield now only supports the box method! Code using the inner product matrix was removed!"
      else ())
   in
-  let vc = 
+  let vc =
     match target with
       | None ->
 	  let v = Mpi_petsc.vector_create (Array.length mwe.mwe_dofs) (gensym "field-") (* XXX gensym! *)
-	  in 
+	  in
 	  let () = Mpi_petsc.vector_assemble v in
 	    v
       | Some ((FEM_cofield (mwe_target,_,v_target)) as cofield) ->
@@ -2165,7 +2154,7 @@ let mwe_sibling new_name element_renaming_prefix dof_renamings mwe =
       with | Not_found -> old_name
     in
     let rename_dof (n,ix) = (rename n,ix) in
-    let mwe_mb = 
+    let mwe_mb =
       MWEMB_mwe_sibling (new_name,element_renaming_prefix,dof_renamings,mwe.mwe_name)
     in
       {
@@ -2264,7 +2253,7 @@ let field_cofield_inner_product
 	     (fun ba_cf ->
 		let rec walk n s =
 		  if n=nr_dofs then sum:=s
-		  else 
+		  else
 		    walk (1+n) (s+.ba_f.{n}*.ba_cf.{n})
 		in walk 0 0.0))
     in !sum
@@ -2365,8 +2354,8 @@ let mwe_dof_jumps mwe =
       (site,[(simplex_index,element_nr_abssite);...])
       ...where the simplex_index list is ordered lexicographically ascending.
 
-   (4) dofs are ordered first by site, then by order of appearance through all 
-   the abstract elements connected to the (lexically ordered) simplices, 
+   (4) dofs are ordered first by site, then by order of appearance through all
+   the abstract elements connected to the (lexically ordered) simplices,
    which in particular implies that all the DOFs instantiating one subfield
    at a given site appear as a bunch, in index-lexicographical order.
 
@@ -2377,15 +2366,15 @@ let mwe_dof_jumps mwe =
 
 *)
 
-let debug_make_mwe 
-    name 
+let debug_make_mwe
+    name
     ?(retain_simplex_info_pmid=false)
     ?(fun_outer_region=fun _ _ -> -1)
     ?(properties_by_region=[||])
     fun_simplex_to_element
     mesh
     =
-  let ht_prop_by_region = Hashtbl.create 17 in 
+  let ht_prop_by_region = Hashtbl.create 17 in
   let () = Array.iter
     (fun (nr,props) ->
        Hashtbl.replace ht_prop_by_region (Body_Nr nr) props)
@@ -2400,7 +2389,7 @@ let debug_make_mwe
   let mesh_pp = mesh.mm_periodic_points in
   let canonicalize_point =
     let a = Array.make nr_points (-1) in
-    let () = array_foreach_do mesh_pp 
+    let () = array_foreach_do mesh_pp
       (fun periodic_points ->
 	 let npp = Array.length periodic_points in
 	   for i=1 to npp-1 do
@@ -2485,7 +2474,7 @@ let debug_make_mwe
 	       let site = fold_out_abssite x sx_vertex_ids in
 	       let canon_site = Array.map canonicalize_point site in
 	       let pmid =
-		 try Hashtbl.find ht_site_to_pmid canon_site 
+		 try Hashtbl.find ht_site_to_pmid canon_site
 		 with
 		   | Not_found ->
 		       let n = Hashtbl.length ht_site_to_pmid in
@@ -2497,11 +2486,11 @@ let debug_make_mwe
 	done;
 	map_hashtbl_to_array
 	  ~sorter:(fun (site1,_,_,_) (site2,_,_,_) -> compare site1 site2)
-	  (fun site sx_info -> 
+	  (fun site sx_info ->
 	     let canon_site = Array.map canonicalize_point site in
 	     let a_sx_info = Array.of_list (List.rev sx_info) in
 	     let sx_indices = Array.map (fun (x,_) -> x) a_sx_info in
-	     let sx_abssite = 
+	     let sx_abssite =
 	       let s = String.make (Array.length sx_indices) (Char.chr 0) in
 		 begin
 		   for i=0 to Array.length sx_indices-1 do
@@ -2611,7 +2600,7 @@ let debug_make_mwe
 	let site_regions =
 	  regions
 	    (if check_if_boundary_site v_simplex_ix
-	     then 
+	     then
 	       let r = fun_outer_region nr_site site_pos in
 	       let () = Hashtbl.replace ht_site_outer_region nr_site r in
 	       [Body_Nr r]
@@ -2699,7 +2688,7 @@ let debug_make_mwe
 	     )
 	) dofs
     in
-      Array.map 
+      Array.map
 	(fun li ->
 	   let a = Array.of_list li in
 	   let () = Array.sort (fun (_,el_ix_1) (_,el_ix_2) -> compare el_ix_1 el_ix_2) a in
@@ -2719,7 +2708,7 @@ let debug_make_mwe
 	h1
     in h2
   in
-  (* We also use an independent post-processing step to find out 
+  (* We also use an independent post-processing step to find out
      which DOF disappears across which face.
    *)
   let the_dof_name dof =
@@ -2788,7 +2777,7 @@ let debug_make_mwe
        specify an affine/projective transformation so that when we set one matrix entry,
        the others are not set the same way, but subject to that affine transformation.
        This way, we could easily implement all sorts of twisted boundary conditions.
-       
+
        TODO student project TODO
     *)
   let nr_dofs = Array.length dofs in
@@ -2802,7 +2791,7 @@ let debug_make_mwe
 	   else
 	     let dof_name = the_dof_name dof in
 	     let key = (dof_name,canon_site) in
-	     let old_nontrivial_images = 
+	     let old_nontrivial_images =
 	       try Hashtbl.find nontrivial_images_of_master_dof key with | Not_found -> []
 	     in
 	       Hashtbl.replace
@@ -2810,14 +2799,14 @@ let debug_make_mwe
 		 (dof.dof_nr::old_nontrivial_images))
       dofs
     in
-      (* for every master dof, we now know the dof indices of all its other images. 
+      (* for every master dof, we now know the dof indices of all its other images.
 	 But actually, we do not yet know the master dof's own dof indices...
       *)
     let p_i = Array.make nr_dofs [||] in
     let () = hashtbl_foreach_do nontrivial_images_of_master_dof
       (fun (master_dof_name,master_site) li_indices_images ->
-	 try 
-	   let master_ix = 
+	 try
+	   let master_ix =
 	     let mdofs = Hashtbl.find ht_dofs_by_site master_site in
 	     let the_mdof = array_find (fun dof -> the_dof_name dof = master_dof_name) mdofs in
 	       the_mdof.dof_nr
@@ -2830,7 +2819,7 @@ let debug_make_mwe
 	     (Printf.sprintf "resolving DOF periodicity failed for dof %s, site=%s"
 		(dof_name_to_string master_dof_name) (int_array_to_string master_site)))
     in
-    let ddd = 
+    let ddd =
       (if Array.fold_left (fun sf x -> max sf (Array.length x)) 0 p_i >0
        then
 	 Printf.printf "=== MWE '%s' DOF periodic images ===\n%s\n%!" name (string_array_to_string (Array.map int_array_to_string p_i))
@@ -2838,7 +2827,7 @@ let debug_make_mwe
     in
       p_i
   in
-  let mwe_mb = 
+  let mwe_mb =
     MWEMB_make_mwe
       (name,
        properties_by_region,
@@ -2900,7 +2889,7 @@ let make_mwe name
           ("*** MEMORY STATISTICS FOR '%s' ***\n%s*** END MEMORY STATISTICS FOR '%s'***\n") name report name
     else ()
 (*  in
-  let ddd = 
+  let ddd =
     begin
       Printf.printf "DDD CPU %d === mwe \"%s\" properties by region ===\n" (Mpi_petsc.comm_rank (Mpi_petsc.petsc_get_comm_world())) mwe.mwe_name;
       Hashtbl.iter (fun (Body_Nr k) v -> Printf.printf "%d => %s\n" k (string_array_to_string v)) mwe.mwe_properties_by_region
@@ -2955,7 +2944,7 @@ let mwe_ensure_has_neighbour_pairs mwe =
 			      let site_i = v_sites.(i) in
 			      let dof_i =
 				array_find
-				  (fun dof -> the_dof_name mwe dof = leading_dof) 
+				  (fun dof -> the_dof_name mwe dof = leading_dof)
 				  (Hashtbl.find mwe.mwe_dofs_by_site site_i)
 			      in
 			      let dof_nr_i = dof_i.dof_nr in
@@ -2963,11 +2952,11 @@ let mwe_ensure_has_neighbour_pairs mwe =
 				  let site_j = v_sites.(j) in
 				  let dof_j =
 				    array_find
-				      (fun dof -> the_dof_name mwe dof = leading_dof) 
+				      (fun dof -> the_dof_name mwe dof = leading_dof)
 				      (Hashtbl.find mwe.mwe_dofs_by_site site_j)
 				  in
 				  let dof_nr_j = dof_j.dof_nr in
-				    Hashtbl.replace ht 
+				    Hashtbl.replace ht
 				      (if dof_nr_i < dof_nr_j
 				       then (dof_nr_i,dof_nr_j)
 				       else (dof_nr_j,dof_nr_i))
@@ -2979,7 +2968,7 @@ let mwe_ensure_has_neighbour_pairs mwe =
 		 end)
 	in
 	let neighbours =
-	  Array.map 
+	  Array.map
 	    (fun ht ->
 	       let pairs = hashtbl_keys ~sorter:compare ht in
 		 ((Array.map (fun (x,_) -> x) pairs),
@@ -2987,11 +2976,11 @@ let mwe_ensure_has_neighbour_pairs mwe =
 	    v_ht_pairs
 	in
 	  mwe.mwe_dof_neighbour_pairs := Some neighbours
-;;     
+;;
 
 (* We may want to obtain "connectivity" information for a given
    dof_stem: find the groups of dofs that have the same name and
-   are connected via the transitive closure of overlapping 
+   are connected via the transitive closure of overlapping
    "dof tent functions". What is this for? Answer: finding
    nullspaces for von-Neumann-boundary-condition solvers!
 *)
@@ -3030,13 +3019,13 @@ let mwe_dof_connectivity mwe dof_stem =
 
 (* Note: the Petsc manual says these should be orthonormal! *)
 let mwe_matnullspace_vectors ~fun_make_vector ~fun_add_entry ~fun_assemble_vector mwe dof_stems =
-  let pieces = 
+  let pieces =
     array_join (Array.map (fun s -> mwe_dof_connectivity mwe s) dof_stems) in
   let nr_pieces = Array.length pieces in
   let vecs = Array.init nr_pieces (fun n -> fun_make_vector ~nr_vec:n) in
     begin
       for i=0 to nr_pieces-1 do
-	let vec = vecs.(i) 
+	let vec = vecs.(i)
 	and piece = pieces.(i)
 	in
 	  begin
@@ -3052,7 +3041,7 @@ let mwe_matnullspace_vectors ~fun_make_vector ~fun_add_entry ~fun_assemble_vecto
     end
 ;;
 
-  
+
 
 (* NOTE: we provide equalization only for fields, not for co-fields,
    and we are not especially picky about relative weights. After all,
@@ -3098,13 +3087,13 @@ let equalize_periodic_field
 		    done
 		 ))
 ;;
-	  
+
 (* The definition of diffop_id had to be moved upwards, so that
    mwe_ensure... can use it! *)
 
 let integrate_field_slow ?dof_stem (FEM_field (mwe,_,v) as field) =
   let () = ensure_field_is_unrestricted field in
-  let () = mwe_ensure_has_volumes mwe in 
+  let () = mwe_ensure_has_volumes mwe in
   let vols = match !(mwe.mwe_dof_funs_volumes) with
     | None -> impossible ()
     | Some x -> x
@@ -3142,7 +3131,7 @@ let integrate_field_slow ?dof_stem (FEM_field (mwe,_,v) as field) =
 ;;
 
 (* integrate_field requires summing contributions for each separate component
-   of a field. Example: the magnetisation M_Py has 3 components, so we should 
+   of a field. Example: the magnetisation M_Py has 3 components, so we should
    run over all the dofs, consider only those corresponding to M_Py and sum
    the contributions individually for M_Py(0), M_Py(1) and  M_Py(2).
    This could be done by creating an hashtable and using dof_names
@@ -3156,7 +3145,7 @@ let integrate_field_slow ?dof_stem (FEM_field (mwe,_,v) as field) =
    kinds of contributions. We then return an array which has the appropriate
    size to contain all these and functions to map a dof_name to the right
    index and viceversa. These three elements are enough to replace the use
-   of hashtable and make the code more performant! 
+   of hashtable and make the code more performant!
 
    mf, 3 Jun 2009 *)
 let multi_dim_array_handlers max_indices =
@@ -3191,7 +3180,7 @@ let multi_dim_array_handlers max_indices =
 
 let integrate_field_fast dof_stem (FEM_field (mwe,_,v) as field) =
   let () = ensure_field_is_unrestricted field in
-  let () = mwe_ensure_has_volumes mwe in 
+  let () = mwe_ensure_has_volumes mwe in
   let (Some vols) = !(mwe.mwe_dof_funs_volumes) in
   let all_dofs = mwe.mwe_dofs in
   let nr_dofs = Array.length all_dofs in
@@ -3235,7 +3224,7 @@ let timer_start, timer_stop =
   let t = ref 0.0 in
   let num_stops = ref 0 in
   ((fun () -> t := !t -. Unix.gettimeofday ()),
-   (fun () -> 
+   (fun () ->
       begin
         num_stops := !num_stops + 1;
         t := !t +. Unix.gettimeofday ();
@@ -3245,7 +3234,7 @@ let timer_start, timer_stop =
         else ();
       end))
 ;;
- 
+
 let integrate_field ?dof_stem field =
   (*let () = timer_start () in
   let x =*)
@@ -3258,7 +3247,10 @@ let integrate_field ?dof_stem field =
 ;;
 
 let probe_field (FEM_field (mwe,_,v_field) as field) ?dof_stem pos =
-  let simplices=mwe.mwe_mesh.mm_simplices in
+  let mesh = mwe.mwe_mesh in
+  let get_inv_point_matrix =
+    Simplex.get_inv_point_matrix mesh.mm_simplex_data in
+  let simplices = mesh.mm_simplices in
   let () = ensure_field_is_unrestricted field in
   let filter_this_dof_name =
     match dof_stem with
@@ -3270,7 +3262,7 @@ let probe_field (FEM_field (mwe,_,v_field) as field) ?dof_stem pos =
     try
       let (simplex,coords_L) = mesh_locate_point mwe.mwe_mesh pos in
 	(* Note: this raises Not_found if the point could not be located! *)
-      let Some inv_ext_point_coords = simplex.ms_inv_ext_point_coords in
+      let inv_ext_point_coords = F.to_ml2 (get_inv_point_matrix simplex.ms_id) in
 	(* ^ Note: this cannot be None! *)
       let sx_id = simplex.ms_id in
       let elem = mwe.mwe_elements.(mwe.mwe_nel_by_simplex_index.(sx_id))
@@ -3743,7 +3735,7 @@ external dipole_evaluator_sumpairs_fast_ccode:
 (* We need means to produce a fine mesh from a coarse mesh, as well as
    means to transport fields from corresponding mwes - that is,
    essentially a wrapper around make_mwe that takes two meshes and
-   produces two mwes and data vector translation functions in both 
+   produces two mwes and data vector translation functions in both
    directions.
 
    Note: as this is an operation to be used once on a mesh of reasonable size,
@@ -3807,7 +3799,7 @@ let finer_mesh_from_coarse_mesh simplex_refinement coarse_mesh =
       let sx = coarse_simplices.(n) in
       let points = sx.ms_points in
       let new_simplices_and_regions_and_parent =
-	Array.map 
+	Array.map
 	  (fun refinements ->
 	     let new_point_indices =
 	       Array.map (fun abssite -> let (_,_,ix) = instantiate_abssite n points abssite in ix)
@@ -3870,7 +3862,7 @@ with
 *)
 
 let mesh_simplex_refinement dim order =
-  let () = (if dim>3 then failwith "mesh_simplex_refinement - bad things may happen in dimensions >3!\n%!" else ()) in 
+  let () = (if dim>3 then failwith "mesh_simplex_refinement - bad things may happen in dimensions >3!\n%!" else ()) in
   let nr_vertices=1+dim in
   let abssites_not_gcd_reduced = all_distributions_to_buckets nr_vertices order in
   let extended_folded_out_abssites =
@@ -3895,7 +3887,7 @@ let make_coarse_fine_mwe
     ?(petsc_name=gensym "mx_coarse_fine")
     (name_coarse,name_fine)
     fun_simplex_to_element
-    (mesh_coarse,mesh_fine) 
+    (mesh_coarse,mesh_fine)
     fine_coarse_simplex_info
     =
   let dim = mesh_coarse.mm_dim in
@@ -3915,7 +3907,7 @@ let make_coarse_fine_mwe
        then we have to take the coarse mesh femfuns for all the sites of that
        coarse simplex and evaluate them on the sites of the fine simplex.
 
-       This gives us the coefficients with which we then multiply the integrals of the 
+       This gives us the coefficients with which we then multiply the integrals of the
        femfun_fine*femfun_fine shape function products.
 
        Once we have these data, we know how to "measure" a coarse-mesh function
@@ -3931,28 +3923,27 @@ let make_coarse_fine_mwe
   let coarse_fine_coeffs =
       Mpi_petsc.matrix_create
 	(Array.length mwe_coarse.mwe_dofs)
-	(Array.length mwe_fine.mwe_dofs) 
+	(Array.length mwe_fine.mwe_dofs)
 	petsc_name
   in
   let inc_matrix_element = Mpi_petsc.matrix_inc_fast_no_safety_belt coarse_fine_coeffs
   in
   let foreach_do x f = Array.iter f x in
   let foreach_do_n x f = Array.iteri f x in
+  let coarse_get_inv_point_matrix n =
+    F.to_ml2 (Simplex.get_inv_point_matrix mesh_coarse.mm_simplex_data n)
+  in
   let () = foreach_do_n mwe_fine.mwe_dof_nrs_by_simplex_index
     (fun fine_sx_ix fine_dof_nrs ->
        let coarse_sx_ix = fine_coarse_simplex_info.(fine_sx_ix) in
        let coarse_sx = mwe_coarse.mwe_mesh.mm_simplices.(coarse_sx_ix) in
        let fine_sx = mwe_fine.mwe_mesh.mm_simplices.(fine_sx_ix) in
-       let coarse_sx_mx_x_to_L =
-	 match coarse_sx.ms_inv_ext_point_coords with
-	   | None -> impossible()
-	   | Some x -> x
-       in
+       let coarse_sx_mx_x_to_L = coarse_get_inv_point_matrix coarse_sx.ms_id in
        let coarse_dof_nrs = mwe_coarse.mwe_dof_nrs_by_simplex_index.(coarse_sx_ix) in
        let ht_coarse_dofs_by_name = Hashtbl.create 10 in
        let ht_fine_dofs_by_name = Hashtbl.create 10 in
        let () = foreach_do fine_dof_nrs
-	 (fun fine_dof_nr -> 
+	 (fun fine_dof_nr ->
 	    let fine_dof = mwe_fine.mwe_dofs.(fine_dof_nr) in
 	    let dof_name = the_dof_name mwe_fine fine_dof in
 	    let fine_dof_el_ix =
@@ -3972,7 +3963,7 @@ let make_coarse_fine_mwe
 	    a fine simplex. But that is not so much an issue here...
 	 *)
        let () = foreach_do coarse_dof_nrs
-	 (fun coarse_dof_nr -> 
+	 (fun coarse_dof_nr ->
 	    let coarse_dof = mwe_coarse.mwe_dofs.(coarse_dof_nr) in
 	    let dof_name = the_dof_name mwe_coarse coarse_dof in
 	    let coarse_dof_el_ix =
@@ -3985,7 +3976,7 @@ let make_coarse_fine_mwe
 	    in
 	      hashtbl_push ht_coarse_dofs_by_name dof_name (coarse_dof,coarse_dof_el_ix))
        in
-	 (* Now that we have all the dof_names and for every dof_name 
+	 (* Now that we have all the dof_names and for every dof_name
 	    know the corresponding fine dofs as well as coarse dofs that are relevant,
 	    we can proceed to compute matrix elements. For this, we have to know
 	    for every coarse dof the value of its femfun at the sites used by the
@@ -4002,7 +3993,7 @@ let make_coarse_fine_mwe
 		(* We have to determine the values of the coarse dof's femfuns at the sites
 		   where the fine dofs are located. These then are coefficients
 		   for the fine_dof femfun inner products.
-		   
+
 		   Actually, we would have to integrate a product of the
 		   coarse and fine dof femfuns over the fine simplex.
 		   Here, we just assume that these femfuns are structurally the same,
@@ -4040,7 +4031,7 @@ let make_coarse_fine_mwe
 			       integrate the product of this with all the other
 			       fine femfuns...
 			    *)
-			  let femfun_left = 
+			  let femfun_left =
 			    let (_,(el,ix)) = fine_dofs_and_el_ix.(nr_col) in
 			      el.el_dof_funs.(ix)
 			  in
@@ -4049,11 +4040,12 @@ let make_coarse_fine_mwe
 				 let femfun_right = fine_el_right.el_dof_funs.(fine_ix_right)
 				 in
 				 let contrib = coeff*.(femfun_integrate_over_simplex
+                                                         mesh_fine
 							 (femfun_mult
 							    femfun_left femfun_right)
 							 fine_sx)
 				 in
-				   inc_matrix_element 
+				   inc_matrix_element
 				     ix_left_coarse fine_dof_right.dof_nr
 				     contrib)))))
   in
@@ -4068,9 +4060,9 @@ let make_coarse_fine_mwe
     else
       let v_target =
 	match target with
-	  | None -> 
-	      let v = 
-		Mpi_petsc.vector_create 
+	  | None ->
+	      let v =
+		Mpi_petsc.vector_create
 		  (Array.length mwe_coarse.mwe_dofs)
 		  petsc_name
 	      in let () = Mpi_petsc.vector_assemble v in
@@ -4078,7 +4070,7 @@ let make_coarse_fine_mwe
 	  | Some (FEM_cofield (mwe_t,_,v) as cofield) ->
 	      let () = ensure_cofield_is_unrestricted cofield in
 	      if mwe_t != mwe_coarse
-	      then failwith "coarse field -> fine field: wrong target mwe!" 
+	      then failwith "coarse field -> fine field: wrong target mwe!"
 	      else v
       in
       let () = Mpi_petsc.matrix_times_vector coarse_fine_coeffs v_data v_target in
@@ -4094,17 +4086,17 @@ let make_coarse_fine_mwe
     else
       let v_target =
 	match target with
-	  | None -> 
-	      let v = 
-		Mpi_petsc.vector_create 
+	  | None ->
+	      let v =
+		Mpi_petsc.vector_create
 		  (Array.length mwe_fine.mwe_dofs)
 		  petsc_name
 	      in let () = Mpi_petsc.vector_assemble v in
 		   v
 	  | Some (FEM_cofield (mwe_t,_,v) as cofield) ->
 	      let () = ensure_cofield_is_unrestricted cofield in
-	      if mwe_t != mwe_fine 
-	      then failwith "coarse field -> fine field: wrong target mwe!" 
+	      if mwe_t != mwe_fine
+	      then failwith "coarse field -> fine field: wrong target mwe!"
 	      else v
       in
       let () = Mpi_petsc.matrix_transpose_times_vector coarse_fine_coeffs v_data v_target in
@@ -4138,11 +4130,11 @@ external forall_fem_sites_do:
             = "caml_forall_fem_sites_do";;
 
 
-(* 
+(*
    XXX Note: our old site_wise_execute has been replaced by
-   a more flexible mechanism which should also be able 
+   a more flexible mechanism which should also be able
    to handle distributed execution, and a compatibility
-   wrapper. The code documentation does not yet properly 
+   wrapper. The code documentation does not yet properly
    respect this major change!
 
    Note: one may be led to believe that site_wise_execute
@@ -4426,7 +4418,7 @@ let site_wise_structure_and_offsets_and_defines
 		   let m = mesh_vertex_machine mwe0.mwe_mesh site.(0) in
 		     a.(m) <- 1+a.(m))
 		all_sites
-	    in 
+	    in
 	    let () = logdebug (Printf.sprintf "site distribution: a=%s" (int_array_to_string a)) in
 	    let offsets = Array.make nr_machines 0 in
 	      begin
@@ -4458,8 +4450,8 @@ let site_wise_structure_and_offsets_and_defines
 		 in
 		   Array.map
 		     (fun (str_nr_field,indices,space_pos) ->
-			let modified_indices = 
-			  Array.mapi 
+			let modified_indices =
+			  Array.mapi
 			    (fun n ix ->
 			       let nr_mwe = Char.code str_nr_field.[n] in
 				 ix-mwe_offsets.(nr_mwe).(nr_machine))
@@ -4468,9 +4460,9 @@ let site_wise_structure_and_offsets_and_defines
 			  (str_nr_field,modified_indices,space_pos))
 		     sub_slice)
       in
-      let buffer_dof_names = 
+      let buffer_dof_names =
 	Array.map (fun (offset,name) -> name)
-	  (map_hashtbl_to_array 
+	  (map_hashtbl_to_array
 	     ~sorter:compare
 	     (fun name offset -> (offset,name))
 	     ht_dof_name_to_buffer_offset)
@@ -4516,10 +4508,10 @@ let site_wise_execute
   let (_,par_site_info,extra_defines) =
     site_wise_structure_and_offsets_and_defines field_mwes cofield_mwes aux_arg_names
   in
-  let swex_nocheck = 
+  let swex_nocheck =
     let s = site_wise_executor par_site_info.(0) extra_defines c_code in
       fun z f c ->
-	s z 
+	s z
 	  (Array.map (fun (FEM_field(_,_,v)) -> v) f)
 	  (Array.map (fun (FEM_cofield(_,_,v)) -> v) c)
   in
@@ -4549,7 +4541,7 @@ let ccode_for_tensor_norms mwe =
   let subfields = mwe.mwe_subfields in
   let ccode_maxname (stem,max_indices) =
     let rank = Array.length max_indices in
-    let cvars = 
+    let cvars =
       Array.to_list
 	(Array.init rank (fun n -> Printf.sprintf "i%d" n))
     in
@@ -4599,7 +4591,7 @@ let fun_tensor_norms mwe =
   let varnames_L2 = Array.map (fun (n,_) -> Printf.sprintf "Norm_L2_%s" n) subfields in
   let site_wise_fun =
     let (_,par_site_info,extra_defines) =
-      site_wise_structure_and_offsets_and_defines [|mwe|] [||] varnames_L_max 
+      site_wise_structure_and_offsets_and_defines [|mwe|] [||] varnames_L_max
     in
       site_wise_executor par_site_info.(0) extra_defines (ccode_for_tensor_norms mwe)
   in
@@ -4615,7 +4607,7 @@ let fun_tensor_norms mwe =
 	  subfields
       end
 ;;
-      
+
 (* === NEW DIFFOP->MATRIX CODE === *)
 
 (* This will eventually supersede diffop_prematrix
@@ -4633,7 +4625,7 @@ let mwe_simplex_id_to_elem_dof_nr_to_dof_nr mwe =
 	   Array.make (Array.length elem.el_dof_names) 0)
   in
     (* fill this table *)
-  let () = array_foreach_do mwe.mwe_dofs 
+  let () = array_foreach_do mwe.mwe_dofs
     (fun dof ->
        dof_sx_nel_ix_iter simplices dof
 	 (fun sx nel ix ->
@@ -4651,17 +4643,17 @@ let ddiffop_from_string str =
    This is our "swiss army knife" that provides matrix population
   in its most abstract form.
 
-  XXX Q: we perhaps should give wrapped_fun_add_contrib 
+  XXX Q: we perhaps should give wrapped_fun_add_contrib
    an optional argument whether it should make "zero entries"
-   as well, or rather not call that function when the entry is 
+   as well, or rather not call that function when the entry is
    = 0.0.
 
    Note that ddiffop_vivified will come with the power
-   to also automatically create the matrix. 
+   to also automatically create the matrix.
 *)
 
 
-(* internal 
+(* internal
    XXX Note: this function dramatically changed (simplified) with the introduction of advanced field logic.
    Does it still do the right thing? Check!
 *)
@@ -4678,9 +4670,9 @@ let _dof_belongs_to_field mwe dof field =
 
 
 (* XXX Note: this ad-hoc helper originally was part of ddiffop_vivified,
-   but is also needed in mumag.ml, hence was factored out. 
-   This explains the somewhat strange convention that passing an empty 
-   "fields" array 
+   but is also needed in mumag.ml, hence was factored out.
+   This explains the somewhat strange convention that passing an empty
+   "fields" array
 *)
 let ddiffop_mxdim_index_mapping mwe fields =
   let nr_machines = Array.length mwe.mwe_distribution in
@@ -4694,14 +4686,14 @@ let ddiffop_mxdim_index_mapping mwe fields =
 	-1 <> array_position_if (_dof_belongs_to_field mwe dof) fields 0
   in
   let short_to_long =
-    array_mapfilter 
+    array_mapfilter
       (fun dof -> if fun_check dof then Some dof else None)
       mwe.mwe_dofs
   in
   let long_to_short = Array.make (Array.length mwe.mwe_dofs) (-1) in
   let () =
     Array.iteri
-      (fun ix_short dof -> 
+      (fun ix_short dof ->
 	 begin
 	   long_to_short.(dof.dof_nr) <- ix_short;
 	   let nr_machine = the_dof_machine mwe dof in
@@ -4780,7 +4772,7 @@ let ddiffop_vivified
   let simplex_cpu sx =
     let vertices = sx.ms_points in
     let rec lowest_point_index seen pos =
-      if pos = Array.length vertices then seen 
+      if pos = Array.length vertices then seen
       else lowest_point_index (min seen vertices.(pos).mp_id) (1+pos)
     in
     let lpi = lowest_point_index 0 0 in
@@ -4789,7 +4781,7 @@ let ddiffop_vivified
       else
 	let rec the_cpu nr_cpu offset =
 	  if nr_cpu = Array.length distrib
-	  then 
+	  then
 	    let () = Printf.fprintf stderr "Broken mesh vertex distribution!\n%!" in
 	      (* ^ make sure this gets printed even when the line below sends us into Nirvana. *)
 	      failwith "Broken mesh vertex distribution!"
@@ -4800,7 +4792,7 @@ let ddiffop_vivified
   in
   let iterate_over_simplices_restraining_cpu =
     match nr_cpu with
-      | None -> 
+      | None ->
 	  (fun f ->
 	     for i=0 to Array.length simplices-1 do
 	       f simplices.(i)
@@ -4812,7 +4804,7 @@ let ddiffop_vivified
 		 if simplex_cpu sx <> cpu then ()
 		 else f sx
 	     done)
-  in	  
+  in
   let optionally_diff femfun difftype =
     match difftype with
       | Ddiffop_parser.DIFF_none -> femfun
@@ -4837,7 +4829,7 @@ let ddiffop_vivified
   in
   let nr_regions =
     1+(Array.fold_left
-	 (fun sf sx -> 
+	 (fun sf sx ->
 	    let Body_Nr region_here = sx.ms_in_body in
 	      max sf region_here)
 	 0 simplices)
@@ -4845,14 +4837,14 @@ let ddiffop_vivified
   let forall_element_dof_nrs_belonging_to_field elem field f =
     let field_name =  field.Ddiffop_parser.f_name in
     let field_indices = field.Ddiffop_parser.f_indices in
-      array_foreach_do_n elem.el_dof_names 
+      array_foreach_do_n elem.el_dof_names
 	(fun nr_dof (dofname,indices) ->
 	   if dofname = field_name && indices = field_indices then f nr_dof else ())
   in
   let region_thunks = Hashtbl.create 10 in
-  (* A region thunk maps an array of 
+  (* A region thunk maps an array of
      [|nel_le;nel_ri;nel_mid|]
-     (where nel_mid may be -1 if missing) 
+     (where nel_mid may be -1 if missing)
      (and nel stands for Number_of_ELement)
      to a (fun sx fun_add_contrib -> ... in ()) function
      that uses fun_add_contrib row col contrib to fill in the simplex
@@ -4869,14 +4861,14 @@ let ddiffop_vivified
 	  else -1
 	in
 	let nel_key = [|nel_le;nel_ri;nel_mid|] in
-	if Hashtbl.mem region_thunks nel_key 
+	if Hashtbl.mem region_thunks nel_key
 	then ()
 	else
 	  let r_funs_add_contrib_if_region_filter_says_ok = ref [] in
 	    (* ^ Here, we collect the pieces of the thunk belonging to nel_key *)
 	  let elem_le = mwe_le.mwe_elements.(nel_le)
 	  and elem_ri = mwe_ri.mwe_elements.(nel_ri)
-	  and elem_mid = 
+	  and elem_mid =
 	    if not have_mwe_mid then empty_element
 	    else mwe_mid.mwe_elements.(nel_mid)
 	  in
@@ -4917,11 +4909,11 @@ let ddiffop_vivified
 				  let femfun_total =
 				    femfun_mult femfun_mid
 				      (femfun_mult
-					 (match diff_le with 
+					 (match diff_le with
 					    | Ddiffop_parser.DIFF_none -> femfun_le
 					    | Ddiffop_parser.DIFF_vol nr_dx -> femfun_diff_x femfun_le nr_dx
 					    | _ -> femfun_le)
-					 (match diff_ri with 
+					 (match diff_ri with
 					    | Ddiffop_parser.DIFF_none -> femfun_ri
 					    | Ddiffop_parser.DIFF_vol nr_dx -> femfun_diff_x femfun_ri nr_dx
 					    | _ -> femfun_ri))
@@ -4943,7 +4935,7 @@ let ddiffop_vivified
 				    let dof_le = mwe_le.mwe_dofs.(nr_dof_le)
 				    and dof_ri = mwe_ri.mwe_dofs.(nr_dof_ri)
 				    in
-				    let factor_field_mid = 
+				    let factor_field_mid =
 				      if have_mwe_mid
 				      then fun_entry_field_mid (mwe_mid.mwe_dof_nrs_by_simplex_index.(sx.ms_id).(nr_edof_mid))
 				      else 1.0
@@ -4955,7 +4947,7 @@ let ddiffop_vivified
 					match sx_opt_surface_diff_dir with
 					  | None ->
 					      wrapped_fun_add_contrib nr_dof_le nr_dof_ri
-						(coeff *. factor_field_mid *.(femfun_integrate_over_simplex femfun_total sx))
+						(coeff *. factor_field_mid *.(femfun_integrate_over_simplex mesh femfun_total sx))
 					  | Some diff_dir ->
 					      let disappearing_across =
 						match diff_le_ri with
@@ -4972,15 +4964,16 @@ let ddiffop_vivified
 						       wrapped_fun_add_contrib nr_dof_le nr_dof_ri
 							 (-. coeff *. factor_field_mid *.
 							    (* ^ minus because normal is pointing to outside
-							       and degree of freedom vanishing towards the 
-							       outside, therefore has negative surface 
+							       and degree of freedom vanishing towards the
+							       outside, therefore has negative surface
 							       divergence
 							    *)
 							    (femfun_integrate_over_simplex_face
+							       mesh
 							       ~bare_integral:true
 							       femfun_total
 							       sx nr_face)*.
-							    (simplex_surface_1form_component sx nr_face diff_dir)
+							    (simplex_surface_1form_component mesh sx.ms_id nr_face diff_dir)
 							    (*^ this is "surface area vector" component in the direction
 							      we take the derivative. If surface normal and derivative
 							      direction are at an angle, this will reduce the effective
@@ -5004,7 +4997,7 @@ let ddiffop_vivified
 	  let t0 = Unix.gettimeofday() in
 	    fun () -> Unix.gettimeofday()-.t0
 	in
-	let opt_the_matrix = 
+	let opt_the_matrix =
 	  match fun_make_matrix with
 	    | None -> None
 	    | Some f -> Some (f mx_size_le mx_size_ri)
@@ -5023,18 +5016,18 @@ let ddiffop_vivified
 	in
 	let diff_gauge_fix = ddiffop.Ddiffop_parser.diff_gauge_fix in
 	let lambda_produce_wrapped_fun_add_contrib ~produce =
-	  (* 
+	  (*
 	     let wrapped_fun_add_contrib = ...
-	     
+
 	     Must do:
-	     
+
 	     * Periodic BC (later on)
 	     * Field index re-mapping for "short matrices"
 	     (These two can and presumably should be unified?!)
 	     * Proper record keeping for von Neumann BCs / gauge fixing
-	     
+
 	     We can handle separately:
-	     
+
 	     * "Adding ones on the diagonal".
 	  *)
 	  if Array.length diff_gauge_fix=0
@@ -5074,18 +5067,18 @@ let ddiffop_vivified
 	    )
 	in
 	let lambda_produce_wrapped_fun_add_contrib_BUGGY ~produce =
-	  (* 
+	  (*
 	     let wrapped_fun_add_contrib = ...
-	     
+
 	     Must do:
-	     
+
 	     * Periodic BC (later on)
 	     * Field index re-mapping for "short matrices"
 	     (These two can and presumably should be unified?!)
 	     * Proper record keeping for von Neumann BCs / gauge fixing
-	     
+
 	     We can handle separately:
-	     
+
 	     * "Adding ones on the diagonal".
 	  *)
 	  if Array.length diff_gauge_fix=0
@@ -5158,7 +5151,7 @@ let ddiffop_vivified
 			end
 		   ))
 	in
-	let () = 
+	let () =
 	  let diag_ones = ddiffop.Ddiffop_parser.diff_diag_ones in
 	    if Array.length diag_ones = 0 then () else
 	      hashtbl_foreach_do mwe_le.mwe_dofs_by_site
@@ -5169,11 +5162,11 @@ let ddiffop_vivified
 			   array_foreach_do dofs_le
 			     (fun dof_le ->
 				if not(_dof_belongs_to_field mwe_le dof_le field_le) then ()
-				else 
+				else
 				  array_foreach_do dofs_ri
 				    (fun dof_ri ->
 				       if not(_dof_belongs_to_field mwe_ri dof_ri field_ri) then ()
-				       else 
+				       else
 					 fun_add_contrib opt_the_matrix dof_le.dof_nr dof_ri.dof_nr 1.0)))))
 	in
 	let () =
@@ -5191,14 +5184,14 @@ let ddiffop_vivified
    is that sundials uses petsc. Must factor that out! XXX
 *)
 
-(* After some toil, I (T.F.) found that the most reasonable approach is 
+(* After some toil, I (T.F.) found that the most reasonable approach is
    to attach the mapping of physical non-redundant cvode-internal dofs
    to "mirage" dofs to the CVODE itself. This sounds maybe somewhat
    strange, but is actually a good idea in many situations.
 
-   So, deep inside a cvode, there will be a "mirage dof mapper". 
+   So, deep inside a cvode, there will be a "mirage dof mapper".
    We can make good use of two long and two short buffers here,
-   so that we can copy physical_short to buffer1_long and 
+   so that we can copy physical_short to buffer1_long and
    buffer2_long to a new physical_short again.
 *)
 
