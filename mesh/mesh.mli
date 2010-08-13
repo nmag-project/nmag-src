@@ -193,8 +193,9 @@ module Simplex:
     (** The simplex index *)
 
     val init: Mesh0.t -> t
-    val get_point_matrix: t -> int -> Base.Ba.F.array2
-    val get_inv_point_matrix: t -> int -> Base.Ba.F.array2
+    val get_point_matrix: t -> idx -> Base.Ba.F.array2
+    val get_point_matrix_det: t -> idx -> float
+    val get_inv_point_matrix: t -> idx -> Base.Ba.F.array2
     val get_face_eqn: t -> int -> int -> Base.Ba.F.array1
 
     val dummy : t
@@ -338,10 +339,6 @@ and simplex =
      mutable ms_ic_midpoint: float array;
      mutable ms_cc_radius: float;
      mutable ms_ic_radius: float;
-
-     (* The inverse provides a concise way to get all the cofactors. *)
-     (*mutable ms_inv_ext_point_coords: float array array option;*)
-     mutable ms_point_coords_det: float;
    }
 
 type la_functions =

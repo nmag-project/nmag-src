@@ -367,11 +367,6 @@ and simplex =
 	- All vertices are on a boundary between the same bodies.
       *)
 
-
-
-
-
-
      (*
 	Circum-Circle and In-Circle.
 
@@ -383,11 +378,6 @@ and simplex =
      mutable ms_ic_midpoint: float array;
      mutable ms_cc_radius: float;
      mutable ms_ic_radius: float;
-
-     (* The inverse provides a concise way to get all the cofactors. *)
-     (*mutable ms_inv_ext_point_coords: float array array option;*)
-     mutable ms_point_coords_det: float;
-
    }
 ;;
 
@@ -499,6 +489,7 @@ let mesh0_from_mesh mesh_points mesh_simplices =
 *)
 let _simplex_surface_orientation_is_outward mesh sx nr_face =
   let mx = Simplex.get_inv_point_matrix mesh.mm_simplex_data sx.ms_id in
+  let det = Simplex.get_point_matrix_det mesh.mm_simplex_data sx.ms_id in
   let points = sx.ms_points in
   let dim = Array.length points.(0).mp_coords in
   let coords_opposing_point = points.(nr_face).mp_coords in
@@ -507,7 +498,7 @@ let _simplex_surface_orientation_is_outward mesh sx nr_face =
   let c_fp = coords_face_point in
   let rec walk n so_far =
     if n=dim then so_far
-    else walk (n+1) (so_far+.(c_op.(n)-.c_fp.(n))*.sx.ms_point_coords_det*.mx.{nr_face, n})
+    else walk (n+1) (so_far+.(c_op.(n)-.c_fp.(n))*.det*.mx.{nr_face, n})
   in
     (walk 0 0.0)<0.0
 ;;
@@ -583,7 +574,6 @@ let reordered_mesh mesh ix_new_by_ix_old =
 	  ms_ic_midpoint=old_sx.ms_ic_midpoint;
 	  ms_cc_radius=old_sx.ms_cc_radius;
 	  ms_ic_radius=old_sx.ms_ic_radius;
-	  ms_point_coords_det=old_sx.ms_point_coords_det;
 	 })
       mesh.mm_simplices
   in
@@ -997,9 +987,10 @@ let shift_array_on_the_left arr =                                               
   new_arr
 ;;
 
-
-let _region_volumes simplices =                                                                 (* function to compute the volume for each of the *)
-  let max_region =                                                                              (* objects in the mesh *)
+(* function to compute the volume for each of the objects in the mesh *)
+let _region_volumes simplex_data simplices =
+  let get_det = Simplex.get_point_matrix_det simplex_data in
+  let max_region =
     Array.fold_left
       (fun sf sx -> let Body_Nr r = sx.ms_in_body in max sf r) 0 simplices
   in
@@ -1009,7 +1000,7 @@ let _region_volumes simplices =                                                 
   let () = array_foreach_do simplices
     (fun sx ->
       let Body_Nr r = sx.ms_in_body in
-      let vol = abs_float(sx.ms_point_coords_det)/.(float_factorial dim) in
+      let vol = abs_float(get_det sx.ms_id)/.(float_factorial dim) in
 	volumes.(r) <- volumes.(r) +. vol)
   in volumes
 ;;
@@ -1718,10 +1709,6 @@ let mesh_from_known_delaunay                                                    
 	      Array.init (dim+1)
 		(fun col -> points.(col).mp_coords.(row)))
       in
-      let (det_ext_coords, inv_ext_coords) =                                                  (* compute the variables used to derive the *)
-	try det_inv ext_coords                                                                (* volume of the simplex and the equations of *)
-	with | Division_by_zero -> (0.0, Array.make_matrix (dim+1) dim 0.0)                   (* its faces (facets) *)
-      in
       let () = (* Ensure our coord indices really are sorted. *)
 	Array.sort compare sorted_ci in
       (* Remember for all points of this simplex that they belong to this simplex. *)
@@ -1741,7 +1728,6 @@ let mesh_from_known_delaunay                                                    
 	  ms_ic_midpoint = [||];
 	  ms_cc_radius = (-1.0);
 	  ms_ic_radius = (-1.0);
-	  ms_point_coords_det = det_ext_coords;
 	}
       in
       let () =
@@ -1769,7 +1755,7 @@ let mesh_from_known_delaunay                                                    
      mm_simplices = msimplices;
      mm_mesh0 = mesh0;
      mm_simplex_data = simplex_data;
-     mm_region_volumes = _region_volumes msimplices;
+     mm_region_volumes = _region_volumes simplex_data msimplices;
      mm_vertex_distribution=[|Array.length mpoints|];
      mm_periodic_points = [||];
      mm_have_connectivity=false;
@@ -6425,7 +6411,9 @@ let scale_node_positions mesh scaling_factor =                   (* this functio
     )
     mesh.mm_simplices
   in
-    mesh.mm_region_volumes <- _region_volumes mesh.mm_simplices        (* update information about the mesh *)
+    (* update information about the mesh *)
+    mesh.mm_region_volumes <-
+      _region_volumes mesh.mm_simplex_data mesh.mm_simplices
 
 ;;
 

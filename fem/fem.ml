@@ -1395,7 +1395,8 @@ let femfun_numerical_integrator simplex_decomposition femfun (mesh, simplex_nr) 
   let scratch_pos = Array.make (1+dim) 0.0 in
   let mx_dL_dx = Simplex.get_inv_point_matrix sd simplex_nr in
   let mx_dx_dL = Simplex.get_point_matrix sd simplex_nr in
-  let sx_volume = simplex.ms_point_coords_det/.(float_factorial dim) in
+  let det = Simplex.get_point_matrix_det sd simplex_nr in
+  let sx_volume = det/.(float_factorial dim) in
   let points_and_coeffs =
     Array.map
       (fun (coords_L,partial_volume) ->
@@ -1572,6 +1573,7 @@ let femfun_diff_x femfun nr_dx =
 
 let femfun_integrate_over_simplex mesh (_,femfun) simplex =
   let dL = Simplex.get_inv_point_matrix mesh.mm_simplex_data simplex.ms_id in
+  let det = Simplex.get_point_matrix_det mesh.mm_simplex_data simplex.ms_id in
   let dim = mesh.mm_dim in
   let integral =
     let nr_summands = Array.length femfun in
@@ -1596,7 +1598,7 @@ let femfun_integrate_over_simplex mesh (_,femfun) simplex =
 	in
 	  walk_summands (sf+.contrib) (1+n)
     in walk_summands 0.0 0
-  in integral *. abs_float(simplex.ms_point_coords_det)
+  in integral *. abs_float(det)
     (* multiply with volume - note that the total cell volume,
        and not just the simplex volume goes into that formula.
        Also note that we explicitly have to use abs_float to get the positive volume.
@@ -1613,6 +1615,7 @@ let femfun_integrate_over_simplex mesh (_,femfun) simplex =
 let femfun_integrate_over_simplex_face
       mesh ?(bare_integral=false) femfun simplex nr_face =
   let dL = Simplex.get_inv_point_matrix mesh.mm_simplex_data simplex.ms_id in
+  let det = Simplex.get_point_matrix_det mesh.mm_simplex_data simplex.ms_id in
   let dim = mesh.mm_dim in
   let (_,_,(_,integrated_over_L)) = femfun_integrate_over_surface dim femfun nr_face in
   (* This will now only contain some dL factors.
@@ -1634,7 +1637,7 @@ let femfun_integrate_over_simplex_face
 	sf+.contrib) 0.0 integrated_over_L
   in if bare_integral
     then integral
-    else (integral *. abs_float(simplex.ms_point_coords_det))
+    else (integral *. abs_float(det))
       (* multiply with volume - note that the total cell volume,
 	 and not just the simplex volume goes into that formula.
 	 Also note that we explicitly have to use abs_float to get the positive volume.
