@@ -384,7 +384,7 @@ and simplex =
 let simplex_face_eqn (sd, sx_nr) n =
   let mx = Simplex.get_inv_point_matrix sd sx_nr in
   let _, dd = F.dim2 mx
-  in Array.init dd (fun i -> mx.{n, i})
+  in Array.init dd (fun i -> (F.get2 mx n i))
 ;;
 
 type la_functions =
@@ -498,7 +498,7 @@ let _simplex_surface_orientation_is_outward mesh sx nr_face =
   let c_fp = coords_face_point in
   let rec walk n so_far =
     if n=dim then so_far
-    else walk (n+1) (so_far+.(c_op.(n)-.c_fp.(n))*.det*.mx.{nr_face, n})
+    else walk (n+1) (so_far+.(c_op.(n)-.c_fp.(n))*.det*.(F.get2 mx nr_face n))
   in
     (walk 0 0.0)<0.0
 ;;
@@ -513,7 +513,7 @@ let simplex_surface_1form_component mesh sx_nr nr_face nr_component =
   let sx = mesh.mm_simplices.(sx_nr) in
   let mx = Simplex.get_inv_point_matrix mesh.mm_simplex_data sx_nr in
   let d = Simplex.get_point_matrix_det mesh.mm_simplex_data sx_nr in
-  let z = d *. mx.{nr_face, nr_component} in
+  let z = d *. (F.get2 mx nr_face nr_component) in
     if _simplex_surface_orientation_is_outward mesh sx nr_face then z else -.z
 ;;
 
@@ -1988,11 +1988,12 @@ let mesh_simplex_nr_and_L_coords_of_point mesh point_coords =
 	   the result vector with contributions from the one extra
 	   projective coordinate, which is 1.
 	 *)
-	scratch_pos_ext.(i) <- mx.{i, dim};
+	scratch_pos_ext.(i) <- (F.get2 mx i dim);
       done;
       for i=0 to dim_ext-1 do
 	for k=0 to dim-1 do
-	  scratch_pos_ext.(i) <- scratch_pos_ext.(i) +. mx.{i, k}*.point_coords.(k);
+	  scratch_pos_ext.(i) <- scratch_pos_ext.(i)
+	                         +. (F.get2 mx i k)*.point_coords.(k);
 	done;
       done;
     end
