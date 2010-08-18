@@ -366,18 +366,6 @@ and simplex =
 	- Some of the vertices are in the bulk of different bodies.
 	- All vertices are on a boundary between the same bodies.
       *)
-
-     (*
-	Circum-Circle and In-Circle.
-
-	They are needed at least for the simplex quality test, but
-	keeping track of those allows us to do Delaunay triangulation
-	in D dimensions without having to refer to D+1 dimensions.
-      *)
-     mutable ms_cc_midpoint: float array;
-     mutable ms_ic_midpoint: float array;
-     mutable ms_cc_radius: float;
-     mutable ms_ic_radius: float;
    }
 ;;
 
@@ -570,10 +558,6 @@ let reordered_mesh mesh ix_new_by_ix_old =
 	  ms_neighbour_backrefs=old_sx.ms_neighbour_backrefs;
 	  ms_face_ids=old_sx.ms_face_ids;
 	  ms_in_body=old_sx.ms_in_body;
-	  ms_cc_midpoint=old_sx.ms_cc_midpoint;
-	  ms_ic_midpoint=old_sx.ms_ic_midpoint;
-	  ms_cc_radius=old_sx.ms_cc_radius;
-	  ms_ic_radius=old_sx.ms_ic_radius;
 	 })
       mesh.mm_simplices
   in
@@ -867,13 +851,13 @@ let report_mesh_quality bins mesh =
   let intvl = 1.0 /. (float_of_int bins) in
   let nr_points = Array.length (mesh.mm_points) in
   let nr_simplices = Array.length (mesh.mm_simplices) in
+  let get_ic_r = Simplex.get_incircle_radius mesh.mm_simplex_data in
+  let get_cc_r = Simplex.get_circumcircle_radius mesh.mm_simplex_data in
   let forall_simplices f = Array.iter f mesh.mm_simplices in
   let () = forall_simplices
     (fun sx ->
-(*        let () = Printf.printf "%10f %10f %10f .. \n%!" sx.ms_ic_radius sx.ms_cc_radius (sx.ms_ic_radius/.sx.ms_cc_radius) in
-	*)
-	let ic_r = sx.ms_ic_radius in
-	let cc_r = sx.ms_cc_radius in
+	let ic_r = get_ic_r sx.ms_id in
+	let cc_r = get_cc_r sx.ms_id in
 	let reduced_ratio = ic_r/.cc_r in
 	let ratio = (float_of_int dim)*.reduced_ratio in
 	let scaled_ratio = int_of_float ((float_of_int bins) *. ratio) in
@@ -996,7 +980,6 @@ let _region_volumes simplex_data simplices =
   in
   let volumes = Array.make (1+max_region) 0.0 in
   let dim = Array.length simplices.(0).ms_points.(0).mp_coords in
-
   let () = array_foreach_do simplices
     (fun sx ->
       let Body_Nr r = sx.ms_in_body in
@@ -1500,33 +1483,6 @@ let mesh_grow_bookkeeping_data
     else ()
   in
   let () =
-    (if do_incircle_circumcircle then
-      let () = reportmem "Before computing incircle and circumcirle radii" in
-      let () = loginfo ("Computing mesh incircle and circumcircle radii") in
-      let () =
-	forall_simplices
-	  (fun sx ->
-	    let sx_points_coords = (* may be moved out of here. *)
-	      (Array.map (fun pt -> pt.mp_coords) sx.ms_points)
-	    in
-	    let (ic_midpoint,ic_radius) =
-	      incircle sx_points_coords
-
-	    and (cc_midpoint,cc_radius) =
-	      circumcircle sx_points_coords
-	    in
-	    begin
-	      sx.ms_cc_midpoint <- cc_midpoint;
-	      sx.ms_ic_midpoint <- ic_midpoint;
-	      sx.ms_cc_radius <- cc_radius;
-	      sx.ms_ic_radius <- ic_radius;
-	  end)
-      in
-      let () = reportmem "After computing incircle and circumcirle radii" in
-      mesh.mm_have_incircle_circumcircle <- true
-    else ())
-  in
-  let () =
     (if do_regions then
       let () = loginfo ("mesh generator: Working out regions for simplices") in
       let () = reportmem "Before working out regions for simplices" in
@@ -1654,11 +1610,6 @@ let mesh_grow_bookkeeping_data
 
 (* End INTERNAL: add the missing data to a mesh *)
 
-let ensure_mesh_has_incircle_circumcircle mesh =
-  if mesh.mm_have_incircle_circumcircle then ()
-  else mesh_grow_bookkeeping_data ~do_incircle_circumcircle:true mesh
-;;
-
 let mesh_boundary_points mesh =
 (* NOT USED - GREAT!! gb *)
   array_mapfilter
@@ -1724,10 +1675,6 @@ let mesh_from_known_delaunay                                                    
 	      (Array.map (fun n -> (point_nr n).mp_id) sorted_ci);
 	  (* XXX TODO: We will add code to provide those later! *)
 	  ms_in_body=region;
-	  ms_cc_midpoint = [||];
-	  ms_ic_midpoint = [||];
-	  ms_cc_radius = (-1.0);
-	  ms_ic_radius = (-1.0);
 	}
       in
       let () =
@@ -5373,24 +5320,26 @@ let mesh_plotinfo mesh =
   let ht_links = Hashtbl.create 100 in
   let ht_simplices = Hashtbl.create 100 in
   let points_coords = mesh_plotinfo_points mesh in
+  let get_ic_mp = Simplex.get_incircle_midpoint mesh.mm_simplex_data in
+  let get_cc_mp = Simplex.get_circumcircle_midpoint mesh.mm_simplex_data in
+  let get_ic_r = Simplex.get_incircle_radius mesh.mm_simplex_data in
+  let get_cc_r = Simplex.get_circumcircle_radius mesh.mm_simplex_data in
   let forall_simplices f = Array.iter f mesh.mm_simplices in
-  let () = ensure_mesh_has_incircle_circumcircle mesh in
   let () =
     forall_simplices
       (fun sx ->
-	let () =
-	  do_for_any_two_of sx.ms_points
-	    (fun p q -> Hashtbl.replace ht_links (p.mp_id,q.mp_id) true)
-	in
-	let () =
-	  Hashtbl.replace ht_simplices
-	    (Array.map (fun p -> p.mp_id) sx.ms_points)
-	    ((sx.ms_cc_midpoint,sx.ms_cc_radius),
-	     (sx.ms_ic_midpoint,sx.ms_ic_radius),
-	     (let Body_Nr x = sx.ms_in_body in x)
-	    )
-	in ()
-      )
+         let sx_nr = sx.ms_id in
+         let () =
+           do_for_any_two_of sx.ms_points
+             (fun p q -> Hashtbl.replace ht_links (p.mp_id,q.mp_id) true)
+         in
+         let () =
+           Hashtbl.replace ht_simplices
+             (Array.map (fun p -> p.mp_id) sx.ms_points)
+             ((F.to_ml1 (get_cc_mp sx_nr), get_cc_r sx_nr),
+              (F.to_ml1 (get_ic_mp sx_nr), get_ic_r sx_nr),
+              (let Body_Nr x = sx.ms_in_body in x))
+         in ())
   in
   (points_coords,
    map_hashtbl_to_array (fun k v -> k) ht_links,
@@ -6291,9 +6240,14 @@ let find_simplex mesh (origin_coords, origin_simplex) target_coords =
 
 
 let mesh_locate_point mesh point =
-  let () = ensure_mesh_has_incircle_circumcircle mesh in
   let origins = mesh.mm_origins in
   let nr_origins = Array.length origins in
+
+  let get_ic_mp = Simplex.get_incircle_midpoint mesh.mm_simplex_data in
+  let get_cc_mp = Simplex.get_circumcircle_midpoint mesh.mm_simplex_data in
+  let get_ic_r = Simplex.get_incircle_radius mesh.mm_simplex_data in
+  let get_cc_r = Simplex.get_circumcircle_radius mesh.mm_simplex_data in
+
   let get_inv_point_matrix =
     Simplex.get_inv_point_matrix mesh.mm_simplex_data in
     (* If all else fails, we have to do point location the hard way:
@@ -6319,15 +6273,16 @@ let mesh_locate_point mesh point =
       if n = nr_simplices then raise Not_found
       else
 	let sx = simplices.(n) in
-	let cc_midpoint = sx.ms_cc_midpoint in
-	let cc_radius = sx.ms_cc_radius in
+	let ic_midpoint = F.to_ml1 (get_ic_mp n) in
+	let cc_midpoint = F.to_ml1 (get_cc_mp n) in
+	let cc_radius = get_cc_r n in
 	let r2 = cc_radius*.cc_radius in
 	  if euclidean_distance_sq cc_midpoint point > r2
 	  then walk (1+n)
 	  else
 	    let sx_found =
 	      try
-		Some (find_simplex mesh (sx.ms_ic_midpoint,sx) point)
+		Some (find_simplex mesh (ic_midpoint, sx) point)
 	      with | Not_found -> None
 	    in
 	      match sx_found with
@@ -6339,7 +6294,7 @@ let mesh_locate_point mesh point =
 		    let new_origins =
 		      Array.init
 			(1+nr_old_origins)
-			(fun n -> if n=0 then (s.ms_ic_midpoint,s) else origins.(n-1))
+			(fun n -> if n=0 then (ic_midpoint, s) else origins.(n-1))
 		    in
 		    let () = mesh.mm_origins <- new_origins in
 		      locate_point_in_simplex s
@@ -6368,53 +6323,32 @@ let mesh_locate_point mesh point =
   in walk_origins 0
 ;;
 
-let scale_node_positions mesh scaling_factor =                   (* this function scales the nodes of a mesh
-								    by a common scaling factor *)
+
+(* this function scales the nodes of a mesh by a common scaling factor.
+   We do it this way. We scale the coordinates and throw away all the computed
+   simplex data. That is lazy, but in practice does not lead to performance
+   penalties if the mesh is scaled just after being loaded, which is virtually
+   always the case (cannot imagine why one may load the mesh, use it, scale it
+   and then use it again). *)
+let scale_node_positions mesh scaling_factor =
   let dim = Array.length mesh.mm_points.(0).mp_coords in
-  let () = Array.iter
+  let () =
+    Array.iter
       (fun pt ->
-	for i=0 to dim-1 do
-	  pt.mp_coords.(i) <- scaling_factor *. pt.mp_coords.(i)  (* update information for all the points *)
-	done)
+         for i=0 to dim-1 do
+           pt.mp_coords.(i) <- scaling_factor *. pt.mp_coords.(i)
+         done)
       mesh.mm_points
   in
-  let () = Array.iteri
-    (fun sx_ix sx ->
-      let sx_points_coords =                                      (* update information for all the simplices *)
-	(Array.map (fun pt -> pt.mp_coords) sx.ms_points)
-      in
-      let (ic_midpoint,ic_radius) =
-	simplex_incircle_midpoint_radius dim sx_points_coords
-
-      and (cc_midpoint,cc_radius) =
-	simplex_circumcircle_midpoint_radius dim sx_points_coords
-      in
-      let () =
-	begin
-	  sx.ms_cc_midpoint <- cc_midpoint;
-	  sx.ms_ic_midpoint <- ic_midpoint;
-	  sx.ms_cc_radius <- cc_radius;
-	  sx.ms_ic_radius <- ic_radius;
-	end
-      in
-      let new_ext_coords =
-       Array.init (dim+1)
-	 (fun row ->
-	   if row=dim
-	   then Array.make (dim+1) 1.0
-	   else
-	     Array.init (dim+1)
-	       (fun col -> sx.ms_points.(col).mp_coords.(row)))
-(*      let () = mesh.mm_origins.(sx_ix) <- (ic_midpoint,sx)          (* the mm_origins seems to be an empty *)
-                                                                      (* vector, and therefore we don't update it *)
-*)
-      in ()
-    )
-    mesh.mm_simplices
+  let mesh0 = mesh0_from_mesh mesh.mm_points mesh.mm_simplices in
+  let simplex_data = Simplex.init mesh0
   in
-    (* update information about the mesh *)
-    mesh.mm_region_volumes <-
-      _region_volumes mesh.mm_simplex_data mesh.mm_simplices
+    begin
+      mesh.mm_mesh0 <- mesh0;
+      mesh.mm_simplex_data <- simplex_data;
+      mesh.mm_region_volumes <-
+        _region_volumes mesh.mm_simplex_data mesh.mm_simplices;
+    end
 
 ;;
 

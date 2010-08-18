@@ -117,6 +117,7 @@ module F:
     val init2: int -> int -> (int -> int -> ml_elt) -> array2
     val init3: int -> int -> int -> (int -> int -> int -> ml_elt) -> array3
     val from_ml2: ml_elt array array -> array2
+    val to_ml1: array1 -> ml_elt array
     val to_ml2: array2 -> ml_elt array array
   end
 

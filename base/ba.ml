@@ -203,6 +203,9 @@ module BaFunctor =
         let () = set_all3 ba fn
         in ba
 
+      let to_ml1 a1 =
+        Array.init (dim1 a1) (fun i1 -> unsafe_get1 a1 i1)
+
       let from_ml2 a2 =
         let n1 = Array.length a2 in
         let n2 = if n1 >= 1 then Array.length a2.(0) else 0 in

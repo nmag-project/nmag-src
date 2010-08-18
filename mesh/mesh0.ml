@@ -70,3 +70,13 @@ let get_regions m0 = m0.m0_regions
 let get_simplex_point m0 nr_simplex nr_point =
   let point_id = I32.get2 m0.m0_simplices nr_simplex nr_point in
     Bigarray.Array2.slice_left m0.m0_points point_id
+
+let get_simplex_points m0 nr_simplex =
+  let points = m0.m0_points in
+  let simplices = m0.m0_simplices in
+  let sn, sd = I32.dim2 simplices in
+  let pn, pd = F.dim2 points in
+    Array.init sd
+      (fun i ->
+         let p_id = I32.get2 simplices nr_simplex i in
+           Array.init pd (fun j -> F.get2 points p_id j))

@@ -27,6 +27,8 @@ type t
 type idx = int
 (** The simplex index *)
 
+val dummy : t
+
 val init: Mesh0.t -> t
 (** Create a simplex object for the given mesh. The simplex object contains
     information about all the simplices in the mesh. *)
@@ -47,4 +49,14 @@ val get_inv_point_matrix: t -> idx -> Base.Ba.F.array2
 
 val get_face_eqn: t -> int -> int -> Base.Ba.F.array1
 
-val dummy : t
+val get_incircle_midpoint: t -> int -> Base.Ba.F.array1
+(** Get the incircle midpoint for the given simplex *)
+
+val get_circumcircle_midpoint: t -> int -> Base.Ba.F.array1
+(** Get the circumcircle midpoint for the given simplex *)
+
+val get_incircle_radius: t -> int -> float
+(** Get the incircle radius for the given simplex *)
+
+val get_circumcircle_radius: t -> int -> float
+(** Get the circumcircle radius for the given simplex *)

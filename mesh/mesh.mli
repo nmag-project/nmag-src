@@ -328,17 +328,6 @@ and simplex =
 	volume orientation anymore.
       *)
      mutable ms_in_body: simplex_region;
-     (*
-	Circum-Circle and In-Circle.
-
-	They are needed at least for the simplex quality test, but
-	keeping track of those allows us to do Delaunay triangulation
-	in D dimensions without having to refer to D+1 dimensions.
-      *)
-     mutable ms_cc_midpoint: float array;
-     mutable ms_ic_midpoint: float array;
-     mutable ms_cc_radius: float;
-     mutable ms_ic_radius: float;
    }
 
 type la_functions =
@@ -605,8 +594,6 @@ val mesh_align_external_indices : mesh -> unit
 val mesh_grow_bookkeeping_data :
   ?do_connectivity:bool ->
   ?do_incircle_circumcircle:bool -> ?do_regions:bool -> mesh -> unit
-
-val ensure_mesh_has_incircle_circumcircle : mesh -> unit
 
 val mesh_boundary_points : mesh -> (simplex_region list * float array) array
 

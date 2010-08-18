@@ -42,3 +42,6 @@ val get_simplex_point: t -> int -> int -> Base.Ba.F.array1
 (** get_simplex_point m0 nr_spx nr_pnt
 
     Return the nr_pnt point of the nr_spx simplex of the mesh m0 *)
+
+val get_simplex_points: t -> int -> float array array
+(** Return an array of the points (as arrays) of the given simplex *)

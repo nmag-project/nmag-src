@@ -47,9 +47,17 @@ type t = {
   mutable msd_point_coords_det: F.array1 Deferred.t;
   (** Determinants of point matrices *)
 
-  mutable msd_ic_cc_data: F.array2 Deferred.t;
-  (** incircle and circumcircle midpoints (d*2 floats)
-      and radii (1*2 floats) *)
+  mutable msd_ic_midpoints: F.array2 Deferred.t;
+  (** incircle midpoints *)
+
+  mutable msd_cc_midpoints: F.array2 Deferred.t;
+  (** circumcircle midpoints *)
+
+  mutable msd_ic_radii: F.array1 Deferred.t;
+  (** incircle radii *)
+
+  mutable msd_cc_radii: F.array1 Deferred.t;
+  (** circumcircle radii *)
 }
 
 type simplex = t * idx
@@ -109,53 +117,120 @@ let my_fill_inv_point_matrices_and_dets simplex () =
            end)
   in ()
 
+
+let report_mem_begin _ = ()
+let report_mem_end _ = ()
+
+let my_fill_c_data simplex midpoints radii compute =
+  let m0 = simplex.msd_mesh0 in
+(*   let d = Mesh0.get_nr_dims m0 in *)
+  let n = Mesh0.get_nr_simplices m0 in
+  let simplices = Mesh0.get_simplices m0 in
+  let compute_dim = compute in
+    for sx_nr = 0 to n - 1 do
+      let sx_point_coords = Mesh0.get_simplex_points m0 sx_nr in
+      let (midpoint, radius) = compute_dim sx_point_coords in
+        begin
+          F.set1 radii sx_nr radius;
+          Array.iteri (fun i x -> F.set2 midpoints sx_nr i x) midpoint;
+        end
+    done
+
+let my_fill_ic_data simplex () =
+  let d = Mesh0.get_nr_dims simplex.msd_mesh0 in
+  let mr = report_mem_begin "computation of incircle data" in
+  let midpoints = Deferred.create simplex.msd_ic_midpoints in
+  let radii = Deferred.create simplex.msd_ic_radii in
+  let incircle = Snippets.simplex_incircle_midpoint_radius d in
+  let () = my_fill_c_data simplex midpoints radii incircle in
+  let () = report_mem_end mr in
+    ()
+
+let my_fill_cc_data simplex () =
+  let d = Mesh0.get_nr_dims simplex.msd_mesh0 in
+  let mr = report_mem_begin "computation of circumcircle data" in
+  let midpoints = Deferred.create simplex.msd_cc_midpoints in
+  let radii = Deferred.create simplex.msd_cc_radii in
+  let circumcircle = Snippets.simplex_circumcircle_midpoint_radius d in
+  let () = my_fill_c_data simplex midpoints radii circumcircle in
+  let () = report_mem_end mr in
+    ()
+
 let init m0 =
   let d = Mesh0.get_nr_dims m0 in
   let dd = d + 1 in
   let n = Mesh0.get_nr_simplices m0 in
   let fa1_creator () = F.create1 n in
-  let fa2_creator () = F.create2 n dd in
+  let fa2_creator () = F.create2 n d in
   let fa3_creator () = F.create3 n dd dd in
   let point_matrices =
     Deferred.init ~creator:(my_build_point_matrices m0) "ext_point_coords" in
   let inv_point_matrices =
     Deferred.init ~creator:fa3_creator "inv_ext_point_coords" in
-  let point_coords_det = Deferred.init ~creator:fa1_creator "point_coords_det" in
-  let ic_cc_data = Deferred.init ~creator:fa2_creator "ic_cc_data" in
+  let point_coords_det =
+    Deferred.init ~creator:fa1_creator "point_coords_det" in
+  let ic_midpoints = Deferred.init ~creator:fa2_creator "ic_midpoints" in
+  let cc_midpoints = Deferred.init ~creator:fa2_creator "cc_midpoints" in
+  let ic_radii = Deferred.init ~creator:fa1_creator "ic_radii" in
+  let cc_radii = Deferred.init ~creator:fa1_creator "cc_radii" in
   let simplex =
     { msd_mesh0 = m0;
       msd_ext_point_coords = point_matrices;
       msd_inv_ext_point_coords = inv_point_matrices;
       msd_point_coords_det = point_coords_det;
-      msd_ic_cc_data = ic_cc_data; }
+      msd_ic_midpoints = ic_midpoints;
+      msd_cc_midpoints = cc_midpoints;
+      msd_ic_radii = ic_radii;
+      msd_cc_radii = cc_radii; }
   in
   let () =
     Deferred.set_collective_filler2 inv_point_matrices point_coords_det
-      (my_fill_inv_point_matrices_and_dets simplex)
+      (my_fill_inv_point_matrices_and_dets simplex) in
+  let () =
+    Deferred.set_collective_filler2 ic_midpoints ic_radii
+      (my_fill_ic_data simplex) in
+  let () =
+    Deferred.set_collective_filler2 cc_midpoints cc_radii
+      (my_fill_cc_data simplex)
   in simplex
+
+(* A dummy simplex datastructure *)
+let dummy = init Mesh0.dummy
 
 let get_num_points sx_data = 1 + Mesh0.get_nr_dims sx_data.msd_mesh0
 
 (** Get the point matrix for the given simplex. *)
 let get_point_matrix sx_data =
   let ba3 = Deferred.get sx_data.msd_ext_point_coords in
-    (fun sx_id -> Bigarray.Array3.slice_left_2 ba3 sx_id)
+    Bigarray.Array3.slice_left_2 ba3
 
 (** Get the determinant of the point matrix for the given simplex. *)
 let get_point_matrix_det sx_data =
   let ba1 = Deferred.get sx_data.msd_point_coords_det in
-    (fun sx_id -> F.get1 ba1 sx_id)
+    F.get1 ba1
 
 (** Get the inverse point matrix for the given simplex. *)
 let get_inv_point_matrix sx_data =
   let ba3 = Deferred.get sx_data.msd_inv_ext_point_coords in
-    (fun sx_id -> Bigarray.Array3.slice_left_2 ba3 sx_id)
+    Bigarray.Array3.slice_left_2 ba3
 
 (** Get the n-th row of the inverse point matrix for the given simplex.
     That corresponds to retrieve the coefficients of the equation of the n-th
     face of the simplex. *)
 let get_face_eqn sx_data sx_id =
   let mx = get_inv_point_matrix sx_data sx_id in
-    (fun n -> Bigarray.Array2.slice_left mx n)
+    Bigarray.Array2.slice_left mx
 
-let dummy = init Mesh0.dummy
+let get_incircle_midpoint sx_data =
+  let ba2 = Deferred.get sx_data.msd_ic_midpoints in
+    Bigarray.Array2.slice_left ba2
+
+let get_circumcircle_midpoint sx_data =
+  let ba2 = Deferred.get sx_data.msd_cc_midpoints in
+    Bigarray.Array2.slice_left ba2
+
+let get_incircle_radius sx_data =
+  F.get1 (Deferred.get sx_data.msd_ic_radii)
+
+let get_circumcircle_radius sx_data =
+  F.get1 (Deferred.get sx_data.msd_cc_radii)
