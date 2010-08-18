@@ -516,7 +516,7 @@ let simplex_surface_1form_component mesh sx_nr nr_face nr_component =
 
 
 
-
+(*
 let reordered_mesh mesh ix_new_by_ix_old =
   let () = Printf.fprintf stderr "XXX NOTE: the reordered_mesh function has not been tested toroughly yet! Tests: (a) re-ordering under involution should give the same mesh back, (b) serialization of re-ordered mesh should be exactly as long as that of original mesh.\n" in
   let nr_points = Array.length mesh.mm_points in
@@ -608,6 +608,7 @@ let reordered_mesh mesh ix_new_by_ix_old =
       mm_have_regions=mesh.mm_have_regions;
     }
 ;;
+*)
 
 let mesh_boundaries mesh =
   let body_outer_space = Body_Nr (-1) in
@@ -6155,6 +6156,11 @@ let mesh_do_reorder_vertices mesh permutation =
   begin
     Array.iteri (fun n p -> p.mp_id <- n) reordered_points;
     mesh.mm_points <- reordered_points;
+    mesh.mm_mesh0 <- mesh0_from_mesh mesh.mm_points mesh.mm_simplices;
+    (* That seems necessary to me, after the change I made
+       even if the simulations I made did not require it, apparenlty.
+       Should investigate this better.
+       mf, 18 Aug 2010 *)
     ()
   end
 ;;

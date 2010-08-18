@@ -18,19 +18,13 @@
 open Base
 open Base.Ba
 
-(*
-     (*
-        Circum-Circle and In-Circle.
-
-        They are needed at least for the simplex quality test, but
-        keeping track of those allows us to do Delaunay triangulation
-        in D dimensions without having to refer to D+1 dimensions.
-      *)
-     mutable ms_cc_midpoint: float array;
-     mutable ms_ic_midpoint: float array;
-     mutable ms_cc_radius: float;
-     mutable ms_ic_radius: float;
-*)
+(* Logging facilities *)
+(*let logmsg msg = Printf.printf "%s%!\n" msg
+let mem_report_begin = Snippets.mem_report_begin
+let mem_report_end mr = logmsg (Snippets.mem_report_end mr)*)
+let logmsg _ = ()
+let mem_report_begin _ = ()
+let mem_report_end _ = ()
 
 type idx = int
 
@@ -117,13 +111,8 @@ let my_fill_inv_point_matrices_and_dets simplex () =
            end)
   in ()
 
-
-let report_mem_begin _ = ()
-let report_mem_end _ = ()
-
 let my_fill_c_data simplex midpoints radii compute =
   let m0 = simplex.msd_mesh0 in
-(*   let d = Mesh0.get_nr_dims m0 in *)
   let n = Mesh0.get_nr_simplices m0 in
   let simplices = Mesh0.get_simplices m0 in
   let compute_dim = compute in
@@ -137,23 +126,23 @@ let my_fill_c_data simplex midpoints radii compute =
     done
 
 let my_fill_ic_data simplex () =
+  let mr = mem_report_begin "computation of incircle data" in
   let d = Mesh0.get_nr_dims simplex.msd_mesh0 in
-  let mr = report_mem_begin "computation of incircle data" in
   let midpoints = Deferred.create simplex.msd_ic_midpoints in
   let radii = Deferred.create simplex.msd_ic_radii in
   let incircle = Snippets.simplex_incircle_midpoint_radius d in
   let () = my_fill_c_data simplex midpoints radii incircle in
-  let () = report_mem_end mr in
+  let () = mem_report_end mr in
     ()
 
 let my_fill_cc_data simplex () =
+  let mr = mem_report_begin "computation of circumcircle data" in
   let d = Mesh0.get_nr_dims simplex.msd_mesh0 in
-  let mr = report_mem_begin "computation of circumcircle data" in
   let midpoints = Deferred.create simplex.msd_cc_midpoints in
   let radii = Deferred.create simplex.msd_cc_radii in
   let circumcircle = Snippets.simplex_circumcircle_midpoint_radius d in
   let () = my_fill_c_data simplex midpoints radii circumcircle in
-  let () = report_mem_end mr in
+  let () = mem_report_end mr in
     ()
 
 let init m0 =

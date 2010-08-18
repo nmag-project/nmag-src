@@ -7,7 +7,7 @@
 
 (** A collection of small generally useful functions *)
 
-(** 
+(**
  A collection of generally useful functions that do not fit into a
  more specific category, but are quite handy for a lot of
  applications.
@@ -35,7 +35,7 @@ val all_features : unit -> (string * (string * string) list) list
 (** The [features] mechanism is similar to Common LISP's [*features*],
     and allows key/value strings to be registered globally so that pieces
     of a large program can check for the presence of other pieces,
-    and get an idea of configuration issues. 
+    and get an idea of configuration issues.
 
     Unlike LISP, our implementation provides associative string/string
     pairs instead of just binary information (feature present/not present),
@@ -73,9 +73,9 @@ val rad_deg: float -> float
 val round_to_n_digits : ?base:int -> int -> float -> float
 (** Rounding a number not towards the nearest integer,
     but to a certain number of valid digits. Base may be specified.
-    
+
     This is especially interesting in conjunction with the fact that
-    base-2 rounded numbers (unless too large or too long) can be 
+    base-2 rounded numbers (unless too large or too long) can be
     expressed exactly in floatingpoint.
 *)
 
@@ -96,14 +96,14 @@ v}
    for that.
  *)
 
-val not_implemented_yet: string (* message *) -> ('a -> 'b) 
+val not_implemented_yet: string (* message *) -> ('a -> 'b)
 (** Args:
 {v
 val not_implemented_yet: string (* message *) -> ('a -> 'b) (* stub-function *)
 v}
 
     Occasionally, we want to write code in a slightly non-sequential order,
-    that is, finish the work on a function [f] which in a special subcase 
+    that is, finish the work on a function [f] which in a special subcase
     uses a function [g] before that function [g] has been written.
 
     Therefore, we need a way to place a stub that just says
@@ -120,7 +120,7 @@ v}
  *)
 
 val missing_param: unit -> 'a
-val is_obj_nan : 'a -> bool 
+val is_obj_nan : 'a -> bool
 val iterate : int (* max *) -> ('a -> 'a) (* mapping *) -> 'a (* start *) -> 'a
 val church  : int -> ('a -> 'a) -> 'a -> 'a
 (** These two functions are synonymous and implement
@@ -178,7 +178,7 @@ val array_pointwise :
 (** Given a binary operation [op] and two arrays of values, map them to
    an array of combined values.
 
-   This is, in fact, the function [List.map2] for Arrays. We therefore 
+   This is, in fact, the function [List.map2] for Arrays. We therefore
    define the synonym [array_map2] below.
 
 {e Example}
@@ -186,11 +186,11 @@ val array_pointwise :
 #use "topfind";;
 #require "Snippets";;
 
-let b =[|"dog";"cat";"mouse";"elephant";"tiger"|] in 
-  let a=[|1;3;5;7;11|] in 
+let b =[|"dog";"cat";"mouse";"elephant";"tiger"|] in
+  let a=[|1;3;5;7;11|] in
   Snippets.array_pointwise (fun a b -> (a,b)) a b;;
 
-Output is 
+Output is
  (int * string) array =
 [|(1, "dog"); (3, "cat"); (5, "mouse"); (7, "elephant"); (11, "tiger")|]
 v}
@@ -225,7 +225,7 @@ val memoized : ('a, 'b) Hashtbl.t -> ('a -> 'b) -> 'a -> 'b
    good to just automatically remember what the values of
    previous evaluations of that function were. This technique is known as
    "memoizing" and sometimes can be used very effectively to turn a naively
-   implemented algorithm that performs poorly into one that performs well - 
+   implemented algorithm that performs poorly into one that performs well -
    with negligible effort on the programmer's side.
 
    {e Example}
@@ -252,7 +252,7 @@ let mem_fibonacci =
    does not allow an application as a right-hand-side of a let rec.
  *)
 
-(* 
+(*
 # timing mem_fibonacci 35;;
 Time passed: 0.000149 sec
 => int = 14930352
@@ -305,7 +305,7 @@ val hashtbl_increase : ('coeff -> 'coeff -> 'coeff) (* sum *) ->
    term manipulation function. Another application would be grouping log file
    entries (e.g. collecting web requests by source IP).
 
-   Given a coefficient-adding function [sum], a hash table [h], a key and 
+   Given a coefficient-adding function [sum], a hash table [h], a key and
    a correponding coefficient contribution, either make a new entry into [h],
    or if there already was one, increase the coefficient of that entry in [h]
    by [sum]ing the old coefficient and the new contribution.
@@ -336,28 +336,28 @@ val hashtbl_reduce_map :
 *)
 
 val hashtbl_iteri: (int -> 'a -> 'b -> unit) (* f *) -> ('a, 'b) Hashtbl.t (* h *)-> unit
-(** Given a function [f] and an hash table [h], f is applied in turn 
-   to all the elements of h, with the index of the element as first argument, 
+(** Given a function [f] and an hash table [h], f is applied in turn
+   to all the elements of h, with the index of the element as first argument,
    and the key-value pair as second and third argument*)
- 
+
 val hashtbl_delete_if : ('a -> 'b -> bool)  (* f *) -> ('a, 'b) Hashtbl.t  (* h *) -> unit
 (** Function similar to [hashtbl_iteri] but now the elements of the hash table [h]
-   are deleted if the function [f], applied to the hash table elements with a 
+   are deleted if the function [f], applied to the hash table elements with a
    boolean output, is true*)
 
 val hashtbl_find_or : ?make_new_entry:bool -> ('a, 'b) Hashtbl.t -> 'a -> (unit -> 'b) -> 'b
 
 val hashtbl_arbitrary_element : ('a, 'b) Hashtbl.t  (* h *) -> ('a * 'b) option
-(** Function that returns None if the hash table [h] is empty or Some if h contains 
+(** Function that returns None if the hash table [h] is empty or Some if h contains
    something *)
 
 val map_hashtbl_to_array : ?sorter:('a -> 'a -> int)  (* s *) -> ('b -> 'c -> 'a)  (* f *) -> ('b, 'c) Hashtbl.t  (* h *)-> 'a array  (* a *)
-(** Function that creates an array [a] from the values given by the mapping of a 
-   function [f] on the elements of the hash table [h]. The entries of the array 
+(** Function that creates an array [a] from the values given by the mapping of a
+   function [f] on the elements of the hash table [h]. The entries of the array
    are optionally sorted if a sorting function [s] is given *)
 
 val hashtbl_to_array : ?sorter:('a * 'b -> 'a * 'b -> int)  (* s *) -> ('a, 'b) Hashtbl.t  (* h *)-> ('a * 'b) array (* a *)
-(** Function that creates an array [a] from the elements of an hash table [h]. 
+(** Function that creates an array [a] from the elements of an hash table [h].
    The entries of the array are optionally sorted if a sorting function [s] is
    given *)
 
@@ -365,8 +365,8 @@ val map_array_to_hashtbl : mapper:('a -> 'b) -> ('c * 'a) array -> ('c, 'b) Hash
 
 val hashtbl_keys : ?sorter:('a -> 'a  -> int)  (* s*) ->
   ('a, 'b) Hashtbl.t  (* h *) -> 'a array  (* a *)
-(** Function that creates an array [a] from the keys of an hash table [h]. 
-   The entries of the array are optionally sorted if a sorting function [s] 
+(** Function that creates an array [a] from the keys of an hash table [h].
+   The entries of the array are optionally sorted if a sorting function [s]
    is given *)
 
 val hashtbl_map_values : ('a -> 'b -> 'c) -> ('a, 'b) Hashtbl.t -> ('a, 'c) Hashtbl.t
@@ -394,7 +394,7 @@ val array_reducing_mapi : ('a -> 'b -> int -> 'c * 'a) -> 'b array -> 'a -> 'c a
 (** TODO *)
 
 val array_find : ('a -> bool)  (* f *) -> 'a array  (* a *) -> 'a
-(** Function that searches for any entry of the array [a] to satisfy 
+(** Function that searches for any entry of the array [a] to satisfy
    the condition in [f] and returns the first good entry or Not_found *)
 
 val array_filter: ('a -> bool)  (* f *) -> ('a array)  (* a *) -> ('a array)
@@ -429,16 +429,16 @@ val array_all_one_shorter_mapped : ('a -> 'b)  (* f *) -> 'a array -> 'b array a
    the function [f] *)
 
 val array_outer_product : ('a -> 'b -> 'c)  (* f *) -> 'a array  (* a1 *) -> 'b array  (* a2 *) -> 'c array array (* aa *)
-(** Function that creates an array [aa] whose entries are all the array pairs e 
-   built with the values of [f] sampled in the points (x,y) where x is any of the 
+(** Function that creates an array [aa] whose entries are all the array pairs e
+   built with the values of [f] sampled in the points (x,y) where x is any of the
    entries of the array [a1] and y any of the entries of the array [a2]*)
 
-val array_uniqify : 'a array array (* aa *) -> 'a array (* a *) 
-(** Function that merges all the array entries e of [aa] in an single array [a] and 
+val array_uniqify : 'a array array (* aa *) -> 'a array (* a *)
+(** Function that merges all the array entries e of [aa] in an single array [a] and
    deletes all the multiple entries from a*)
 
 val array_to_hashtbl : ?reduce:('a -> 'a -> 'a) -> ('b * 'a) array -> ('b, 'a) Hashtbl.t
-(** Map an array of pairs [(key,value)] to a corresponding hash table. 
+(** Map an array of pairs [(key,value)] to a corresponding hash table.
     A reduction fun may be specified to deal with re-occurring keys, the default being to
     just enter the last association appearing in the array into the hash.
 *)
@@ -456,12 +456,12 @@ val array_gcd_reduced : int array -> int array
     where the gcd has been divided out.
  *)
 
-val float_arrays_avg : ?storage:float array  (* s *) -> float array array  (* aa *) -> float array (* ave *) 
-(** Function that, given an array of arrays [aa], whose entries are e, 
+val float_arrays_avg : ?storage:float array  (* s *) -> float array array  (* aa *) -> float array (* ave *)
+(** Function that, given an array of arrays [aa], whose entries are e,
    returns the average value [ave] of the array entries e.
    If a store array [s] is given, the result is saved there *)
 
-val bool_array_to_string : bool array  (* a *) -> string 
+val bool_array_to_string : bool array  (* a *) -> string
 (** Function that transforms a boolean array [a] in a string *)
 
 val a_array_to_string: ('a -> string) -> 'a array -> string
@@ -497,21 +497,21 @@ val color_interpolate_piecewise :
   (float * float array) array -> float -> float array
 
 
-val float_array_to_string : float array  (* a *) -> string 
+val float_array_to_string : float array  (* a *) -> string
 (** Function that transforms a float array [a] into a string *)
 
 val int_array_to_string : int array  (* a *) -> string
 (** Function that transforms an integer array [a] into a string *)
 
-val float_array2_to_string : float array array (* a *) -> string 
+val float_array2_to_string : float array array (* a *) -> string
 (** Function that transforms a float array array [a] into a string *)
 
-val int_array2_to_string : int array array (* a *) -> string 
+val int_array2_to_string : int array array (* a *) -> string
 (** Function that transforms an int array array [a] into a string *)
 
 val string_to_charcode_string : string -> string
 
-val sparse_float_matrix_to_string : ?min_size:float  (* min *) -> float array array  (* m *) -> string (* s *) 
+val sparse_float_matrix_to_string : ?min_size:float  (* min *) -> float array array  (* m *) -> string (* s *)
 (** Function that transforms a float sparse matrix m in a string [s] taking only
    the values exceeding a minimum value [min] (to avoid printing noise) *)
 
@@ -519,32 +519,32 @@ val float_array_max : float array  (* a *) -> float
 (** Functions that returns the max value of the float array [a]:
    works only for arrays whose lenght is > 0 *)
 
-val array_position_if : ('a -> bool)  (* f *) -> 'a array  (* a *) -> int  (* p0 *) -> int (* p *) 
+val array_position_if : ('a -> bool)  (* f *) -> 'a array  (* a *) -> int  (* p0 *) -> int (* p *)
 (** Function that returns the position [p] of the first entry e of the array
-   [a] that satisfy the conditon [f]. The search starts from the position [p0] 
+   [a] that satisfy the conditon [f]. The search starts from the position [p0]
    and returns -1 if the condition is not satisfied *)
 
 val array_position : 'a  (* e *) -> 'a array  (* a *) -> int  (* p0 *) -> int
-(** Function that returns the position of the entry [e] in the array [a] 
+(** Function that returns the position of the entry [e] in the array [a]
    if its index is bigger than the index [p0] *)
 
-val array_mapjoin : ('a -> 'b)  (* f *) -> 'a array array  (* aa *) -> 'b array (* a *) 
-(** Function that takes a mapping function [f] and an array of arrays [aa], 
+val array_mapjoin : ('a -> 'b)  (* f *) -> 'a array array  (* aa *) -> 'b array (* a *)
+(** Function that takes a mapping function [f] and an array of arrays [aa],
    whose elements are e, and merges the elements e mapped through f in [a]*)
- 
-val array_join : 'a array array  (* aa *) -> 'a array  (* a *) 
+
+val array_join : 'a array array  (* aa *) -> 'a array  (* a *)
 (** Function that merges in [a] the array elements e of the array of arrays (* aa *) *)
 
 val list_iteri : (int -> 'a -> unit) -> 'a list -> unit
 (** Like [Array.iteri], but iterates over a list. *)
 
-val list_intersection : 'a list  (* l1 *) -> 'a list  (* l2 *) -> 'a list (* l3 *) 
-(** Function that returns a list [l3] whose elements are the 
+val list_intersection : 'a list  (* l1 *) -> 'a list  (* l2 *) -> 'a list (* l3 *)
+(** Function that returns a list [l3] whose elements are the
    elements common to the lists [l1] and [l2] *)
 
-val lists_intersection : ?sorter:('a -> 'a -> int)  (* s *) -> 'a list list  (* ll *) -> 'a list  (* l *) 
-(** Function that returns a list [l] whose elements are the 
-   elements common to all the elements e of the given list of lists [ll]. 
+val lists_intersection : ?sorter:('a -> 'a -> int)  (* s *) -> 'a list list  (* ll *) -> 'a list  (* l *)
+(** Function that returns a list [l] whose elements are the
+   elements common to all the elements e of the given list of lists [ll].
    The entries of l are optionally sorted if a sorting function [s] is
    given*)
 
@@ -558,7 +558,7 @@ val list_all_satisfy: ('a -> bool) -> 'a list -> bool
 val string_multifill_template_then_concat :
   ?separator:string -> string -> string array -> string array array -> string
 
-val gauss_random : ?fun_rng:(float -> float) (* g  *) -> float  (* m  *) -> float (* w  *)  -> float (* n  *) 
+val gauss_random : ?fun_rng:(float -> float) (* g  *) -> float  (* m  *) -> float (* w  *)  -> float (* n  *)
 (** Returns a random number [n] from a gaussian distribution [g]
    with a certain mean [m] and width [w]. *)
 
@@ -566,11 +566,11 @@ val estimate_max_and_average :
   ?conservative_factor:float (* cf  *) -> int (* n  *)  -> ('a -> float)  (* f  *) -> (unit -> 'a)  (* g *) -> float * float (*  m,a  *)
 (** Function that returns estimate values for the max and average [m,a] of a
    density function [f] sampling it to a given number [n] of points with a density
-   function [g]. The conservative factor [cf], used to compute the max, can be 
-   changed from its default value 1.12 *)  
+   function [g]. The conservative factor [cf], used to compute the max, can be
+   changed from its default value 1.12 *)
 
 val gauss_random_n_dim :
-  ?fun_rng:(float -> float) (* f  *)  -> float array (* m *) -> float (* w *) -> float array (* p *) 
+  ?fun_rng:(float -> float) (* f  *)  -> float array (* m *) -> float (* w *) -> float array (* p *)
 (**Function that returns a random N-dim point [p] from a N-dim gaussian distribution [f] with
    a N-dim mean [m] and width [w] *)
 
@@ -613,7 +613,7 @@ val symm_grad_storing_result: ?epsilon:float (* e *) -> int  (* d *) -> float ar
 val symm_div: ?epsilon:float (* e *)  -> int (* d *)  -> (float array -> float array)  (* g *) -> (float array -> float)
 (** TODO [d]-dim divergence computed with the central differences method. A step size epsilon [e]
    is mapped to a divergence function [g] *)
- 
+
 
 val find_minimum_on_line : ?x_tolerance:float -> (float -> float) -> float -> float -> float
 (** Given a concave function, and an auxiliary start and end search point,
@@ -634,19 +634,19 @@ val make_gram_schmidt_orthonormalizer :
 (** TODO: document me! *)
 
 val compute_det_on_scratchpad: int (* d *)  -> float array  (* m *) -> float
-(** Function that computes the determinant of a matrix written in a 
+(** Function that computes the determinant of a matrix written in a
    serialized form [m] where the original matrix dimension is [d]x[d] *)
 
 val determinant: int (* d *)  -> float array array  (* m *) -> float
 (** Determinant of a matrix [m] whose dimension is [d]x[d] *)
- 
+
 val hodge_dualize_to_1form : int -> float array array -> float array
 
-val det_and_inv: int (* d *)  -> float array array -> float  (* m *) * float array array (* d-i *) 
-(** Function that returns the pair determinant-inverse [d-i] of a matrix [m] 
+val det_and_inv: int (* d *)  -> float array array -> float  (* m *) * float array array (* d-i *)
+(** Function that returns the pair determinant-inverse [d-i] of a matrix [m]
    whose dimension is [d]x[d] *)
 
-val mx_mult: float array array (* m1 *)  -> float array array (* m2 *)  -> float array array (* m3 *) 
+val mx_mult: float array array (* m1 *)  -> float array array (* m2 *)  -> float array array (* m3 *)
 (** Multiplication of matrices: [m1] x [m2] = [m3] *)
 
 val mx_x_vec : ?store_result:float array (* a *)  -> float array array (* m *) -> float array  (* v *) -> float array
@@ -654,9 +654,9 @@ val mx_x_vec : ?store_result:float array (* a *)  -> float array array (* m *) -
 
 val mx_transpose: float array array -> float array array
 
-val all_distributions_to_buckets: int (* n *)  -> int (* k *) -> int array array (* aa *) 
+val all_distributions_to_buckets: int (* n *)  -> int (* k *) -> int array array (* aa *)
 (** Given [n] stones and [k] buckets, compute an array [aa]
-   whose entries are arrays of length [k] and represent all the configurations 
+   whose entries are arrays of length [k] and represent all the configurations
    how k stones can be distributed into [n] buckets.
 
 {e Example:}
@@ -678,7 +678,7 @@ val partitioning_multinomial_weight: int array -> float
 val hyperplane_eval: float array (* eq *)  -> float array (* p *)  -> float
 (** Function that evaluates the plane equation [eq] in a point [p] *)
 
-val hyperplane_eqn: int (* n *)  -> float array array (* pp *)  -> float array (* eq *) 
+val hyperplane_eqn: int (* n *)  -> float array array (* pp *)  -> float array (* eq *)
 (** Function that returns the equation [eq] of the (n-1)-dim plane passing
    through the [n] points whose coordinates are the elements of the array [pp] *)
 
@@ -699,7 +699,7 @@ val simplex_circumcircle_midpoint_radius :
 *)
 
 val simplex_incircle_midpoint_radius:
-  int (* n *)  -> ?smallest_allowed_distance:float -> float array array (* pp *)  -> float array * float (* c,r *) 
+  int (* n *)  -> ?smallest_allowed_distance:float -> float array array (* pp *)  -> float array * float (* c,r *)
 (** Function that given a [n]-dim simplex through its nodes coordinates [pp]
    returns the coordinates of the incircle center and the related radius [c,r] *)
 
@@ -719,23 +719,23 @@ val d_dimensional_space_angle_ub_lb: int -> float array -> float array array -> 
     one can see this difference. Also, note on non-reentrantness of such techniques.
 *)
 
-val line_point_sr: float array (* s *)  -> float array (* p0 *) 
-  -> float array (* p1 *)  -> float  (* t *) -> float array (* p2 *) 
+val line_point_sr: float array (* s *)  -> float array (* p0 *)
+  -> float array (* p1 *)  -> float  (* t *) -> float array (* p2 *)
 (** Function that given two points [p0] and [p1] builds a line connecting these
    points and returns the point [p2] associated with the parameter [t]
    along this line. The parameter is defined to be 0 in p0 and
    1 in p1. If given, the result is stored in the array [s] *)
 
-val line_point: float array (* p0 *)  -> float array (* p1 *)  -> float (* t *)  -> float array (* p2 *) 
-(** Function that, given the points [p0] and [p1] and a parameter [t] 
+val line_point: float array (* p0 *)  -> float array (* p1 *)  -> float (* t *)  -> float array (* p2 *)
+(** Function that, given the points [p0] and [p1] and a parameter [t]
    along the line connecting these points (with t=0 in p0 and
    t=1 in p1), returns the coordinates of the point [p2] along the
    line whose parameter is t *)
 
 val line_hyperplane_intersection_param:
-  float array (* p0 *) -> float array (* p1 *) -> float array (* eq *)  -> float (* t *) 
+  float array (* p0 *) -> float array (* p1 *) -> float array (* eq *)  -> float (* t *)
 (** Function that given the points [p0] and [p1] and the hyperplane
-   equation [eq] returns the parameter [t] along the line p0-p1 
+   equation [eq] returns the parameter [t] along the line p0-p1
    (see [line_point]) associated with the intersection line-hyperplane *)
 
 val volume_regular_simplex: int -> float
@@ -749,14 +749,14 @@ val volume_p_simplex_in_q_dimensions : int -> int -> float array array -> float
 
 val volume_d_sphere: int -> float
 (** Given a dimension d, this computes the volume of the d-dimensional
-(unit) sphere (with radius 1). 
+(unit) sphere (with radius 1).
 
    (-> see [examples/geometricfunctions.ml] )
 *)
 
 val surface_d_sphere: int -> float
 (** Given a dimension d, this computes the surface of the d-dimensional
-(unit) sphere (with radius 1). 
+(unit) sphere (with radius 1).
 *)
 
 val points_on_3d_sphere: int -> float array array
@@ -767,7 +767,7 @@ val points_on_3d_sphere: int -> float array array
 
 val sphere_packing_ratio_lattice_type_d: int -> float
 (** Given a dimension d, this Computes the densest packing ratio of
-spheres in d dimensions. Probably only accurate up to d=5. 
+spheres in d dimensions. Probably only accurate up to d=5.
 
    (-> see [examples/geometricfunctions.ml] )
 *)
@@ -776,7 +776,7 @@ val numerically_integrate_float_over_box:
   ?fun_rng:(float -> float) ->
   ?nr_points:int ->
   float array * float array -> (float array -> float) -> float
-(** Given two float arrays a and b which contain positions of 
+(** Given two float arrays a and b which contain positions of
    diametrally opposite corneres of a box, and a function f that
    maps a position r to a float, this function will numerically
    integrate f(r) over the box (using Monte Carlo integration).
@@ -857,16 +857,16 @@ val gc_info: bool -> string
 
 (* Low-level extensions *)
 
-val marshal_to_bigarray : 
-  'a -> Marshal.extern_flags list -> 
-  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t 
-      
+val marshal_to_bigarray :
+  'a -> Marshal.extern_flags list ->
+  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+
 val demarshal_from_bigarray :
-  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t -> 'a 
+  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t -> 'a
 
-val encode_double_into_7bit_string: string -> float -> unit 
+val encode_double_into_7bit_string: string -> float -> unit
 
-val decode_7bit_string_to_double: string -> float 
+val decode_7bit_string_to_double: string -> float
 
 val put_double_into_string: string -> float -> bool -> unit
 
@@ -886,13 +886,17 @@ val memory_footprint: 'a -> (float * float * float)
 
 val memstats : ?self_status_file:string -> unit -> float array
 
+type mem_report_handler
+val mem_report_begin: string -> mem_report_handler
+val mem_report_end: mem_report_handler -> string
+
 val time_vmem_rss : unit -> (float * float * float)
 
 val pack_int_couple : int -> int -> int
 
 val unpack_int_couple : int -> int*int
 
-val reset_signal_handler: int -> unit 
+val reset_signal_handler: int -> unit
 
 (* --- priority queue related functions --- *)
 

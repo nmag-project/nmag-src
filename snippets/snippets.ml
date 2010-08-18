@@ -1,4 +1,4 @@
-(* 
+(*
    (C) 2005 Dr. Thomas Fischbacher, Giuliano Bordignon, Dr. Hans Fangohr,
    SES, University of Southampton
 
@@ -33,7 +33,7 @@ let get_feature ?(domain="main") name =
   try
     let (_,domain_entry) = List.find (fun (x,_) -> x=domain) !__features in
     let (_,value) = List.find (fun (x,_) -> x=name) domain_entry
-    in 
+    in
       Some value
   with | Not_found -> None
 ;;
@@ -126,7 +126,7 @@ let array_compare_pointwise f a1 a2 =
 
 
 let path_and_filename_of_fullpath fullpath =
-  let filename_index = 
+  let filename_index =
     try String.rindex fullpath '/' with | Not_found -> (-1)
   in
   (Str.string_before fullpath (max filename_index 0),
@@ -250,11 +250,11 @@ let do_for_all_distributions nr_to_distribute v_max f_todo =
   let v_count = Array.make nr_bins 0 in
   let rec count count_pos rest_i_have =
     let count_val = v_count.(count_pos) in
-      if 0=rest_i_have 
+      if 0=rest_i_have
       then
 	let () = f_todo v_count in
 	  v_count.(count_pos) <- 0
-      else if count_pos=highest_bin 
+      else if count_pos=highest_bin
       then
 	let () = v_count.(count_pos) <- count_val+rest_i_have in
 	let () = f_todo v_count in
@@ -262,7 +262,7 @@ let do_for_all_distributions nr_to_distribute v_max f_todo =
       else
 	let max_here = min rest_i_have v_max.(count_pos)
 	and min_here = max 0 (rest_i_have-v_accum_max.(1+count_pos))
-	in 
+	in
 	  begin
 	    for nj=min_here to max_here do
 	      v_count.(count_pos) <- nj;
@@ -289,7 +289,7 @@ let hashtbl_increase add_fun ht key delta =
 
 let hashtbl_push ht key value =
   let old_entry =
-    try Hashtbl.find ht key 
+    try Hashtbl.find ht key
     with
       | Not_found -> []
   in Hashtbl.replace ht key (value::old_entry)
@@ -297,7 +297,7 @@ let hashtbl_push ht key value =
 
 let hashtbl_pushn ht key values =
   let old_entry =
-    try Hashtbl.find ht key 
+    try Hashtbl.find ht key
     with
       | Not_found -> []
   in Hashtbl.replace ht key (List.append values old_entry)
@@ -311,7 +311,7 @@ let hashtbl_sum add_fun ht1 ht2 =
 
 let hashtbl_reduce_map f_reduce f_map ht =
   let ht_new = Hashtbl.create (Hashtbl.length ht) in
-  let () =Hashtbl.iter 
+  let () =Hashtbl.iter
     (fun k v ->
        let (fk,fv) = f_map k v in
        try
@@ -387,7 +387,7 @@ let hashtbl_arbitrary_element ht =
 
 let map_hashtbl_to_array ?sorter mapper ht =
   let nr_entries = Hashtbl.length ht in
-    if nr_entries = 0 
+    if nr_entries = 0
     then [||]
     else
       let opt_kv = hashtbl_arbitrary_element ht in
@@ -425,7 +425,7 @@ let map_array_to_hashtbl ~mapper arr =
 
 let hashtbl_keys ?sorter ht =
   let nr_entries = Hashtbl.length ht in
-    if nr_entries = 0 
+    if nr_entries = 0
     then [||]
     else
       let opt_kv = hashtbl_arbitrary_element ht in
@@ -538,7 +538,7 @@ let array_mapfilter p arr =
   let rec pos_and_val_first_good n =
     if n = len
     then None
-    else 
+    else
       (let p_n = p arr.(n) in
       match p_n with
       | None -> pos_and_val_first_good (1+n)
@@ -546,7 +546,7 @@ let array_mapfilter p arr =
 	(* Note: may want to store n to a ref to reduce consing? *)
   in
   let rec gather pos_now have_now =
-    match pos_and_val_first_good pos_now 
+    match pos_and_val_first_good pos_now
 	with
     | None -> Array.of_list (List.rev have_now)
     | Some (pos_next,val_next) ->
@@ -559,7 +559,7 @@ let array_mapfilteri p arr =
   let rec pos_and_val_first_good n =
     if n = len
     then None
-    else 
+    else
       (let p_n = p n arr.(n) in
       match p_n with
       | None -> pos_and_val_first_good (1+n)
@@ -567,7 +567,7 @@ let array_mapfilteri p arr =
 	(* Note: may want to store n to a ref to reduce consing? *)
   in
   let rec gather pos_now have_now =
-    match pos_and_val_first_good pos_now 
+    match pos_and_val_first_good pos_now
 	with
     | None -> Array.of_list (List.rev have_now)
     | Some (pos_next,val_next) ->
@@ -581,7 +581,7 @@ let array_mapfilterij p arr =
   let rec pos_and_val_first_good nr_have n =
     if n = len
     then None
-    else 
+    else
       (let p_n = p n nr_have arr.(n) in
       match p_n with
       | None -> pos_and_val_first_good nr_have (1+n)
@@ -589,7 +589,7 @@ let array_mapfilterij p arr =
 	(* Note: may want to store n to a ref to reduce consing? *)
   in
   let rec gather pos_now have_now nr_have_now =
-    match pos_and_val_first_good nr_have_now pos_now 
+    match pos_and_val_first_good nr_have_now pos_now
 	with
     | None -> Array.of_list (List.rev have_now)
     | Some (pos_next_src,pos_next_dst,val_next) ->
@@ -679,9 +679,9 @@ let array_to_hashtbl ?(reduce=(fun x y -> x)) a =
 let components_of_connection fun_neighbours start_points =
   let ht_seen_all = Hashtbl.create 17 in
   let rec walk_cc ht_seen active_points next_generation =
-    if Hashtbl.length active_points = 0 && Hashtbl.length next_generation = 0 
+    if Hashtbl.length active_points = 0 && Hashtbl.length next_generation = 0
     then ht_seen
-    else 
+    else
       let () = hashtbl_foreach_do active_points
 	(fun pt _ ->
 	   let () = Hashtbl.replace ht_seen_all pt true in
@@ -696,19 +696,19 @@ let components_of_connection fun_neighbours start_points =
 	walk_cc ht_seen next_generation ht_new_ng
   in
   let nr_start_points = Array.length start_points in
-  let rec make_ccs have_ccs nr_pt = 
+  let rec make_ccs have_ccs nr_pt =
     if nr_pt = nr_start_points
     then Array.of_list (List.rev have_ccs)
     else
       let have_seen_this =
-	try 
+	try
 	  let _ = Hashtbl.find ht_seen_all start_points.(nr_pt) in true
 	with | Not_found -> false
       in
 	if have_seen_this
 	then make_ccs have_ccs (1+nr_pt)
 	else
-	  let active_points = 
+	  let active_points =
 	    let h = Hashtbl.create 3 in
 	    let () = Hashtbl.add h start_points.(nr_pt) true in
 	      h
@@ -771,7 +771,7 @@ let float_arrays_avg ?storage arrs =
 let interpolate_points point_start point_end nr_steps =
   let step_factor = 1.0/.(float_of_int (nr_steps-1)) in
   let v_step = array_pointwise (fun x y -> step_factor*.(y-.x)) point_start point_end in
-    Array.init nr_steps 
+    Array.init nr_steps
       (fun n ->
 	 array_pointwise (fun p0 dir -> p0+.(float_of_int n)*.step_factor*.dir) point_start v_step)
 ;;
@@ -806,7 +806,7 @@ let color_interpolate_piecewise =
 let a_array_to_string fun_stringify arr =
   let pieces= Array.map fun_stringify arr in
     Printf.sprintf "[|%s|]" (String.concat "; " (Array.to_list pieces))
-  
+
 let string_array_to_string = a_array_to_string (fun s -> (Printf.sprintf "\"%s\"" (String.escaped s)));;
 let float_array_to_string = a_array_to_string string_of_float;;
 let int_array_to_string = a_array_to_string string_of_int;;
@@ -819,7 +819,7 @@ let string_to_charcode_string s =
   int_array_to_string (Array.init (String.length s) (fun n -> Char.code s.[n]))
 ;;
 
-let quote_string = 
+let quote_string =
   (* XXX should be obsoleted! use String.escaped! *)
   let rx = Str.regexp "[\"\\]" in
     fun str ->
@@ -839,7 +839,7 @@ let string_compare_n n str1 str2 =
   in
   let rec walk pos =
     if pos = n then true
-    else 
+    else
       if pos = len1
       then (pos=len2)
       else
@@ -867,7 +867,7 @@ let string_one_shorter s n =
     end
 ;;
 
-let string_append s1 s2 = 
+let string_append s1 s2 =
   let ns1 = String.length s1
   and ns2 = String.length s2
   in
@@ -912,7 +912,7 @@ let string_starts_with start_strings s =
  *
  *   let args_by_group = Hashtbl.create 10 in
  *     preparse_cmdline groups "bad-opts" args_by_group cmdline
- * 
+ *
  * The args_by_group will contain two keys: "bad-opts" associated to the value
  * [|"a0"; "a1"; "a5"|] and the key "nice-opts" associated to the value
  * [|"a2"; "a3"|].
@@ -1014,7 +1014,7 @@ let list_iteri f li =
   let rec walk n rest_li =
     match rest_li with
     | [] -> ()
-    | (hd::tl) -> 
+    | (hd::tl) ->
 	let () = f n hd in
 	walk (1+n) tl
   in walk 0 li
@@ -1032,7 +1032,7 @@ let list_intersection li_1 li_2 =
     | [] -> List.rev seen
     | (hd::tl) -> if list_member hd li_2 then walk (hd::seen) tl else walk seen tl
   in walk [] li_1
-;;  
+;;
 
 let lists_intersection ?sorter lili =
   let rec walk lili =
@@ -1046,11 +1046,11 @@ let lists_intersection ?sorter lili =
   | None -> result
   | Some f -> List.sort f result
 ;;
-  
+
 let list_mapfind f li =
   let rec walk rest =
     match rest with
-    | (x::xs) -> 
+    | (x::xs) ->
 	(let here = f x in
 	  match here with
 	  | None -> walk xs
@@ -1079,7 +1079,7 @@ let string_multifill_template_then_concat ?(separator="") template patterns repl
       (String.concat "\\|" (Array.to_list (Array.map Str.quote patterns)))
   in
   let rx = Str.regexp rx_str in
-  let replaced_pieces = 
+  let replaced_pieces =
     Array.map
       (fun this_instantiation ->
 	 let replace_piece s =
@@ -1096,13 +1096,13 @@ let string_multifill_template_then_concat ?(separator="") template patterns repl
 ;;
 
 (*
-string_multifill_template_then_concat 
-  ~separator:";" 
-  "M_%MAT% = (%ABS_M%)*<foo||bar_%MAT%>" 
+string_multifill_template_then_concat
+  ~separator:";"
+  "M_%MAT% = (%ABS_M%)*<foo||bar_%MAT%>"
   [|"%MAT%";"%ABS_M%"|]
   [|[|"Py";"1.3"|];[|"Dy";"2.6"|]|];;
 
-==> 
+==>
  - : string = "M_Py = (1.3)*<foo||bar_Py>;M_Dy = (2.6)*<foo||bar_Dy>"
 *)
 
@@ -1119,20 +1119,20 @@ let estimate_max_and_average
   let rec work n max_seen sum_now =
     if n = nr_probes
     then (max_seen *. conservative_factor, sum_now/. (float_of_int nr_probes))
-    else 
+    else
       let v = f (fun_random_point ())
       in work (1+n) (max v max_seen) (sum_now+.v)
   in work 1 (f (fun_random_point ())) 0.0
 ;;
 
-(* 
+(*
    Example:
 
    estimate_max_and_average
     ~conservative_factor:1.0
     100
     (fun x -> exp(0.0-.(x*.x)))
-    (fun _ -> (Random.float 5.0) -. 2.5);;   
+    (fun _ -> (Random.float 5.0) -. 2.5);;
 
    - : float * float = (0.999738789487001345, 0.337152520093218167)
 *)
@@ -1152,7 +1152,7 @@ let distribute_points_randomly
   let (max_density,density_average) =
     match max_density_and_average
     with
-      | None -> estimate_max_and_average (nr_points*4) fun_density fun_random_point 
+      | None -> estimate_max_and_average (nr_points*4) fun_density fun_random_point
       | Some x -> x
   in
   let result = Array.make nr_points (fun_random_point ()) in
@@ -1194,7 +1194,7 @@ let ex_make_2d_gaussian_points n =
 ;;
 
   let random_pts = ex_make_2d_gaussian_points 10000;;
-   
+
    for i = 0 to 10000-1 do let [|x;y|]=random_pts.(i) in Printf.printf "%3d %8.3f %8.3f\n" i x y done;;
 
    Indeed, gnuplot shows that this is a nice gaussian distribution.
@@ -1214,7 +1214,7 @@ let scalar_product v1 v2 =
     let rec walk n so_far =
       if n = len
       then so_far
-      else 
+      else
 	walk (n+1) (so_far+.v1.(n)*.v2.(n))
     in walk 0 0.0
 ;;
@@ -1227,9 +1227,9 @@ let cross_product_3d v1 v2 =
 ;;
 
 let triangle_space_angle_3d =
-  let r0 = Array.make 3 0.0 
-  and r1 = Array.make 3 0.0 
-  and r2 = Array.make 3 0.0 
+  let r0 = Array.make 3 0.0
+  and r1 = Array.make 3 0.0
+  and r2 = Array.make 3 0.0
   and v_len x = sqrt(x.(0)*.x.(0)+.x.(1)*.x.(1)+.x.(2)*.x.(2))
   and sprod x y = x.(0)*.y.(0)+.x.(1)*.y.(1)+.x.(2)*.y.(2)
   in
@@ -1269,7 +1269,7 @@ let euclidean_distance_sq v1 v2 =
     let rec walk n so_far =
       if n = len
       then so_far
-      else 
+      else
 	let dn = v1.(n)-.v2.(n) in
 	walk (n+1) (so_far+.dn*.dn)
     in walk 0 0.0
@@ -1280,16 +1280,16 @@ let euclidean_len_sq v =
   let rec walk n so_far =
     if n = len
     then so_far
-    else 
+    else
       walk (n+1) (so_far+.v.(n)*.v.(n))
   in walk 0 0.0
 ;;
 
 (* In three dimensions, the area of a triangle spawned by vectors v1, v2 is
-   half the norm of the cross product. In higher dimensions, a 
+   half the norm of the cross product. In higher dimensions, a
    "vector cross product" does not exist, but there is an appropriate
    generalization: half the Frobenius norm of the (antisymmetric) 2-vector
-   made from v1,v2.    
+   made from v1,v2.
  *)
 
 let triangle_area point1 point2 point3 =
@@ -1331,8 +1331,8 @@ let rec random_point_on_d_sphere ?(fun_rng  = fun x -> Random.float x) dim =
 
 (* == Gradient == *)
 
-(* 
-   Technical note: 
+(*
+   Technical note:
 
    The result of computing a gradient at a given position is a vector.
    Normally, we would like this result vector to be dynamically
@@ -1342,7 +1342,7 @@ let rec random_point_on_d_sphere ?(fun_rng  = fun x -> Random.float x) dim =
 
    The alternative would be to provide a store-result-here output
    vector argument that is dynamically modified, so that memory
-   management is up to the caller. 
+   management is up to the caller.
 
    The latter strategy is sometimes necessary.
    The former one, however, corresponds so much closer to the idea of
@@ -1485,7 +1485,7 @@ let walk_to_minimum ?x_tolerance ?(grad_step=1e-7) ?(stop_grad_len=1e-6) f start
       let abs_grad = sqrt(euclidean_len_sq v_grad) in
 	if abs_grad <= stop_grad_len
 	then pos
-	else 
+	else
 	  let step = find_minimum_on_line ?x_tolerance fun_on_grad_line 0.0 0.01 in
 	    begin
 	      for i=0 to dim-1 do
@@ -1504,7 +1504,7 @@ let walk_to_minimum ?x_tolerance ?(grad_step=1e-7) ?(stop_grad_len=1e-6) f start
    would have been written in a different way.
 *)
 
-(* Note that the G.S. orthonormalizer behaves like an "object". 
+(* Note that the G.S. orthonormalizer behaves like an "object".
    XXX Needs documentation!
 *)
 
@@ -1634,7 +1634,7 @@ let compute_det_on_scratchpad dim scratchpad =
       let row_non0 = find_row_with_non0_entry col_ix row_ix in
 	if row_non0 = (-1)
 	then 0.0 (* Determinant can only be zero *)
-	else 
+	else
 	  begin
 	    if row_non0 <> row_ix
 	    then
@@ -1671,7 +1671,7 @@ let compute_inv_on_scratchpads dim scratchpad_src scratchpad_dst =
   let swap_rows row_ix_1 row_ix_2 =
     (* Note: row indices are 0;dim;2*dim;... *)
     for i = 0 to dim-1 do
-      let x1 = scratchpad_src.(row_ix_1+i) 
+      let x1 = scratchpad_src.(row_ix_1+i)
       and x2 = scratchpad_dst.(row_ix_1+i) in
 	begin
 	  scratchpad_src.(row_ix_1+i)<-scratchpad_src.(row_ix_2+i);
@@ -1682,7 +1682,7 @@ let compute_inv_on_scratchpads dim scratchpad_src scratchpad_dst =
     done
   in
 (*  let () = Printf.printf "snippets: swap_row\n%!" in
-*) 
+*)
  let normalize_row row_ix col_ix =
     let entry = scratchpad_src.(row_ix+col_ix) in
     let factor = (1.0)/.entry in
@@ -1711,7 +1711,7 @@ let compute_inv_on_scratchpads dim scratchpad_src scratchpad_dst =
 	  find_row_with_best_entry_down best_now_val best_now_pos col (dim+ row_now)
   in
 (*  let () = Printf.printf "snippets: find_row_with_best_entry_down\n%!" in
-*)  
+*)
     let rec down_eliminate row_end col_start row_src row_dst =
     if row_dst = row_end
     then ()
@@ -1741,8 +1741,8 @@ let compute_inv_on_scratchpads dim scratchpad_src scratchpad_dst =
 	if row_pivot = (-1)
 	then
 	  raise Division_by_zero (* No Inverse! Det=0. *)
-	else 
-	  let det = 
+	else
+	  let det =
 	    (if row_pivot = row_ix
 	     then det*.scratchpad_src.(row_ix+col_ix)
 	     else let () = swap_rows row_ix row_pivot in
@@ -1759,16 +1759,16 @@ let compute_inv_on_scratchpads dim scratchpad_src scratchpad_dst =
 ;;
 
 
-let hodge_dualize_to_1form dim = 
+let hodge_dualize_to_1form dim =
 (*
-   Idea: fill scratchpad with vectors, add vectors  
-   1000, 0100, 0010, 0001 as last vector, and in every case 
-   compute the determinant. Yes, this is somewhat dumb 
-   and wasteful. But it should do the job... 
+   Idea: fill scratchpad with vectors, add vectors
+   1000, 0100, 0010, 0001 as last vector, and in every case
+   compute the determinant. Yes, this is somewhat dumb
+   and wasteful. But it should do the job...
 *)
-  let size = dim*dim in 
+  let size = dim*dim in
   let lastrow = size-dim in
-  let scratchpad = Array.make size 0.0 in 
+  let scratchpad = Array.make size 0.0 in
   fun vectors -> (* dim-1 vectors of length dim *)
     let result = Array.make dim 0.0 in
       begin
@@ -1823,7 +1823,7 @@ let _linear_array_to_mx dim arr =
  *)
 let det_and_inv dim =
   let size = dim*dim in
-  let scratchpad_src = Array.make size 0.0 
+  let scratchpad_src = Array.make size 0.0
   and scratchpad_dst = Array.make size 0.0
   in
   let inv mx =
@@ -1849,7 +1849,7 @@ let det_and_inv dim =
     inv
 ;;
 
-(* 
+(*
    let inv3 = det_and_inv 3;;
    let r = Array.init 3 (fun _ -> Array.init 3 (fun _ -> Random.float 4.0));;
 
@@ -1865,9 +1865,9 @@ let mx_mult m1 m2 =
     else rowcol_prod r c (j+1) (now+.m1.(r).(j)*.m2.(j).(c))
   in
     Array.init (Array.length m1)
-      (fun r -> 
+      (fun r ->
 	 Array.init (Array.length m2.(0))
-	   (fun c -> 
+	   (fun c ->
 	      rowcol_prod r c 0 0.0))
 ;;
 
@@ -1913,7 +1913,7 @@ let determinant dim =
   in det
 ;;
 
-(* Example:    
+(* Example:
 let det_3d = determinant 3;;
 
 det_3d [|[| 0.0; 3.0; 0.0|];[|-2.0; 3.0; 5.0|];[| 4.0;-6.0;-6.0|]|];;
@@ -1952,8 +1952,8 @@ let all_distributions_to_buckets nr_buckets how_many_things =
 	else
 	  distrib distrib_new (nr_still_to_distribute-n) (pos+1)
 	    (fun x -> (x::(all_choices_here (n+1) return)))
-      in 
-      all_choices_here 
+      in
+      all_choices_here
 	(if pos=nr_buckets-1 then nr_still_to_distribute else 0)
 	return
   in
@@ -1969,7 +1969,7 @@ let partitioning_multinomial_weight partitioning =
   let numerator = float_factorial nr_total in
   Array.fold_left (fun sf x -> sf/.(float_factorial x)) numerator partitioning
 ;;
-    
+
 
 let hyperplane_eval eqn point =
   let dim = Array.length point in
@@ -2053,7 +2053,7 @@ let hyperplane_do_normalize_return_norm hp =
   if norm = 0.0
   then 0.0
   else
-    let inv_norm = 1.0/.norm in 
+    let inv_norm = 1.0/.norm in
     begin
       for i=0 to dim+1-1 do
 	hp.(i) <- hp.(i) *. inv_norm;
@@ -2104,9 +2104,9 @@ let hyperplanes_intersection_point dim =
    (One use is to estimate the space angle ("Fraction of the sky") taken up
    by a D-1-dimensional simplex when observed from a given point.)
 
-   Its sister function, simplex_incircle_midpoint_radius has not yet been 
+   Its sister function, simplex_incircle_midpoint_radius has not yet been
    generalized correspondingly. XXX This is work to do.
-*) 
+*)
 
 let simplex_circumcircle_midpoint_radius ?(dim_simplex=(-1)) ?(smallest_allowed_distance=1e-6) dim_space =
   let dim_simplex=(if dim_simplex<0 then dim_space else dim_simplex) in
@@ -2119,7 +2119,7 @@ let simplex_circumcircle_midpoint_radius ?(dim_simplex=(-1)) ?(smallest_allowed_
   let scratch_midpoint = Array.make dim_space 0.0 in
   let scratchpad_logs = Array.init nr_vertices (fun _ -> Array.copy scratch_midpoint) in
   let scratchpad_log_lens = Array.make nr_vertices 0.0 in
-    
+
   let gram_schmidt = make_gram_schmidt_orthonormalizer dim_space in
   let (gs_clear, gs_check_finished, gs_add_vector, gs_copy_vector)=gram_schmidt in
   let scratch_coords = Array.init dim_space (fun _ -> Array.make (1+dim_space) 0.0) in
@@ -2144,15 +2144,15 @@ let simplex_circumcircle_midpoint_radius ?(dim_simplex=(-1)) ?(smallest_allowed_
     let normal = array_one_shorter test_coplanar dim_space in
     let point_out_of_plane = points_coords.(0) in
       (* distance point-plane *)
-    let distance = abs_float (Array.fold_left ( +. ) 
-				 test_coplanar.(dim_space) 
-				 (array_pointwise ( *. ) 
-				     point_out_of_plane 
-				     normal) ) 
+    let distance = abs_float (Array.fold_left ( +. )
+				 test_coplanar.(dim_space)
+				 (array_pointwise ( *. )
+				     point_out_of_plane
+				     normal) )
       /.
-				 (sqrt (euclidean_len_sq normal)) 
+				 (sqrt (euclidean_len_sq normal))
     in
-    
+
 
   if distance < smallest_allowed_distance *. max_log_len || is_obj_nan distance
       then (midpoint,1e10*.max_log_len)
@@ -2220,7 +2220,7 @@ let simplex_incircle_midpoint_radius dim ?(smallest_allowed_distance=1e-6) =
   let scratch_midpoint = Array.make dim 0.0 in
   let scratchpad_logs = Array.init nr_vertices (fun _ -> Array.copy scratch_midpoint) in
   let scratchpad_log_lens = Array.make nr_vertices 0.0 in
-    
+
   let scratch_hyperplanes = Array.init nr_vertices (fun _ -> Array.make nr_vertices 0.0) in
   (fun points_coords ->
     let midpoint = float_arrays_avg ~storage:scratch_midpoint points_coords in
@@ -2236,15 +2236,15 @@ let simplex_incircle_midpoint_radius dim ?(smallest_allowed_distance=1e-6) =
     let normal = array_one_shorter test_coplanar dim in
     let point_out_of_plane = points_coords.(0) in
       (* distance point-plane *)
-    let distance = abs_float (Array.fold_left ( +. ) 
-				 test_coplanar.(dim) 
-				 (array_pointwise ( *. ) 
-				     point_out_of_plane 
-				     normal) ) 
+    let distance = abs_float (Array.fold_left ( +. )
+				 test_coplanar.(dim)
+				 (array_pointwise ( *. )
+				     point_out_of_plane
+				     normal) )
       /.
-				 (sqrt (euclidean_len_sq normal)) 
+				 (sqrt (euclidean_len_sq normal))
     in
-    
+
       if distance < smallest_allowed_distance *. max_log_len || is_obj_nan distance
       then (midpoint,0.0)
       else
@@ -2269,7 +2269,7 @@ let simplex_incircle_midpoint_radius dim ?(smallest_allowed_distance=1e-6) =
 	 Now, take one of them as special, and replace every other one by the average
 	 of it with the special one. Of course, average is equivalent to sum here.
 	 We are projective, after all.
-	 Note: we take the last one as the special one, since we can then directly feed 
+	 Note: we take the last one as the special one, since we can then directly feed
 	 our hyperplanes into the intersection function.
        *)
       for i=0 to nr_vertices-1-1 do
@@ -2328,7 +2328,7 @@ let d_dimensional_space_angle_ub_lb dim =
 	     of the face's plane with the tangent sphere must be the
 	     circumcircle midpoint, since if we scale up the
 	     tangent sphere to radius 1, it will intersect the face
-	     in the circumcircle of the faces' vertices, and the 
+	     in the circumcircle of the faces' vertices, and the
 	     original touching point will just have moved outward
 	     normal to the faces' hyperplane
 	  *)
@@ -2342,7 +2342,7 @@ let d_dimensional_space_angle_ub_lb dim =
 	  in
 	    (volume_outer,volume_inner)
 	end
-      with 
+      with
 	| Division_by_zero -> (0.0,0.0)
 ;;
 
@@ -2398,7 +2398,7 @@ let volume_p_simplex_in_q_dimensions p dim_q =
   let buffer_vertices = Array.init (p-1) (fun _ -> Array.make dim_q 0.0) in
   let vol_factor=1.0/.(float_factorial (p-1)) in
     fun vertices ->
-      try 
+      try
 	begin
 	  for i=1 to p-1 do
 	    for k=0 to dim_q-1 do
@@ -2435,14 +2435,14 @@ let volume_p_simplex_in_q_dimensions p dim_q =
 	end
       with | Division_by_zero -> 0.0
 ;;
-		      
-	
+
+
 
 (* It would be nice to have a function that computes the "volume"
    of a p-simplex embedded in q dimensional space...
  *)
 
-let rec euler_gamma x = 
+let rec euler_gamma x =
   if x = 0.5	(* 0.5 is an exactly representable floatingpoint number. *)
   then sqrt(pi)
   else if x = 1.0
@@ -2470,7 +2470,7 @@ let surface_d_sphere d =
 
 let points_on_3d_sphere subdivision_level =
   (* It is slightly subtle to see that we really
-     may register float vectors with impunity here. 
+     may register float vectors with impunity here.
      We will not encounter spurious closeby points
      from roundoff errors...
 
@@ -2535,7 +2535,7 @@ let sphere_packing_ratio_lattice_type_d dim =
 	(fun n ->
 	  Array.init
 	    dim
-	    (fun j -> 
+	    (fun j ->
 	      if n=(dim-1) (* last one *)
 	      then (if j >= dim-2 then 1.0 else 0.0)
 	      else (if j = n then 1.0 else if j=(n+1) then (-1.0) else 0.0)))
@@ -2589,7 +2589,7 @@ let numerically_integrate_float_over_box
 
 let raw_val =
   numerically_integrate_float_over_box ~nr_points:100000 ([|-1.0;-1.0|],[|1.0;1.0|])
-    (fun [|x;y|] -> 
+    (fun [|x;y|] ->
       let xy = x*.x+.y*.y
       in if xy > 1.0 then 0.0 else sqrt(1.0-.xy))
 in 2.0*.raw_val/.(4.0/.3.0);;
@@ -2626,12 +2626,12 @@ let read_file_as_lines filename =
         input_line input_file
       with
         End_of_file -> bad_line in
-    if next_line == bad_line then 
-      let () = close_in input_file in 
+    if next_line == bad_line then
+      let () = close_in input_file in
       List.rev so_far
     else
       read_lines (next_line::so_far)
-  in 
+  in
   let lines = read_lines []
   in
   lines
@@ -2651,7 +2651,7 @@ let read_dir =
       then work read
       else work (next::read)
     in
-    let result = work [] in 
+    let result = work [] in
     let () = Unix.closedir dir_h in
     result
 ;;
@@ -2668,7 +2668,7 @@ let regexp_decompose nr_pieces rx_string =
     let rec walk so_far pos =
       let pos_found =
       try Str.search_forward rx str pos
-      with 
+      with
       | Not_found -> (-1)
             (* This is a hack to maintain the niceties of
                tail recursiveness (which exception handling
@@ -2677,11 +2677,11 @@ let regexp_decompose nr_pieces rx_string =
       in
       if pos_found=(-1)
       then
-	List.rev so_far 
+	List.rev so_far
       else
 	let pos_end = Str.match_end() in
 	let pieces_here =
-          Array.init nr_pieces 
+          Array.init nr_pieces
             (fun n ->
               try
 		Some (Str.matched_group (n+1) str)
@@ -2714,7 +2714,7 @@ let gensym =
 ;;
 
 let md5 str = Digest.to_hex (Digest.string str);;
-      
+
 let for_permutations m f =
   let choice = Array.make m 0 in
   let available_places = Array.make m 0 in
@@ -2817,7 +2817,7 @@ let guess_limit =
     else
       (* substitute the whole table by a bigger one - do not bother to
 	 re-use previously allocated table rows. Let the GC take care of
-	 that. 
+	 that.
        *)
       let () =
 	r_table:=
@@ -2848,7 +2848,7 @@ let guess_limit =
 	  in
 	  next_row.(i) <- row.(i) -. euler_fraction
 	      (* We set the i'th entry in next_row to the value
-		 a geometric progression would converge to 
+		 a geometric progression would converge to
 		 which is given by the i'th, i+1'th, i+2'th entry
 		 of the original row.
 	       *)
@@ -2879,7 +2879,7 @@ let guess_limit =
     let rec process_table nr_start_row nr_entries =
       (* let () = Printf.printf "process_table nr_start_row=%d nr_entries=%d\n"
 	 nr_start_row nr_entries in *)
-      if nr_entries<3 
+      if nr_entries<3
       then
 	table.(nr_start_row).(nr_entries-1) (* our best estimate *)
       else
@@ -2908,13 +2908,13 @@ let guess_limit =
 
 
 type gcomp_tree = (* graph component tree *)
-  | GCT_leaf of int 
+  | GCT_leaf of int
   | GCT_node of gcomp_tree * gcomp_tree;;
 
 let rec gcomp_tree_iter f tree =
   match tree with
     | GCT_leaf n -> f n
-    | GCT_node (le,ri) -> 
+    | GCT_node (le,ri) ->
 	begin
 	  gcomp_tree_iter f le;
 	  gcomp_tree_iter f ri
@@ -2924,16 +2924,16 @@ let rec gcomp_tree_iter f tree =
 let rec gcomp_tree_number_leaves tree =
   match tree with
     | GCT_leaf _ -> 1
-    | GCT_node (le,ri) -> 
+    | GCT_node (le,ri) ->
 	(gcomp_tree_number_leaves le) + (gcomp_tree_number_leaves ri);;
-  
-  
+
+
 let gcomp_tree_flatten tree =
   let size = gcomp_tree_number_leaves tree in
   let result = Array.make size 0 in
   let rec walk pos tree =
     match tree with
-      | GCT_leaf n -> 
+      | GCT_leaf n ->
 	  begin
 	    result.(pos) <- n;
 	    pos + 1
@@ -2941,9 +2941,9 @@ let gcomp_tree_flatten tree =
       | GCT_node (le,ri) ->
 	  let pos_right = walk pos le in
 	  walk pos_right ri
-  in 
+  in
   let _ = walk 0 tree in result;;
-    
+
 
 let graph_components ?(fun_join_data=fun x y -> x) fun_body =
   let ht_link_leaders = Hashtbl.create 17 in
@@ -3085,7 +3085,7 @@ let expire_dir ?(silent=true) dir_name max_age_days =
       else ())
     dir_entries
 ;;
-	
+
 
 (* Debugging helpers *)
 
@@ -3133,7 +3133,7 @@ let multifor v_max_indices f =
     if go_on then walk (n+1) else ()
   in walk 0
 ;;
-      
+
 let array_multiinit v_max_indices f =
   (* Here, we once more encounter nasty
      type system problems that force us
@@ -3145,12 +3145,12 @@ let array_multiinit v_max_indices f =
     let a = Array.make nr_entries None in
     let () =
       multifor v_max_indices
-	(fun n v_indices -> 
+	(fun n v_indices ->
 	  begin
 	    a.(n) <- Some (f n v_indices);
 	  end)
     in
-    Array.map 
+    Array.map
       (fun x ->
 	match x with
 	| None -> impossible()
@@ -3159,7 +3159,7 @@ let array_multiinit v_max_indices f =
 ;;
 
 
-(* This is intended for multiprocessor parallelization of an easily 
+(* This is intended for multiprocessor parallelization of an easily
    subdividable workload (such as rendering an image)
  *)
 
@@ -3181,7 +3181,7 @@ let split_range nr_pieces range_start range_end =
 
 let compute_uniform_workload_forked
     ?(bailout=
-	(fun str -> 
+	(fun str ->
 	   let () = Printf.fprintf stderr "AIEE! %s\n%!" str in
 	     exit 1))
     ~fun_combine
@@ -3234,7 +3234,7 @@ let compute_uniform_workload_forked
 	  let contrib = Marshal.from_channel s_read in
 	  let (returned_pid,status) = Unix.waitpid [] pid in
 	    if status <> Unix.WEXITED 0
-	    then 
+	    then
 	      bailout "Child failure!\n%!" have
 	    else
 	      collect_child_results
@@ -3271,13 +3271,13 @@ let sum_of_inverse_squares =
 *)
 --- *)
 
-let parse_or_error ?(fun_fail=failwith) fun_lex fun_parse str = 
+let parse_or_error ?(fun_fail=failwith) fun_lex fun_parse str =
   let lexbuf = Lexing.from_string str in
   let locate char_pos =
     let rec walk p nr_lf pos_after_last_lf =
       if p=String.length str || p=char_pos
       then ((1+nr_lf),pos_after_last_lf)
-      else 
+      else
 	if str.[p]='\n'
 	then walk (1+p) (1+nr_lf) (1+p)
 	else walk (1+p) nr_lf pos_after_last_lf
@@ -3311,18 +3311,18 @@ let token_stream lexer eof_token str =
 ;;
 
 
-external marshal_to_bigarray : 
-  'a -> Marshal.extern_flags list -> 
-  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t 
+external marshal_to_bigarray :
+  'a -> Marshal.extern_flags list ->
+  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
   = "caml_marshal_to_bigarray"
-      
+
 external demarshal_from_bigarray :
-  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t -> 'a 
+  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t -> 'a
   = "caml_demarshal_from_bigarray"
 
 let gc_info verbose =
   let s = if verbose then Gc.stat() else Gc.quick_stat() in
-    Printf.sprintf 
+    Printf.sprintf
 "=== GC Stats (%s) ===
 minor_words:       %f
 promoted_words:    %f
@@ -3341,21 +3341,21 @@ compactions:       %d
 top_heap_words:    %d
 "
       (if verbose then "verbose" else "quick")
-      s.Gc.minor_words     
-      s.Gc.promoted_words  
-      s.Gc.major_words     
+      s.Gc.minor_words
+      s.Gc.promoted_words
+      s.Gc.major_words
       s.Gc.minor_collections
       s.Gc.major_collections
-      s.Gc.heap_words      
-      s.Gc.heap_chunks     
-      s.Gc.live_words      
-      s.Gc.live_blocks     
-      s.Gc.free_words      
-      s.Gc.free_blocks     
-      s.Gc.largest_free    
-      s.Gc.fragments       
-      s.Gc.compactions     
-      s.Gc.top_heap_words  
+      s.Gc.heap_words
+      s.Gc.heap_chunks
+      s.Gc.live_words
+      s.Gc.live_blocks
+      s.Gc.free_words
+      s.Gc.free_blocks
+      s.Gc.largest_free
+      s.Gc.fragments
+      s.Gc.compactions
+      s.Gc.top_heap_words
 ;;
 
 (* Low-level extensions *)
@@ -3401,7 +3401,7 @@ let funcall_logging_cpu_instructions fun_log f x =
     v
 ;;
 
-(* Something rather weird: we sometimes get into the situation where 
+(* Something rather weird: we sometimes get into the situation where
    we have to provide information from a <something> -> unit function
    as a return value. This wrapper-generator allows us to do that
    systematically:
@@ -3418,7 +3418,7 @@ let snapping_return_value f =
 
 (* Startup-related *)
 
-let register_version piece_strings = 
+let register_version piece_strings =
   let s = md5 (String.concat ":" piece_strings) in
     register_feature "version" s
 ;;
@@ -3460,6 +3460,22 @@ let memstats ?(self_status_file="/proc/self/status") () =
       _ ->  vmsize_vmrss
 ;;
 
+type mem_report_handler = float * float * float * string
+
+let mem_report_begin id_string =
+  let ms = memstats () in
+    (ms.(0), ms.(1), Unix.gettimeofday (), id_string)
+
+let mem_report_end (vmsize0, vmrss0, t0, id_string) =
+  let ms = memstats () in
+  let delta_vmsize = ms.(0) -. vmsize0 in
+  let delta_vmrss = ms.(1) -. vmrss0 in
+  let delta_t0 = Unix.gettimeofday () -. t0 in
+    Printf.sprintf
+      "Computation of \"%s\" required: dt=%f dvmsize=%f dvmrss=%f\n"
+      id_string delta_t0 delta_vmsize delta_vmrss
+;;
+
 (* Functions to pack and unpack two integer numbers (int) inside one int32
    number. a and b must be positive numbers less than 0x10000 (65536).
    This can be useful to reduce memory consumption.
@@ -3485,7 +3501,7 @@ let time_passed =
        | Some t0 -> Unix.gettimeofday() -. t0
        | None -> let () = time_zero := Some (Unix.gettimeofday()) in 0.0)
 ;;
- 
+
 let time_vmem_rss () =
   let mem = memstats () in ((time_passed()), mem.(0), mem.(1))
 ;;
@@ -3515,7 +3531,7 @@ external reset_signal_handler: int -> unit = "caml_reset_signal_handler";;
    Note: if one does not want to use the by-name features, then it is
    valid to provide something like (fun _ -> 0) as a naming function
    that gives all the elements the same name.
-   
+
    STATUS: compiles, seems to work. Not extensively tested yet though.
  *)
 
@@ -3624,7 +3640,7 @@ let _reheap_downward pq pos =
 	  then () (* Have no left sibling - Finished *)
 	  else
 	    match heap.(pos_left) with
-	    | None -> _failure ()		
+	    | None -> _failure ()
 	    | Some {pqe_pri=pri_left;pqe_rpos=ixref_left;pqe_data=data_left}
 		as entry_left ->
 		let pos_right = 1+pos_left in
@@ -3644,14 +3660,14 @@ let _reheap_downward pq pos =
 		else
 		  (* Have left and right sibling *)
 		  match heap.(pos_right) with
-		  | None -> _failure ()		
+		  | None -> _failure ()
 		  | Some {pqe_pri=pri_right;
 			  pqe_rpos=ixref_right;
 			  pqe_data=data_right}
 		      as entry_right ->
 		      if pri_left < pri_here
 		      then
-			if pri_right < pri_here 
+			if pri_right < pri_here
 			then (* Trouble: left and right are smaller than we are. *)
 			  if pri_left < pri_right
 			  then (* Left smallest - bring that one up. *)
@@ -3703,7 +3719,7 @@ let pq_push pq pri data =
     if (Array.length heap)-1 > nr_entries
     then ()
     else
-      let new_size = 
+      let new_size =
 	int_of_float(float_of_int(Array.length heap)*.pq.pq_heap_resize_factor)
       in
       let new_heap = Array.make new_size None in
@@ -3730,10 +3746,10 @@ let pq_push pq pri data =
    from which we derive popping the top element
    as well as popping by name.
  *)
- 
+
 let _pop_pos pq pos =
 let nr_entries = pq.pq_heap_nr_entries in
-  if pos > nr_entries 
+  if pos > nr_entries
   then raise (Exn Too_Small)
   else
     let heap = pq.pq_heap in
@@ -3768,12 +3784,12 @@ let _peek_pos pq pos =
   then raise (Exn Too_Small)
   else
     match pq.pq_heap.(pos)
-    with 
+    with
     | None -> _failure ()
     | Some {pqe_pri=pri;pqe_rpos=pos_ref;pqe_data=data}
       -> (pri,data)
 ;;
-      
+
 
 let pq_pop pq = _pop_pos pq 1;;
 
@@ -3830,7 +3846,7 @@ let pq_check pq =
 	      match heap.(i2) with
 		| None -> _failure()
 		| Some {pqe_pri=pri2;pqe_rpos=rpos2;pqe_data=data2} ->
-		    if pri2 <= pri then () else 
+		    if pri2 <= pri then () else
 		      failwith
 			(Printf.sprintf "Heap violation: Entry #%d (%f) < Entry #%d (%f)!" i2 pri2 i pri)
     done
@@ -3867,7 +3883,7 @@ let gauss_weights_coords_ord5_9points =
 ;;
 
 let integrate2d =
-  let gauss_2d = 
+  let gauss_2d =
     let buf_pos = Array.make 2 0.0 in
       fun ~weights_coords ~f ~points ~volume ->
 	let nr_wc = Array.length weights_coords in
@@ -3888,22 +3904,22 @@ let integrate2d =
 	      (* let ddd = Printf.printf "pos: %s f: %f weight: %f\n%!" (float_array_to_string buf_pos) val_f weights_coords.(nr_pt).(0) in *)
 	      walk (1+nr_pt) (sum+.weights_coords.(nr_pt).(0)*.val_f)
 	in walk 0 0.0
-  in 
+  in
     fun ?(max_evaluations=(-1)) ?(tolerance=1e-8) ~points ~simplices f ->
       (* Parts of this function work in arbitrary dimension, other parts
 	 are specific to D=2.  More generic high-dimensional code would lift
 	 points to projective coordinates so that determinants can be
-	 employed directly to compute areas. We do not do that here. 
+	 employed directly to compute areas. We do not do that here.
       *)
       let dim=2 in
       let nr_eval = ref 0 in
       let xf pos =
 	(* D=2 specific:
-	   for arbitrary dimension, we would also include a buffer that makes xf 
+	   for arbitrary dimension, we would also include a buffer that makes xf
 	   operate on normalized projective coordinates where f only takes
-	   affine coordinates. 
-	   
-	   We also dress up f in such a way that we count the number of function evaluations. 
+	   affine coordinates.
+
+	   We also dress up f in such a way that we count the number of function evaluations.
 	*)
 	let result = f pos in
 	let () = nr_eval := 1+ !nr_eval in
@@ -3947,7 +3963,7 @@ let integrate2d =
 	    and v2 = simplex_point_coords.(ix2)
 	    in
 	    let len_sq =
-	      let rec sum sf n = 
+	      let rec sum sf n =
 		if n=dim then sf
 		else let d = v2.(n) -. v1.(n) in
 		  sum (sf +. d*.d) (1+n)
@@ -3965,8 +3981,8 @@ let integrate2d =
 	  Array.init dim
 	    (fun n -> 0.5*.(point_coords.(vertex1).(n) +. point_coords.(vertex2).(n)))
 	in
-	let points1 = Array.mapi (fun n p -> if n = vertex2 then mid else p) point_coords 
-	and points2 = Array.mapi (fun n p -> if n = vertex1 then mid else p) point_coords 
+	let points1 = Array.mapi (fun n p -> if n = vertex2 then mid else p) point_coords
+	and points2 = Array.mapi (fun n p -> if n = vertex1 then mid else p) point_coords
 	in
 	  (points1,points2)
       in
@@ -3977,9 +3993,9 @@ let integrate2d =
 	    let () = nr_simplices_generated := 1+n in
 	      n
       in
-      let simplices_by_error = 
+      let simplices_by_error =
 	(* Priority queue of simplices ordered by error.
-	   Simplex data structure: 
+	   Simplex data structure:
 	   (simplex_id, (* int *)
 	   contrib,    (* float *)
 	   vol,        (* float *)
@@ -4027,7 +4043,7 @@ let integrate2d =
 	  let () =
 	    pq_iter
 	      simplices_by_error
-	      (fun pri _ -> let err = -.pri in sum := !sum +. err) 
+	      (fun pri _ -> let err = -.pri in sum := !sum +. err)
 	  in
 	  let () = total_error.(0) <- !sum in
 	  let () = total_error.(1) <- !sum in
@@ -4047,7 +4063,7 @@ let integrate2d =
       in
       let rec improve nr_iter =
 	(* let ddd = Printf.printf "DDD iter=%6d err=%g\n%!" nr_iter total_error.(0) in *)
-	if total_error.(0) <= tolerance	
+	if total_error.(0) <= tolerance
 	then (* Done *)
 	  let integral =
 	    let sum = ref 0.0 in
@@ -4067,7 +4083,7 @@ let integrate2d =
 	  let () = improve_error err_improvement in
 	    improve (1+nr_iter)
       in
-	improve 0 
+	improve 0
 ;;
 
 (* Here are a few support functions that chiefly deal with importing OOMMF data files.
@@ -4106,7 +4122,7 @@ let interpolate_on_grid corner step_sizes ranges fun_access =
     in
     let rec walk n weighted_sum =
       if n = bit_range then weighted_sum
-      else 
+      else
 	let rec contrib ix partial_weight =
 	  if ix = dim
 	  then
@@ -4128,10 +4144,10 @@ let interpolate_on_grid corner step_sizes ranges fun_access =
     fun_interpolate
 ;;
 
-	  
+
 (* Example...
 
-let the_grid = 
+let the_grid =
    [|[|0.0;1.0;2.0;|];
      [|1.0;2.0;3.0;|];
      [|3.0;4.0;5.0;|];|]
@@ -4139,7 +4155,7 @@ let the_grid =
 
 let f_grid =
    interpolate_on_grid
-   [|100.0;100.0;100.0|] 
+   [|100.0;100.0;100.0|]
    [|20.0;20.0;20.0|]
    [|3;3|]
    (fun xy -> the_grid.(xy.(1)).(xy.(0)));;
@@ -4237,22 +4253,22 @@ let oommf_data oommf_filename =
       in
       let xyz = [|0;0;0|] in
       let incf_coords () =
-	let xc = xyz.(0) in 
-	  if xc < xnodes-1 then 
+	let xc = xyz.(0) in
+	  if xc < xnodes-1 then
 	    let () = xyz.(0) <- 1+xc in true
 	  else
 	    let () = xyz.(0) <- 0 in
-	    let yc = xyz.(1) in 
+	    let yc = xyz.(1) in
 	      if yc < ynodes-1 then
 		let () = xyz.(1) <- 1+yc in true
 	      else
 		let () = xyz.(1) <- 0 in
-		let zc = xyz.(2) in 
+		let zc = xyz.(2) in
 		  if zc < znodes-1 then
 		    let () = xyz.(2) <- 1+zc in true
 		  else false
       in
-      let must_change_byteorder =  
+      let must_change_byteorder =
 	int_of_float(read_double_from_string "\x49\x96\xb4\x38" true) <> 1234567
       in
       let readfloat_byte n =
@@ -4269,10 +4285,10 @@ let oommf_data oommf_filename =
       let readfloat_text () =
 	Scanf.fscanf fd "%f" xscale
       in
-      let readfloat = 
+      let readfloat =
 	match typeof_data with
 	  | "Text" -> readfloat_text
-	  | "Byte 8" -> readfloat_byte 8 
+	  | "Byte 8" -> readfloat_byte 8
 	  | "Byte 4" -> readfloat_byte 4
 	  | _ -> failwith (Printf.sprintf "Unknown OOMMF data format: '%s'" typeof_data)
       in
@@ -4329,7 +4345,7 @@ let interpolated_oommf_data filename =
     fun coords -> [|fx coords;fy coords;fz coords|]
 ;;
 
-(* 
+(*
    Example:
    let f_oommf = interpolated_oommf_data "/tmp/oommf.omf";;
 *)

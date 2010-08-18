@@ -383,7 +383,7 @@ val dummy_mesh : mesh
 
 val simplex_surface_1form_component: mesh -> Simplex.idx -> int -> int -> float
 
-val reordered_mesh : mesh -> int array -> mesh
+(*val reordered_mesh : mesh -> int array -> mesh*)
 (** This function allows us to renumber and re-order the points in a mesh.
     Important for distributing a mesh across a cluster. *)
 
