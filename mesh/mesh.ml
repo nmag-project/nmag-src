@@ -1373,8 +1373,6 @@ let mesh_grow_bookkeeping_data
   let dim = mesh.mm_dim in
   let nr_vertices=1+dim in
   let hyperplane = mesh.mm_la.la_hyperplane_eqn in
-  let circumcircle = mesh.mm_la.la_simplex_circumcircle_midpoint_radius in
-  let incircle = mesh.mm_la.la_simplex_incircle_midpoint_radius in
   let scratch_hp_points = Array.make dim [||] in
   let simplex_midpoint =
     (* Note: this returns the midpoint, but one must not modify that vector! *)
@@ -1633,8 +1631,6 @@ let mesh_from_known_delaunay                                                    
   let point_belongs_to = Array.make nr_points [] in
   let dim = Array.length points_coords.(0)
   in
-  let det_inv = det_and_inv (dim+1) (* Note: operates on extended coordinates! *)
-  in
   let mpoints = Array.mapi                                                                      (* function to initialize the mesh points structure *)
     (fun nr_point coords ->
        {
@@ -1651,15 +1647,6 @@ let mesh_from_known_delaunay                                                    
     (fun nr_simplex (region,point_indices) ->
       let sorted_ci = Array.copy point_indices in
       let points = Array.map point_nr sorted_ci in                                            (* initialize the points *)
-      let ext_coords =                                                                        (* create the matrix to compute the volume *)
-	Array.init (dim+1)                                                                    (* of the simplex by its determinant *)
-	  (fun row ->
-	    if row=dim
-	    then Array.make (dim+1) 1.0
-	    else
-	      Array.init (dim+1)
-		(fun col -> points.(col).mp_coords.(row)))
-      in
       let () = (* Ensure our coord indices really are sorted. *)
 	Array.sort compare sorted_ci in
       (* Remember for all points of this simplex that they belong to this simplex. *)
@@ -1949,7 +1936,6 @@ let mesh_simplex_nr_and_L_coords_of_point mesh point_coords =
     if nr_simplex = nr_simplices
     then None
     else
-      let simplex = mesh.mm_simplices.(nr_simplex) in
       let mx_iepc = get_inv_point_matrix nr_simplex in
       let () = mx_x_pos_ext_writeto_scratch mx_iepc in
       (*
@@ -6242,12 +6228,9 @@ let find_simplex mesh (origin_coords, origin_simplex) target_coords =
 let mesh_locate_point mesh point =
   let origins = mesh.mm_origins in
   let nr_origins = Array.length origins in
-
   let get_ic_mp = Simplex.get_incircle_midpoint mesh.mm_simplex_data in
   let get_cc_mp = Simplex.get_circumcircle_midpoint mesh.mm_simplex_data in
-  let get_ic_r = Simplex.get_incircle_radius mesh.mm_simplex_data in
   let get_cc_r = Simplex.get_circumcircle_radius mesh.mm_simplex_data in
-
   let get_inv_point_matrix =
     Simplex.get_inv_point_matrix mesh.mm_simplex_data in
     (* If all else fails, we have to do point location the hard way:
@@ -6401,13 +6384,8 @@ let write_mesh filename mesh =
 	  in
 	    scratch_sx_indices
 	in
-	let sx_region =
-	  match sx.ms_in_body with
-	    |  Body_Nr n -> n
-	    | _ -> let () = loginfo (Printf.sprintf "No number of the simplex region")
-	      in failwith "No number of the simplex region"
-	in
-	  sx_indices, sx_region
+	let Body_Nr sx_region = sx.ms_in_body
+	in (sx_indices, sx_region)
       ) in
   (* store the region which are separated by each surface *)
   let ht_surface_regions_info = Hashtbl.create ((Array.length mesh.mm_simplices)/5) in
