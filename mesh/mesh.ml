@@ -354,7 +354,9 @@ and simplex =
 	know the number of the face from the perspective
 	of the neighbour that leads back to us.
       *)
-     ms_face_ids: face_id array;
+     (*ms_face_ids: face_id array; it is not used. So I comment it out
+       (I don't delete it, in case we need it in the future.
+       mf, 19 Aug 2010 *)
      (* A face id is the ordered vector of all point ids. *)
      mutable ms_in_body: simplex_region;
      (* Defaults to Body_Nr (-2), will provide information about
@@ -1312,37 +1314,40 @@ type face_description =
      eqn: float array;
    };;
 
-
-(* Note: the identifier "new" is a token. Hence, I use "nov" below. *)
-
 let mesh_align_external_indices mesh =
-  let mapping_pt_novid_oldid = Array.map (fun pt -> pt.mp_id) mesh.mm_points in
-  let mapping_pt_oldid_novid = Hashtbl.create (Array.length mesh.mm_points) in
-  let mapping_sx_novid_oldid = Array.map (fun sx -> sx.ms_id) mesh.mm_simplices in
-  let mapping_sx_oldid_novid = Hashtbl.create (Array.length mesh.mm_simplices) in
-  let () =
-    Array.iteri
-      (fun nov old -> Hashtbl.replace mapping_pt_oldid_novid old nov)
-      mapping_pt_novid_oldid
+  let map_pt_old_new =
+    let max_id =
+      Array.fold_left
+        (fun prev this -> max prev this.mp_id) 0 mesh.mm_points in
+    let mapping = Array.make (max_id+1) (-1) in
+    let () =
+      Array.iteri
+        (fun new_id old_pt -> mapping.(old_pt.mp_id) <- new_id)
+        mesh.mm_points
+    in (fun old_id -> mapping.(old_id))
   in
-  let () =
-    Array.iteri
-      (fun nov old -> Hashtbl.replace mapping_sx_oldid_novid old nov)
-      mapping_sx_novid_oldid
+  let map_sx_old_new =
+    let max_id =
+      Array.fold_left
+        (fun prev this -> max prev this.ms_id) 0 mesh.mm_simplices in
+    let mapping = Array.make (max_id+1) (-1) in
+    let () =
+      Array.iteri
+        (fun new_id old_sx -> mapping.(old_sx.ms_id) <- new_id)
+        mesh.mm_simplices
+    in (fun old_id -> mapping.(old_id))
   in
-  let map_pt_old_nov id = Hashtbl.find mapping_pt_oldid_novid id in
-  let map_sx_old_nov id = Hashtbl.find mapping_sx_oldid_novid id in
   begin
-    Array.iter (fun pt -> pt.mp_id <- map_pt_old_nov pt.mp_id) mesh.mm_points;
+    Array.iter (fun pt -> pt.mp_id <- map_pt_old_new pt.mp_id) mesh.mm_points;
     Array.iter
       (fun sx ->
 	begin
-	  sx.ms_id <- map_sx_old_nov sx.ms_id;
-	  for i=0 to Array.length sx.ms_face_ids-1 do
+	  sx.ms_id <- map_sx_old_new sx.ms_id;
+	  (*for i=0 to Array.length sx.ms_face_ids-1 do
 	    for k=0 to Array.length sx.ms_face_ids.(i)-1 do
-	      sx.ms_face_ids.(i).(k) <- map_pt_old_nov sx.ms_face_ids.(i).(k);
+	      sx.ms_face_ids.(i).(k) <- map_pt_old_new sx.ms_face_ids.(i).(k);
 	    done;
-	  done;
+	  done;*)
 	end
       )
       mesh.mm_simplices;
@@ -1442,8 +1447,8 @@ let mesh_grow_bookkeeping_data
       sx2.ms_neighbours.(pos_in_sx2) <- Some simplices.(face_desc.simplex_1_extid);
       sx1.ms_neighbour_backrefs.(pos_in_sx1) <- pos_in_sx2;
       sx2.ms_neighbour_backrefs.(pos_in_sx2) <- pos_in_sx1;
-      sx1.ms_face_ids.(pos_in_sx1) <- face_id;
-      sx2.ms_face_ids.(pos_in_sx2) <- face_id;
+      (*sx1.ms_face_ids.(pos_in_sx1) <- face_id;
+      sx2.ms_face_ids.(pos_in_sx2) <- face_id;*)
     end
   in
   let () = reportmem "Completed compulsory part of mesh_grow_bookkeeping_data" in
@@ -1658,9 +1663,9 @@ let mesh_from_known_delaunay                                                    
 	  (* To be adjusted later: *)
 	  ms_neighbours = Array.make (dim+1) None;
 	  ms_neighbour_backrefs = Array.make (dim+1) (-1);
-	  ms_face_ids =
+	  (*ms_face_ids =
 	    array_all_one_shorter
-	      (Array.map (fun n -> (point_nr n).mp_id) sorted_ci);
+	      (Array.map (fun n -> (point_nr n).mp_id) sorted_ci);*)
 	  (* XXX TODO: We will add code to provide those later! *)
 	  ms_in_body=region;
 	}

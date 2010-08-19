@@ -54,20 +54,6 @@ type t = {
   (** circumcircle radii *)
 }
 
-type simplex = t * idx
-(** The way we structure simplex data now (in this file) is different with
-    respect to the old one. Initially, we had an array of Mesh.simplex
-    structures, each containing the data related to one single simplex.
-    We now split all the fields of Mesh.simplex into separate Bigarray-s,
-    which is more memory-efficient (reduce number of ml-object headers).
-    We consequently loose the concept of single simplex, as we don't have
-    a datastructure similar to Mesh.simplex which contains all the info
-    relevant for one single simplex. However, the old code still provides
-    functions working on single simplices. We then need to provide a
-    replacement for the concept of Mesh.simplex. A Mesh.Simplex.simplex
-    is a tuple made of the simplex data (Simplex.t) plus the simplex index.
-    It should then be enough to retrieve all data for one single simplex. *)
-
 let my_fill_point_matrices m0 ba =
   let d = Mesh0.get_nr_dims m0 in
     F.iter32 ba

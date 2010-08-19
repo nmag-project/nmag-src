@@ -318,7 +318,7 @@ and simplex =
 	know the number of the face from the perspective
 	of the neighbour that leads back to us.
       *)
-     ms_face_ids: face_id array;
+     (*ms_face_ids: face_id array;*)
      (* A face id is the ordered vector of all point ids.
 	Note that this is computed easiest if we require the points
 	in the simplex to be recorded in index-sorted order.

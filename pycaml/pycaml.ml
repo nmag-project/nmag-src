@@ -3,9 +3,9 @@
  * This software is covered under the GNU lesser general public license
 
  * Major Modifications (C) T. Fischbacher 2005,2006
- * 
+ *
  * NOTE: have to properly document the CamlType / ocamlpill mechanism!
-   
+
  Note: Should we incorporate auto-conversion of int to float?
  At present, we do not do this.
 
@@ -13,11 +13,11 @@
 
  *)
 
-type funcptr 
-type pyobject 
+type funcptr
+type pyobject
 type funcent = (funcptr * int * int * bool)
 
-type pymodule_func = { pyml_name : string ; 
+type pymodule_func = { pyml_name : string ;
 		       pyml_func : (pyobject -> pyobject) ;
 		       pyml_flags : int ;
 		       pyml_doc : string }
@@ -70,16 +70,16 @@ type pyerror_type =
 
 exception Pycaml_exn of (pyerror_type * string);;
 
-      
+
 (* Function list *)
-      
+
 external getfuncarray : unit -> funcent array = "pygetfuncarray"
 let py_funcs = getfuncarray ();;
 
 external pytype : pyobject -> pyobject_type = "pytype"
 
 external pycaml_seterror : pyerror_type -> string -> unit = "pycaml_seterror"
-    
+
 external pyfuncall1 : (funcptr * int * int * bool) -> unit -> unit = "pygencall"
 external pyfuncall2 : (funcptr * int * int * bool) -> int -> unit = "pygencall"
 external pyfuncall3 : (funcptr * int * int * bool) -> string -> unit = "pygencall"
@@ -90,7 +90,7 @@ external pyfuncall7 : (funcptr * int * int * bool) -> (int * string * int) -> in
   "pygencall"
 external pyfuncall8 : (funcptr * int * int * bool) -> unit -> string = "pygencall"
 external pyfuncall9 : (funcptr * int * int * bool) -> (string * int * pyobject * pyobject) -> pyobject = "pygencall"
-external pyfuncall10 : (funcptr * int * int * bool) -> 
+external pyfuncall10 : (funcptr * int * int * bool) ->
   (int * string * int * pyobject * pyobject) -> pyobject = "pygencall"
 external pyfuncall11 : (funcptr * int * int * bool) ->
   (int * string * int * pyobject * pyobject * int) -> pyobject = "pygencall"
@@ -115,22 +115,22 @@ external pyfuncall27 : (funcptr * int * int * bool) -> (pyobject * pyobject) -> 
 external pyfuncall28 : (funcptr * int * int * bool) -> string -> pyobject = "pygencall"
 external pyfuncall29 : (funcptr * int * int * bool) -> unit -> pyobject = "pygencall"
 external pyfuncall30 : (funcptr * int * int * bool) -> pyobject -> unit = "pygencall"
-external pyfuncall31 : (funcptr * int * int * bool) -> (pyobject * int) -> 
+external pyfuncall31 : (funcptr * int * int * bool) -> (pyobject * int) ->
   (pyobject * pyobject * int) option = "pygencall"
 external pyfuncall34 : (funcptr * int * int * bool) -> int64 -> pyobject = "pygencall"
 external pyfuncall35 : (funcptr * int * int * bool) -> unit -> int64 = "pygencall"
 external pyfuncall36 : (funcptr * int * int * bool) -> float -> pyobject = "pygencall"
 external pyfuncall37 : (funcptr * int * int * bool) -> pyobject -> float = "pygencall"
 external pyfuncall39 : (funcptr * int * int * bool) -> int -> pyobject = "pygencall"
-external pyfuncall40 : (funcptr * int * int * bool) -> (pyobject * int) -> 
+external pyfuncall40 : (funcptr * int * int * bool) -> (pyobject * int) ->
   pyobject = "pygencall"
 external pyfuncall41 : (funcptr * int * int * bool) -> (pyobject * int * pyobject) ->
   int = "pygencall"
 external pyfuncall42 : (funcptr * int * int * bool) -> (pyobject * pyobject * pyobject) ->
   pyobject = "pygencall"
-external pyfuncall43 : (funcptr * int * int * bool) -> (pyobject * int) -> 
+external pyfuncall43 : (funcptr * int * int * bool) -> (pyobject * int) ->
   (int * int * int) option = "pygencall"
-external pyfuncall44 : (funcptr * int * int * bool) -> (int * int * int * int) -> 
+external pyfuncall44 : (funcptr * int * int * bool) -> (int * int * int * int) ->
   pyobject = "pygencall"
 external pyfuncall45 : (funcptr * int * int * bool) -> (pyobject * pyobject) -> unit =
   "pygencall"
@@ -144,7 +144,7 @@ external pyfuncall49 : (funcptr * int * int * bool) -> (pyobject * string) -> py
   "pygencall"
 external pyfuncall50 : (funcptr * int * int * bool) -> (string * pyobject * string) ->
   pyobject = "pygencall"
-external pyfuncall51 : (funcptr * int * int * bool) -> 
+external pyfuncall51 : (funcptr * int * int * bool) ->
   (string * pyobject * pyobject * pyobject) -> pyobject = "pygencall"
 external pyfuncall52 : (funcptr * int * int * bool) -> pyobject -> string = "pygencall"
 external pyfuncall53 : (funcptr * int * int * bool) -> (pyobject * int * int * pyobject) -> int = "pygencall"
@@ -206,11 +206,11 @@ let fmt51call func = pyfuncall51 func
 let fmt52call func = pyfuncall52 func
 let fmt53call func = pyfuncall53 func
 let fmt54call func = pyfuncall54 func
-    
+
 let py_cur_func_num = ref 0
-let pnf () = let this_func = py_funcs.(!py_cur_func_num) in 
+let pnf () = let this_func = py_funcs.(!py_cur_func_num) in
 py_cur_func_num := !py_cur_func_num + 1 ; this_func
-  
+
       (* 1 *)
 let py_initialize = fmt1call (pnf ())
 let py_finalize = fmt1call (pnf ())
@@ -331,7 +331,7 @@ let pyint_fromlong = fmt34call (pnf ())
 let pyint_aslong = fmt25call (pnf ())
 (* 35 *)
 let pyint_getmax = fmt35call (pnf ())
-    
+
 (* Float *)
 (* 36 *)
 let pyfloat_fromdouble = fmt36call (pnf ())
@@ -438,7 +438,7 @@ let pyimport_reloadmodule = fmt14call (pnf ())
 let pyimport_cleanup = fmt1call (pnf ())
 (* 5 *)
 let pyimport_importfrozenmodule = fmt5call (pnf ())
-    
+
 (* Interface to random parts in ceval.c *)
 (* 42 *)
 let pyeval_callobjectwithkeywords = fmt42call (pnf ())
@@ -560,9 +560,9 @@ external pynull : unit -> pyobject = "pynull"
 external pynone : unit -> pyobject = "pynone"
 
 external pytuple_fromarray : pyobject array -> pyobject = "pytuple_fromarray"
-let pytuple_fromsingle elt = pytuple_fromarray [| elt |] 
-let pytuple_empty = pytuple_fromarray [| |] 
-external pytuple2 : (pyobject * pyobject) -> pyobject = 
+let pytuple_fromsingle elt = pytuple_fromarray [| elt |]
+let pytuple_empty = pytuple_fromarray [| |]
+external pytuple2 : (pyobject * pyobject) -> pyobject =
   "pytuple_fromarray"
 external pytuple3 : (pyobject * pyobject * pyobject) -> pyobject =
   "pytuple_fromarray"
@@ -604,7 +604,7 @@ external python_prompt: unit -> unit = "pycaml_prompt"
 
 external pyrefcount: pyobject -> int = "pyrefcount"
 
-let _py_profile_hash = ((Hashtbl.create 100):(string, float array) Hashtbl.t);; 
+let _py_profile_hash = ((Hashtbl.create 100):(string, float array) Hashtbl.t);;
 let _py_profiling_active=ref false;;
 (* The profiling hash and switch are strictly internal! *)
 
@@ -647,7 +647,7 @@ let __hashtbl_arbitrary_element ht =
 
 let __map_hashtbl_to_array ?sorter mapper ht =
   let nr_entries = Hashtbl.length ht in
-    if nr_entries = 0 
+    if nr_entries = 0
     then [||]
     else
       let opt_kv = __hashtbl_arbitrary_element ht in
@@ -723,10 +723,10 @@ let ipython () =
 (* This version starts ipython with its own name space -- one
    can't see any objects created with earlier pycaml.* commands.
 
-   I have added a replacement below. (Delete this comment later if 
+   I have added a replacement below. (Delete this comment later if
    this generally works. (HF 23/09/05)
  *)
-(* "import IPython       
+(* "import IPython
 import sys
 sys.argv=['/usr/local/bin/ipython']
 IPython.Shell.start().mainloop()
@@ -770,8 +770,8 @@ let (py_true,py_false) =
     pydict_getitem(main_dict,pystring_fromstring "__builtins__")
   in
   let builtins_dict = pymodule_getdict builtins in
-  let pyname_true=pystring_fromstring "True" 
-  and pyname_false=pystring_fromstring "False" 
+  let pyname_true=pystring_fromstring "True"
+  and pyname_false=pystring_fromstring "False"
   in (pydict_getitem(builtins_dict,pyname_true),
       pydict_getitem(builtins_dict,pyname_false))
 ;;
@@ -784,7 +784,7 @@ let (py_true,py_false) =
    insists that pytype (pybool_frombool true) == IntType!
    So... it seems as if there were no way to make Python recognize
    bool as a separate type here - or is there?
-   Now, PyBool_Check() seems to exist independently of PyInt_Check() - 
+   Now, PyBool_Check() seems to exist independently of PyInt_Check() -
    need to get that sorted out.
 *)
 let py_bool_type = pytype py_true;;
@@ -799,7 +799,7 @@ let python_object_from_module module_name entity_name =
    entry
 ;;
 (* Example:
-let dblquad = python_object_from_module "scipy.integrate" "dblquad";; 
+let dblquad = python_object_from_module "scipy.integrate" "dblquad";;
 *)
 
 let register_for_python stuff =
@@ -838,8 +838,8 @@ let py_homogeneous_list_as_array
       | Some x -> Printf.sprintf "%s: " x
   in
     if (pytype py_obj_arr) <> ListType
-    then 
-      raise 
+    then
+      raise
 	(Pycaml_exn
 	   (Pyerr_TypeError,
 	    Printf.sprintf "%sExpected list, got: %s (%s)" the_error_label
@@ -855,7 +855,7 @@ let py_homogeneous_list_as_array
 	| Some len ->
 	    if Array.length obj_arr <> len
 	    then
-	      raise 
+	      raise
 		(Pycaml_exn
 		   (Pyerr_TypeError,
 		    Printf.sprintf "%sExpected list of length %d, got length: %d"
@@ -866,7 +866,7 @@ let py_homogeneous_list_as_array
       let first_bad = array_first_not_to_satisfy type_checker obj_arr in
       if first_bad <> (-1)
       then
-	raise 
+	raise
 	  (Pycaml_exn
 	     (Pyerr_TypeError,
 	      Printf.sprintf "%sExpected homogeneous list of %s. Entry %d is of type %s (%s)!"
@@ -897,7 +897,7 @@ let py_int_list_as_array ?error_label ?length arr =
 let py_number_list_as_float_array ?error_label ?length arr =
   py_homogeneous_list_as_array
     ?error_label ?length
-    "number" 
+    "number"
     (fun x -> let ty = pytype x in ty = FloatType || ty = IntType)
     (fun x -> if pytype x = FloatType then pyfloat_asdouble x else float_of_int (pyint_asint x))
     arr
@@ -966,7 +966,7 @@ let _caml_debug_exceptions () =
       with | Not_found -> ""
   in
   let pieces = Str.split (Str.regexp ",") ocamlrunparam in
-    try 
+    try
       let _ = List.find (fun p -> p="b") pieces in
 	true
     with
@@ -1040,11 +1040,11 @@ let python_interfaced_function
 	check_types 0
     in
       if _caml_debug_exceptions ()
-      then body () 
+      then body ()
       else
 	try
           body ()
-	with 
+	with
 	  | Pycaml_exn (errtype, msg) ->
 	      pycaml_seterror errtype (Printf.sprintf "%s%s" msg exn_name); pynull()
 	  | Not_found ->
@@ -1076,12 +1076,12 @@ let python_interfaced_function
 	      pynull()
 	  | Assert_failure (filename,line,column) ->
 	      pycaml_seterror Pyerr_StandardError (Printf.sprintf "OCaml exception 'Assert_failure file=%s line=%d(c. %d)'%s" filename line column exn_name);
-	      pynull()	
+	      pynull()
 	  | something_else ->
 	      if catch_weird_exceptions then
 		begin
-		  pycaml_seterror 
-		    Pyerr_StandardError 
+		  pycaml_seterror
+		    Pyerr_StandardError
 		    (Printf.sprintf "OCaml weird low-level exception (not resolved any further)%s" exn_name);
 		  pynull()
 		end
@@ -1090,7 +1090,7 @@ let python_interfaced_function
     match name with
       | None -> wrapper work_fun
       | Some pname ->
-	  let profiling_work_fun args = 
+	  let profiling_work_fun args =
 	    if not(!_py_profiling_active)
 	    then work_fun args
 	    else
@@ -1157,7 +1157,7 @@ let python_pre_interfaced_function
 
    * We want to be able to register new types for Python encapsulation
    at runtime.
-   
+
    * We abuse OCaml strings as type tag symbols, which have been
    uniq'd through an identity hash map.
 
@@ -1182,7 +1182,7 @@ let python_pre_interfaced_function
    After a few failed attempts, the least bad name I can come up with is "ocamlpill".
 
    * ocamlpill type names are unique and considered as global. It is desirable
-   to provide a Python function that returns this name, so those names should not be 
+   to provide a Python function that returns this name, so those names should not be
    considered "for internal use only".
 
 *)
@@ -1191,7 +1191,7 @@ let python_pre_interfaced_function
 let _known_ocamlpill_types = ((Hashtbl.create 10):((string, string) Hashtbl.t));;
 
 let _ocamlpill_type_sym ocamlpill_type_name =
-  try 
+  try
     Hashtbl.find _known_ocamlpill_types ocamlpill_type_name
   with
     | Not_found ->
@@ -1219,7 +1219,7 @@ let register_ocamlpill_types type_names =
     (fun type_name ->
       if Hashtbl.mem _known_ocamlpill_types type_name
       then () (* -- already known *)
-      else 
+      else
 	Hashtbl.add _known_ocamlpill_types type_name type_name)
     type_names
 ;;
@@ -1238,7 +1238,7 @@ let make_ocamlpill_wrapper_unwrapper ocamlpill_type_name prototypical_object =
       if ocamlpill_type_sym_provided != ocamlpill_type_sym
 	  (* Note the != not-the-same check; syms are uniq'd strings. *)
       then
-	raise (Pycaml_exn (Pyerr_TypeError, 
+	raise (Pycaml_exn (Pyerr_TypeError,
 			   (Printf.sprintf "Python-Ocaml Pill Type mismatch: wanted: '%s' - got: '%s'"
 			      ocamlpill_type_sym ocamlpill_type_sym_provided)))
       else
@@ -1259,7 +1259,7 @@ let ocamlpill_hard_unwrap pill =
    0-element or 1-element list. In most cases, this low-level convention
    will be wrapped up at a higher level python-wise so that the user of
    a module just sees an optional argument.
-   
+
    This is somewhat tricky: we want to treat optional string/float/int
    args on the same footing as pill args. How do we do this? By a bit
    of combinatorical magic! The proper abstraction is to use a
@@ -1282,7 +1282,7 @@ let py_optionally unwrapper py_value =
   then
     raise
       (Pycaml_exn
-	 (Pyerr_TypeError, 
+	 (Pyerr_TypeError,
 	  Printf.sprintf "Expected optional argument to be provided as an empty or 1-element list. Got: %s (%s)"
 	    (pytype_name (pytype py_value)) (py_repr py_value)))
   else
@@ -1290,7 +1290,7 @@ let py_optionally unwrapper py_value =
     if Array.length a > 1 then
       raise
 	(Pycaml_exn
-	   (Pyerr_TypeError, 
+	   (Pyerr_TypeError,
 	    Printf.sprintf "Expected optional argument to be provided as an empty or 1-element list. Got: %d-element list (%s)."
 	      (Array.length a) (py_repr py_value)))
     else
@@ -1354,11 +1354,11 @@ let guarded_pytuple_toarray x =
 
 
 let pycallable_asfun py =
-  if pytype py <> CallableType 
+  if pytype py <> CallableType
   then
     raise
       (Pycaml_exn
-	 (Pyerr_TypeError, 
+	 (Pyerr_TypeError,
 	  Printf.sprintf "Expected Python Callable - Got: %s (%s)" (pytype_name (pytype py)) (py_repr py)))
   else
     fun (args:(pyobject array)) ->
@@ -1375,7 +1375,7 @@ let py_float_tensor ?(init=(fun _ -> 0.0)) index_ranges =
 	let range = index_ranges.(pos) in
 	  if pos = nr_indices-1
 	  then
-	    pylist_fromarray 
+	    pylist_fromarray
 	      (Array.init range
 		 (fun ix_here ->
 		    let () = v_indices.(pos) <- ix_here in
@@ -1399,7 +1399,7 @@ let py_float_tensor ?(init=(fun _ -> 0.0)) index_ranges =
 ;;
 
 (* Just for uniformity of nomenclature *)
-let pylist_ftensor_new = py_float_tensor;; 
+let pylist_ftensor_new = py_float_tensor;;
 
 (* Given a tensor (list of lists), returns a list of the maximum indices
    (basically the tensor shape)
@@ -1419,7 +1419,7 @@ let pylist_tensor_shape pyobj =
           let first_row = arr_of_pyrows.(0) in
             if is_not_pylist first_row
             then
-              let () = 
+              let () =
                 Array.iter (* Check for tensor malformations *)
                   (fun item -> if is_not_pylist item
                                then () else failwith err_msg)
@@ -1497,7 +1497,7 @@ ocaml.sys_profiling(\"off\") -> turn off profiling, return previous on/off statu
 ocaml.sys_profiling(\"clear\") -> clear internal profiling tables
 ocaml.sys_profiling(\"report\") -> return profiling report
 
-Report format: list of (name,time,nr_calls), sorted by decreasing total time. 
+Report format: list of (name,time,nr_calls), sorted by decreasing total time.
 nr_calls is a floatingpoint number to overcome 32-bit integer limitations.
 "
     [|StringType|]
@@ -1515,7 +1515,7 @@ nr_calls is a floatingpoint number to overcome 32-bit integer limitations.
 	   | "report" ->
 	       let r = py_profile_report() in
 		 pylist_fromarray
-		   (Array.map 
+		   (Array.map
 		      (fun (name,time,calls) ->
 			 pytuple3 (pystring_fromstring name,
 				   pyfloat_fromdouble time,
@@ -1561,6 +1561,17 @@ let _py_check_heap =
     (fun arr -> let _ = Gc.full_major () in py_true)
 ;;
 
+let _py_gc_print_stat =
+  python_interfaced_function
+    [||]
+    (fun arr ->
+       begin
+         Gc.print_stat stdout;
+         Printf.printf "%!";
+         pynone ()
+       end)
+;;
+
 (* -- init -- *)
 
 let _ =
@@ -1577,14 +1588,15 @@ let _ =
 	("sys_python",_py_python);
 	("sys_ipython",_py_ipython);
 	("sys_check_heap",_py_check_heap);
-	("sys_refcount", 
+        ("sys_gc_print_stat", _py_gc_print_stat);
+	("sys_refcount",
 	 pywrap_closure
 	   (fun py_args ->
 	      let args = pytuple_toarray py_args in
 		pyint_fromint (pyrefcount args.(0) )));
 
 	(* -- Examples below -- *)
-	("example_test_interface", 
+	("example_test_interface",
 	 pywrap_closure
 	   (fun _ ->
 	      begin
@@ -1669,7 +1681,7 @@ let pyobject_of_pytensor x = x;;
    array only lives for the extent of the evaluation.
 
  *)
-let pyeval_on_ba_vector py_f ba_vec = 
+let pyeval_on_ba_vector py_f ba_vec =
   let ba_gen = Bigarray.genarray_of_array1 ba_vec in
   let py_na = _pytensor_create_from_bigarray_raw ba_gen in
   pyeval_callobject(py_f,pytuple_fromarray [|py_na|])
@@ -1696,7 +1708,7 @@ let multiloop dims fun_entry_by_indices =
           fun_entry_by_indices indices
         done
   in
-    run_over_index 0    
+    run_over_index 0
 ;;
 
 let pytensor_init element_type dims setter =
@@ -1754,7 +1766,7 @@ let fast_py_float_tensor ?(init=(fun _ -> 0.0)) index_ranges =
    readily wrapped up here.
 *)
 
-(* 
+(*
    Now, let's have fun with this:
  *)
 
@@ -1807,7 +1819,7 @@ let rec euler_gamma =
       else
 	let rec compute_sum_prod sum prod pow_x n =
 	  if n=nr_constants then sum/.prod
-	  else 
+	  else
 	    compute_sum_prod
 	      (sum+.constants.(n)*.pow_x)
 	      (prod*.(x+.(float_of_int n)))
@@ -1816,7 +1828,7 @@ let rec euler_gamma =
 	let x5 = x+.5.5 in
 	  exp(-.x5)*.(x5**(x+.0.5))
 	  *.(compute_sum_prod 0.0 1.0 1.0 0)
-in 
+in
 let _py_gamma =
   python_interfaced_function [|FloatType|]
     (fun py_args -> pyfloat_fromdouble (euler_gamma (pyfloat_asdouble py_args.(0))))
