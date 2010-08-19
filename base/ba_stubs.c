@@ -134,7 +134,7 @@ CAMLprim value caml_ba_s_ ## BA_DATATYPE ## _set1 \
   struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
   register size_t idx = IDX2C(idx_v); \
   if (idx < ba->dim[0]) { \
-    ((BA_DATATYPE *) ba->data)[IDX2C(idx_v)] = VAL2C(v_v); \
+    ((BA_DATATYPE *) ba->data)[idx] = VAL2C(v_v); \
     OptCAMLreturn(Val_unit); \
   } \
   out_of_bounds("caml_ba_s_" #BA_DATATYPE "_set1"); \

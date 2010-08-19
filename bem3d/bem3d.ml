@@ -39,11 +39,10 @@ let mwe_dof_3d_surface_triangles_and_space_angles_and_coords
      then failwith "mwe_dof_3d_surface_triangles: Need 3d mesh to extract surface triangles"
      else ())
   in
-  let get_inv_point_matrix =
-    Simplex.get_inv_point_matrix mesh.mm_simplex_data in
+  let inv_point_matrices =
+    Simplex.get_inv_point_matrices mesh.mm_simplex_data in
   let face_eqn sx_nr face_nr =
-    let mx = get_inv_point_matrix sx_nr in
-      Array.init 4 (fun i -> mx.{face_nr, i})
+    Array.init 4 (fun i -> inv_point_matrices.{sx_nr, face_nr, i})
   in
   let region_is_inside r =
     let props = try Hashtbl.find mwe.mwe_properties_by_region r with | Not_found -> [||] in

@@ -41,9 +41,9 @@ let init_from_arrays point_array region_and_simplex_array =
     Array.iteri
       (fun nr_spx (region, simplex) ->
          begin
-           I32.unsafe_set1 regions nr_spx region;
+           I32.set1 regions nr_spx region;
            Array.iteri
-             (fun i v -> I32.unsafe_set2 simplices nr_spx i v)
+             (fun i v -> I32.set2 simplices nr_spx i v)
              simplex;
          end)
       region_and_simplex_array

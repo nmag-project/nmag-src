@@ -47,6 +47,10 @@ val get_inv_point_matrix: t -> idx -> Base.Ba.F.array2
 (** Get the inverse of the point matrix for the given simplex index.
     See note 1. *)
 
+(** Get all the inverse point matrice. This is a F.array3 made by
+    (# simplices) x (d + 1) x (d + 1) entries (d is the mesh dimension). *)
+val get_inv_point_matrices: t -> Base.Ba.F.array3
+
 val get_face_eqn: t -> int -> int -> Base.Ba.F.array1
 
 val get_incircle_midpoint: t -> int -> Base.Ba.F.array1

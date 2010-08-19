@@ -196,6 +196,7 @@ module Simplex:
     val get_point_matrix: t -> idx -> Base.Ba.F.array2
     val get_point_matrix_det: t -> idx -> float
     val get_inv_point_matrix: t -> idx -> Base.Ba.F.array2
+    val get_inv_point_matrices: t -> Base.Ba.F.array3
     val get_face_eqn: t -> int -> int -> Base.Ba.F.array1
 
     val dummy : t
@@ -375,7 +376,6 @@ type mesh =
       *)
      mutable mm_periodic_points : int array array;
      mutable mm_have_connectivity: bool;
-     mutable mm_have_incircle_circumcircle: bool;
      mutable mm_have_regions: bool;
     }
 

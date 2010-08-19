@@ -1571,6 +1571,59 @@ let femfun_diff_x femfun nr_dx =
 	    result
 ;;
 
+(*let countit =
+  let counter = ref 0 in
+    (fun () ->
+       begin
+         counter := !counter + 1;
+         if !counter mod 100 = 0
+         then Printf.printf "%d\n%!" !counter
+         else ();
+       end)
+;;*)
+
+(* the following function gets called lot of times: it is worth to optimise it! *)
+let femfun_integrate_over_simplex_opt mesh (_,femfun) =
+  let dLs = Simplex.get_inv_point_matrices mesh.mm_simplex_data in
+  let dets = Simplex.get_point_matrix_det mesh.mm_simplex_data in
+  let dim = mesh.mm_dim in
+  let nr_summands = Array.length femfun in
+  let coeff_x_factor_Ls =
+    Array.map
+      (fun summand ->
+         let coeff = summand.ff_coefficient in
+         let powers_L = summand.ff_L_powers in
+         let factor_L = element_shape_function_power_integral_factor powers_L
+         in coeff*.factor_L)
+      femfun
+  in
+    (fun sx ->
+       let sx_nr = sx.ms_id in
+       let det = dets sx_nr in
+       let integral =
+       let rec walk_summands sf n =
+           if n = nr_summands then sf
+           else
+           let summand = femfun.(n) in
+           let coeff_x_factor_L = coeff_x_factor_Ls.(n) in
+           let powers_dL = summand.ff_dL_powers in
+           let contrib =
+               let nr_factors = Array.length powers_dL in
+               let rec walk_factors sf nr_factor =
+               if nr_factor = nr_factors then sf
+               else
+                   let factor = powers_dL.(nr_factor) in
+                   let dL_factor = F.get3 dLs sx_nr factor.dlp_nr_L factor.dlp_nr_dx in
+                   let dL_factor_pow = int_power factor.dlp_pow dL_factor in
+                   walk_factors (sf*.dL_factor_pow) (1+nr_factor)
+               in walk_factors coeff_x_factor_L 0
+           in
+               walk_summands (sf+.contrib) (1+n)
+       in walk_summands 0.0 0
+       in integral *. abs_float(det))
+;;
+
+
 let femfun_integrate_over_simplex mesh (_,femfun) simplex =
   let dL = Simplex.get_inv_point_matrix mesh.mm_simplex_data simplex.ms_id in
   let det = Simplex.get_point_matrix_det mesh.mm_simplex_data simplex.ms_id in
@@ -4918,6 +4971,7 @@ let ddiffop_vivified
 					    | Ddiffop_parser.DIFF_vol nr_dx -> femfun_diff_x femfun_ri nr_dx
 					    | _ -> femfun_ri))
 				  in
+				  let fast_femfun_integrate = femfun_integrate_over_simplex_opt mesh femfun_total in
 				  let sx_opt_surface_diff_dir = (* None = do full volume integral instead. *)
 				    match diff_le_ri with
 				      | (Ddiffop_parser.DIFF_boundary _,Ddiffop_parser.DIFF_boundary _) ->
@@ -4947,7 +5001,7 @@ let ddiffop_vivified
 					match sx_opt_surface_diff_dir with
 					  | None ->
 					      wrapped_fun_add_contrib nr_dof_le nr_dof_ri
-						(coeff *. factor_field_mid *.(femfun_integrate_over_simplex mesh femfun_total sx))
+						(coeff *. factor_field_mid *.(fast_femfun_integrate sx))
 					  | Some diff_dir ->
 					      let disappearing_across =
 						match diff_le_ri with

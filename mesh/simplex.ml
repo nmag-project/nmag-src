@@ -189,6 +189,11 @@ let get_inv_point_matrix sx_data =
   let ba3 = Deferred.get sx_data.msd_inv_ext_point_coords in
     Bigarray.Array3.slice_left_2 ba3
 
+(** Get all the inverse point matrice. This is a F.array3 made by
+    (# simplices) x (d + 1) x (d + 1) entries (d is the mesh dimension). *)
+let get_inv_point_matrices sx_data =
+  Deferred.get sx_data.msd_inv_ext_point_coords
+
 (** Get the n-th row of the inverse point matrix for the given simplex.
     That corresponds to retrieve the coefficients of the equation of the n-th
     face of the simplex. *)

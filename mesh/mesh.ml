@@ -432,7 +432,6 @@ type mesh =
       *)
       mutable mm_periodic_points: int array array;   (* array where each entry is the array of point indices which are periodical identical *)
       mutable mm_have_connectivity: bool;
-      mutable mm_have_incircle_circumcircle: bool;
       mutable mm_have_regions: bool;
     }
 ;;
@@ -453,7 +452,6 @@ let dummy_mesh =
      mm_vertex_distribution = [||];
      mm_periodic_points = [||];
      mm_have_connectivity = false;
-     mm_have_incircle_circumcircle = false;
      mm_have_regions = false;
     };;
 
@@ -606,7 +604,6 @@ let reordered_mesh mesh ix_new_by_ix_old =
       mm_vertex_distribution=mesh.mm_vertex_distribution; (* may no longer make sense! *)
       mm_periodic_points=new_periodicity;
       mm_have_connectivity=mesh.mm_have_connectivity;
-      mm_have_incircle_circumcircle=mesh.mm_have_incircle_circumcircle;
       mm_have_regions=mesh.mm_have_regions;
     }
 ;;
@@ -1699,7 +1696,6 @@ let mesh_from_known_delaunay                                                    
      mm_vertex_distribution=[|Array.length mpoints|];
      mm_periodic_points = [||];
      mm_have_connectivity=false;
-     mm_have_incircle_circumcircle=false;
      mm_have_regions=false;
    }
   in
