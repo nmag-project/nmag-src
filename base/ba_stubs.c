@@ -175,7 +175,7 @@ CAMLprim value caml_ba_s_ ## BA_DATATYPE ## _get3 \
   OptCAMLparam4(ba_v, idx1_v, idx2_v, idx3_v); \
   struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
   size_t idx1 = IDX2C(idx1_v), idx2 = IDX2C(idx2_v), \
-         idx3 = IDX2C(idx2_v), d2 = ba->dim[1], d3 = ba->dim[2]; \
+         idx3 = IDX2C(idx3_v), d2 = ba->dim[1], d3 = ba->dim[2]; \
   if ((idx1 < ba->dim[0]) & (idx2 < d2) & (idx3 < d3)) \
     OptCAMLreturn(VAL2ML(((BA_DATATYPE *) ba->data) \
                          [d3*(d2*idx1 + idx2) + idx3])); \
@@ -189,7 +189,7 @@ CAMLprim value caml_ba_s_ ## BA_DATATYPE ## _set3 \
   OptCAMLparam5(ba_v, idx1_v, idx2_v, idx3_v, v_v); \
   struct caml_ba_array *ba = Caml_ba_array_val(ba_v); \
   size_t idx1 = IDX2C(idx1_v), idx2 = IDX2C(idx2_v), \
-         idx3 = IDX2C(idx2_v), d2 = ba->dim[1], d3 = ba->dim[2]; \
+         idx3 = IDX2C(idx3_v), d2 = ba->dim[1], d3 = ba->dim[2]; \
   if ((idx1 < ba->dim[0]) & (idx2 < d2) & (idx3 < d3)) { \
     ((BA_DATATYPE *) ba->data)[d3*(d2*idx1 + idx2) + idx3] = VAL2C(v_v); \
     OptCAMLreturn(Val_unit); \
