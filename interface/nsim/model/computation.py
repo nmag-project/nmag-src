@@ -9,7 +9,7 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
-__all__ = ['Equation', 'Operator', 'CCode', 'LAMProgram', 'Computations']
+__all__ = ['Equation', 'Operator', 'CCode', 'LAMProgram', 'KSP', 'Computations']
 
 import eqparser, opparser
 from eqtree import EqSimplifyContext
@@ -160,6 +160,27 @@ class OldOperator(Computation):
 
 class CCode(Computation):
     type_str = "CCode"
+
+class KSP(Computation):
+    type_str = "KSP"
+
+    def __init__(self, name, matrix, precond_name=None,
+                 ksp_type=None, pc_type=None, initial_guess_nonzero=False,
+                 rtol=None, atol=None, dtol=None, maxits=None,
+                 nullspace_subfields=None, nullspace_has_constant=False,
+                 auto_dep=None):
+
+        Computation.__init__(self, name, auto_dep=auto_dep)
+        self.precond_name = precond_name
+        self.ksp_type = ksp_type
+        self.pc_type = pc_type
+        self.initial_guess_nonzero = initial_guess_nonzero
+        self.rtol = rtol
+        self.atol = atol
+        self.dtol = dtol
+        self.maxits = maxits
+        self.nullspace_subfields = nullspace_subfields
+        self.nullspace_has_constant = nullspace_has_constant
 
 class Computations(Group):
     pass
