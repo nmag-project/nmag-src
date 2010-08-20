@@ -1582,7 +1582,16 @@ let femfun_diff_x femfun nr_dx =
        end)
 ;;*)
 
-(* the following function gets called lot of times: it is worth to optimise it! *)
+(* the following function gets called lot of times. That is why I wrote
+   a new optimised version which does some precomputation (if called properly)
+   This version is useful if the femfun which is being integrated is the
+   same for a large group of simplices. It can then be called like that:
+
+     let integrate = femfun_integrate_over_simplex_opt mesh femfun in
+     ...
+     let result = integrate simplex in
+     ...
+ *)
 let femfun_integrate_over_simplex_opt mesh (_,femfun) =
   let dLs = Simplex.get_inv_point_matrices mesh.mm_simplex_data in
   let dets = Simplex.get_point_matrix_det mesh.mm_simplex_data in
