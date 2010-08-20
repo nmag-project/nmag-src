@@ -82,9 +82,12 @@ from quantity import Quantities
 from timestepper import Timesteppers
 from nsim.snippets import contains_all
 
-__all__ = ['Model']
+__all__ = ['Model', 'NsimModelError']
 
 logger = logging.getLogger('nsim')
+
+class NsimModelError(Exception):
+    pass
 
 #-----------------------------------------------------------------------------
 
@@ -359,6 +362,32 @@ class Model:
         self._built["LAMPrograms"] = True
         return prog_dict
 
+    def _depend(self, q1_name, q2_name):
+        """Return whether the quantity q1_name depends on the quantity
+        q2_name."""
+        if q1_name in self.quantities.dependencies:
+            op, input_qs = self.quantities.dependencies[q1_name]
+            for input_q in input_qs:
+                if input_q == q2_name:
+                    return True
+                elif self._depend(input_q, q2_name):
+                    return True
+        return False
+
+    def _depend_path(self, q1_name, q2_name):
+        """Return whether the quantity q1_name depends on the quantity
+        q2_name."""
+        if q1_name in self.quantities.dependencies:
+            op, input_qs = self.quantities.dependencies[q1_name]
+            for input_q in input_qs:
+                if input_q == q2_name:
+                    return "%s ==(%s)==> %s" % (q2_name, op.name, q1_name)
+                else:
+                    s = self._depend(input_q, q2_name)
+                    if s:
+                        return "%s ==(%s)==> %s" % (s, op.name, q1_name)
+        return ""
+
     def _build_dependency_tree(self):
         # Determine dependencies and involved quantities
         q_dependencies = {}
@@ -383,6 +412,19 @@ class Model:
         self.quantities.primary = primary_qs
         self.quantities.derived = derived_qs
         self.quantities.dependencies = q_dependencies
+
+        # Cecking for circular dependencies
+        for derived_q in derived_qs:
+            if self._depend(derived_q, derived_q):
+                # does the quantity derived_q depend on itself
+                dep_path = self._depend_path(derived_q, derived_q)
+                raise NsimModelError("Circular dependency detected for %s: %s"
+                                     % (derived_q, dep_path))
+
+        print self.quantities.primary
+        print self.quantities.derived
+        print self.quantities.dependencies
+        raw_input()
         self._built["DepTree"] = True
 
     def _build_target_maker(self, target, primaries={}, targets_to_make=[]):
@@ -477,8 +519,8 @@ class Model:
                                    dxdt_updater.get_full_name(),
                                    nr_primary_fields=nr_primary_fields,
                                    name_jacobian=None,
-                                   pc_rtol=ts.rel_tol,
-                                   pc_atol=ts.abs_tol,
+                                   pc_rtol=ts.pc_rtol,
+                                   pc_atol=ts.pc_atol,
                                    max_order=ts.max_order,
                                    krylov_max=ts.krylov_max,
                                    jacobi_eom=ts.eq_for_jacobian.get_text(),

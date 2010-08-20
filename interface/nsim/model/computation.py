@@ -99,10 +99,11 @@ class Equation(ParsedComputation):
 class Operator(ParsedComputation):
     type_str = "Operator"
 
-    def __init__(self, name, operator_string):
+    def __init__(self, name, operator_string, mat_opts=[]):
         operator_tree = opparser.parse(operator_string)
         ParsedComputation.__init__(self, name, "OpProg",
                                    operator_tree, operator_string)
+        self.mat_opts = mat_opts
 
 class OldOperator(Computation):
     type_str = "Operator"

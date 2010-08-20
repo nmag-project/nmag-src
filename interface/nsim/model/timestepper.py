@@ -29,7 +29,8 @@ class Timestepper(ModelObj):
     def __init__(self, name, x, dxdt,
                  eq_for_jacobian=None, time_unit=None,
                  derivatives=None,
-                 rel_tol=1e-5, abs_tol=1e-5, initial_time=0.0,
+                 pc_rtol=1e-2, pc_atol=1e-7,
+                 rtol=1e-5, atol=1e-5, initial_time=0.0,
                  max_order=2, krylov_max=300,
                  jacobi_prealloc_diagonal=75,
                  jacobi_prealloc_off_diagonal=45):
@@ -55,8 +56,10 @@ class Timestepper(ModelObj):
         self.x = x
         self.dxdt = dxdt
         self.eq_for_jacobian = eq_for_jacobian
-        self.rel_tol = rel_tol
-        self.abs_tol = abs_tol
+        self.rtol = rtol
+        self.atol = atol
+        self.pc_rtol = pc_rtol
+        self.pc_atol = pc_atol
         self.initial_time = initial_time
         self.max_order = max_order
         self.krylov_max = krylov_max
@@ -65,22 +68,28 @@ class Timestepper(ModelObj):
         self.initialised = False
 
     def initialise(self, initial_time=None,
-                   rel_tol=None, abs_tol=None):
-        if rel_tol == None:
-            rel_tol = self.rel_tol
-        if abs_tol == None:
-            abs_tol = self.abs_tol
-        if initial_time == None:
-            initial_time = self.initial_time
+                   rtol=None, atol=None,
+                   pc_rtol=None, pc_atol=None):
+        self.rtol = self.rtol if rtol == None else rtol
+        self.atol = self.atol if atol == None else atol
+        self.pc_rtol = self.pc_rtol if pc_rtol == None else pc_rtol
+        self.pc_atol = self.pc_atol if pc_atol == None else pc_atol
+        self.initial_time = (self.initial_time if initial_time == None
+                             else initial_time)
 
-        self.rel_tol = rel_tol
-        self.abs_tol = abs_tol
-        self.initial_time = initial_time
+        if self._is_vivified():
+            initial_time = remove_unit(self.initial_time, self.time_unit)
+            ocaml.lam_ts_init(self.get_lam(), self.get_full_name(),
+                              self.initial_time, self.rtol, self.atol)
 
-        initial_time = remove_unit(initial_time, self.time_unit)
-        ocaml.lam_ts_init(self.get_lam(), self.get_full_name(),
-                          initial_time, rel_tol, abs_tol)
-        self.initialised = True
+            # XXX NOTE: HERE WE SHOULD ALSO SET THE PC TOLERANCES
+            self.initialised = True
+
+    def _ret_time(self, t):
+        if self.time_unit is not None:
+            return t*self.time_unit
+        else:
+            return t
 
     def advance_time(self, target_time, max_it=-1, exact_tstop=False):
         target_time = remove_unit(target_time, self.time_unit)
@@ -92,10 +101,21 @@ class Timestepper(ModelObj):
           ocaml.lam_ts_advance(self.get_lam(), self.get_full_name(),
                                exact_tstop, target_time, max_it)
 
-        if self.time_unit != None:
-            return final_t_su*self.time_unit
-        else:
-            return final_t_su
+        return self._ret_time(final_t_su)
+
+    def get_cvode(self):
+        """Get the cvode object associated with the timestepper."""
+        return ocaml.lam_get_ts_cvode(self.get_lam(), self.get_full_name())
+
+    def get_num_steps(self):
+        """Get the number of steps computed so far."""
+        return ocaml.cvode_get_num_steps(self.get_cvode())
+
+    def get_last_dt(self):
+        """Return the last step length."""
+        return self._ret_time(ocaml.cvode_get_step_info(self.get_cvode())[0])
+
+
 
 class Timesteppers(Group):
     pass

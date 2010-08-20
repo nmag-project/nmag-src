@@ -57,11 +57,11 @@ def t_PERIODIC(t):
     return t
 
 keywords = {
-  'and': 'AND',
-  'or': 'OR',
-  'not': 'NOT',
-  'some': 'SOME',
-  'all': 'ALL'
+  'and': 'DOF_REGION_AND',
+  'or': 'DOF_REGION_OR',
+  'not': 'DOF_REGION_NOT',
+  'some': 'DOF_REGION_SOME',
+  'all': 'DOF_REGION_ALL'
 }
 
 def t_STRING(t):
