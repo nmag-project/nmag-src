@@ -393,6 +393,9 @@ class Model:
         q_dependencies = {}
         involved_qs = {}
         for computation in self.computations._all:
+            if not computation.auto_dep:
+                continue
+
             inputs, outputs = computation.get_inputs_and_outputs()
             for o in outputs:
                 q_dependencies[o] = (computation, inputs)
@@ -421,10 +424,6 @@ class Model:
                 raise NsimModelError("Circular dependency detected for %s: %s"
                                      % (derived_q, dep_path))
 
-        print self.quantities.primary
-        print self.quantities.derived
-        print self.quantities.dependencies
-        raw_input()
         self._built["DepTree"] = True
 
     def _build_target_maker(self, target, primaries={}, targets_to_make=[]):

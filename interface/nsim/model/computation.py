@@ -23,9 +23,10 @@ class Computation(ModelObj):
 
     type_str = "Computation"
 
-    def __init__(self, name, inputs=[], outputs=[]):
+    def __init__(self, name, inputs=[], outputs=[], auto_dep=None):
         ModelObj.__init__(self, name)
         self.inputs_and_outputs = None
+        self.auto_dep = auto_dep if auto_dep != None else True
 
     def get_inputs_and_outputs(self, context=None):
         """Get the input and output quantities involved in the computation."""
@@ -44,8 +45,8 @@ class Computation(ModelObj):
 class LAMProgram(Computation):
     type_str = "LAMProgram"
 
-    def __init__(self, name, commands=None):
-        Computation.__init__(self, name)
+    def __init__(self, name, commands=None, auto_dep=None):
+        Computation.__init__(self, name, auto_dep=auto_dep)
         self.commands = commands or []
 
     def add_commands(self, commands):
@@ -58,8 +59,8 @@ class LAMProgram(Computation):
 
 class ParsedComputation(LAMProgram):
     def __init__(self, computation_name, computation_prog_name,
-                 computation_tree, computation_string):
-        LAMProgram.__init__(self, computation_name)
+                 computation_tree, computation_string, auto_dep=None):
+        LAMProgram.__init__(self, computation_name, auto_dep=auto_dep)
         self.prog_name = computation_prog_name
         self.text = computation_string
         self.tree = computation_tree
@@ -91,18 +92,21 @@ class ParsedComputation(LAMProgram):
 class Equation(ParsedComputation):
     type_str = "Equation"
 
-    def __init__(self, name, equation_string):
+    def __init__(self, name, equation_string, auto_dep=None):
         equation_tree = eqparser.parse(equation_string)
         ParsedComputation.__init__(self, name, "EqProg",
-                                   equation_tree, equation_string)
+                                   equation_tree, equation_string,
+                                   auto_dep=auto_dep)
 
 class Operator(ParsedComputation):
     type_str = "Operator"
 
-    def __init__(self, name, operator_string, mat_opts=[]):
+    def __init__(self, name, operator_string, mat_opts=[],
+                 auto_dep=None):
         operator_tree = opparser.parse(operator_string)
         ParsedComputation.__init__(self, name, "OpProg",
-                                   operator_tree, operator_string)
+                                   operator_tree, operator_string,
+                                   auto_dep=auto_dep)
         self.mat_opts = mat_opts
 
 class OldOperator(Computation):
