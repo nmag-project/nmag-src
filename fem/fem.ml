@@ -1610,32 +1610,33 @@ let femfun_integrate_over_simplex_opt mesh (_,femfun) =
        let sx_nr = sx.ms_id in
        let det = dets sx_nr in
        let integral =
-       let rec walk_summands sf n =
+         let rec walk_summands sf n =
            if n = nr_summands then sf
            else
-           let summand = femfun.(n) in
-           let coeff_x_factor_L = coeff_x_factor_Ls.(n) in
-           let powers_dL = summand.ff_dL_powers in
-           let contrib =
+             let summand = femfun.(n) in
+             let coeff_x_factor_L = coeff_x_factor_Ls.(n) in
+             let powers_dL = summand.ff_dL_powers in
+             let contrib =
                let nr_factors = Array.length powers_dL in
                let rec walk_factors sf nr_factor =
                if nr_factor = nr_factors then sf
                else
-                   let factor = powers_dL.(nr_factor) in
-                   let dL_factor = F.get3 dLs sx_nr factor.dlp_nr_L factor.dlp_nr_dx in
-                   let dL_factor_pow = int_power factor.dlp_pow dL_factor in
+                 let factor = powers_dL.(nr_factor) in
+                 let dL_factor = F.get3 dLs sx_nr factor.dlp_nr_L factor.dlp_nr_dx in
+                 let dL_factor_pow = int_power factor.dlp_pow dL_factor in
                    walk_factors (sf*.dL_factor_pow) (1+nr_factor)
                in walk_factors coeff_x_factor_L 0
            in
-               walk_summands (sf+.contrib) (1+n)
-       in walk_summands 0.0 0
+             walk_summands (sf+.contrib) (1+n)
+         in walk_summands 0.0 0
        in integral *. abs_float(det))
 ;;
 
 
 let femfun_integrate_over_simplex mesh (_,femfun) simplex =
-  let dL = Simplex.get_inv_point_matrix mesh.mm_simplex_data simplex.ms_id in
-  let det = Simplex.get_point_matrix_det mesh.mm_simplex_data simplex.ms_id in
+  let sx_nr = simplex.ms_id in
+  let dLs = Simplex.get_inv_point_matrices mesh.mm_simplex_data in
+  let det = Simplex.get_point_matrix_det mesh.mm_simplex_data sx_nr in
   let dim = mesh.mm_dim in
   let integral =
     let nr_summands = Array.length femfun in
@@ -1653,7 +1654,7 @@ let femfun_integrate_over_simplex mesh (_,femfun) simplex =
 	    if nr_factor = nr_factors then sf
 	    else
 	      let factor = powers_dL.(nr_factor) in
-	      let dL_factor = F.get2 dL factor.dlp_nr_L factor.dlp_nr_dx in
+	      let dL_factor = F.get3 dLs sx_nr factor.dlp_nr_L factor.dlp_nr_dx in
 	      let dL_factor_pow = int_power factor.dlp_pow dL_factor in
 		walk_factors (sf*.dL_factor_pow) (1+nr_factor)
 	  in walk_factors (coeff*.factor_L) 0
@@ -1676,8 +1677,9 @@ let femfun_integrate_over_simplex mesh (_,femfun) simplex =
 *)
 let femfun_integrate_over_simplex_face
       mesh ?(bare_integral=false) femfun simplex nr_face =
-  let dL = Simplex.get_inv_point_matrix mesh.mm_simplex_data simplex.ms_id in
-  let det = Simplex.get_point_matrix_det mesh.mm_simplex_data simplex.ms_id in
+  let sx_nr = simplex.ms_id in
+  let dLs = Simplex.get_inv_point_matrices mesh.mm_simplex_data in
+  let det = Simplex.get_point_matrix_det mesh.mm_simplex_data sx_nr in
   let dim = mesh.mm_dim in
   let (_,_,(_,integrated_over_L)) = femfun_integrate_over_surface dim femfun nr_face in
   (* This will now only contain some dL factors.
@@ -1691,7 +1693,7 @@ let femfun_integrate_over_simplex_face
 	let contrib =
 	  Array.fold_left
 	    (fun sf factor ->
-	      let dL_factor = F.get2 dL factor.dlp_nr_L factor.dlp_nr_dx in
+	      let dL_factor = F.get3 dLs sx_nr factor.dlp_nr_L factor.dlp_nr_dx in
 	      let dL_factor_pow = int_power factor.dlp_pow dL_factor in
 	      sf*.dL_factor_pow)
 	    coeff powers_dL
