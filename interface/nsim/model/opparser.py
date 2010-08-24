@@ -104,6 +104,10 @@ def t_error(t):
 import ply.lex as lex
 lexer = lex.lex(lextab='diffop_lextab')
 
+def p_entry(t):
+    """entry : ENTRY_DIFFOP parse_ddiffop"""
+    t[0] = t[2]
+
 def p_parse_ddiffop(t):
     """parse_ddiffop : contribs opt_amendment_specs opt_sum_specs"""
     t[0] = OperatorNode(contribs=t[1], amendments=t[2], sums=t[3])
@@ -369,5 +373,26 @@ import ply.yacc as yacc
 parser = yacc.yacc(tabmodule='diffop_parsetab',
                    debugfile='diffop_parser.out')
 
-def parse(s):
-    return parser.parse(s, lexer=lexer)
+def parse_with_start_token(s, start_tokens=[]):
+    def token(token_type):
+        t = yacc.YaccSymbol()
+        t.type = token_type
+        t.value = None
+        return t
+
+    start_tokens = [token(t) for t in start_tokens]
+
+    def lexer_function():
+        if len(start_tokens) > 0:
+            return start_tokens.pop()
+        else:
+            return lexer.token()
+
+    lexer.input(s) # prepare lexer for input
+
+    return parser.parse(tokenfunc=lexer_function)
+
+def parse_diffop(s):
+    return parse_with_start_token(s, start_tokens=['ENTRY_DIFFOP'])
+
+parse = parse_diffop
