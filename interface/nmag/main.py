@@ -449,9 +449,9 @@ class MagMaterial:
             self.su_llg_coeff1 = 0.0
 
         if self.su_exchange_coupling < 0.0:
-            raise NmagUserError("The exchange coupling constant " + \
-              "must be positive. For material '%s', you specified: %s." \
-              % (self.name, self.exchange_coupling))
+            raise NmagUserError("The exchange coupling constant must be "
+                                "positive. For material '%s', you specified:"
+                                " %s." % (self.name, self.exchange_coupling))
 
         self.su_mu0 = simulation_units.of(si.mu0)
         self.su_exch_prefactor = \
@@ -580,7 +580,7 @@ class Fields:
             self.nutd[fieldname] = field
 
     def __setitem__(self,fieldname,value):
-        raise NotImplementedError,"Use set_subfield instead"
+        raise NotImplementedError("Use set_subfield instead")
 
     def __getitem__(self,fieldname):
         log.debug("Fields.__getitem__: fieldname = '%s'" % fieldname)
@@ -621,7 +621,7 @@ class Fields:
               if fieldname == None: # this is an error
                   raise KeyError("Couldn't find field for subfieldname "
                                  "'%s' " % subfieldname
-                                 + "Available fields and subfields  are \n"
+                                 + "Available fields and subfields are \n"
                                  + self.__repr__())
         return fieldname
 
@@ -633,7 +633,8 @@ class Fields:
         """
 
         if unit.value == 0:
-            raise NmagUserError,"The unit (SI) object must have a value different from 0."
+            raise NmagUserError("The unit (SI) object must have a value "
+                                "different from 0.")
 
         factor = simulation_units.of(unit)
         log.log(15,"set_subfield: Conversion factor is %s" %str(factor))
@@ -657,16 +658,19 @@ class Fields:
                 if type(subfieldname[0]) == types.StringType: #okay
                     subfieldnames = subfieldname
                 else:
-                    raise NmagUserError,"set_subfield: subfieldname='%s' is list of '%s' -- I don't understand." \
-                          % (str(subfieldname),str(type(subfieldname)))
+                    raise NmagUserError("set_subfield: subfieldname='%s' is "
+                                        "list of '%s' -- I don't understand."
+                                        % (subfieldname, type(subfieldname))
             else:
-                raise NmagUserError,"set_subfield: subfieldname='%s' is type '%s' -- I don't understand." \
-                      % (str(subfieldname),str(type(subfieldname)))
+                raise NmagUserError("set_subfield: subfieldname='%s' is type "
+                                    "'%s' -- I don't understand."
+                                    % (subfieldname, subfieldname))
 
 
         else: #no subfieldname given
             if fieldname == None:
-                raise NmagUserError,"Need to know subfieldname OR fieldname. Both are missing."
+                raise NmagUserError("Need to know subfieldname OR fieldname. "
+                                    "Both are missing.")
             else:
                 #iterate over all subfields:
                 list_of_subfield_and_shape_tuples = nfem.data_doftypes(self.nutd[fieldname])
@@ -676,8 +680,9 @@ class Fields:
         #Now we have a field name, and a list of corresponding subfieldnames that need to be modified.
         #Check that this can be modified
         if not fieldname in self.primary_fields:
-            raise NmagUserError,"Can only set primary fields. You have tried to set '%s' (subfield %s)" \
-                  % (fieldname,str(subfieldnames))
+            raise NmagUserError("Can only set primary fields. You have tried "
+                                "to set '%s' (subfield %s)"
+                                % (fieldname,str(subfieldnames)))
 
         #Let's make sure we update all the internal logic
 
@@ -863,7 +868,7 @@ class Simulation(SimulationCore):
         #
         # We do not support the CVODE ts anymore, mf 13 Aug 2009
         if not use_pvode:
-            raise NmagUserError, "The cvode interface is no longer supported"
+            raise NmagUserError("The cvode interface is no longer supported")
 
         # ts_in_lam should be renamed to ts after sequential ts code has been removed
         self.ts_in_lam = LAMTimestepper("timestepper",
@@ -895,14 +900,14 @@ class Simulation(SimulationCore):
             if not thermal_delta_t:
                 msg = ("Need to pass thermal_delta_t as well (time step for "
                        "Heun time integrator) when passing a temperature.")
-                raise NmagUserError, msg
+                raise NmagUserError(msg)
             self._su_temperature = simulation_units.of(temperature, compatible_with=SI("K"))
             self._su_thermal_delta_t = simulation_units.of(thermal_delta_t, compatible_with=SI("s"))
             self.user_seed_T=user_seed_T
         else:
           if thermal_delta_t:
-              raise NmagUserError, ("Cannot pass thermal_delta_t "
-                                    "without passing a temperature.")
+              raise NmagUserError("Cannot pass thermal_delta_t "
+                                  "without passing a temperature.")
         ########
 
 
@@ -1209,10 +1214,11 @@ class Simulation(SimulationCore):
             else:
                 mats = [mag_mat]
             if self.materials_by_regionname.has_key(name):
-                raise "Bad usage of the 'load_mesh' method! Your list of " \
-                      "(region_name, materials) contains two regions with " \
-                      "the same name '%s'. Different regions must have " \
-                      "different names!" % name
+                msg = ("Bad usage of the 'load_mesh' method! Your list of "
+                       "(region_name, materials) contains two regions with "
+                       "the same name '%s'. Different regions must have "
+                       "different names!" % name)
+                raise NmagUserError(msg)
             self.materials_by_regionname[name] = mats
 
             # ensure we have all materials registered in the simulation context...
@@ -1243,9 +1249,9 @@ class Simulation(SimulationCore):
         """Add a coupling between the magnetisations of two materials...
         """
         if self.ts_in_lam.is_initialised:
-            raise NmagUserError, \
-                   ("Too late to specify the local magnetic coupling: "
-                    "the timestepper has already been created!")
+            raise NmagUserError("Too late to specify the local magnetic "
+                                "coupling: the timestepper has already been "
+                                "created!")
         name1 = mat1.name
         name2 = mat2.name
         if not self.local_couplings.has_key(name1):
@@ -1255,8 +1261,8 @@ class Simulation(SimulationCore):
 
         if (   self.local_couplings[name1].has_key(name2)
             or self.local_couplings[name2].has_key(name1)):
-            raise NmagUserError, ("A coupling %s-%s has been "
-                                  "already specified!" % (name1, name2))
+            raise NmagUserError("A coupling %s-%s has been "
+                                "already specified!" % (name1, name2))
 
         f = float(coupling/si.mu0) # This is a pure number, without units!
         en_dens = simulation_units.of(0.5*coupling*mat1.Ms*mat2.Ms,
@@ -1325,10 +1331,11 @@ class Simulation(SimulationCore):
         memory_report("Beginning of advance_time")
 
         if self._temperature:
-            raise NotImplementError, ("Cannot do thermal integration with "
-              "ts_in_lam time integration. If you need this feature, please "
-              "contact the nmag team (nmag@soton.ac.uk), and report this "
-              "error message (ticket:150)")
+            msg = ("Cannot do thermal integration with ts_in_lam time "
+                   "integration. If you need this feature, please contact "
+                   "the nmag team (nmag@soton.ac.uk), and report this error "
+                   "message (ticket:150)")
+            raise NotImplementError(msg)
 
         # If max_it is negative or is None, then we advance only
         # to reach the target time, without any step number check
@@ -1544,7 +1551,9 @@ class Simulation(SimulationCore):
         #    this point somewhere else and let the user know.
 
         if len(su_data)>1:
-            raise NmagInternalError,"Didn't expect this: su_data=%s has more than one entry (tensor of rank2 or higher?)" % str(su_data)
+            raise NmagInternalError("Didn't expect this: su_data=%s has more "
+                                    "than one entry (tensor of rank2 or "
+                                    "higher?)" % str(su_data))
         elif len(su_data) == 0: #empty list, Dof not defined at this point in space
             return None
 
@@ -1614,9 +1623,10 @@ class Simulation(SimulationCore):
             if fieldname in fieldunits_by_fieldname.keys():
                 unit = fieldunits_by_fieldname[fieldname]
             else:
-                msg = "Couldn't find field for subfield '%s'\n" % subfieldname
-                msg +="If this is an additionl (multi-physics) field, you need to provide a 'unit' parameter"
-                raise NmagUserError,msg
+                msg = ("Couldn't find field for subfield '%s'\nIf this is an "
+                       "additional (multi-physics) field, you need to "
+                       "provide a 'unit' parameter" % subfieldname)
+                raise NmagUserError(msg)
 
         field = self._fields[fieldname]
 
@@ -1692,9 +1702,10 @@ class Simulation(SimulationCore):
             if fieldname in fieldunits_by_fieldname.keys():
                 unit = fieldunits_by_fieldname[fieldname]
             else:
-                msg = "Couldn't find field for subfield '%s'\n" % subfieldname
-                msg +="If this is an additionl (multi-physics) field, you need to provide a 'unit' parameter"
-                raise NmagUserError,msg
+                msg = ("Couldn't find field for subfield '%s'\nIf this is "
+                       "an additional (multi-physics) field, you need to "
+                       "provide a 'unit' parameter" % subfieldname)
+                raise NmagUserError(msg)
 
         field = self._fields[fieldname]
 
@@ -2094,7 +2105,7 @@ class Simulation(SimulationCore):
 
     def region_volume(self, material_name):
         print "Warning call to region_volume"
-        raise NotImplementedError,"Use material_volume instead"
+        raise NotImplementedError("Use material_volume instead")
         return
         """Returns the volume of the region material_name or the total volume
            of the mesh is material_name==None"""
@@ -2103,7 +2114,9 @@ class Simulation(SimulationCore):
             for region_id in range(1, len(self.region_name_list)+1):
                 material_volume += self.mesh.regionvolumes[region_id]
             return material_volume
-        if not(self.mesh): raise NmagUserError("No mesh!")
+
+        if not(self.mesh):
+            raise NmagUserError("No mesh!")
 
         for region_id in self.region_ids_by_materialname[material_name]:
             material_volume += self.mesh.regionvolumes[region_id]
@@ -2255,10 +2268,10 @@ class Simulation(SimulationCore):
             dof_name = field_name
         else:
             if not self.mag_mat_by_name.has_key(subfield_name):
-                raise NmagUserError, \
-                  ("You want to compute the average of '%s', but the subfield"
-                   " you specified(%s) is not one of its subfields!"
-                   % (field_name, subfield_name))
+                msg = ("You want to compute the average of '%s', but the "
+                       "subfield you specified(%s) is not one of its "
+                       "subfields!" % (field_name, subfield_name))
+                raise NmagUserError(msg)
             dof_name = "%s_%s" % (field_name, subfield_name)
 
         result = nfem.integrate_field(self._fields[field_name], dof_name)
@@ -2350,7 +2363,8 @@ class Simulation(SimulationCore):
             fieldunits = fieldunits_su
             extraunits = extraunits_su
         else:
-            raise NotImplementedError,"Can only do SI units or Simulation Units (SU).."
+            raise NotImplementedError("Can only do SI units or Simulation "
+                                      "Units (SU)..")
 
         #and what materials?
         materialnames = self.mag_mat_by_name.keys()
@@ -2407,8 +2421,9 @@ class Simulation(SimulationCore):
             result = nfem.integrate_field(field, dofname)
             timer1.stop('compute_averages:integrate_field')
             if len(result) == 0:
-                raise NmagInternalError,"No dof='%s' found, Known dofs are: '%s'" %\
-                                            (dofname,str(nfem.integrate_field(self.nutd[fieldname])))
+                msg = ("No dof='%s' found, Known dofs are: '%s'" %
+                       (dofname, nfem.integrate_field(self.nutd[fieldname])))
+                raise NmagInternalError(msg)
             dofname2, data = result[0]
 
             assert dofname2==dofname, "InternalError: dofname=%s!=dofname2=%s" % (dofname,dofname2)
@@ -2653,7 +2668,8 @@ class Simulation(SimulationCore):
                     elif type(value) == types.StringType:
                         f.write(string_format_string % (value))
                     else:
-                        raise ValueError,"Don't know how to format type %s" % type(value)
+                        raise ValueError("Don't know how to format type %s"
+                                         % type(value))
 
         f.write('\n')
         f.close()
@@ -2661,7 +2677,8 @@ class Simulation(SimulationCore):
         log.debug("_save_data_table_to_ndt: finished writing data to %s" % (filename))
 
     def save_fields(self,filename=None,fieldnames='all'):
-        raise "InterfaceChangedError","Use save_data(fields=fields) to save fields"
+        raise InterfaceChangedError("Use save_data(fields=fields) to save "
+                                    "fields")
 
     def _save_fields(self,filename=None,fieldnames=[]):
 
@@ -2978,7 +2995,8 @@ def get_subfield_from_h5file(filename, subfieldname, id=None, row=None,
     """
 
     if unit:
-        raise NotImplementedError,"This feature is not implemented yet (unit=*)."
+        raise NotImplementedError("This feature is not implemented yet "
+                                  "(unit=*).")
 
     fh = hdf5.open_pytables_file(filename,'r') #TODO move this to hdf5
     field = hdf5.fieldname_by_subfieldname(fh, subfieldname)
