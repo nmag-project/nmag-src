@@ -215,12 +215,17 @@ type 'num femfun_summand =
 type 'num femfun = (int * 'num femfun_summand array);;
 (* The integer is the number of the femfun - we number them by order of occurrence *)
 
+(* NOTE: The following hashtables do not constitute a performance problem. The
+   only one which is accessed frequently is ht_all_femfun_surface_integrals.
+   I tried to optimize access for speed and got no speedup at all. I restored
+   the code as it were, but leave here a note. mf, 23 Aug 2010. *)
+
 let ht_all_femfuns_by_fem = Hashtbl.create 17;; (* raw_femfun -> (nr,raw_femfun) = femfun *)
 let ht_all_femfun_products = Hashtbl.create 17;; (* (nr1, nr2) -> (nr_product,raw_femfun) *)
 let ht_all_femfun_linsubs = Hashtbl.create 17;; (* (nr1, nr_substituent, nr_L) -> (nr_result,raw_femfun) *)
 let ht_all_femfun_powers = Hashtbl.create 17;; (* (nr, power) -> (nr_result,raw_femfun) *)
 let ht_all_femfun_integrals = Hashtbl.create 17;; (* (nr, nr_L) -> (nr_result,raw_femfun) *)
-let ht_all_femfun_surface_integrals = Hashtbl.create 17;; (* (dim, nr, nr_L) -> (nr_result,raw_femfun) *)
+let ht_all_femfun_surface_integrals = Hashtbl.create 40;; (* (dim, nr, nr_L) -> (nr_result,raw_femfun) *)
 let ht_all_femfun_derivatives = Hashtbl.create 17;; (* (nr, nr_x) -> (nr_result,raw_femfun) *)
 
 let registered_femfun raw_femfun =
@@ -1485,6 +1490,17 @@ let _raw_femfun_integrate_over_surface dim femfun nr_L =
   (nr_L_to_kill, integrating_Ls, work_integrate femfun_face integrating_Ls)
 ;;
 
+(*let countit =
+  let counter = ref 0 in
+    (fun () ->
+       begin
+         counter := !counter + 1;
+         if !counter mod 100 = 0
+         then Printf.printf "%d\n%!" !counter
+         else ();
+       end)
+;;*)
+
 let femfun_integrate_over_surface dim femfun nr_L =
   let (nr_ff,raw_ff) = femfun in
     try
@@ -1495,7 +1511,6 @@ let femfun_integrate_over_surface dim femfun nr_L =
 	  let () = Hashtbl.add ht_all_femfun_surface_integrals (dim,nr_ff,nr_L) result in
 	    result
 ;;
-
 
 (* femfun_face is the one which we will have to integrate.
    However, we still have to take care that the dLj
@@ -1561,6 +1576,7 @@ let _raw_femfun_diff_x raw_femfun nr_dx =
 ;;
 
 let femfun_diff_x femfun nr_dx =
+
   let (nr_ff,raw_ff) = femfun in
     try
       Hashtbl.find ht_all_femfun_derivatives (nr_ff,nr_dx)
@@ -1570,17 +1586,6 @@ let femfun_diff_x femfun nr_dx =
 	  let () = Hashtbl.add ht_all_femfun_derivatives (nr_ff,nr_dx) result in
 	    result
 ;;
-
-(*let countit =
-  let counter = ref 0 in
-    (fun () ->
-       begin
-         counter := !counter + 1;
-         if !counter mod 100 = 0
-         then Printf.printf "%d\n%!" !counter
-         else ();
-       end)
-;;*)
 
 (* the following function gets called lot of times. That is why I wrote
    a new optimised version which does some precomputation (if called properly)
@@ -1669,8 +1674,6 @@ let femfun_integrate_over_simplex mesh (_,femfun) simplex =
        oriented L-coordinates for integration.
      *)
 ;;
-
-
 
 (* XXX for now, this is just a cut&paste hack, which duplicates
    femfun_integrate_over_simplex. Redo these two functions properly!

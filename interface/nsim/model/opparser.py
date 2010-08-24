@@ -18,7 +18,8 @@ from optree import *
 
 __all__ = ['lexer', 'parser', 'parse']
 
-tokens = ('INT', 'FLOAT', 'DOF_REGION_AND', 'DOF_REGION_OR',
+tokens = ('ENTRY_DIFFOP', 'ENTRY_RESTRICTION', 'ENTRY_REGION_LOGIC',
+          'INT', 'FLOAT', 'DOF_REGION_AND', 'DOF_REGION_OR',
           'DOF_REGION_NOT', 'DOF_REGION_SOME', 'DOF_REGION_ALL', 'DDX_VOL',
           'DDX_BOUNDARY', 'MXDIM', 'GAUGEFIX', 'PERIODIC', 'LPAREN', 'RPAREN',
           'LANGLE', 'RANGLE', 'VBAR', 'LBRACKET', 'RBRACKET', 'COMMA',

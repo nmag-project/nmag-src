@@ -660,7 +660,7 @@ class Fields:
                 else:
                     raise NmagUserError("set_subfield: subfieldname='%s' is "
                                         "list of '%s' -- I don't understand."
-                                        % (subfieldname, type(subfieldname))
+                                        % (subfieldname, type(subfieldname)))
             else:
                 raise NmagUserError("set_subfield: subfieldname='%s' is type "
                                     "'%s' -- I don't understand."
