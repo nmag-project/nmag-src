@@ -25,7 +25,12 @@ def test_consistency():
                "(-24.0583053511)*<d/dxj H_exch_Py(k)||d/dxj m_Py(k)>,j:3, k:3",
                "<a(i, j)||d/dxj b(k)>, i:1, j:2, k:3",
                "<a(i, j)||d/dxj b(k)> + <c(i)||d/dxj b(k, j)>, i:1, j:2, k:3",
-               "2*<a||d/dxj b> + (-1.23)*<c||d/dxj b>, j:2",]
+               "2*<a||d/dxj b> + (-1.23)*<c||d/dxj b>, j:2",
+               "-<rho||d/dxj m(j)>, j:3",
+               (" -<d/dxj phi[not outer] || d/dxj phi[not outer]>;"
+                "phi[outer]=phi[outer], j:3"),
+               ("<d/dxj phi[not outer] || d/dxj phi[outer]>; "
+                "(L||R)=(*||phi[outer]), j:3")]
     for string in strings:
         backnforth = str(parse(string))
         assert compare_strings(backnforth, string), \

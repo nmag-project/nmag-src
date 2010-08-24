@@ -21,8 +21,8 @@ __all__ = ['OpSimplifyContext',
            'MiddleFieldNode', 'BraKetNode', 'SumSpecsNode', 'SumSpecNode',
            'SignSym', 'RegionNode', 'RegLogSomeNode', 'RegLogAllNode',
            'RegLogNRegsNode', 'RegLogParenthesisNode', 'RegLogNotNode',
-           'RegLogAndNode', 'RegLogOrNode'
-
+           'RegLogAndNode', 'RegLogOrNode', 'AmendSpecNode', 'DiagAmendNode',
+           'AmendMxDimNode', 'OptFieldsNode', 'FieldsNode'
            ]
 
 from tree import *
@@ -76,7 +76,7 @@ class OperatorNode(Node):
     def __str__(self):
         contribs, amendments, sums = self.children
         s_contribs = str(contribs)
-        s_amendments = ""
+        s_amendments = str(amendments)
         s_sums = ", %s" % str(sums) if sums != None else ""
         return s_contribs + s_amendments + s_sums
 
@@ -129,6 +129,9 @@ class ContribNode(Node):
 
     def is_zero(self):
         return self.children[0].is_zero()
+
+    def __str__(self):
+        return str(self.data[0]) + str(self.children[0])
 
 class UContribNode(AssocNode):
     fmt = ListFormatter("", "", "*")
@@ -197,7 +200,8 @@ class DiffNode(AssocNode):
     fmt = minimal_list_formatter
 
 class BSpecsNode(Node):
-    fmt = minimal_list_formatter
+    def __str__(self):
+        return "[%s]" % self.children[0] if len(self.children) > 0 else ""
 
 class DiffIndexNode(Node):
     def __str__(self):
@@ -296,3 +300,28 @@ class RegLogAndNode(RegionLogicNode):
 
 class RegLogOrNode(RegionLogicNode):
     fmt = ListFormatter("", "", " or ")
+
+class AmendSpecNode(Node):
+    fmt = ListFormatter("; ", "", "; ")
+    def __str__(self):
+        if len(self.children) == 0:
+            return ""
+        else:
+            return Node.__str__(self)
+
+class DiagAmendNode(Node):
+    fmt = ListFormatter("", "", "=")
+
+class AmendMxDimNode(Node):
+    fmt = ListFormatter("(L||R)=(", ")", "||")
+
+class OptFieldsNode(Node):
+    def __str__(self):
+        if len(self.children) == 0:
+            return "*"
+        else:
+            return str(self.children[0])
+
+class FieldsNode(Node):
+    fmt = plain_list_formatter
+

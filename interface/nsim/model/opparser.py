@@ -204,9 +204,12 @@ def p_field(t):
 def p_opt_amendment_specs(t):
     """opt_amendment_specs :
                            | SEMICOLON amendment_spec opt_amendment_specs"""
-    #{ [] }
-    #{ $2::$3 }
-    pass
+    lt = len(t)
+    if lt == 1:
+        t[0] = AmendSpecNode()
+    else:
+        assert lt == 4
+        t[0] = t[3].add(t[2])
 
 def p_amendment_spec(t):
     """amendment_spec :
@@ -214,21 +217,15 @@ def p_amendment_spec(t):
                       | amdmt_diagonal_ones
                       | amdmt_gauge_fix
                       | amdmt_periodic"""
-    #{ $1 }
-    #{ $1 }
-    #{ $1 }
-    #{ $1 }
-    pass
+    t[0] = t[1]
 
 def p_amdmt_mxdim(t):
     """amdmt_mxdim : MXDIM EQUALS LPAREN opt_fields VBAR VBAR opt_fields RPAREN"""
-    #{ AMDMT_MXDIM ($4,$7) }
-    pass
+    t[0] = AmendMxDimNode([t[4], t[7]])
 
 def p_amdmt_diagonal_ones(t):
     """amdmt_diagonal_ones : field EQUALS field"""
-    #{ AMDMT_DIAGONAL_ONES ($1,$3) }
-    pass
+    t[0] = DiagAmendNode([t[1], t[3]])
 
 def p_amdmt_gauge_fix(t):
     """amdmt_gauge_fix : GAUGEFIX field"""
@@ -245,16 +242,24 @@ def p_opt_fields(t):
     """opt_fields :
                   | STAR
                   | fields"""
-    #{ None }
-    #{ Some $1 }
-    pass
+    lt = len(t)
+    if lt == 1:
+        t[0] = OptFieldsNode()
+    else:
+        if t[1] == '*':
+            t[0] = OptFieldsNode()
+        else:
+            t[0] = OptFieldsNode(t[1])
 
 def p_fields(t):
     """fields : field
-              | field COMMA fields"""
-    #{ [$1] }
-    #{ $1::$3 }
-    pass
+              | fields COMMA field"""
+    lt = len(t)
+    if lt == 2:
+        t[0] = FieldsNode(t[1])
+    else:
+        assert lt == 4
+        t[0] = t[1].add(t[3])
 
 def p_opt_sum_specs(t):
     """opt_sum_specs :
