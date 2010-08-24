@@ -105,7 +105,9 @@ import ply.lex as lex
 lexer = lex.lex(lextab='diffop_lextab')
 
 def p_entry(t):
-    """entry : ENTRY_DIFFOP parse_ddiffop"""
+    """entry : ENTRY_DIFFOP parse_ddiffop
+             | ENTRY_RESTRICTION short_vector_restriction
+             | ENTRY_REGION_LOGIC region_logic"""
     t[0] = t[2]
 
 def p_parse_ddiffop(t):
@@ -282,59 +284,76 @@ def p_sum_spec(t):
 def p_opt_bspec(t):
     """opt_bspec :
                  | LBRACKET region_logic RBRACKET"""
-    #{$2}
-    #{ DLOG_true }
-    t[0] = BSpecsNode()
+    lt = len(t)
+    if lt == 1:
+        t[0] = BSpecsNode()
+    else:
+        t[0] = BSpecsNode(t[2])
+
+def p_region_identifier(t):
+    """region_identifier : INT
+                         | STRING"""
+    t[0] = RegionNode(data=t[1])
 
 def p_region_logic_atomic(t):
-    """region_logic_atomic : LPAREN region_logic RPAREN
-                           | INT
-                           | STRING
-                           | DOF_REGION_ALL EQUALS INT
-                           | DOF_REGION_SOME EQUALS INT
-                           | DOF_REGION_ALL EQUALS STRING
-                           | DOF_REGION_SOME EQUALS STRING
-                           | HASH EQUALS INT
-    """
-    # {$2}
-    # {DLOG_some (string_of_int $1)}
-    # {DLOG_some $1}
-    # {DLOG_all (string_of_int $3)}
-    # {DLOG_some (string_of_int $3)}
-    # {DLOG_all $3}
-    # {DLOG_some $3}
-    # {DLOG_nregions $3}
-    pass
+    """region_logic_atomic : region_identifier
+                           | LPAREN region_logic RPAREN
+                           | DOF_REGION_ALL EQUALS region_identifier
+                           | DOF_REGION_SOME EQUALS region_identifier
+                           | HASH EQUALS INT"""
+    lt = len(t)
+    if lt == 2:                        # rule 1
+        t[0] = RegLogSomeNode(t[1])
+    else:
+        assert lt == 4
+        t1t = t[1]
+        if t1t == '(':                 # rule 2
+            t[0] = RegLogParenthesisNode(t[2])
+        elif t1t == 'all':             # rule 3
+            t[0] = RegLogAllNode(t[3])
+        elif t1t == 'some':            # rule 4
+            t[0] = RegLogSomeNode(t[3])
+        else:                          # rule 5
+            assert t1t == '#'
+            t[0] = RegLogNRegsNode(data=t[3])
 
 def p_region_logic_opt_not(t):
-    """region_logic_opt_not : DOF_REGION_NOT region_logic_atomic
-                            | region_logic_atomic
-    """
-    # {DLOG_not $2}
-    # {$1}
-    pass
+    """region_logic_opt_not : region_logic_atomic
+                            | DOF_REGION_NOT region_logic_atomic"""
+    lt = len(t)
+    if lt == 2:
+        t[0] = t[1]
+    else:
+        assert lt == 3
+        t[0] = RegLogNotNode(t[2])
 
 def p_region_logic_and(t):
-    """region_logic_and : region_logic_opt_not DOF_REGION_AND region_logic_and
-                        | region_logic_opt_not
-    """
-    #  {DLOG_and [$1;$3]}
-    #  {$1}
-    pass
+    """region_logic_and : region_logic_opt_not
+                        | region_logic_and DOF_REGION_AND region_logic_opt_not"""
+    lt = len(t)
+    if lt == 2:
+        t[0] = RegLogAndNode().add(t[1])
+    else:
+        assert lt == 4
+        t[0] = t[1].add(t[3])
 
 def p_region_logic_or(t):
-    """region_logic_or : region_logic_and DOF_REGION_OR region_logic_or
-                       | region_logic_and"""
-    # {DLOG_or [$1;$3]}
-    # {$1}
-    pass
-
+    """region_logic_or : region_logic_and
+                       | region_logic_or DOF_REGION_OR region_logic_and"""
+    lt = len(t)
+    if lt == 2:
+        t[0] = RegLogOrNode().add(t[1])
+    else:
+        assert lt == 3
+        t[0] = t[1].add(t[3])
 
 def p_region_logic(t):
     """region_logic :
                     | region_logic_or"""
-    #   {$1}
-    pass
+    if len(t) == 1:
+        t[0] = None # should be DLOG_true
+    else:
+        t[0] = t[1]
 
 def p_field_name(t):
     """field_name : STRING"""
@@ -361,6 +380,23 @@ def p_field_index(t):
     else:
         assert lt == 2
         t[0] = FieldIndexNode(data=t[1])
+
+def p_short_vector_restriction(t):
+    """short_vector_restriction :
+                                | opt_fields opt_sum_specs"""
+    #short_vector_restriction:
+    #|  opt_fields opt_sum_specs    { match $1 with
+    #                                 | None -> None
+    #                                 | Some fields ->
+    #                                     let v_fields = expand_fields $2 fields in
+    #                                       (* XXX NOTE: this actually is somewhat broken: expanding the
+    #                                          field indices wrt sum specs will not give us what we expected
+    #                                          in the next step, when we again throw away all indices:
+    #                                       *)
+    #                                       Some (Array.map (fun field -> (field.f_name, field.f_bspec)) v_fields)
+    #                             }
+    t[0] = None
+
 
 def p_error(t):
     if hasattr(t, 'value'):
@@ -394,5 +430,11 @@ def parse_with_start_token(s, start_tokens=[]):
 
 def parse_diffop(s):
     return parse_with_start_token(s, start_tokens=['ENTRY_DIFFOP'])
+
+def parse_restriction(s):
+    return parse_with_start_token(s, start_tokens=['ENTRY_RESTRICTION'])
+
+def parse_region_logic(s):
+    return parse_with_start_token(s, start_tokens=['ENTRY_REGION_LOGIC'])
 
 parse = parse_diffop

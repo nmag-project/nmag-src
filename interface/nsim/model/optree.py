@@ -19,7 +19,11 @@ __all__ = ['OpSimplifyContext',
            'DiffFieldNode', 'DiffNode', 'DiffIndexNode', 'BSpecsNode',
            'FieldNode', 'FieldIndexNode', 'FieldIndicesNode',
            'MiddleFieldNode', 'BraKetNode', 'SumSpecsNode', 'SumSpecNode',
-           'SignSym']
+           'SignSym', 'RegionNode', 'RegLogSomeNode', 'RegLogAllNode',
+           'RegLogNRegsNode', 'RegLogParenthesisNode', 'RegLogNotNode',
+           'RegLogAndNode', 'RegLogOrNode'
+
+           ]
 
 from tree import *
 import collections
@@ -264,3 +268,31 @@ class SumSpecsNode(Node):
 class SumSpecNode(Node):
     def __str__(self):
         return "%s:%s" % (self.data[0], self.data[1])
+
+class RegionLogicNode(Node):
+    pass
+
+class RegionNode(RegionLogicNode):
+    def __str__(self):
+        return str(self.data[0])
+
+class RegLogSomeNode(RegionLogicNode):
+    fmt = plain_list_formatter
+
+class RegLogAllNode(RegionLogicNode):
+    fmt = ListFormatter("all=", "", "")
+
+class RegLogNRegsNode(RegionLogicNode):
+    fmt = ListFormatter("#=", "", "")
+
+class RegLogParenthesisNode(RegionLogicNode):
+    fmt = ListFormatter("(", ")", "")
+
+class RegLogNotNode(RegionLogicNode):
+    fmt = ListFormatter("not ", "", "")
+
+class RegLogAndNode(RegionLogicNode):
+    fmt = ListFormatter("", "", " and ")
+
+class RegLogOrNode(RegionLogicNode):
+    fmt = ListFormatter("", "", " or ")
