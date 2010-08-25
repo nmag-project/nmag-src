@@ -70,13 +70,22 @@ def test_simplify_quantities():
     a = SpaceField("a", [3], subfields=True)
     b = SpaceField("b", [3])
     H_exch = SpaceField("H_exch", [3], subfields=True)
+    rho = SpaceField("rho", [])
+    M_sat = Constant("M_sat", [], subfields=True,
+                     value=Value("mat1", 1e6).set("mat2", 0.5e6))
     m = SpaceField("m", [3], subfields=True)
-    context = OpSimplifyContext(quantities=Quantities([C, a, b, H_exch, m]),
+    qs = [C, a, b, H_exch, m, rho, M_sat]
+    context = OpSimplifyContext(quantities=Quantities(qs),
                                 material=["mat1", "mat2"])
     strings = [("<a||b>", "<a_mat1||b> + <a_mat2||b>"),
                ("C*<d/dxj H_exch(k)||d/dxj m(k)>, j:1, k:3",
                 "  (-1.25)*<d/dxj H_exch_mat1(k)||d/dxj m_mat1(k)> "
-                "+ (-2.5)*<d/dxj H_exch_mat2(k)||d/dxj m_mat2(k)>,j:1, k:3")]
+                "+ (-2.5)*<d/dxj H_exch_mat2(k)||d/dxj m_mat2(k)>,j:1, k:3"),
+                ("M_sat*<rho||d/dxj m(j)> + M_sat*<rho||D/Dxj m(j)>, j:3",
+                 " 1000000.0*<rho||d/dxj m_mat1(j)> + "
+                 "1000000.0*<rho||D/Dxj m_mat1(j)> + "
+                 "500000.0*<rho||d/dxj m_mat2(j)> + "
+                 "500000.0*<rho||D/Dxj m_mat2(j)>, j:3")]
 
     for string, result in strings:
         parse_tree = parse(string).simplify(context=context)

@@ -19,7 +19,7 @@ nsim.model and SI units
 The nsim.model module is completely independent from the SI object and the
 nsim.si_units module, but at the same time the two modules can be used
 together effectively. In this document we explain how this can be possible.
-Let's consider a SpaceField Quantity, for example. The user may want to set
+let's consider a SpaceField Quantity, for example. The user may want to set
 it using an SI object. For example,
 
   M_sat.set_value(Value(0.86e6, SI("A/m"))
@@ -323,6 +323,41 @@ class Model:
         self._built["Operator"] = True
         return operator_dict
 
+    def _build_ksps(self):
+        ksps = self.computations._by_type.get('KSP', [])
+
+        ksp_dict = {}
+        for ksp in ksps:
+            ksp_full_name = ksp.get_full_name()
+            ksp_dict[ksp_full_name] = \
+              nlam.lam_ksp(ksp_full_name, ksp.operator.get_full_name(),
+                           precond_name=ksp.precond_name,
+                           ksp_type=ksp.ksp_type, pc_type=ksp.pc_type,
+                           initial_guess_nonzero=ksp.initial_guess_nonzero,
+                           rtol=ksp.rtol, atol=ksp.atol, dtol=ksp.dtol,
+                           maxits=ksp.maxits,
+                           nullspace_subfields=ksp.nullspace_subfields,
+                           nullspace_has_constant=ksp.nullspace_has_constant)
+
+        self._built["KSP"] = True
+        return ksp_dict
+
+    def _build_bems(self):
+        bems = self.computations._by_type.get('BEM', [])
+
+        bem_dict = {}
+        for bem in bems:
+            bem_full_name = bem.get_full_name()
+            bem_dict[bem_full_name] = \
+              nlam.lam_bem(bem_full_name, is_hlib=bem.is_hlib,
+                           mwe_name=bem.mwe_name, dof_name=bem.dof_name,
+                           boundary_spec=bem.boundary_spec,
+                           lattice_info=bem.lattice_info,
+                           matoptions=bem.matoptions,
+                           hlib_params=bem.hlib_params)
+
+        return bem_dict
+
     def _build_equations(self):
         eqs = self.computations._by_type.get('Equation', [])
         simplify_context = \
@@ -544,8 +579,8 @@ class Model:
                                                 mwe_name=mwe_name)
 
         operators = self._build_operators()
-        bems = {}
-        ksps = {}
+        bems = self._build_bems()
+        ksps = self._build_ksps()
         equations = self._build_equations()
         jacobi = {} # Not used (should clean this)
         self._build_dependency_tree()

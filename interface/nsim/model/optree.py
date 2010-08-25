@@ -80,6 +80,14 @@ class OperatorNode(Node):
         s_sums = ", %s" % str(sums) if sums != None else ""
         return s_contribs + s_amendments + s_sums
 
+    def _collect_quantities(self, collections, parsing):
+        assert len(self.children) == 3
+        sections = ["root", None, None] #"amendments", "sums"]
+        # for now do not collect quantities from amendments and sums
+        for child, section in zip(self.children, sections):
+            if section != None:
+                child._collect_quantities(collections, section)
+
     def is_zero(self):
         contribs = self.children[0]
         return contribs.is_zero()
@@ -260,7 +268,6 @@ class BraKetNode(Node):
     fmt = ListFormatter("<", ">", "|")
 
     def _collect_quantities(self, collections, parsing):
-        print self.children
         assert len(self.children) == 3
         self.children[0]._collect_quantities(collections, "outputs")
         self.children[1]._collect_quantities(collections, "inputs")

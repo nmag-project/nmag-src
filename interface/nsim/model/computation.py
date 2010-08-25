@@ -9,7 +9,8 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
-__all__ = ['Equation', 'Operator', 'CCode', 'LAMProgram', 'KSP', 'Computations']
+__all__ = ['Equation', 'Operator', 'CCode', 'LAMProgram', 'KSP', 'BEM',
+           'Computations']
 
 import eqparser, opparser
 from eqtree import EqSimplifyContext
@@ -42,17 +43,22 @@ class Computation(ModelObj):
         ins, outs = self.get_inputs_and_outputs(context=context)
         return ins + outs
 
+def _expand_commands(cmds):
+    def _expand_arg(arg):
+        return arg.get_full_name() if isinstance(arg, Computation) else arg
+    return [[_expand_arg(arg) for arg in cmd] for cmd in cmds]
+
 class LAMProgram(Computation):
     type_str = "LAMProgram"
 
     def __init__(self, name, commands=None, auto_dep=None):
         Computation.__init__(self, name, auto_dep=auto_dep)
-        self.commands = commands or []
+        self.commands = _expand_commands(commands) if commands else []
 
     def add_commands(self, commands):
         if type(commands[0]) == str:
             commands = [commands]
-        self.commands += commands
+        self.commands += _expand_commands(commands)
 
     def get_prog_name(self):
         return self.get_full_name()
@@ -109,62 +115,13 @@ class Operator(ParsedComputation):
                                    auto_dep=auto_dep)
         self.mat_opts = mat_opts
 
-class OldOperator(Computation):
-    type_str = "Operator"
-
-    def __init__(self, name, operator_tree, running_indices=None,
-                 input=None, output=None):
-        Computation.__init__(self, name)
-        self.running_indices = running_indices
-        self.operator_tree = operator_tree
-        self.allow_incongruent_shapes = False
-        self.seen_indices = {}
-
-    def _parse_quant_str(self, quant_str):
-        """Parse the given Quantity string representation and return
-        a tuple of (quantity name, list of index variables)."""
-        if "(" in quant_str:
-            field_s, indices_s = quant_str.split("(", 1)
-            indices_s = indices_s.strip()
-            assert indices_s[-1] == ")", ("Index specification in '%s' "
-              "should end with a final parenthesis" % quant_str)
-            indices_s = indices_s[:-1]
-            indices = [i_s for i_s in indices_s.split(",")]
-
-        else:
-            field_s = quant_str
-            indices = []
-
-        return (field_s, indices)
-
-    def _check_quant_str(self, quant_str):
-        """Check the given Quantity string representation and take note about
-        the indices and how they are used (basically, infer the index ranges).
-        """
-        name, indices = self._parse_quant_str(quant_str)
-        for q in self.input + self.output:
-            if q.name == name:
-                for i, idx_name in enumerate(indices):
-                    cur_shape = self.seen_indices.get(idx_name, None)
-                    new_shape = q.shape[i]
-                    if (not allow_incongruent_shapes
-                        and cur_shape != None
-                        and cur_shape != new_shape):
-                        raise ValueError("Found incongruency in range for "
-                                         "index variable %s." % idx_name)
-                    self.seen_indices[idx_name] = new_shape
-                return q
-
-        raise ValueError("Cannot find field '%s' in the list of input or "
-                         "output fields." % quant_str)
-
 class CCode(Computation):
     type_str = "CCode"
 
 class KSP(Computation):
     type_str = "KSP"
 
-    def __init__(self, name, matrix, precond_name=None,
+    def __init__(self, name, operator, precond_name=None,
                  ksp_type=None, pc_type=None, initial_guess_nonzero=False,
                  rtol=None, atol=None, dtol=None, maxits=None,
                  nullspace_subfields=None, nullspace_has_constant=False,
@@ -172,6 +129,7 @@ class KSP(Computation):
 
         Computation.__init__(self, name, auto_dep=auto_dep)
         self.precond_name = precond_name
+        self.operator = operator
         self.ksp_type = ksp_type
         self.pc_type = pc_type
         self.initial_guess_nonzero = initial_guess_nonzero
@@ -181,6 +139,22 @@ class KSP(Computation):
         self.maxits = maxits
         self.nullspace_subfields = nullspace_subfields
         self.nullspace_has_constant = nullspace_has_constant
+
+class BEM(Computation):
+    type_str = "BEM"
+
+    def __init__(self, name, mwe_name, dof_name,
+                 hlib_params=None, boundary_spec="outer and material",
+                 lattice_info=[], matoptions=[], auto_dep=None):
+        Computation.__init__(self, name, auto_dep=auto_dep)
+        self.mwe_name = mwe_name
+        self.dof_name = [dof_name] if type(dof_name) == str else dof_name
+        self.is_hlib = (hlib_params != None)
+        self.hlib_params = hlib_params
+        self.boundary_spec = boundary_spec
+        self.lattice_info = lattice_info
+        self.matoptions = matoptions
+        self.auto_dep = auto_dep
 
 class Computations(Group):
     pass
