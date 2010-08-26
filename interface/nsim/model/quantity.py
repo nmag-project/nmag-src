@@ -196,16 +196,18 @@ class SpaceField(Quantity):
     type_str = "SpaceField"
 
     def __init__(self, name, shape=[], value=None, unit=1.0,
-                 subfields=False):
+                 subfields=False, restrictions=""):
 
         Quantity.__init__(self, name, shape, value, unit, subfields)
 
-        self.mwe = None            # MWE associated to the field
-        self.mesh = None           # Mesh
-        self.mesh_unit = None      # Mesh unit
-        self.volume_unit = None    # Volume unit
-        self.master = None         # Master copy of the field
-        self.material_names = None # Name of materials where field is defined
+        self.mwe = None                  # MWE associated to the field
+        self.mesh = None                 # Mesh
+        self.mesh_unit = None            # Mesh unit
+        self.volume_unit = None          # Volume unit
+        self.master = None               # Master copy of the field
+        self.material_names = None       # Name of materials where field
+                                         # is defined
+        self.restrictions = restrictions # Restrictions for the field
 
     def vivify(self, model):
         Quantity.vivify(self, model)

@@ -278,10 +278,15 @@ class Model:
                 p_mwe = self._build_mwe(p_name)
 
             rename_prefix = "%s/%s" % (name, p_name)
-            all_material_names = self.all_material_names
-            relabelling = \
-              map(lambda mn: ("%s_%s" % (p_name, mn), "%s_%s" % (name, mn)),
-                  all_material_names)
+            q = self.quantities._by_name[name]
+            if q.def_on_mat:
+                all_material_names = self.all_material_names
+                relabelling = \
+                  map(lambda mn: ("%s_%s" % (p_name, mn),
+                                  "%s_%s" % (name, mn)),
+                      all_material_names)
+            else:
+                relabelling = [(p_name, name)]
 
             mwe = ocaml.mwe_sibling(p_mwe, name, rename_prefix, relabelling)
             self.mwes[name] = mwe
@@ -575,8 +580,10 @@ class Model:
             vec_name = "v_%s" % mwe_name
             assert not vectors.has_key(vec_name), \
                    "Duplicate definition of vector '%s'" % vec_name
-            vectors[vec_name] = nlam.lam_vector(name=vec_name,
-                                                mwe_name=mwe_name)
+            quantity = self.quantities._by_name[mwe_name]
+            vectors[vec_name] = \
+              nlam.lam_vector(name=vec_name, mwe_name=mwe_name,
+                              restriction=quantity.restrictions)
 
         operators = self._build_operators()
         bems = self._build_bems()

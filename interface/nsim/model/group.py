@@ -35,8 +35,10 @@ class Group:
                 self._by_type[obj.type_str] = [obj]
 
             if self._by_name.has_key(obj.name):
-                raise ValueError("Collection.add: found duplicate "
-                                 "entry with name '%s'." % obj.name)
+                msg = ("Collection.add: found duplicate entry with name '%s' "
+                       "(a %s). Make sure that all the objects you define "
+                       "have a different name!" % (obj.name, obj.type_str))
+                raise ValueError(msg)
             self._by_name[obj.name] = obj
 
     def get(self, name):
