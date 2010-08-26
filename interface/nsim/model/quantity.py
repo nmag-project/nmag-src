@@ -284,4 +284,4 @@ class SpaceTimeField(SpaceField):
     type_str = "SpaceTimeField"
 
 class Quantities(Group):
-    pass
+    type_str = "Quantity"

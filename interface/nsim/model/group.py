@@ -12,6 +12,8 @@
 import collections
 
 class Group:
+    type_str = "GroupItem"
+
     def __init__(self, objs=[]):
         self._all = []
         self._by_type = {}
@@ -35,12 +37,17 @@ class Group:
                 self._by_type[obj.type_str] = [obj]
 
             if self._by_name.has_key(obj.name):
-                msg = ("Collection.add: found duplicate entry with name '%s' "
+                msg = ("Collection.add: found duplicate %s with name '%s' "
                        "(a %s). Make sure that all the objects you define "
-                       "have a different name!" % (obj.name, obj.type_str))
+                       "have a different name!"
+                       % (self.type_str, obj.name, obj.type_str))
                 raise ValueError(msg)
             self._by_name[obj.name] = obj
 
     def get(self, name):
         """Return the quantity with the given name."""
-        return self._by_name[name]
+        try:
+            return self._by_name[name]
+        except KeyError:
+            raise KeyError("Cannot find %s object with name %s."
+                           % (self.type_str, name))

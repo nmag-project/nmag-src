@@ -169,4 +169,4 @@ class BEM(Computation):
         self.matoptions = matoptions
 
 class Computations(Group):
-    pass
+    type_str = "Computation"
