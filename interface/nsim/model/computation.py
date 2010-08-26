@@ -24,17 +24,17 @@ class Computation(ModelObj):
 
     type_str = "Computation"
 
-    def __init__(self, name, inputs=[], outputs=[], auto_dep=None):
+    def __init__(self, name, inputs=None, outputs=None, auto_dep=None):
         ModelObj.__init__(self, name)
-        self.inputs_and_outputs = None
+        self.inputs = inputs
+        self.outputs = outputs
         self.auto_dep = auto_dep if auto_dep != None else True
 
     def get_inputs_and_outputs(self, context=None):
         """Get the input and output quantities involved in the computation."""
-        if self.inputs_and_outputs == None:
-            return ([], [])
-        else:
-            return self.inputs_and_outputs
+        i = self.inputs
+        o = self.outputs
+        return (i if i != None else [], o if o != None else [])
 
     def get_inouts(self, context=None):
         """Get all the quantities involved in the computation.
@@ -51,8 +51,10 @@ def _expand_commands(cmds):
 class LAMProgram(Computation):
     type_str = "LAMProgram"
 
-    def __init__(self, name, commands=None, auto_dep=None):
-        Computation.__init__(self, name, auto_dep=auto_dep)
+    def __init__(self, name, commands=None,
+                 inputs=None, outputs=None, auto_dep=None):
+        Computation.__init__(self, name, inputs=inputs, outputs=outputs,
+                             auto_dep=auto_dep)
         self.commands = _expand_commands(commands) if commands else []
 
     def add_commands(self, commands):
@@ -65,8 +67,10 @@ class LAMProgram(Computation):
 
 class ParsedComputation(LAMProgram):
     def __init__(self, computation_name, computation_prog_name,
-                 computation_tree, computation_string, auto_dep=None):
-        LAMProgram.__init__(self, computation_name, auto_dep=auto_dep)
+                 computation_tree, computation_string,
+                 inputs=None, outputs=None, auto_dep=None):
+        LAMProgram.__init__(self, computation_name,
+                            inputs=inputs, outputs=outputs, auto_dep=auto_dep)
         self.prog_name = computation_prog_name
         self.text = computation_string
         self.tree = computation_tree
@@ -90,28 +94,34 @@ class ParsedComputation(LAMProgram):
         computed value, if possible."""
         if self.simplified_tree == None:
             self.simplified_tree = self.tree.simplify(context=context)
-        if self.inputs_and_outputs == None:
-            self.inputs_and_outputs = \
+            self.outputs = None
+
+        if self.outputs == None:
+            self.inputs, self.outputs = \
               self.simplified_tree.get_inputs_and_outputs()
-        return self.inputs_and_outputs
+
+        return Computation.get_inputs_and_outputs(self, context=context)
 
 class Equation(ParsedComputation):
     type_str = "Equation"
 
-    def __init__(self, name, equation_string, auto_dep=None):
+    def __init__(self, name, equation_string,
+                 inputs=None, outputs=None, auto_dep=None):
         equation_tree = eqparser.parse(equation_string)
         ParsedComputation.__init__(self, name, "EqProg",
                                    equation_tree, equation_string,
+                                   inputs=inputs, outputs=outputs,
                                    auto_dep=auto_dep)
 
 class Operator(ParsedComputation):
     type_str = "Operator"
 
     def __init__(self, name, operator_string, mat_opts=[],
-                 auto_dep=None):
+                 inputs=None, outputs=None, auto_dep=None):
         operator_tree = opparser.parse(operator_string)
         ParsedComputation.__init__(self, name, "OpProg",
                                    operator_tree, operator_string,
+                                   inputs=inputs, outputs=outputs,
                                    auto_dep=auto_dep)
         self.mat_opts = mat_opts
 
@@ -125,9 +135,10 @@ class KSP(Computation):
                  ksp_type=None, pc_type=None, initial_guess_nonzero=False,
                  rtol=None, atol=None, dtol=None, maxits=None,
                  nullspace_subfields=None, nullspace_has_constant=False,
-                 auto_dep=None):
+                 inputs=None, outputs=None, auto_dep=None):
 
-        Computation.__init__(self, name, auto_dep=auto_dep)
+        Computation.__init__(self, name, inputs=inputs, outputs=outputs,
+                             auto_dep=auto_dep)
         self.precond_name = precond_name
         self.operator = operator
         self.ksp_type = ksp_type
@@ -145,8 +156,10 @@ class BEM(Computation):
 
     def __init__(self, name, mwe_name, dof_name,
                  hlib_params=None, boundary_spec="outer and material",
-                 lattice_info=[], matoptions=[], auto_dep=None):
-        Computation.__init__(self, name, auto_dep=auto_dep)
+                 lattice_info=[], matoptions=[],
+                 inputs=None, outputs=None, auto_dep=None):
+        Computation.__init__(self, name, inputs=inputs, outputs=outputs,
+                             auto_dep=auto_dep)
         self.mwe_name = mwe_name
         self.dof_name = [dof_name] if type(dof_name) == str else dof_name
         self.is_hlib = (hlib_params != None)
@@ -154,7 +167,6 @@ class BEM(Computation):
         self.boundary_spec = boundary_spec
         self.lattice_info = lattice_info
         self.matoptions = matoptions
-        self.auto_dep = auto_dep
 
 class Computations(Group):
     pass

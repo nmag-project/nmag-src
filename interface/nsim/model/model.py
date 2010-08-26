@@ -70,7 +70,7 @@ Notice that the Value object provides methods to convert it to floats
 with the desired unit (see Value.change_unit).
 """
 
-import types, logging
+import sys, types, logging
 
 import ocaml
 import nmag
@@ -114,6 +114,8 @@ def _extended_properties_by_region(region_materials, min_region=-1,
         materials = region_materials[nr_region]
         for mat_name in materials:
             add_prop(nr_region, mat_name)
+            add_prop(nr_region, "magnetic")
+            add_prop(nr_region, "material")
             #for p in m.properties:
                 #add_prop(nr_region,p)
 
@@ -433,15 +435,14 @@ class Model:
         q_dependencies = {}
         involved_qs = {}
         for computation in self.computations._all:
-            if not computation.auto_dep:
-                continue
-
-            inputs, outputs = computation.get_inputs_and_outputs()
-            for o in outputs:
-                q_dependencies[o] = (computation, inputs)
-            for q_name in inputs + outputs:
-                if not involved_qs.has_key(q_name):
-                    involved_qs[q_name] = None
+            if computation.auto_dep:
+                # Compute automatically the dependencies
+                inputs, outputs = computation.get_inputs_and_outputs()
+                for o in outputs:
+                    q_dependencies[o] = (computation, inputs)
+                for q_name in inputs + outputs:
+                    if not involved_qs.has_key(q_name):
+                        involved_qs[q_name] = None
 
         # Determine primary quantities
         derived_qs = []
@@ -465,6 +466,18 @@ class Model:
                                      % (derived_q, dep_path))
 
         self._built["DepTree"] = True
+
+    def write_dependency_tree(self, out=sys.stdout):
+        """Write to the provided stream (sys.stdout, if not provided)
+        information about the inferred dependency tree between quantities
+        and operators."""
+        out.write("Primary quantities: %s\n" % self.quantities.primary)
+        out.write("Derived quantities: %s\n" % self.quantities.derived)
+        out.write("Dependencies (as INPUTS==[COMPUTATION]==>OUTPUT):\n")
+        ds = self.quantities.dependencies
+        for o in ds:
+            c, i = ds[o]
+            out.write("%s ==(%s)==> %s\n" % (i, c.name, o))
 
     def _build_target_maker(self, target, primaries={}, targets_to_make=[]):
         assert self._was_built("DepTree"), \
