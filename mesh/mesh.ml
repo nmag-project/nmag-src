@@ -1,3 +1,6 @@
+(*let xxx1 = open_out "/dev/null"
+let wrs = Printf.fprintf xxx1;;*)
+
 (*
   (C) 2005, 2006 Dr. Thomas Fischbacher, Giuliano Bordignon,
    Dr. Hans Fangohr, SES, University of Southampton
@@ -6134,11 +6137,11 @@ let mesh_connectivity mesh =
 	  (fun ix1 ix2 ->
 	    begin
 	      (if contains ix1 adjacency.(ix2)
-	      then ()
-	      else adjacency.(ix2) <- ix1::adjacency.(ix2));
+	       then ()
+	       else adjacency.(ix2) <- ix1::adjacency.(ix2));
 	      (if contains ix2 adjacency.(ix1)
-	      then ()
-	      else adjacency.(ix1) <- ix2::adjacency.(ix1));
+	       then ()
+	       else adjacency.(ix1) <- ix2::adjacency.(ix1));
 	    end))
       mesh.mm_simplices
   in adjacency
@@ -6165,7 +6168,6 @@ let mesh_do_reorder_vertices mesh permutation =
     ()
   end
 ;;
-
 
 (* ** internal only ** *)
 let find_simplex_exit_point_and_nr_face simplex target_point entry_point nr_entry_face =
@@ -6194,6 +6196,7 @@ let find_simplex_exit_point_and_nr_face simplex target_point entry_point nr_entr
 ;;
 
 
+
 (* ** internal only ** *)
 
 let find_simplex mesh (origin_coords, origin_simplex) target_coords =
@@ -6209,20 +6212,23 @@ let find_simplex mesh (origin_coords, origin_simplex) target_coords =
       array_position_if (fun x -> x > 1.01 || x < (-0.01)) local_coords 0 = (-1)
   in
   let rec walk cur_sx coords_now nr_face_coming_from =
+    (*let () = Printf.fprintf xxx1 "find %f %f %f\n" coords_now.(0) coords_now.(1) coords_now.(2) in*)
     let cur_sx_nr = cur_sx.ms_id in
     let (exit_point, nr_exit_face) =
       find_simplex_exit_point_and_nr_face
 	(sd, cur_sx_nr) target_coords coords_now nr_face_coming_from
     in
+    (*let () = wrs "exface%d\n" nr_exit_face in*)
       if nr_exit_face = (-1)
-      then cur_sx
+      then (*let () = wrs "in%d\n" cur_sx.ms_id in*) cur_sx
       else
 	match cur_sx.ms_neighbours.(nr_exit_face) with
 	  | None ->
 	      if this_is_roughly_okay cur_sx_nr
-	      then cur_sx
-	      else raise Not_found
+	      then (*let () = wrs "out%d\n" cur_sx.ms_id in*) cur_sx
+	      else (*let () = wrs "notfound%d\n" cur_sx.ms_id in*) raise Not_found
 	  | Some neighbour_simplex ->
+              (*let () = wrs "movefrom%d\n" cur_sx.ms_id in*)
 	      walk neighbour_simplex
 		exit_point
 		cur_sx.ms_neighbour_backrefs.(nr_exit_face)
@@ -6231,8 +6237,28 @@ let find_simplex mesh (origin_coords, origin_simplex) target_coords =
 ;;
 
 
+(* This function locates the simplex of the mesh 'mesh' which contains
+   'point'. It returns a tuple (simplex, lcoords) where lcoords are the local
+   coordinates for the point in the simplex.
 
+   The function works in the following way:
+   - when we locate the first point we do it the hard way: run over all the
+     simplices until we find the one containing the point. We put the point
+     and the simplex in a table, what we call the origin table;
+   - when we search a second point we first try to start from the origin
+     previously stored. We see whether the corresponding simplex contains also
+     the new point. If this is not the case, we then move to the neighbour
+     simplex in the direction of the new point. We continue this way,
+     walking from simplex to simplex, until we get to the one containing the
+     point. If this does not happen, then we fall back to the hard way and
+     if the search is successful, we register a new origin. Basically, in
+     order to reach all simplices one needs as many origins as there are
+     disconnected pieces in the mesh. Example, for a mesh consisting of two
+     non-touching spheres, then one needs two origins (each located in a
+     different sphere).
+*)
 let mesh_locate_point mesh point =
+  (*let () = Printf.fprintf xxx1 "mlp\n" in*)
   let origins = mesh.mm_origins in
   let nr_origins = Array.length origins in
   let get_ic_mp = Simplex.get_incircle_midpoint mesh.mm_simplex_data in
@@ -6284,7 +6310,7 @@ let mesh_locate_point mesh point =
 		    let new_origins =
 		      Array.init
 			(1+nr_old_origins)
-			(fun n -> if n=0 then (ic_midpoint, s) else origins.(n-1))
+			(fun n -> if n=0 then (F.to_ml1 (get_ic_mp s.ms_id), s) else origins.(n-1))
 		    in
 		    let () = mesh.mm_origins <- new_origins in
 		      locate_point_in_simplex s

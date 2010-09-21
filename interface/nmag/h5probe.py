@@ -53,9 +53,13 @@ class FieldInfo(object):
             filehandle = hdf5.open_pytables_file(filehandle)
             fh_to_close = filehandle
 
-        u = hdf5.get_mesh_unit(filehandle)
+        u = SI(1e-9, "m") #hdf5.get_mesh_unit(filehandle)
+        # ^^^ note that the mesh which is stored in the file has already
+        # been rescaled by the unit provided by the user, hence we can always
+        # take u = 1 nm
         self.meshunit = "m" # Always in m
         self.scale = float(u/SI("m"))
+
         units_by_dofname = hdf5.get_units_by_dofname(filehandle)
         self.valueunit_si = eval(units_by_dofname[full_name])
         self.valueunit = self.valueunit_si.dens_str(angles=False)
