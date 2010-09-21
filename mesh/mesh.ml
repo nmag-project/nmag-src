@@ -1,6 +1,3 @@
-(*let xxx1 = open_out "/dev/null"
-let wrs = Printf.fprintf xxx1;;*)
-
 (*
   (C) 2005, 2006 Dr. Thomas Fischbacher, Giuliano Bordignon,
    Dr. Hans Fangohr, SES, University of Southampton
@@ -6200,6 +6197,11 @@ let find_simplex_exit_point_and_nr_face sx_data =
 ;;
 
 
+(*
+(* used to debug the mesh_locate_point algorithm *)
+let xxx1 = open_out "/dev/null";;
+let wrs = Printf.fprintf xxx1;;
+*)
 
 (* ** internal only ** *)
 
@@ -6351,7 +6353,7 @@ let mesh_locate_point mesh point =
 	  begin
 	    origins.(0) <- origins.(nr_origin);
 	    origins.(nr_origin) <- origin0;
-            (*_mesh_add_origin ~replace:0 mesh sx;*)
+            _mesh_add_origin ~replace:0 mesh sx;
 	    locate_point_in_simplex sx
 	  end
       with
