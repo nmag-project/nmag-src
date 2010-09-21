@@ -19,12 +19,12 @@ open Base
 open Base.Ba
 
 (* Logging facilities *)
-let logmsg msg = Printf.printf "%s%!\n" msg
+(*let logmsg msg = Printf.printf "%s%!\n" msg
 let mem_report_begin = Snippets.mem_report_begin
-let mem_report_end mr = logmsg (Snippets.mem_report_end mr)
-(*let logmsg _ = ()
+let mem_report_end mr = logmsg (Snippets.mem_report_end mr)*)
+let logmsg _ = ()
 let mem_report_begin _ = ()
-let mem_report_end _ = ()*)
+let mem_report_end _ = ()
 
 type idx = int
 

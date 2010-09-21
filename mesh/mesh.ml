@@ -6340,7 +6340,7 @@ let mesh_locate_point mesh point =
     if nr_origin = nr_origins then walk_simplices ()
     else
       try
-	let sx = find_simplex mesh origins.(nr_origin) point in
+	let sx = find_simplex mesh origins.(nr_origin) point
 	  (* We succeeded in locating the simplex.
 	     Now, exchange the origin from which
 	     we located the point successfully with the
@@ -6348,11 +6348,9 @@ let mesh_locate_point mesh point =
 	     up if we move the "probe point" just
 	     a little bit.
 	  *)
-        let updated_origin = () in
-	let origin0 = origins.(0) in
+        in
 	  begin
-	    origins.(0) <- origins.(nr_origin);
-	    origins.(nr_origin) <- origin0;
+	    origins.(nr_origin) <- origins.(0);
             _mesh_add_origin ~replace:0 mesh sx;
 	    locate_point_in_simplex sx
 	  end
