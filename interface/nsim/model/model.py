@@ -134,7 +134,7 @@ def _extended_properties_by_region(region_materials, min_region=-1,
 
 #-----------------------------------------------------------------------------
 
-class Model:
+class Model(object):
     def __init__(self, name, mesh, mesh_unit, region_materials, min_region=-1,
                  properties_by_region=[]):
         # Just save the relevant stuff
@@ -511,11 +511,13 @@ class Model:
                                if name not in x_and_dxdt]
 
             else:
-                raise ValueError("Timestepper %s has x=%s and dxdt=%s, but "
-                                 "does not refer to one of them in its "
-                                 "jacobian: %s."
-                                 % (ts.name, ts.x, ts.dxdt,
-                                    ts.eq_for_jacobian.text))
+                eq = ts.eq_for_jacobian
+                msg = ("Timestepper %s has x=%s and dxdt=%s, but does not "
+                       "refer to one of them in the jacobian computed from "
+                       "%s, which was simplified from: %s."
+                       % (ts.name, ts.x, ts.dxdt,
+                          eq.simplified_tree, eq.text))
+                raise ValueError(msg)
 
             # List of all quantities involved in jacobi equation
             all_names = x_and_dxdt + other_names

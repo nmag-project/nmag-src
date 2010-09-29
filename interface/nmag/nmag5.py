@@ -76,6 +76,7 @@ class Simulation(SimulationCore):
         self.region_id_of_name = None   # region_name -> ID[region_name]
         self.mats_of_region_name = None # region_name -> material[region_name]
         self.mat_of_mat_name = None     # mat_name -> material[mat_name]
+        self.materials = []
 
         # The physics...
         self.model = None            # The nsim.model.Model object
@@ -184,13 +185,15 @@ class Simulation(SimulationCore):
 
         self.mats_of_region_name = mats_of_region_name
         self.mat_of_mat_name = mat_of_mat_name
+        self.materials = self.mat_of_mat_name.values()
 
         self._create_model()
 
     def _quantity_creator(self, q_type, q_name, shape=[], subfields=False,
                           unit=1):
         q_type = self.quantities_types.get(q_name, q_type)
-        return _default_qc(q_type, q_name, shape=[], subfields=False, unit=1)
+        return _default_qc(q_type, q_name, shape=shape,
+                           subfields=subfields, unit=unit)
 
     def _create_model(self):
         # Create the model object
@@ -199,8 +202,6 @@ class Simulation(SimulationCore):
                             for name in self.region_name_list]
         mu = 1e-9 # NOTE, NOTE, NOTE we should look into this
         region_materials = [[]] + region_materials
-        print region_materials
-        raw_input()
         self.model = model = Model(model_name, self.mesh, mu, region_materials)
 
         # Now add the different parts of the physics
@@ -209,24 +210,53 @@ class Simulation(SimulationCore):
         _add_demag(model, self._quantity_creator, self.do_demag)
         _add_llg(model, self._quantity_creator)
 
+        # Set the values of the constants in the micromagnetic model
+        self._set_qs_from_materials()
+
         # Now build the model
         model.build()
 
+    def _set_qs_from_materials(self):
+        # We now go through all the materials and build the initial values for
+        # the quantities corresponding to the various parameters, gamma_GG,
+        # alpha, M_sat, etc.
+        qs = self.model.quantities._by_name
+        def set_quantity_value(name, name_in_mat):
+            v = Value()
+            for mat_name, mat in self.mat_of_mat_name.iteritems():
+                v.set(mat_name, getattr(mat, name_in_mat))
+            qs[name].set_value(v)
+
+        set_quantity_value("gamma_GG", "llg_gamma_G")
+        set_quantity_value("alpha", "llg_damping")
+        set_quantity_value("norm_coeff", "llg_normalisationfactor")
+
+    def get_subfield_average(self, field_name, mat_name):
+        f = self.model.quantities._by_name.get(field_name, None)
+        if f == None:
+            return None
+        else:
+            # XXX NOTE: the following should be cleaned up!!!
+            full_mat_name = "%s_%s" % (field_name, mat_name)
+            return f.compute_average().as_constant(where=full_mat_name)
+
     def set_params(self, stopping_dm_dt=None,
                    ts_rel_tol=None, ts_abs_tol=None):
-        assert False
+        print "set_params NOT IMPLEMENTED, YET"
 
     def set_H_ext(self, values, unit=None):
         assert False
 
     def set_m(self, values, subfieldname=None):
-        assert False
+        v = Value(values, subfieldname)
+        self.model.quantities._by_name["m"].set_value(v)
 
     def set_pinning(self, values):
         assert False
 
     def advance_time(self, target_time, max_it=-1):
-        assert False
+        ts = self.model.timesteppers._by_name["ts_llg"]
+        return ts.advance_time(target_time)
 
 def _add_micromagnetics(model, quantity_creator=None):
     qc = quantity_creator or _default_qc
@@ -245,16 +275,16 @@ def _add_llg(model, quantity_creator=None):
 
     H_unit = SI(1e6, "A/m")
     t_unit = SI(1e-12, "s")
-    it_unit = 1/t_unit
+    invt_unit = 1/t_unit
 
     # Create the LLG constants
     gamma_GG = qc(Constant, "gamma_GG", subfields=True, unit=SI(1e6, "m/A s"))
     alpha = qc(Constant, "alpha", subfields=True, unit=SI(1))
-    norm_coeff = qc(Constant, "norm_coeff", subfields=True, unit=it_unit)
+    norm_coeff = qc(Constant, "norm_coeff", subfields=True, unit=invt_unit)
     model.add_quantity([gamma_GG, alpha, norm_coeff])
 
     # Create some fields required for the dynamics
-    dmdt = qc(SpaceField, "dmdt", [3], subfields=True, unit=it_unit)
+    dmdt = qc(SpaceField, "dmdt", [3], subfields=True, unit=invt_unit)
     H_tot = qc(SpaceField, "H_tot", [3], subfields=True, unit=H_unit)
     H_ext = qc(SpaceField, "H_ext", [3], unit=H_unit)
     H_exch = qc(SpaceField, "H_exch", [3], subfields=True, unit=H_unit)
@@ -272,17 +302,18 @@ def _add_llg(model, quantity_creator=None):
     llg = Equation("llg", eq)
 
     # Equation for the Jacobian: we omit the third term on the RHS
-    eq = ("%range i:3, j:3, k:3, p:3, q:3;\n"
+    eq = ("%range i:3, j:3, k:3, p:3, q:3; "
           "dmdt(i) <- (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_tot(k) + "
           "alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_tot(q));")
     llg_jacobi = Equation("llg-jacobi", eq)
+
 
     # llg_jacobi doesn't need to be added as it is only used by the
     # timestepper to compute the jacobian
     model.add_computation([llg, eq_H_tot])
 
     # Timestepper
-    ts = Timestepper("ts_llg", x='m', dxdt='dmdt',
+    ts = Timestepper("ts_llg", x="m", dxdt="dmdt",
                      eq_for_jacobian=llg_jacobi,
                      #derivatives=[(H_tot, op_exch)],
                      time_unit=t_unit)

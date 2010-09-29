@@ -13,7 +13,7 @@ SimulationCore ---|                       |---> Simulation
 NOTE: Derived from the old Simulation class in nsim/interface/nmag/main.py
 which was joint work of all the Nmag developers. See the file AUTHORS.
 
-Copyright |copy| 2009 
+Copyright |copy| 2009
 
 :Author: M Franchin, M Najafi
 
@@ -82,7 +82,7 @@ known_quantities = [
   Quantity(            'pin', 'pfield',       SI(1),   None),
   Quantity(              'M',  'field',   SI('A/m'), '_?_*'),
   Quantity(              'm', 'pfield',       SI(1), '_?_*'),
-  Quantity(           'dmdt',  'field', SI('A/m s'), '_?_*'),
+  Quantity(           'dmdt',  'field',   SI('1/s'), '_?_*'),
   Quantity(    'dm_dcurrent',  'field', SI('A/m^3'), '_?_*'),
   Quantity(        'H_total',  'field',   SI('A/m'), '_?_*'),
   Quantity(          'H_ext',  'field',   SI('A/m'),   '_*'),
@@ -96,7 +96,7 @@ known_quantities = [
   Quantity(        'E_demag',  'field', SI('J/m^3'),   '_?'),
   Quantity(            'phi',  'field',     SI('A'),   None),
   Quantity(            'rho',  'field', SI('A/m^2'),   None),
-  Quantity(     'maxangle_m',  'field',     SI('A'),   '_?')
+  Quantity(     'maxangle_m',  'field',       SI(1),   '_?')
 ]
 
 known_quantities_by_name = dict([(q.name, q) for q in known_quantities])
@@ -119,7 +119,7 @@ class SimulationCore:
         # Dictionary used by the hysteresis method to find abbreviations for
         # frequently used things to save or do.
         # Example: for ``sim.hysteresis(..., save=[('averages', at(...))])``
-        # the string 'averages' needs to be a key in this dictionary. 
+        # the string 'averages' needs to be a key in this dictionary.
         # The corresponding value is the function to call.
         self.action_abbreviations = {}
 
@@ -220,7 +220,7 @@ class SimulationCore:
                                                        avoid_same_step=True))
         self.add_save_abbrev('save_restart',
                              lambda sim: sim.save_restart_file())
-        self.add_do_abbrev('do_next_stage', 
+        self.add_do_abbrev('do_next_stage',
                            SimulationCore.hysteresis_next_stage)
         self.add_do_abbrev('do_exit', SimulationCore.hysteresis_exit)
 
@@ -264,7 +264,7 @@ class SimulationCore:
     def hysteresis_exit(sim):
         """Exit from the running hysteresis computation. This function can be
         used to exit from an hysteresis loop computation and is intended to be
-        called by one of the functions passed to ``hysteresis`` using the 
+        called by one of the functions passed to ``hysteresis`` using the
         ``save`` or ``do`` optional arguments).
         """
         sim.clock["exit_hysteresis"] = True
@@ -274,14 +274,14 @@ class SimulationCore:
     # 'hysteresis_exit' of the class 'Simulation' are defined inside a separate
     # module: this helps to keep the sources cleaner.
     relax = hysteresis_m.simulation_relax
- 
+
     hysteresis = hysteresis_m.simulation_hysteresis
 
     hysteresis.__argdoclong__ = \
       hysteresis_m.simulation_hysteresis.__argdoclong__
 
 
-    def add_action_abbrev(self, abbreviation, function, prefix=None): 
+    def add_action_abbrev(self, abbreviation, function, prefix=None):
         if prefix == None:
             self.action_abbreviations[abbreviation] = function
             return
@@ -290,24 +290,24 @@ class SimulationCore:
             valid_prefixes = ["save", "do"]
             if not (prefix in valid_prefixes):
                 raise NmagUserError("Valid prefixes for action abbreviations "
-                                    "are %s, you gave '%s'!" 
+                                    "are %s, you gave '%s'!"
                                     % (valid_prefixes, prefix))
 
             if abbreviation.startswith(prefix):
                 self.action_abbreviations[abbreviation] = function
             else:
-                full_abbreviation = prefix + '_' + abbreviation 
+                full_abbreviation = prefix + '_' + abbreviation
                 self.action_abbreviations[full_abbreviation] = function
 
     def add_save_abbrev(self, abbreviation, function):
         '''Add an abbreviation to be used in the 'save' argument of the
         hysteresis method. For example, if you use the following:
-            
+
             def funky_function(sim): print "Hello, I'm Funky!"
             sim.add_save_abbrev('funky', funky_function)
-            
-        Then you can call: 
-            
+
+        Then you can call:
+
             sim.hysteresis(Hs, save=[('funky', at('convergence'))])
 
         and this will be equivalent to:
@@ -487,13 +487,13 @@ class SimulationCore:
     def create_mesh(self, cell_nums, cell_sizes, materials,
                     regions=None, origin=(0.0, 0.0, 0.0),):
         '''Specify the FD mesh to use.
-        
+
         - ``cell_nums`` if a list containing the number of cells per each
           dimension.
 
         - ``cell_sizes`` is a list the sizes of the cells for each dimension
-          (the FD mesh is made by cells having all the same size). 
-        
+          (the FD mesh is made by cells having all the same size).
+
         - ``materials`` is the material (in case of single material
           simulation) or a list of tuples (region, material), in case of
           multi-material simulation.

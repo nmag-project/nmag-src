@@ -30,7 +30,7 @@ def _build_header(col_data_list, columns):
 def _print_header(out, header):
     line1 = "# "
     line2 = "# "
-    sep = " " 
+    sep = " "
     for _, _, col_title, _, col_units_str in header:
         line1 += col_title + sep
         line2 += col_units_str.rjust(len(col_title)) + sep
@@ -138,7 +138,7 @@ class ColWriter:
         if len(self.header) < 1:
             self.header = _build_header(col_list, self.columns)
             _print_header(self.out, self.header)
-        
+
         values = _set_dict_from_list({}, col_list)
         _print_row(self.out, self.header, values)
 

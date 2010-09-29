@@ -169,13 +169,20 @@ class Quantity(ModelObj):
 class Constant(Quantity):
     type_str = "Constant"
 
+    #def vivify(self, model):
+        #if self.value == None:
+            #raise ValueError("Constant quantity '%s' must be set before the "
+                             #"construction of the model." % self.name)
+
+        #Quantity.vivify(self, model)
+
     def is_constant(self):
         return True
 
     def _get_value(self, where=None):
         if self.value == None:
-            raise AttributeError("The Quantity initial value has not been "
-                                 "set, yet!")
+            raise AttributeError("The initial value has not been set for the "
+                                 "Constant quantity '%s'." % self.name)
         if where == None:
             assert self.def_on_mat == False, \
               ("This field is defined per material! as_constant then "
