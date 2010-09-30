@@ -308,7 +308,7 @@ def _add_llg(model, quantity_creator=None):
     # Equation for the effective field H_tot
     # XXX NOTE NOTE NOTE: clean up the factor 1e18. It should be computed
     # automatically from the parse tree of the operator!
-    eq = "%range i:3; H_tot(i) <- H_ext(i) + (1e18)*H_exch(i);"
+    eq = "%range i:3; H_tot(i) <- H_ext(i) + H_exch(i);"
     eq_H_tot = Equation("H_tot", eq)
 
     # Equation of motion
@@ -330,8 +330,10 @@ def _add_llg(model, quantity_creator=None):
     model.add_computation([llg, eq_H_tot])
 
     # Timestepper
+    op_exch = model.computations._by_name.get("exch", None)
+    derivatives = [(H_tot, op_exch)] if op_exch != None else None
     ts = Timestepper("ts_llg", x="m", dxdt="dmdt",
                      eq_for_jacobian=llg_jacobi,
-                     #derivatives=[(H_tot, op_exch)],
+                     derivatives=derivatives,
                      time_unit=t_unit)
     model.add_timestepper(ts)

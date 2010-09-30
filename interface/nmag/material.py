@@ -226,7 +226,7 @@ class MagMaterial:
         log.info("Created new Material:\n %s " % str(self))
 
     def get_exchange_factor(self):
-        return -2.0*self.exchange_coupling/(si.mu0*self.Ms)
+        return -1e18*2.0*self.exchange_coupling/(si.mu0*self.Ms)
 
     exchange_factor = property(get_exchange_factor)
 
