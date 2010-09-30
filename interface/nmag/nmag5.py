@@ -41,8 +41,8 @@ simulation_units = \
                    'cd': 1.0, 'K': 1.0, 'mol': 1.0})
 
 
-def _default_qc(q_type, q_name, shape=[], subfields=False, unit=1):
-    return q_type(q_name, shape=shape, subfields=subfields, unit=unit)
+def _default_qc(q_type, q_name, *args, **named_args):
+    return q_type(q_name, *args, **named_args)
 
 
 # Move this somewhere else, and implement it
@@ -79,7 +79,7 @@ class Simulation(SimulationCore):
         self.materials = []
 
         # The physics...
-        self.model = None            # The nsim.model.Model object
+        self.model = None               # The nsim.model.Model object
 
         # How the micromagnetic quantities will be constructed, i.e. a
         # dictionary mapping quantity name -> quantity_type, where
@@ -96,8 +96,6 @@ class Simulation(SimulationCore):
         else:
             raise NmagUserError("Cannot get the Model object. You first should"
                                 "load a mesh using the Simulation.load_mesh.")
-
-    model = property(get_model)
 
     def load_mesh(self, filename, region_names_and_mag_mats, unit_length,
                   do_reorder=False, manual_distribution=None):
@@ -189,11 +187,9 @@ class Simulation(SimulationCore):
 
         self._create_model()
 
-    def _quantity_creator(self, q_type, q_name, shape=[], subfields=False,
-                          unit=1):
+    def _quantity_creator(self, q_type, q_name, *args, **named_args):
         q_type = self.quantities_types.get(q_name, q_type)
-        return _default_qc(q_type, q_name, shape=shape,
-                           subfields=subfields, unit=unit)
+        return _default_qc(q_type, q_name, *args, **named_args)
 
     def _create_model(self):
         # Create the model object
@@ -228,6 +224,7 @@ class Simulation(SimulationCore):
                 v.set(mat_name, getattr(mat, name_in_mat))
             qs[name].set_value(v)
 
+        set_quantity_value("M_sat", "Ms")
         set_quantity_value("gamma_GG", "llg_gamma_G")
         set_quantity_value("alpha", "llg_damping")
         set_quantity_value("norm_coeff", "llg_normalisationfactor")
@@ -258,7 +255,9 @@ class Simulation(SimulationCore):
 
     def advance_time(self, target_time, max_it=-1):
         ts = self.model.timesteppers._by_name["ts_llg"]
-        return ts.advance_time(target_time)
+        self.clock["time"] = t = ts.advance_time(target_time)
+        self.clock["step"] = ts.get_num_steps()
+        return t
 
 def _add_micromagnetics(model, quantity_creator=None):
     qc = quantity_creator or _default_qc
@@ -286,6 +285,72 @@ def _add_exchange(model, quantity_creator=None):
 def _add_demag(model, quantity_creator=None, do_demag=True):
     qc = quantity_creator or _default_qc
 
+    H_unit = SI(1e6, "A/m")
+
+    # Create the required quantities and add them to the model
+    H_demag = qc(SpaceField, "H_demag", [3], unit=H_unit)
+    phi1b = qc(SpaceField, "phi1b", [], restrictions="phi1b[outer]")
+    phi2b = qc(SpaceField, "phi2b", [], restrictions="phi2b[outer]")
+    phis = [qc(SpaceField, n, [], unit=SI("A"))
+            for n in ["phi", "phi1", "phi2"]]
+    rhos = [qc(SpaceField, n, [], unit=SI("A/m^2")) for n in ["rho", "rho_s"]]
+    model.add_quantity([H_demag, phi1b, phi2b] + phis + rhos)
+
+    # Operators for the demag
+    op_div_m = Operator("div_m", "  M_sat*<rho||d/dxj m(j)>"
+                                 "+ M_sat*<rho||D/Dxj m(j)>, j:3")
+    op_neg_laplace_phi = \
+      Operator("neg_laplace_phi", "<d/dxj rho || d/dxj phi>, j:3",
+               mat_opts=["MAT_SYMMETRIC", "MAT_SYMMETRY_ETERNAL"])
+    op_grad_phi = Operator("grad_phi", "-<H_demag(j) || d/dxj phi>, j:3")
+    op_laplace_DBC = \
+      Operator("laplace_DBC",
+               ("-<d/dxj phi[not outer] || d/dxj phi[not outer]>;"
+                "phi[outer]=phi[outer], j:3"""),
+               mat_opts=["MAT_SYMMETRIC", "MAT_SYMMETRY_ETERNAL"],
+               auto_dep=False)
+    op_load_DBC = \
+      Operator("load_DBC",
+               ("<d/dxj phi[not outer] || d/dxj phi[outer]>;"
+                "(L||R)=(*||phi[outer]), j:3"),
+               auto_dep=False)
+
+    # The two linear solver for the FEM/BEM
+    ksp_solve_neg_laplace_phi = KSP("solve_neg_laplace_phi", op_neg_laplace_phi,
+                                    ksp_type="gmres", pc_type="ilu",
+                                    initial_guess_nonzero=True,
+                                    rtol=1e-5, atol=1e-5, maxits=1000000,
+                                    nullspace_has_constant=False,
+                                    nullspace_subfields=["phi"])
+    ksp_solve_laplace_DBC = KSP("solve_laplace_DBC", op_laplace_DBC,
+                                ksp_type="gmres", pc_type="ilu",
+                                initial_guess_nonzero=True,
+                                rtol=1e-5, atol=1e-5, maxits=1000000)
+
+    # The BEM matrix
+    bem = BEM("BEM", mwe_name="phi", dof_name="phi")
+
+    # The LAM program for the demag
+    commands=[["SM*V", op_div_m, "v_m", "v_rho"],
+              ["SCALE", "v_rho", -1.0],
+              ["SOLVE", ksp_solve_neg_laplace_phi, "v_rho", "v_phi1"],
+              ["PULL-FEM", "phi", "phi[outer]", "v_phi1", "v_phi1b"],
+              ["DM*V", bem, "v_phi1b", "v_phi2b"],
+              ["SM*V", op_load_DBC, "v_phi2b", "v_rho_s"],
+              ["SOLVE", ksp_solve_laplace_DBC, "v_rho_s", "v_phi2"],
+              ["PUSH-FEM", "phi", "phi[outer]", "v_phi2b", "v_phi2"],
+              ["AXPBY", 1.0, "v_phi1", 0.0, "v_phi"],
+              ["AXPBY", 1.0, "v_phi2", 1.0, "v_phi"],
+              ["SM*V", op_grad_phi, "v_phi", "v_H_demag"],
+              ["CFBOX", "H_demag", "v_H_demag"]]
+    prog_set_H_demag = \
+      LAMProgram("set_H_demag", commands,
+                 inputs=["m"], outputs=["rho", "phi", "H_demag"])
+
+    model.add_computation([op_div_m, op_neg_laplace_phi, op_grad_phi,
+                           op_laplace_DBC, op_load_DBC, ksp_solve_laplace_DBC,
+                           ksp_solve_neg_laplace_phi, bem, prog_set_H_demag])
+
 def _add_llg(model, quantity_creator=None):
     qc = quantity_creator or _default_qc
 
@@ -308,7 +373,7 @@ def _add_llg(model, quantity_creator=None):
     # Equation for the effective field H_tot
     # XXX NOTE NOTE NOTE: clean up the factor 1e18. It should be computed
     # automatically from the parse tree of the operator!
-    eq = "%range i:3; H_tot(i) <- H_ext(i) + H_exch(i);"
+    eq = "%range i:3; H_tot(i) <- H_ext(i) + H_exch(i) + H_demag(i);"
     eq_H_tot = Equation("H_tot", eq)
 
     # Equation of motion

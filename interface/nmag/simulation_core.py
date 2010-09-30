@@ -104,8 +104,38 @@ known_quantities_by_name = dict([(q.name, q) for q in known_quantities])
 def not_implemented(fn_name, cl_name):
     raise NotImplementedError("%s is not implemented by %s"
                               % (fn_name, cl_name))
+class SimulationClock(object):
+    def __init__(self, id=-1):
+        self.id = id
+        self.stage = 1
+        self.step = 0
+        self.time = SI(0.0, "s")
+        self.stage_step = 0
+        self.stage_time = SI(0.0, "s")
+        self.real_time = SI(0.0, "s")
+        self.stage_end = False
+        self.convergence = False
+        self.exit_hysteresis = False
+        self.zero_stage_time = SI(0.0, "s")
+        self.zero_stage_step = 0
+        self.time_reached_su = 0.
+        self.time_reached_si = SI(0.0, "s")
+        self.last_step_dt_su = 0.
+        self.last_step_dt_si = SI(0.0, "s")
 
-class SimulationCore:
+    def __str__(self):
+        items = (("Time", self.time), ("Step", self.step),
+                 ("Real time", self.real_time), ("STAGE", self.stage),
+                 ("Stage time", self.stage_time),
+                 ("Stage step", self.stage_step), ("ID", self.id),
+                 ("Converged?", self.convergence))
+        s = ""
+        for k, v in items:
+            s += "%10s : %s\n" % (k, v)
+        return s
+
+
+class SimulationCore(object):
     def __init__(self, name=None, do_demag=True,
                  id="Generic Simulation class"):
         self.class_id = id       # String identifying the kind of Simulation
@@ -413,7 +443,8 @@ class SimulationCore:
             else: # except:
                 return
 
-            for i, comp_value in enumerate(avg):
+            avg_iterable = avg if type(avg) == list else [avg]
+            for i, comp_value in enumerate(avg_iterable):
                 comp_name = "%s_%s" % (prefix, i)
                 columns.append((comp_name, comp_value))
                 quantities.append(quantity.sub_quantity(comp_name))
