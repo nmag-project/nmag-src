@@ -24,7 +24,7 @@ class MagMaterial:
         The saturation magnetisation of the material (in Ampere per
         meter).
 
-        Example (and default (PermAlloy) value): ``SI(0.86e6,"A/m")`` 
+        Example (and default (PermAlloy) value): ``SI(0.86e6,"A/m")``
 
       `llg_gamma_G` : SI Object
         The constant in front of the precession term in the LLG equation:
@@ -69,7 +69,7 @@ class MagMaterial:
       `anisotropy_order` : int
         If a custom polynomial anisotropy function ``a(m)`` is specified, the
         order of the polynomial must be given in this parameter. This is not
-        required for pre-defined uniaxial_anisotropy_ or cubic_anisotropy_ 
+        required for pre-defined uniaxial_anisotropy_ or cubic_anisotropy_
         anisotropy functions.
 
         Default value is ``None``.
@@ -85,7 +85,7 @@ class MagMaterial:
         when setting up discretized operators.
 
         Example (and default value): ``True``
-    
+
     """
 
     __argdoclong__ = """
@@ -149,7 +149,7 @@ class MagMaterial:
                  ):
 
         self.name = name
-        self.Ms=Ms
+        self.Ms = Ms
         self.llg_gamma_G = llg_gamma_G
         self.llg_damping = llg_damping
         self.llg_normalisationfactor = llg_normalisationfactor
@@ -157,7 +157,7 @@ class MagMaterial:
         self.llg_polarisation = llg_polarisation
         self.do_precession = do_precession
         self.properties = properties
-        self.exchange_coupling=exchange_coupling
+        self.exchange_coupling = exchange_coupling
         self.scale_volume_charges = scale_volume_charges
 
         if isinstance(anisotropy, PredefinedAnisotropy):
@@ -223,13 +223,18 @@ class MagMaterial:
                 #self.su_anisotropy = su_anisotropy
 
         self.extended_print = False
-        log.info( "Created new Material:\n %s " % str(self))
+        log.info("Created new Material:\n %s " % str(self))
+
+    def get_exchange_factor(self):
+        return -2.0*self.exchange_coupling/(si.mu0*self.Ms)
+
+    exchange_factor = property(get_exchange_factor)
 
     def __str__(self):
         repr_str = "Material '%s'\n" % self.name
         attrs = filter(lambda a : a[0] != '_', dir(self))
         if not self.extended_print:
-            attrs = ['name', 'Ms', 'exchange_coupling', 'anisotropy', 
+            attrs = ['name', 'Ms', 'exchange_coupling', 'anisotropy',
                      'anisotropy_order', 'llg_gamma_G', 'llg_damping',
                      'llg_normalisationfactor', 'do_precession',
                      'llg_polarisation', 'llg_xi', 'thermal_factor',
@@ -239,4 +244,3 @@ class MagMaterial:
             repr_str += " %20s = %s\n" % (attr, eval('str(self.'+attr+')'))
 
         return repr_str
-

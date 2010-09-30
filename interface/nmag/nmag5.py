@@ -221,6 +221,7 @@ class Simulation(SimulationCore):
         # the quantities corresponding to the various parameters, gamma_GG,
         # alpha, M_sat, etc.
         qs = self.model.quantities._by_name
+
         def set_quantity_value(name, name_in_mat):
             v = Value()
             for mat_name, mat in self.mat_of_mat_name.iteritems():
@@ -230,6 +231,7 @@ class Simulation(SimulationCore):
         set_quantity_value("gamma_GG", "llg_gamma_G")
         set_quantity_value("alpha", "llg_damping")
         set_quantity_value("norm_coeff", "llg_normalisationfactor")
+        set_quantity_value("exchange_factor", "exchange_factor")
 
     def get_subfield_average(self, field_name, mat_name):
         f = self.model.quantities._by_name.get(field_name, None)
@@ -265,10 +267,24 @@ def _add_micromagnetics(model, quantity_creator=None):
     model.add_quantity([m, M_sat])
 
 def _add_exchange(model, quantity_creator=None):
-    pass
+    qc = quantity_creator or _default_qc
+
+    H_unit = SI(1e6, "A/m")
+
+    # Constants and fields
+    exchange_factor = qc(Constant, "exchange_factor", subfields=True,
+                         unit=SI(1e6, "m A"))
+    H_exch = qc(SpaceField, "H_exch", [3], subfields=True, unit=H_unit)
+
+    # The exchange operator
+    op_str = "exchange_factor*<d/dxj H_exch(k)||d/dxj m(k)>, j:3,  k:3"
+    op_exch = Operator("exch", op_str)
+
+    model.add_quantity([exchange_factor, H_exch])
+    model.add_computation(op_exch)
 
 def _add_demag(model, quantity_creator=None, do_demag=True):
-    pass
+    qc = quantity_creator or _default_qc
 
 def _add_llg(model, quantity_creator=None):
     qc = quantity_creator or _default_qc
@@ -287,11 +303,12 @@ def _add_llg(model, quantity_creator=None):
     dmdt = qc(SpaceField, "dmdt", [3], subfields=True, unit=invt_unit)
     H_tot = qc(SpaceField, "H_tot", [3], subfields=True, unit=H_unit)
     H_ext = qc(SpaceField, "H_ext", [3], unit=H_unit)
-    H_exch = qc(SpaceField, "H_exch", [3], subfields=True, unit=H_unit)
-    model.add_quantity([dmdt, H_tot, H_ext, H_exch])
+    model.add_quantity([dmdt, H_tot, H_ext])
 
     # Equation for the effective field H_tot
-    eq = "%range i:3; H_tot(i) <- H_ext(i);"
+    # XXX NOTE NOTE NOTE: clean up the factor 1e18. It should be computed
+    # automatically from the parse tree of the operator!
+    eq = "%range i:3; H_tot(i) <- H_ext(i) + (1e18)*H_exch(i);"
     eq_H_tot = Equation("H_tot", eq)
 
     # Equation of motion
