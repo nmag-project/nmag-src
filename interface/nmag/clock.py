@@ -46,8 +46,8 @@ class SimulationClock(object):
     def __str__(self):
         ft = fmt_time
         rows = ((("Step", None, self.step), ("Time", ft, self.time),
-                 ("Last step size", ft, self.last_step_dt_si),
-                 ("Real time", None, "N/A")),
+                 ("Last step size", ft, self.last_step_dt_si)),
+                 #("Real time", None, "N/A")),
                 (("Stage", None, self.stage),
                  ("Stage-step", None, self.stage_step),
                  ("Stage-time", ft, self.stage_time)),
@@ -85,4 +85,4 @@ class SimulationClock(object):
             s += line + "\n"
             width = max(width, len(line))
         sep = "="*width
-        return "%s\n%s%s\n" % (sep, s, sep)
+        return "%s\n%s%s" % (sep, s, sep)

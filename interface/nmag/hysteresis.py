@@ -1,7 +1,7 @@
 # Copyright (C) 2009 Matteo Franchin
 # School of Engineering Sciences
 # University of Southampton
-# 
+#
 # This file is part of Nmag.
 
 '''
@@ -21,13 +21,6 @@ from nsim.reporttools import true_at_most_every_n_seconds
 from nmag_exceptions import *
 
 _subsequent_spaces = re.compile('[ \t_]+')
-
-def _repr_of_clock(clock):
-    """Return a nice string representation of the clock object."""
-    clockstr = ""
-    for key, value in clock.items():
-        clockstr += "\n\thyst-info: %25s : %s" % (key, value)
-    return clockstr
 
 def _update_progress_file(self, H_ext, progress_file_name,
                           progress_message_minimum_delay):
@@ -134,7 +127,7 @@ def _join_save_and_do_lists(save_list, do_list, predefined_actions={}):
     #the save_restart is the last? See my explanation in ticket:169.
     #Hans, 11/ll/2008
 
-    
+
     return joint_list
 
 def _next_deltas(event, clock, suggest=None, tols=None):
@@ -319,7 +312,7 @@ def simulation_hysteresis(self, H_ext_list,
         The user can provide his own function to save data.
         For example, the following three lines::
 
-          def my_fun(sim): 
+          def my_fun(sim):
             sim.save_data()
           sim.hysteresis(..., save=[(my_fun, every(10, 'step'))])
 
@@ -394,7 +387,7 @@ def simulation_hysteresis(self, H_ext_list,
     """
 
     log.debug("simulation_hysteresis(): Entering with H_ext_list=%s, "
-              "save=%s, do=%s, convergence_check=%s" 
+              "save=%s, do=%s, convergence_check=%s"
 	      % (H_ext_list,save,do,convergence_check))
 
     # This function will check for the correctness of the specifications
@@ -478,7 +471,7 @@ def simulation_hysteresis(self, H_ext_list,
         #       if convergence is reached!
         while True:
             self.clock["stage_end"] = converged = self.is_converged()
-            log.debug("hysteresis loop, stage %d, converged = %s" 
+            log.debug("hysteresis loop, stage %d, converged = %s"
                       % (self.clock['stage'],str(converged)))
             # Find out the next time we need to check for convergence
             deltas = my_next_deltas(convergence_check, self.clock)
@@ -502,9 +495,9 @@ def simulation_hysteresis(self, H_ext_list,
                               % (what, str(next_save_time[key]),
                               str(nst), str(time_matches)))
 
-                    log.info("hysteresis: saving %s at id=%s,step=%s. "
-                             "Details:%s" % (what, self.clock['id'],
-                             self.clock['step'], _repr_of_clock(self.clock)))
+                    log.info("hysteresis: saving %s at id=%s,step=%s.\n%s"
+                             % (what, self.clock['id'],
+                                self.clock['step'], str(self.clock)))
                     what(self)
 
                 next_save_time[key] = nst
