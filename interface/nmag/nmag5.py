@@ -79,7 +79,7 @@ class Simulation(SimulationCore):
         self.materials = []
 
         # The physics...
-        self.model = None               # The nsim.model.Model object
+        self._model = None              # The nsim.model.Model object
 
         # How the micromagnetic quantities will be constructed, i.e. a
         # dictionary mapping quantity name -> quantity_type, where
@@ -91,11 +91,53 @@ class Simulation(SimulationCore):
           {"H_ext": SpaceField}
 
     def get_model(self):
-        if self.model != None:
-            return self.model
+        if self._model != None:
+            return self._model
         else:
             raise NmagUserError("Cannot get the Model object. You first should"
                                 "load a mesh using the Simulation.load_mesh.")
+
+    model = property(get_model)
+
+    def declare(self, attrs, objs):
+        """Provide some attributes for the given objects. 'attrs' is a list
+        of the attributes (a list of strings) to associate to the objects
+        'objs' (a list of strings). Example:
+
+          sim.declare("space field", "llg_damping")
+
+        Can be used to declare that the damping should be a field which can
+        change in space, rather than just a constant.
+        """
+
+        # Available Quantity TypeS
+        aqts = {"constant": Constant, "spacefield": SpaceField,
+                "timefield": TimeField, "spacetimefield": SpaceTimeField}
+        dos = self.quantities_types # Declarable ObjectS
+        recognized_attrs = {}
+
+        declare_usage = ("USAGE: simulation.declare(attrs, objs) where attrs "
+                         "is a list of attributes (strings) to associate to "
+                         "the objects whose names are in objs (a list of "
+                         "strings).")
+        qt = []
+        for obj_name in objs:
+            if obj_name in dos:
+                assert type(obj_name) == str, declare_usage
+                for attr in attrs:
+                    assert type(attr) == str, declare_usage
+                    fmt_attr = attr.lower().replace(" ", "")
+                    if fmt_attr in qts:
+                        qt.append(fmt_attr)
+                        self.quantities_types[obj_name] = qt[fmt_attr]
+
+                    else:
+                        msg = "Unrecognized attribute '%s'" % attr
+                        raise NmagUserError(msg)
+
+        if len(qt) > 1:
+            msg = "Conflicting attributes %s." % (", ".join(qt))
+            raise NmagUserError(msg)
 
     def load_mesh(self, filename, region_names_and_mag_mats, unit_length,
                   do_reorder=False, manual_distribution=None):
@@ -198,7 +240,7 @@ class Simulation(SimulationCore):
                             for name in self.region_name_list]
         mu = 1e-9 # NOTE, NOTE, NOTE we should look into this
         region_materials = [[]] + region_materials
-        self.model = model = Model(model_name, self.mesh, mu, region_materials)
+        self._model = model = Model(model_name, self.mesh, mu, region_materials)
 
         # Now add the different parts of the physics
         _add_micromagnetics(model, self._quantity_creator)
@@ -258,6 +300,116 @@ class Simulation(SimulationCore):
         self.clock["time"] = t = ts.advance_time(target_time)
         self.clock["step"] = ts.get_num_steps()
         return t
+
+
+
+
+    def my_save_data(self,fields=None,avoid_same_step=False):
+        """
+        Save the *averages* of all defined (subfields) into a ascii
+        data file. The filename is composed of the simulation name
+        and the extension ``_dat.ndt``. The
+        extension ``ndt`` stands for Nmag Data Table (analog to OOMMFs
+        ``.odt`` extension for this kind of data file.
+
+        If ``fields`` is provided, then it will also save the spatially resolved fields
+        to a file with extensions ``_dat.h5``.
+
+        :Parameters:
+          `fields` : None, 'all' or list of fieldnames
+
+            If None, then only spatially averaged data is saved into ``*ndt`` and ``*h5`` files.
+
+            If ``all`` (i.e. the string containing 'all'), then all fields are saved.
+
+            If a list of fieldnames is given, then only the selected
+            fieldnames will be saved (i.e. ['m','H_demag']).
+
+          `avoid_same_step` : bool
+
+            If ``True``, then the data will only be saved if the
+            current ``clock['step']`` counter is different from the
+            step counter of the last saved configuration. If
+            ``False``, then the data will be saved in any
+            case. Default is ```False```. This is internally used by
+            the hysteresis command (which uses ``avoid_same_step ==
+            True``) to avoid saving the same data twice.
+
+            The only situation where the step counter may not have
+            changed from the last saved configuration is if the user
+            is modifying the magnetisation or external field manually
+            (otherwise the call of the time integrator to advance or
+            relax the system will automatically increase the step
+            counter).
+        """
+
+        log.debug("Entering save_data, fields=%s, avoid_same_step=%s" % (fields,avoid_same_step))
+        timer1.start('save_data')
+
+        #get filenames
+        ndtfilename = self._ndtfilename()
+        h5filename = self._h5filename()
+
+        #check whether we have saved this step already:
+        hasstep = hdf5.average_data_has_step(h5filename, self.clock['step'])
+
+        if hasstep and avoid_same_step:
+            log.debug("save_data: No need to save step %d to %s " \
+                      "(saved already)" % (self.clock['step'], h5filename))
+            #in this case we have written the data already.
+            pass
+
+        else:
+            # increase unique identifier:
+            self.clock['id'] += 1
+            log.info("save_data(): id->id+1=%d, fields=%s " % (self.clock['id'],str(fields)))
+
+            # first compute averages
+            timer1.start('_compute_averages')
+            names,values,units = self._compute_averages()
+            timer1.stop('_compute_averages')
+
+            # and write to ndt file
+            timer1.start('_save_data_table_to_ndt')
+            self._save_data_table_to_ndt(names,values,units,ndtfilename)
+            timer1.stop('_save_data_table_to_ndt')
+
+            timer1.start('_save_data_table_to_h5')
+
+            #and h5 file
+
+            #remove this for extra speed fangohr 18/12/2007)
+            #self._save_data_table_to_h5(names,values,units,h5filename)
+            timer1.stop('_save_data_table_to_h5')
+
+        #if any fields are given, save them
+        if fields:
+            timer1.start('_save_fields')
+            if type(fields) == types.StringType:
+                if fields.lower() == 'all':
+                    fields = []
+                else: #likely been given one field in a string (but not wrapped up in list)
+                    fields = [fields]
+            self._save_fields(filename=h5filename,fieldnames=fields)
+            timer1.stop('_save_fields')
+
+        timer1.stop('save_data')
+        log.debug("Leaving save_data")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def _add_micromagnetics(model, quantity_creator=None):
     qc = quantity_creator or _default_qc

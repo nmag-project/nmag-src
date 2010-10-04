@@ -29,6 +29,7 @@ from nsim.si_units import SI
 from nsim.colwriter import ColDescriptor, ColWriter
 import hysteresis as hysteresis_m
 import nsim.setup
+from clock import SimulationClock
 
 features, _ = nsim.setup.get_features()
 
@@ -104,35 +105,6 @@ known_quantities_by_name = dict([(q.name, q) for q in known_quantities])
 def not_implemented(fn_name, cl_name):
     raise NotImplementedError("%s is not implemented by %s"
                               % (fn_name, cl_name))
-class SimulationClock(object):
-    def __init__(self, id=-1):
-        self.id = id
-        self.stage = 1
-        self.step = 0
-        self.time = SI(0.0, "s")
-        self.stage_step = 0
-        self.stage_time = SI(0.0, "s")
-        self.real_time = SI(0.0, "s")
-        self.stage_end = False
-        self.convergence = False
-        self.exit_hysteresis = False
-        self.zero_stage_time = SI(0.0, "s")
-        self.zero_stage_step = 0
-        self.time_reached_su = 0.
-        self.time_reached_si = SI(0.0, "s")
-        self.last_step_dt_su = 0.
-        self.last_step_dt_si = SI(0.0, "s")
-
-    def __str__(self):
-        items = (("Time", self.time), ("Step", self.step),
-                 ("Real time", self.real_time), ("STAGE", self.stage),
-                 ("Stage time", self.stage_time),
-                 ("Stage step", self.stage_step), ("ID", self.id),
-                 ("Converged?", self.convergence))
-        s = ""
-        for k, v in items:
-            s += "%10s : %s\n" % (k, v)
-        return s
 
 
 class SimulationCore(object):
@@ -226,6 +198,8 @@ class SimulationCore(object):
                       'time_reached_si':SI(0.0, "s"),
                       'last_step_dt_su':0.,
                       'last_step_dt_si':SI(0.0, "s")}
+
+        self.clock = SimulationClock()
 
         # The advance_time method does not allow to carry on the simulation
         # up to t = infinite. Sometimes we want to simulate for n steps,

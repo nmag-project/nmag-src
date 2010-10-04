@@ -24,7 +24,8 @@ a Model, then it is uniquely associated with a field in that model and can
 hence be set, etc.
 """
 
-__all__ = ['Constant', 'SpaceField', 'TimeField', 'SpaceTimeField']
+__all__ = ['Quantity',
+           'Constant', 'SpaceField', 'TimeField', 'SpaceTimeField']
 
 import ocaml
 import collections, types
