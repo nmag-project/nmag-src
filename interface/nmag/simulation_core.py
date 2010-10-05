@@ -119,7 +119,7 @@ class SimulationCore(object):
         self.do_demag = do_demag # Whether we should include the demag field
 
         # List of all the materials used by the Simulation object
-        self.materials = []
+        self.materials = None
 
         # Dictionary used by the hysteresis method to find abbreviations for
         # frequently used things to save or do.
@@ -210,7 +210,7 @@ class SimulationCore(object):
         # is used to understand which fields are relevant and which are not
         # (so that we do not save empty fields). Following the previous
         # example, dm_dcurrent, current_density won't be saved.
-        self.components = []
+        self._components = None
 
     def _get_id(self): return self.clock.id
     def _get_stage(self): return self.clock.stage
@@ -232,6 +232,20 @@ class SimulationCore(object):
                               "of the current stage.")
     real_time = property(_get_real_time,
                          doc="Time passed in the 'real' world.")
+
+    def get_components(self):
+        if self._components != None:
+            return self._components
+
+        else:
+            components = ["exch"]
+            if self.do_demag:
+                components.append("demag")
+            self._components = components
+            return components
+
+    components = property(get_components, doc="Get the physical components "
+                                              "included in the model.")
 
     def get_all_field_names(self):
         return [q.name for q in known_field_quantities

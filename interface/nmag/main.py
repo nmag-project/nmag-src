@@ -1396,7 +1396,7 @@ class Simulation(SimulationCore):
             # save last time step length, steps performed
             last_step_dt_su = ocaml.cvode_get_step_info(cvode)[0]
             delta_step = \
-              ocaml.cvode_get_num_steps(cvode) - self.clock['stage_step']
+              ocaml.cvode_get_num_steps(cvode) - self.clock.stage_step
 
             # log sundials timing info
             #times=timestepper.fun_timings()
@@ -1410,7 +1410,7 @@ class Simulation(SimulationCore):
 
         else:
             # perform manual time integration (Heun's method)
-            t0=self.clock['time_reached_su']
+            t0=self.clock.time_reached_su
             self._fields._dependencies.make("lam_m")
             ocaml.lam_set_iparam(self._lam, "TIME", t0)
             ocaml.lam_set_iparam(self._lam, "THERMAL_DELTA_T", self._su_thermal_delta_t)
@@ -1445,15 +1445,15 @@ class Simulation(SimulationCore):
 
         # debug and timings
         #ocaml.lam_execute(self._lam,"report_timers",[],[]) # DDD
-        delta_time = time_reached_su - self.clock['time_reached_su']
+        delta_time = time_reached_su - self.clock.time_reached_su
         time_to_si = simulation_units.conversion_factor_of(SI("s"))
         delta_time_si = time_to_si*delta_time
         time_reached_si = time_to_si*time_reached_su
-        self.clock['time_reached_si'] = time_reached_si
-        self.clock['time_reached_su'] = time_reached_su
+        self.clock.time_reached_si = time_reached_si
+        self.clock.time_reached_su = time_reached_su
         last_step_dt_si = time_to_si*last_step_dt_su
-        self.clock['last_step_dt_si'] = last_step_dt_si
-        self.clock['last_step_dt_su'] = last_step_dt_su
+        self.clock.last_step_dt_si = last_step_dt_si
+        self.clock.last_step_dt_su = last_step_dt_su
 
         if delta_norms != None:
             max_dm = max([max_dm for _, max_dm, _ in delta_norms])
@@ -1465,18 +1465,18 @@ class Simulation(SimulationCore):
             if timestepper.abs_tolerance > required_tolerance:
                 required_tolerance *= 0.5
                 log.info("CVODE tol: improve: %s --> %s (step %d) "
-                         % (timestepper.abs_tolerance, required_tolerance,self.clock['step']))
+                         % (timestepper.abs_tolerance, required_tolerance,self.clock.step))
                 self.set_params(ts_abs_tol=required_tolerance,
                                 ts_rel_tol=required_tolerance)
             elif timestepper.abs_tolerance < 0.25*required_tolerance:
                 required_tolerance *= 0.3
                 log.info("CVODE tol: relax: %s --> %s (step %d)"
-                         % (timestepper. abs_tolerance, required_tolerance,self.clock['step']))
+                         % (timestepper. abs_tolerance, required_tolerance,self.clock.step))
                 self.set_params(ts_abs_tol=required_tolerance,
                                 ts_rel_tol=required_tolerance)
 
             open(self._tolfilename(),'a').write('%d %f %f\n'
-                                                % (self.clock['step'],
+                                                % (self.clock.step,
                                                    required_tolerance,
                                                    timestepper.abs_tolerance)
                                                 )
@@ -1486,10 +1486,10 @@ class Simulation(SimulationCore):
         # for that, ask to thomas): but max_it needs to be an int:
         # we have to solve this inconsistency. For now we do it in the lazy way:
         # just convert 'step' to int.
-        self.clock['step'] += int(delta_step)
-        self.clock['time'] += delta_time_si
-        self.clock['stage_step'] += int(delta_step)
-        self.clock['stage_time'] = time_reached_si
+        self.clock.step += int(delta_step)
+        self.clock.time += delta_time_si
+        self.clock.stage_step += int(delta_step)
+        self.clock.stage_time = time_reached_si
 
         log.debug("advance_time: have reached t=%s (su:%g)" %
                   (str(time_reached_si), time_reached_su))
@@ -1497,7 +1497,7 @@ class Simulation(SimulationCore):
         log.debug("advance_time: done %d steps, "
                   "have reached sundials step count=%d, "
                   "global count=%d " % (delta_step,
-                  self.clock['stage_step'], self.clock['step']))
+                  self.clock.stage_step, self.clock.step))
 
         memory_report("end of advance_time")
 
@@ -2324,7 +2324,7 @@ class Simulation(SimulationCore):
         """
 
         log.debug("Entering _computing_averages (step %d)"
-                  % int(self.clock['step']))
+                  % int(self.clock.step))
 
         selected_fields = [fn for fn in self._fields.fieldnames
                               if (not fn in self.save_field_blacklist)]
@@ -2337,13 +2337,13 @@ class Simulation(SimulationCore):
         #Extra parameters
         extranames = ['time', 'id', 'step', 'last_step_dt', 'stage_time', 'stage_step', 'stage']
         extraunits_si = map(lambda key: otherunits_by_name[key], extranames)
-        extradata = [simulation_units.of(self.clock['time']),
-                     self.clock['id'],
-                     self.clock['step'],
-                     simulation_units.of(self.clock['last_step_dt_si']),
-                     simulation_units.of(self.clock['stage_time']),
-                     self.clock['stage_step'],
-                     self.clock['stage']]
+        extradata = [simulation_units.of(self.clock.time),
+                     self.clock.id,
+                     self.clock.step,
+                     simulation_units.of(self.clock.last_step_dt_si),
+                     simulation_units.of(self.clock.stage_time),
+                     self.clock.stage_step,
+                     self.clock.stage]
 
         fieldunits_si = map(lambda key : fieldunits_by_fieldname[key], selected_fields)
 
@@ -2527,19 +2527,19 @@ class Simulation(SimulationCore):
 
         #check whether we have saved this step already:
         timer1.start('save_data_hd5hasstep')
-        hasstep = hdf5.average_data_has_step(h5filename, self.clock['step'])
+        hasstep = hdf5.average_data_has_step(h5filename, self.clock.step)
         timer1.stop('save_data_hd5hasstep')
 
         if hasstep and avoid_same_step:
             log.debug("save_data: No need to save step %d to %s " \
-                      "(saved already)" % (self.clock['step'], h5filename))
+                      "(saved already)" % (self.clock.step, h5filename))
             #in this case we have written the data already.
             pass
 
         else:
             # increase unique identifier:
-            self.clock['id'] += 1
-            log.info("save_data(): id->id+1=%d, fields=%s " % (self.clock['id'],str(fields)))
+            self.clock.id += 1
+            log.info("save_data(): id->id+1=%d, fields=%s " % (self.clock.id,str(fields)))
 
             # first compute averages
             timer1.start('_compute_averages')
@@ -2598,17 +2598,13 @@ class Simulation(SimulationCore):
             self._create_h5_file(filename)
 
         log.log(15, "step %d: Saving field(s) averaged data to '%s'"
-                % (self.clock['step'], filename))
+                % (self.clock.step, filename))
 
         log.debug("_save_data_table_to_h5 (filename=%s): time_reached_si is %s" \
-		  % (filename,self.clock['time_reached_si'].dens_str()))
+		  % (filename,self.clock.time_reached_si.dens_str()))
 
 
         hdf5.append_averages(filename, names, values, units)
-                             #self.clock['time_reached_si'],
-                             #self.clock['step'],
-                             #self.clock['stage'])
-
 
     def _save_data_table_to_ndt( self, names,values,units,filename, \
                               float_format_string = "% 25.13g ", \
@@ -2756,12 +2752,12 @@ class Simulation(SimulationCore):
         self._fields._dependencies.make("lam_m")
 
         if initial_time == None:
-            t0 = self.clock['time_reached_su']
+            t0 = self.clock.time_reached_su
         else:
             t0 = simulation_units.of(initial_time,
                                      compatible_with=SI("s"))
-            self.clock['time_reached_su'] = t0
-            self.clock['time_reached_si'] = \
+            self.clock.time_reached_su = t0
+            self.clock.time_reached_si = \
               t0 * simulation_units.conversion_factor_of(SI("s"))
 
         if rel_tolerance != None: self.ts_in_lam.rel_tolerance = rel_tolerance
@@ -2774,22 +2770,14 @@ class Simulation(SimulationCore):
 
     def do_next_stage(self, stage=None):
         self.max_dm_dt = None
-        if stage == None:
-            self.clock['stage'] += 1
-        else:
-            self.clock['stage'] = stage
-        self.clock['stage_step'] = 0
-        self.clock['stage_time'] = SI(0.0, "s")
-        self.clock['convergence'] = False
-        self.clock['zero_stage_step'] = self.clock['step']
-        self.clock['zero_stage_time'] = self.clock['time']
+        SimulationCore.do_next_stage(self, stage=stage)
 
     def is_converged(self):
         """
         Returns True when convergence has been reached.
         """
         log.debug("Entering is_converged()")
-        self.clock['convergence'] = False
+        self.clock.convergence = False
         if self.max_dm_dt != None:
             converged, new_tol_factor = \
               self.convergence.check(self.step,
@@ -2800,7 +2788,7 @@ class Simulation(SimulationCore):
                 self.ts_in_lam.tol_factor = new_tol_factor
                 raw_input()
                 self.ts_in_lam.is_initialised = False
-            self.clock['convergence'] = converged
+            self.clock.convergence = converged
             return converged
 
         else:
@@ -2888,16 +2876,16 @@ class Simulation(SimulationCore):
         log.log(15, "Saving field(s) %s into '%s'" % (fieldnames, tmp_file))
 
         log.debug("save_fields (%s): time_reached_si is %s"
-                  % (tmp_file, self.clock['time_reached_si'].dens_str()))
+                  % (tmp_file, self.clock.time_reached_si.dens_str()))
 
         fields_to_save = {}
         for fieldname in fieldnames:
             fieldunits = fieldunits_by_fieldname[fieldname]
             fields_to_save[fieldname] = (self._fields[fieldname], fieldunits)
         hdf5.append_fields(tmp_file, fields_to_save, fields_to_save,
-                           self.clock['time_reached_si'],
-                           self.clock['step'], self.clock['stage'],
-                           self.clock['id'], simulation_units)
+                           self.clock.time_reached_si,
+                           self.clock.step, self.clock.stage,
+                           self.clock.id, simulation_units)
 
         log.info("Written fields %s data to %s" % (str(fieldnames), tmp_file))
 
@@ -2923,11 +2911,11 @@ class Simulation(SimulationCore):
         clock_repr = hdf5.get_attribute(file_name, '/data/fields/m', 'clock')
         self.clock = eval(clock_repr)
         log.info("Got clock object from restart file: %s" % self.clock)
-        stage = self.clock['stage']
-        if self.clock['convergence']:
+        stage = self.clock.stage
+        if self.clock.convergence:
             log.info("Restart-file was saved at convergence of stage %d "
                      "starting stage %d" % (stage, stage+1))
-            self.clock['stage'] += 1
+            self.clock.stage += 1
         else:
             log.info("Restart-file was saved in the middle of stage %d "
                      "continuing from this stage!" % stage)

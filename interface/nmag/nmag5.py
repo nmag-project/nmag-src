@@ -81,7 +81,7 @@ class Simulation(SimulationCore):
         self.region_id_of_name = None   # region_name -> ID[region_name]
         self.mats_of_region_name = None # region_name -> material[region_name]
         self.mat_of_mat_name = None     # mat_name -> material[mat_name]
-        self.materials = []
+        self.materials = None
 
         # The physics...
         self._model = None              # The nsim.model.Model object
@@ -320,15 +320,17 @@ class Simulation(SimulationCore):
         extension ``ndt`` stands for Nmag Data Table (analog to OOMMFs
         ``.odt`` extension for this kind of data file.
 
-        If ``fields`` is provided, then it will also save the spatially resolved fields
-        to a file with extensions ``_dat.h5``.
+        If ``fields`` is provided, then it will also save the spatially
+        resolved fields to a file with extensions ``_dat.h5``.
 
         :Parameters:
           `fields` : None, 'all' or list of fieldnames
 
-            If None, then only spatially averaged data is saved into ``*ndt`` and ``*h5`` files.
+            If None, then only spatially averaged data is saved into ``*ndt``
+            and ``*h5`` files.
 
-            If ``all`` (i.e. the string containing 'all'), then all fields are saved.
+            If ``all`` (i.e. the string containing 'all'), then all fields are
+            saved.
 
             If a list of fieldnames is given, then only the selected
             fieldnames will be saved (i.e. ['m','H_demag']).
@@ -393,9 +395,6 @@ class Simulation(SimulationCore):
         timer1.stop('save_data')
         lg.debug("Leaving save_data")
 
-
-
-
     def _create_h5_file(self,filename):
         lg.debug("_create_h5_file: initial creation of '%s'" % filename)
         hdf5.create_file(filename)
@@ -443,7 +442,8 @@ class Simulation(SimulationCore):
                      % filename)
             self._create_h5_file(filename)
 
-        lg.log(15, "Saving field(s) %s into '%s'" % (str(fieldnames), filename))
+        lg.log(15, "Saving field(s) %s into '%s'"
+               % (str(fieldnames), filename))
 
         lg.debug("save_fields (%s): time_reached_si is %s"
                  % (filename, self.clock.time_reached_si.dens_str()))
@@ -475,10 +475,6 @@ class Simulation(SimulationCore):
 
         lg.info("Written fields %s data to %s" % (str(fieldnames), filename))
         timer1.stop('save_fields')
-
-
-
-
 
 
 def _add_micromagnetics(model, quantity_creator=None):
