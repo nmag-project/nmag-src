@@ -109,7 +109,7 @@ class Timestepper(ModelObj):
 
     def get_num_steps(self):
         """Get the number of steps computed so far."""
-        return ocaml.cvode_get_num_steps(self.get_cvode())
+        return int(ocaml.cvode_get_num_steps(self.get_cvode()))
 
     def get_last_dt(self):
         """Return the last step length."""

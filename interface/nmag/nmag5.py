@@ -14,6 +14,7 @@ The fifth version of the nmag interface, completely based on nsim.model.
 """
 
 # System imports
+import os
 import math
 import logging
 
@@ -24,11 +25,15 @@ from simulation_core import SimulationCore
 from nsim.model import *
 from nsim.su_units import SimulationUnits
 from nsim.si_units.si import SI
+import nfem.hdf5_v01 as hdf5
 
 # Get some object into this namespace
 from material import MagMaterial
 
-#from constants import degrees_per_ns
+# debug variables to study timing
+from nsim.timings import Timer
+
+timer1 = Timer("save-data")
 
 # Get the logger
 lg = logging.getLogger('nmag')
@@ -295,16 +300,19 @@ class Simulation(SimulationCore):
     def set_pinning(self, values):
         assert False
 
-    def advance_time(self, target_time, max_it=-1):
+    def advance_time(self, target_time, max_it=-1, exact_tstop=True):
         ts = self.model.timesteppers._by_name["ts_llg"]
-        self.clock["time"] = t = ts.advance_time(target_time)
-        self.clock["step"] = ts.get_num_steps()
+        t = ts.advance_time(target_time, max_it=max_it)
+        step = ts.get_num_steps()
+        delta_step = step - self.clock.step
+        delta_time = t - self.clock.time
+        self.clock.step = step
+        self.clock.time = t
+        self.clock.stage_step += delta_step
+        self.clock.stage_time += delta_time
         return t
 
-
-
-
-    def my_save_data(self,fields=None,avoid_same_step=False):
+    def save_data(self, fields=None, avoid_same_step=False):
         """
         Save the *averages* of all defined (subfields) into a ascii
         data file. The filename is composed of the simulation name
@@ -328,7 +336,7 @@ class Simulation(SimulationCore):
           `avoid_same_step` : bool
 
             If ``True``, then the data will only be saved if the
-            current ``clock['step']`` counter is different from the
+            current ``clock.step`` counter is different from the
             step counter of the last saved configuration. If
             ``False``, then the data will be saved in any
             case. Default is ```False```. This is internally used by
@@ -343,68 +351,130 @@ class Simulation(SimulationCore):
             counter).
         """
 
-        log.debug("Entering save_data, fields=%s, avoid_same_step=%s" % (fields,avoid_same_step))
+        lg.debug("Entering save_data, fields=%s, avoid_same_step=%s"
+                  % (fields, avoid_same_step))
         timer1.start('save_data')
 
-        #get filenames
-        ndtfilename = self._ndtfilename()
+        # Get filenames
         h5filename = self._h5filename()
 
-        #check whether we have saved this step already:
-        hasstep = hdf5.average_data_has_step(h5filename, self.clock['step'])
+        # Check whether we have saved this step already:
+        has_step = hdf5.average_data_has_step(h5filename, self.clock.step)
 
-        if hasstep and avoid_same_step:
-            log.debug("save_data: No need to save step %d to %s " \
-                      "(saved already)" % (self.clock['step'], h5filename))
-            #in this case we have written the data already.
-            pass
+        if has_step and avoid_same_step:
+            # In this case we have written the data already.
+            lg.debug("save_data: No need to save step %d to %s "
+                     "(saved already)" % (self.clock.step, h5filename))
 
         else:
-            # increase unique identifier:
-            self.clock['id'] += 1
-            log.info("save_data(): id->id+1=%d, fields=%s " % (self.clock['id'],str(fields)))
+            # Increase unique identifier:
+            self.clock.id += 1
+            lg.info("save_data(): id->id+1=%d, fields=%s"
+                    % (self.clock.id, str(fields)))
 
             # first compute averages
-            timer1.start('_compute_averages')
-            names,values,units = self._compute_averages()
-            timer1.stop('_compute_averages')
+            timer1.start('_save_averages')
+            self._save_averages()
+            timer1.stop('_save_averages')
 
-            # and write to ndt file
-            timer1.start('_save_data_table_to_ndt')
-            self._save_data_table_to_ndt(names,values,units,ndtfilename)
-            timer1.stop('_save_data_table_to_ndt')
-
-            timer1.start('_save_data_table_to_h5')
-
-            #and h5 file
-
-            #remove this for extra speed fangohr 18/12/2007)
-            #self._save_data_table_to_h5(names,values,units,h5filename)
-            timer1.stop('_save_data_table_to_h5')
-
-        #if any fields are given, save them
+        # If any fields are given, save them
         if fields:
             timer1.start('_save_fields')
-            if type(fields) == types.StringType:
+            if type(fields) == str:
                 if fields.lower() == 'all':
                     fields = []
-                else: #likely been given one field in a string (but not wrapped up in list)
+                else:
+                    # Likely been given one field in a string (but not
+                    # wrapped up in list)
                     fields = [fields]
-            self._save_fields(filename=h5filename,fieldnames=fields)
+            self._save_fields(filename=h5filename, fieldnames=fields)
             timer1.stop('_save_fields')
 
         timer1.stop('save_data')
-        log.debug("Leaving save_data")
+        lg.debug("Leaving save_data")
 
 
 
 
+    def _create_h5_file(self,filename):
+        lg.debug("_create_h5_file: initial creation of '%s'" % filename)
+        hdf5.create_file(filename)
+        hdf5.tagfile(filename,'nsimdata','0.1')
 
+        # Add simulation source code and config files (to be done)
+        hdf5.save_simulation_files(filename, [])
 
+        # Add mesh
+        hdf5.add_mesh(filename, self.mesh, self.mesh_unit_length)
 
+    def _save_fields(self, filename=None, fieldnames=[]):
+        """
+        Save fields for current time step into hdf5 file.
 
+        :parameters:
 
+          `filename` : string
+            The filename of the hdf5 file. Recommended extension is ".h5"
 
+          `fieldnames` : list of fieldname strings
+
+            A list of field names can be provided. All fields whose
+            names are included in this list will be saved. An empty list
+            suggests that all fields should be saved. (This is the default.)
+        """
+
+        timer1.start('save_fields')
+
+        all_fieldnames =  self.get_all_field_names()
+
+        if fieldnames == []:
+            save_field_blacklist = ["grad_m"]
+            fieldnames = [fn for fn in all_fieldnames
+                          if not (fn in save_field_blacklist)]
+
+        if filename == None:
+            filename = self._h5filename()
+
+        lg.log(15, "save_fields: About to save the following fields "
+               "%s to %s" % (str(fieldnames), filename))
+
+        if not os.path.exists(filename):
+            lg.debug("save_fields: %s doesn't exist; will create it"
+                     % filename)
+            self._create_h5_file(filename)
+
+        lg.log(15, "Saving field(s) %s into '%s'" % (str(fieldnames), filename))
+
+        lg.debug("save_fields (%s): time_reached_si is %s"
+                 % (filename, self.clock.time_reached_si.dens_str()))
+
+        # Get medata for all fields, and for the ones we are meant to save.
+        # We need the 'all fields' data in case the data file will be
+        # created: we need to store all the dofsite metadata for all fields,
+        # in case other fields will be saved later. (fangohr 28/05/2008)
+        fields_to_save = {}
+        all_fields_to_save = {}
+        model_quantities = self.model.quantities._by_name
+        for field_name in all_fieldnames:
+            field_units = self.known_quantities_by_name[field_name].units
+            q = model_quantities.get(field_name, None)
+            if q != None:
+                field_item = (q.master, field_units)
+                if field_name in fieldnames:
+                    fields_to_save[field_name] = field_item
+                all_fields_to_save[field_name] = field_item
+
+        # This is where the actual work (i.e. saving the data) is done. Also,
+        # if the file is new, all the required meta data will be added.
+        timer1.start('append_fields')
+        hdf5.append_fields(filename, fields_to_save, all_fields_to_save,
+                           self.clock.time_reached_si, self.clock.step,
+                           self.clock.stage, self.clock.id,
+                           simulation_units)
+        timer1.stop('append_fields')
+
+        lg.info("Written fields %s data to %s" % (str(fieldnames), filename))
+        timer1.stop('save_fields')
 
 
 
@@ -518,37 +588,39 @@ def _add_llg(model, quantity_creator=None):
 
     # Create some fields required for the dynamics
     dmdt = qc(SpaceField, "dmdt", [3], subfields=True, unit=invt_unit)
-    H_tot = qc(SpaceField, "H_tot", [3], subfields=True, unit=H_unit)
+    H_total = qc(SpaceField, "H_total", [3], subfields=True, unit=H_unit)
     H_ext = qc(SpaceField, "H_ext", [3], unit=H_unit)
-    model.add_quantity([dmdt, H_tot, H_ext])
+    model.add_quantity([dmdt, H_total, H_ext])
 
-    # Equation for the effective field H_tot
+    # Equation for the effective field H_total
     # XXX NOTE NOTE NOTE: clean up the factor 1e18. It should be computed
     # automatically from the parse tree of the operator!
-    eq = "%range i:3; H_tot(i) <- H_ext(i) + H_exch(i) + H_demag(i);"
-    eq_H_tot = Equation("H_tot", eq)
+    eq = "%range i:3; H_total(i) <- H_ext(i) + H_exch(i) + H_demag(i);"
+    eq_H_total = Equation("H_total", eq)
 
     # Equation of motion
     eq = ("%range i:3, j:3, k:3, p:3, q:3;"
-           "dmdt(i) <- (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_tot(k) +"
-           "alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_tot(q)) +"
-           "norm_coeff*(1.0 - m(j)*m(j))*m(i);")
+           "dmdt(i) <- "
+           "    (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_total(k)"
+           "  + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q))"
+           "  + norm_coeff*(1.0 - m(j)*m(j))*m(i);")
     llg = Equation("llg", eq)
 
     # Equation for the Jacobian: we omit the third term on the RHS
     eq = ("%range i:3, j:3, k:3, p:3, q:3; "
-          "dmdt(i) <- (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_tot(k) + "
-          "alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_tot(q));")
+          "dmdt(i) <- "
+          "    (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_total(k)"
+          "  + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q));")
     llg_jacobi = Equation("llg-jacobi", eq)
 
 
     # llg_jacobi doesn't need to be added as it is only used by the
     # timestepper to compute the jacobian
-    model.add_computation([llg, eq_H_tot])
+    model.add_computation([llg, eq_H_total])
 
     # Timestepper
     op_exch = model.computations._by_name.get("exch", None)
-    derivatives = [(H_tot, op_exch)] if op_exch != None else None
+    derivatives = [(H_total, op_exch)] if op_exch != None else None
     ts = Timestepper("ts_llg", x="m", dxdt="dmdt",
                      eq_for_jacobian=llg_jacobi,
                      derivatives=derivatives,

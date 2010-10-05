@@ -2681,8 +2681,8 @@ class Simulation(SimulationCore):
                                     "fields")
 
     def _save_fields(self,filename=None,fieldnames=[]):
-
-        """Save fields for current time step into hdf5 file.
+        """
+        Save fields for current time step into hdf5 file.
 
         :parameters:
 
@@ -2694,31 +2694,34 @@ class Simulation(SimulationCore):
             A list of field names can be provided. All fields whose
             names are included in this list will be saved. An empty list
             suggests that all fields should be saved. (This is the default.)
-
-    """
+        """
 
         timer1.start('save_fields')
 
         all_fieldnames =  self._fields.keys()
+        from simulation_core import known_field_quantities
 
-        if fieldnames==[]:
+        if fieldnames == []:
             fieldnames = [fn for fn in all_fieldnames
                           if not (fn in self.save_field_blacklist)]
 
         if filename==None:
             filename = self._h5filename()
 
-        log.log(15,"save_fields: About to save the following fields %s to %s" % (str(fieldnames),filename))
+        log.log(15, "save_fields: About to save the following fields "
+                "%s to %s" % (str(fieldnames), filename))
 
         if not os.path.exists(filename):
-            log.debug("save_fields: %s doesn't exist; will create it" % filename)
+            log.debug("save_fields: %s doesn't exist; will create it"
+                      % filename)
             self._create_h5_file(filename)
 
-        log.log(15,"Saving field(s) %s into '%s'" % (str(fieldnames),filename))
+        log.log(15, "Saving field(s) %s into '%s'" % (str(fieldnames), filename))
 
-        log.debug("save_fields (%s): time_reached_si is %s" % (filename,self.clock['time_reached_si'].dens_str()))
+        log.debug("save_fields (%s): time_reached_si is %s"
+                  % (filename, self.clock.time_reached_si.dens_str()))
 
-        # get medata for all fields, and for the ones we are meant to save.
+        # Get medata for all fields, and for the ones we are meant to save.
         # We need the 'all fields' data in case the data file will be
         # created: we need to store all the dofsite metadata for all fields,
         # in case other fields will be saved later. (fangohr 28/05/2008)
@@ -2726,20 +2729,21 @@ class Simulation(SimulationCore):
         all_fields_to_save = {}
         for fieldname in all_fieldnames:
             fieldunits = fieldunits_by_fieldname[fieldname]
+            field_item = (self._fields[fieldname], fieldunits)
             if fieldname in fieldnames:
-                fields_to_save[fieldname]=(self._fields[fieldname],fieldunits)
-            all_fields_to_save[fieldname]=(self._fields[fieldname],fieldunits)
+                fields_to_save[fieldname] = field_item
+            all_fields_to_save[fieldname] = field_item
 
-        #This is where the actual work (i.e. saving the data) is done. Also, if the file is new, all the required
-        #meta data will be added.
+        # This is where the actual work (i.e. saving the data) is done. Also,
+        # if the file is new, all the required meta data will be added.
         timer1.start('append_fields')
         hdf5.append_fields(filename, fields_to_save, all_fields_to_save,
-                           self.clock['time_reached_si'], self.clock['step'],
-                           self.clock['stage'], self.clock['id'],
+                           self.clock.time_reached_si, self.clock.step,
+                           self.clock.stage, self.clock.id,
                            simulation_units)
         timer1.stop('append_fields')
 
-        log.info("Written fields %s data to %s" % (str(fieldnames),filename))
+        log.info("Written fields %s data to %s" % (str(fieldnames), filename))
         timer1.stop('save_fields')
 
     def reinitialise(self,
