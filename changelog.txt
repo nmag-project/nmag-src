@@ -1,7 +1,44 @@
 Unpublished changes:
 
+Next release 0.1.0 XXXX
+=======================
 
 
+New Features
+
+Bugfixes/Improvements
+
+* Adjusted flags in compilation Makefile.
+  PETSc compiled --with-debugging=no (~10 % speed improvement). Stopping
+  when HLib compilation fails.
+
+* Optimisation of mesh module: topology information generated only on demand,
+  mesh datastructures re-engineered to occupy less memory. As a consequence
+  a medium-large simulation requires less memory (reduction of 10-20 % of the
+  non-BEM part) and is faster in the initialisation phase (about the same
+  amount).
+
+* Improvement handling of command line arguments.
+  The parsing of command line arguments now happens at the beginning, before
+  the nmag module is imported. Options can be passed to PETSc using the
+  --petsc-opts flag (try `nsim -h --petsc-opts -h' to get a list). It is then
+  possible to use the logging facilities offered by the library. The
+  interactive command `nsim_i' has been removed. Nsim will detect when it is
+  being used interactively and use IPython when possible.
+
+* Added a bug report script to collect compilation logs into a single file.
+  That should considerably simplify the submission of bug reports.
+
+* Updated packages to their latest stable release in the compile from source.
+  We are now using: XXXX
+
+* Native compilation on Ubuntu XX.XX should now be possibe
+  and relatively straightforward.
+
+
+
+Release 0.1 beta (6481) 22 December 2009
+========================================
 
 
 New Features
@@ -46,9 +83,6 @@ Interface changes;
 
 * We stop providing a Debian package for this release. The from source
   compile works out of the box on Deian systems.
-
-
-
 
 
 
@@ -157,9 +191,6 @@ Bugfixes/Improvements/New Features
 
 
 
-
-
-
 Release 0.1 beta (5787) 2 September 2008
 ========================================
 
@@ -174,7 +205,6 @@ Bugfixes/Improvements/New Features
 
 * nmeshipmort has slightly improved error reporting when attempting to
   import an unknown mesh format
-
 
 
 
@@ -207,6 +237,7 @@ Interface change
   unnecessarily binding resources.
 
 
+
 Release 0.1 beta (5734) 1 August 2008
 =====================================
 
@@ -235,7 +266,6 @@ Bug fixes/Improvements/New Features
 * Made compile from source work for Mac OS X 10.5 (Leopard)
 
 * Introduced unit and regression tests.
-
 
 
 
@@ -305,8 +335,6 @@ Interface changes
 
 
 
-
-
 Release 0.1 beta (5259) 30 January 2008
 =======================================
 
@@ -362,7 +390,6 @@ None
 Release 0.1 beta (4947) 20 December 2007
 ========================================
 
-
 Bug fixes/Improvements
 ----------------------
 * ticket 101: Setting anisotropy=nmag.uniaxial_anisotropy(K1=0) in MagMaterial
@@ -395,7 +422,6 @@ New features
 
 
 
-
 Release 0.1 beta (4785) 27 November 2007
 ========================================
 
@@ -422,9 +448,8 @@ New features
 
 
 
-
 Release 0.1 beta (4625) 2 November 2007
 =======================================
 
-
 First release
+
