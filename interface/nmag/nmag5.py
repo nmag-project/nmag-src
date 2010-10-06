@@ -251,6 +251,7 @@ class Simulation(SimulationCore):
         _add_micromagnetics(model, self._quantity_creator)
         _add_exchange(model, self._quantity_creator)
         _add_demag(model, self._quantity_creator, self.do_demag)
+        _add_stt(model, self._quantity_creator)
         _add_llg(model, self._quantity_creator)
 
         # Set the values of the constants in the micromagnetic model
@@ -568,6 +569,23 @@ def _add_demag(model, quantity_creator=None, do_demag=True):
     model.add_computation([op_div_m, op_neg_laplace_phi, op_grad_phi,
                            op_laplace_DBC, op_load_DBC, ksp_solve_laplace_DBC,
                            ksp_solve_neg_laplace_phi, bem, prog_set_H_demag])
+
+def _add_stt(model, quantity_creator=None):
+    qc = quantity_creator or _default_qc
+
+    current_density = qc(SpaceField, "current_density",
+                         unit=SI(1e15, "A/m^2"))
+    grad_m = qc(SpaceField, "grad_m", [3, 3], subfields=True,
+                unit=SI(1e9, "1/m"))
+    dm_dcurrent = qc(SpaceField, "dm_dcurrent", subfields=True,
+                     unit=SI(1e-15, "m^2/A"))
+    model.add_quantity([current_density, grad_m, dm_dcurrent])
+
+    op_str = "<grad_m(i, j)||d/dxj m(i)>, i:3, j:%d" % model.dim
+    op_grad_m = Operator("grad_m", op_str)
+
+    model.add_computation(op_grad_m)
+
 
 def _add_llg(model, quantity_creator=None):
     qc = quantity_creator or _default_qc

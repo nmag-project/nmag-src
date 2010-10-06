@@ -18,19 +18,20 @@ Bugfixes/Improvements
   non-BEM part) and is faster in the initialisation phase (about the same
   amount).
 
-* Improvement handling of command line arguments.
+* Improved handling of command line arguments.
   The parsing of command line arguments now happens at the beginning, before
   the nmag module is imported. Options can be passed to PETSc using the
   --petsc-opts flag (try `nsim -h --petsc-opts -h' to get a list). It is then
   possible to use the logging facilities offered by the library. The
-  interactive command `nsim_i' has been removed. Nsim will detect when it is
-  being used interactively and use IPython when possible.
+  interactive command `nsim_i' has been removed. Nsim detects when it is
+  being used interactively and uses IPython when possible.
 
 * Added a bug report script to collect compilation logs into a single file.
   That should considerably simplify the submission of bug reports.
 
-* Updated packages to their latest stable release in the compile from source.
-  We are now using: XXXX
+* Updated packages to latest stable release in the compile from source.
+  We are now using: Mpich2 1.2.1p1, Petsc 3.1-p5, Ocaml 3.12.0, Findlib 1.2.1,
+  Gsl 1.14, Parmetis 3.1.1, NumPy 1.5
 
 * Native compilation on Ubuntu XX.XX should now be possibe
   and relatively straightforward.
