@@ -24,7 +24,7 @@ import nmesh
 from simulation_core import SimulationCore
 from nsim.model import *
 from nsim.su_units import SimulationUnits
-from nsim.si_units.si import SI
+from nsim.si_units.si import SI, bohr_magneton, positron_charge
 import nfem.hdf5_v01 as hdf5
 
 # Get some object into this namespace
@@ -93,7 +93,10 @@ class Simulation(SimulationCore):
         # quantities are built. Quantities missing from here cannot be
         # influenced by the user in their construction.
         self.quantities_types = \
-          {"H_ext": SpaceField}
+          {"H_ext": SpaceField,
+           "P": Constant,
+           "xi": Constant,
+           "alpha": Constant}
 
     def get_model(self):
         if self._model != None:
@@ -248,11 +251,12 @@ class Simulation(SimulationCore):
         self._model = model = Model(model_name, self.mesh, mu, region_materials)
 
         # Now add the different parts of the physics
-        _add_micromagnetics(model, self._quantity_creator)
-        _add_exchange(model, self._quantity_creator)
-        _add_demag(model, self._quantity_creator, self.do_demag)
-        _add_stt(model, self._quantity_creator)
-        _add_llg(model, self._quantity_creator)
+        contexts = []
+        _add_micromagnetics(model, contexts, self._quantity_creator)
+        _add_exchange(model, contexts, self._quantity_creator)
+        _add_demag(model, contexts, self._quantity_creator, self.do_demag)
+        _add_stt(model, contexts, self._quantity_creator)
+        _add_llg(model, contexts, self._quantity_creator)
 
         # Set the values of the constants in the micromagnetic model
         self._set_qs_from_materials()
@@ -277,6 +281,8 @@ class Simulation(SimulationCore):
         set_quantity_value("alpha", "llg_damping")
         set_quantity_value("norm_coeff", "llg_normalisationfactor")
         set_quantity_value("exchange_factor", "exchange_factor")
+        set_quantity_value("P", "llg_polarisation")
+        set_quantity_value("xi", "llg_xi")
 
     def get_subfield_average(self, field_name, mat_name):
         f = self.model.quantities._by_name.get(field_name, None)
@@ -311,6 +317,7 @@ class Simulation(SimulationCore):
         self.clock.time = t
         self.clock.stage_step += delta_step
         self.clock.stage_time += delta_time
+        self.clock.last_step_dt_si = ts.get_last_dt()
         return t
 
     def save_data(self, fields=None, avoid_same_step=False):
@@ -478,13 +485,21 @@ class Simulation(SimulationCore):
         timer1.stop('save_fields')
 
 
-def _add_micromagnetics(model, quantity_creator=None):
+def _add_micromagnetics(model, contexts, quantity_creator=None):
+    if "mumag" in contexts:
+        return
+    contexts.append("mumag")
+
     qc = quantity_creator or _default_qc
     m = qc(SpaceField, "m", [3], subfields=True, unit=SI(1))
     M_sat = qc(Constant, "M_sat", subfields=True, unit=SI(1e6, "A/m"))
     model.add_quantity([m, M_sat])
 
-def _add_exchange(model, quantity_creator=None):
+def _add_exchange(model, contexts, quantity_creator=None):
+    if "exch" in contexts:
+        return
+    contexts.append("exch")
+
     qc = quantity_creator or _default_qc
 
     H_unit = SI(1e6, "A/m")
@@ -501,7 +516,11 @@ def _add_exchange(model, quantity_creator=None):
     model.add_quantity([exchange_factor, H_exch])
     model.add_computation(op_exch)
 
-def _add_demag(model, quantity_creator=None, do_demag=True):
+def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
+    if do_demag == False or "demag" in contexts:
+        return
+    contexts.append("demag")
+
     qc = quantity_creator or _default_qc
 
     H_unit = SI(1e6, "A/m")
@@ -570,24 +589,51 @@ def _add_demag(model, quantity_creator=None, do_demag=True):
                            op_laplace_DBC, op_load_DBC, ksp_solve_laplace_DBC,
                            ksp_solve_neg_laplace_phi, bem, prog_set_H_demag])
 
-def _add_stt(model, quantity_creator=None):
+def _add_stt(model, contexts, quantity_creator=None):
+    if "stt" in contexts:
+        return
+    contexts.append("stt")
+
     qc = quantity_creator or _default_qc
 
-    current_density = qc(SpaceField, "current_density",
+    # Define STT-related quantities
+    # Constants
+    mu_B = qc(Constant, "mu_B", value=Value(bohr_magneton),
+              unit=SI(1e-21, "m^2 A"))
+    e = qc(Constant, "e", value=Value(positron_charge), unit=SI(1e-15, "A s"))
+    model.add_quantity([mu_B, e])
+
+    # Fields
+    P = qc(Constant, "P", subfields=True, unit=SI(1))
+    xi = qc(Constant, "xi", subfields=True, unit=SI(1))
+    current_density = qc(SpaceField, "current_density", [3],
                          unit=SI(1e15, "A/m^2"))
     grad_m = qc(SpaceField, "grad_m", [3, 3], subfields=True,
                 unit=SI(1e9, "1/m"))
-    dm_dcurrent = qc(SpaceField, "dm_dcurrent", subfields=True,
+    dm_dcurrent = qc(SpaceField, "dm_dcurrent", [3], subfields=True,
                      unit=SI(1e-15, "m^2/A"))
-    model.add_quantity([current_density, grad_m, dm_dcurrent])
+    model.add_quantity([P, xi, current_density, grad_m, dm_dcurrent])
 
+    # Define new computations
+    # Gradient of m
     op_str = "<grad_m(i, j)||d/dxj m(i)>, i:3, j:%d" % model.dim
     op_grad_m = Operator("grad_m", op_str)
 
-    model.add_computation(op_grad_m)
+    # Derivative of m with respect to direction of the current (mul by factor)
+    eq = ("%range i:3, j:3;"
+          "dm_dcurrent(i) <-"
+          "  (-mu_B/(e*M_sat*(1.0 + xi*xi)*(1.0 + alpha*alpha)))"
+          "  * grad_m(i, j)*current_density(j);")
+    eq_dm_dcurrent = Equation("dm_dcurrent", eq)
+
+    model.add_computation([op_grad_m, eq_dm_dcurrent])
 
 
-def _add_llg(model, quantity_creator=None):
+def _add_llg(model, contexts, quantity_creator=None):
+    if "llg" in contexts:
+        return
+    contexts.append("llg")
+
     qc = quantity_creator or _default_qc
 
     H_unit = SI(1e6, "A/m")
@@ -613,11 +659,16 @@ def _add_llg(model, quantity_creator=None):
     eq_H_total = Equation("H_total", eq)
 
     # Equation of motion
-    eq = ("%range i:3, j:3, k:3, p:3, q:3;"
-           "dmdt(i) <- "
-           "    (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_total(k)"
-           "  + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q))"
-           "  + norm_coeff*(1.0 - m(j)*m(j))*m(i);")
+    eq = \
+      ("%range i:3, j:3, k:3, p:3, q:3;"
+       "dmdt(i) <- "
+       "  (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_total(k)"
+       "+ alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q))"
+       "+ norm_coeff*(1.0 - m(j)*m(j))*m(i)"
+       "+ P*(1.0 + alpha*xi)*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*dm_dcurrent(q)"
+       "+ P*(xi - alpha)*eps(i,j,k)*m(j)*dm_dcurrent(k);")
+    # Note: when P=0 the last two terms (STT) are automatically simplified!
+
     llg = Equation("llg", eq)
 
     # Equation for the Jacobian: we omit the third term on the RHS
