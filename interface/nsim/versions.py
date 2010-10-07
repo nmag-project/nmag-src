@@ -19,8 +19,12 @@ def read_first_line(fname):
 
 def get_version_string():
     try:
-        import svnversion
-        return svnversion.svnversion
+        import version
+        ver, release_date = version.version
+        if release_date == None:
+            return "%d.%d.%d-dev" % tuple(ver)
+        else:
+            return "%d.%d.%d" % tuple(ver)
     except:
         return "(unknown)"
 
@@ -65,7 +69,7 @@ def get_nmag_release_dist_svn_string():
     msg += "\n\tnmag-distribution-mode =" + str(get_nmag_distmode())
     msg += "\n\tnmag-release-date      =" + str(get_nmag_release_date())
     return msg
-    
+
 def get_nmag_paths():
     paths = {}
     nmagpath = _get_nmag_path()
