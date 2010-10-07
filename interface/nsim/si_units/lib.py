@@ -541,18 +541,28 @@ class Physical(object):
         """
         # NOTE: zero is compatible with everything.
         if type(physical_quantity) in [int, float]:
-            if physical_quantity == 0: return True
-            physical_quantity = Physical(float(physical_quantity))
+            return ((physical_quantity == 0)
+                    or reduce(lambda x, y: x and (y == 0), self._dims, True))
 
-        if self._value == 0.0 or physical_quantity._dims == self._dims:
+        elif self._value == 0.0:
             return True
 
-        # final try before giving up...
-        try:
-            return self.is_compatible_with(Physical(float(physical_quantity)))
+        elif isinstance(physical_quantity, SI):
+            return (physical_quantity._dims == self._dims)
 
-        except:
-            return False
+        else:
+            # If we get here, it means that 'physical_quantity' is not an
+            # int/float nor a Physical object. The last thing we can do is
+            # to try to transform it to a float and - if that succeeds -
+            # try again.
+            try:
+                x = float(physical_quantity)
+
+            except:
+                return False
+
+            return self.is_compatible_with(x)
+
 
     def in_units_of(self,unit_quantity):
 	"""
