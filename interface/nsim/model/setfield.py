@@ -131,6 +131,12 @@ def set_fielddata_from_vector(field, subfieldname, data,
     if True:
         data = _prepare_set_field(field, subfieldname, data, None, # <- site
                                   scale_factor, normalise)
+        if type(data) == list:
+            pass
+        elif hasattr(data, "__iter__"):
+            data = list(data)
+        else:
+            data = [data]
         exit_status = ocaml.set_field_uniformly(field, subfieldname, data)
 
         if exit_status != 0:
@@ -139,7 +145,7 @@ def set_fielddata_from_vector(field, subfieldname, data,
 
     else:
         site_ids, site_pos, shape, site_vols = \
-	      ocaml.mwe_subfield_metadata(field, subfieldname)
+          ocaml.mwe_subfield_metadata(field, subfieldname)
 
         for site in site_ids:
             set_field_at_site(field, subfieldname, site, data,
