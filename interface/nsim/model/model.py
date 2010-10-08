@@ -321,11 +321,11 @@ class Model(object):
               nlam.lam_operator(op_full_name, mwe_out[0], mwe_in[0], op_text)
 
             # We should now register a VM call to compute the equation
-            logger.info("Creating equation SWEX for %s" % op.name)
+            logger.info("Creating operator program for %s" % op.name)
             v_in, v_out = ["v_%s" % name for name in mwe_in + mwe_out]
             op.add_commands(["SM*V", op_full_name, v_in, v_out])
-            if True:
-                op.add_commands(["CFBOX","H_exch","v_H_exch"])
+            if op.cofield_to_field:
+                op.add_commands(["CFBOX", mwe_out[0], v_out])
 
         self._built["Operator"] = True
         return operator_dict
@@ -383,7 +383,7 @@ class Model(object):
                              equation=eq_text)
 
             # We should now register a VM call to compute the equation
-            logger.info("Creating equation SWEX for %s" % eq.name)
+            logger.info("Creating equation program for %s" % eq.name)
             fields = ["v_%s" % name for name in eq.get_inouts()]
             eq.add_commands(["SITE-WISE-IPARAMS", eq_full_name, fields, []])
 

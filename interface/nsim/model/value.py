@@ -185,7 +185,6 @@ class Value(object):
                     raise ValueError("Value (%s) contains double "
                                      "specification for material '%s'."
                                      % (self, m))
-                print "get_set_plan", v, u, unit
                 d[m] = _remove_unit_rec(v, u, unit)
 
         # Now write the plan

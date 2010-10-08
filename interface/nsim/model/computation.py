@@ -117,13 +117,15 @@ class Operator(ParsedComputation):
     type_str = "Operator"
 
     def __init__(self, name, operator_string, mat_opts=[],
-                 inputs=None, outputs=None, auto_dep=None):
+                 inputs=None, outputs=None, cofield_to_field=False,
+                 auto_dep=None):
         operator_tree = opparser.parse(operator_string)
         ParsedComputation.__init__(self, name, "OpProg",
                                    operator_tree, operator_string,
                                    inputs=inputs, outputs=outputs,
                                    auto_dep=auto_dep)
         self.mat_opts = mat_opts
+        self.cofield_to_field = cofield_to_field
 
 class CCode(Computation):
     type_str = "CCode"

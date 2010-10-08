@@ -212,7 +212,7 @@ class SpaceField(Quantity):
         self.mesh = None                 # Mesh
         self.mesh_unit = None            # Mesh unit
         self.volume_unit = None          # Volume unit
-        self.master = None               # Master copy of the field
+        self._master = None              # Master copy of the field
         self.material_names = None       # Name of materials where field
                                          # is defined
         self.restrictions = restrictions # Restrictions for the field
@@ -223,9 +223,19 @@ class SpaceField(Quantity):
         self.mesh_unit = model.mesh_unit
         self.volume_unit = self.mesh_unit**self.mesh.dim
         self.mwe = mwe = model.mwes[self.name]
-        self.master = ocaml.raw_make_field(mwe, [], "", "")
         self.material_names = model.all_material_names
         self.set_value(self.value)
+
+    def get_master(self):
+        if self._master != None:
+            return self._master
+        else:
+            assert self.vivified, \
+              "Cannot get master before vivification of field(%s)" % self.name
+            self._master = field = ocaml.raw_make_field(self.mwe, [], "", "")
+            return field
+
+    master = property(get_master)
 
     def set_value(self, value):
         if not self.vivified:

@@ -528,7 +528,7 @@ def _add_exchange(model, contexts, quantity_creator=None):
 
     # The exchange operator
     op_str = "exchange_factor*<d/dxj H_exch(k)||d/dxj m(k)>, j:3,  k:3"
-    op_exch = Operator("exch", op_str)
+    op_exch = Operator("exch", op_str, cofield_to_field=True)
 
     model.add_quantity([exchange_factor, H_exch])
     model.add_computation(op_exch)
@@ -628,13 +628,13 @@ def _add_stt(model, contexts, quantity_creator=None):
     grad_m = qc(SpaceField, "grad_m", [3, 3], subfields=True,
                 unit=SI(1e9, "1/m"))
     dm_dcurrent = qc(SpaceField, "dm_dcurrent", [3], subfields=True,
-                     unit=SI(1e-12, "1/s"))
+                     unit=SI(1e12, "1/s"))
     model.add_quantity([P, xi, current_density, grad_m, dm_dcurrent])
 
     # Define new computations
     # Gradient of m
     op_str = "<grad_m(i, j)||d/dxj m(i)>, i:3, j:%d" % model.dim
-    op_grad_m = Operator("grad_m", op_str)
+    op_grad_m = Operator("grad_m", op_str, cofield_to_field=True)
 
     # Derivative of m with respect to direction of the current (mul by factor)
     eq = ("%range i:3, j:3;"

@@ -39,7 +39,6 @@ def _print_header(out, header):
 def _print_row(out, header, data_dict):
     row = " "
     for col_name, col_fmt, col_title, col_units, _ in header:
-        print col_name
         col_data = _value_in_units(data_dict[col_name], col_units)
         col_text = (col_fmt % col_data).rjust(len(col_title))
         row += col_text + " "
