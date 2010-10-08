@@ -215,23 +215,9 @@ class MagMaterial:
         log.info("Created new Material:\n %s " % str(self))
 
     def get_exchange_factor(self):
-        return -1e18*2.0*self.exchange_coupling/(si.mu0*self.Ms)
+        return -2.0*self.exchange_coupling/(si.mu0*self.Ms)
 
     exchange_factor = property(get_exchange_factor)
-
-    def get_stt_factors(self):
-        llg_xi = self.llg_xi
-        llg_damping = self.llg_damping
-        f = -(gilbert_to_ll
-              * (self.llg_polarisation*si.bohr_magneton
-                 / (si.positron_charge*self.Ms*(1.0 + llg_xi*llg_xi))))
-        if f == 0.0:
-            return (False, 0.0, 0.0)
-
-        else:
-            non_adiab = f*(llg_xi - llg_damping)
-            adiab = f*(1.0 + llg_damping*llg_xi)
-            return (True, adiab, non_adiab)
 
     def __str__(self):
         repr_str = "Material '%s'\n" % self.name
@@ -244,6 +230,6 @@ class MagMaterial:
                      'extended_print']
 
         for attr in attrs:
-            repr_str += " %20s = %s\n" % (attr, eval('str(self.'+attr+')'))
+            repr_str += " %25s = %s\n" % (attr, eval('str(self.'+attr+')'))
 
         return repr_str

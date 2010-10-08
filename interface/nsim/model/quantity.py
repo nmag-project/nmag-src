@@ -285,6 +285,12 @@ class SpaceField(Quantity):
             name, data = raw_result[0]
             return Value(data, u)
 
+    def save(self):
+        assert False
+
+    def load(self, filename):
+        assert False
+
 class TimeField(Quantity):
     type_str = "TimeField"
 

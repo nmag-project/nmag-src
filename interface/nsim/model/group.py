@@ -20,6 +20,9 @@ class Group:
         self._by_name = {}
         self.add(objs)
 
+    def __getitem__(self, name):
+        return self._by_name[name]
+
     def add(self, obj):
         """Add the given object 'obj' to the current instance.
         If 'obj' is a list, then add all the elements of the list."""

@@ -298,14 +298,21 @@ class Simulation(SimulationCore):
         print "set_params NOT IMPLEMENTED, YET"
 
     def set_H_ext(self, values, unit=None):
-        assert False
+        v = Value(values) if unit == None else Value(values, unit=unit)
+        self.model.quantities["H_ext"].set_value(v)
 
     def set_m(self, values, subfieldname=None):
         v = Value(values, subfieldname)
-        self.model.quantities._by_name["m"].set_value(v)
+        self.model.quantities["m"].set_value(v)
 
     def set_pinning(self, values):
-        assert False
+        #v = Value(values, subfieldname)
+        v = Value(values) # <-- we should make this material dependent
+        self.model.quantities["pin"].set_value(v)
+
+    def set_current_density(self, values, unit=None):
+        v = Value(values) if unit == None else Value(values, unit=unit)
+        self.model.quantities["current_density"].set_value(v)
 
     def advance_time(self, target_time, max_it=-1, exact_tstop=True):
         ts = self.model.timesteppers._by_name["ts_llg"]
@@ -506,7 +513,7 @@ def _add_exchange(model, contexts, quantity_creator=None):
 
     # Constants and fields
     exchange_factor = qc(Constant, "exchange_factor", subfields=True,
-                         unit=SI(1e6, "m A"))
+                         unit=SI(1e-12, "m A"))
     H_exch = qc(SpaceField, "H_exch", [3], subfields=True, unit=H_unit)
 
     # The exchange operator
@@ -544,7 +551,7 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
     op_laplace_DBC = \
       Operator("laplace_DBC",
                ("-<d/dxj phi[not outer] || d/dxj phi[not outer]>;"
-                "phi[outer]=phi[outer], j:3"""),
+                "phi[outer]=phi[outer], j:3"),
                mat_opts=["MAT_SYMMETRIC", "MAT_SYMMETRY_ETERNAL"],
                auto_dep=False)
     op_load_DBC = \
@@ -653,8 +660,6 @@ def _add_llg(model, contexts, quantity_creator=None):
     model.add_quantity([dmdt, H_total, H_ext])
 
     # Equation for the effective field H_total
-    # XXX NOTE NOTE NOTE: clean up the factor 1e18. It should be computed
-    # automatically from the parse tree of the operator!
     eq = "%range i:3; H_total(i) <- H_ext(i) + H_exch(i) + H_demag(i);"
     eq_H_total = Equation("H_total", eq)
 
