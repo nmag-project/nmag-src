@@ -28,7 +28,7 @@ def _is_where_specification(x):
         else:
             return True
 
-class Value:
+class Value(object):
     """A Value is an object which can be used to set a Quantity.
     It requires three things: a value, the units and a specification of where
     the field should be set to that value. The value can be:
@@ -185,15 +185,16 @@ class Value:
                     raise ValueError("Value (%s) contains double "
                                      "specification for material '%s'."
                                      % (self, m))
+                print "get_set_plan", v, u, unit
                 d[m] = _remove_unit_rec(v, u, unit)
 
         # Now write the plan
         plan = []
         used = {}
         for m in all_materials:
-            if d.has_key(m):
+            if m in d:
                 v, u = d[m]
-            elif d.has_key(None):
+            elif None in d:
                 v, u = d[None]
             else:
                 raise ValueError("Value (%s) does not specify how to set "
@@ -203,7 +204,7 @@ class Value:
 
         # Check that all materials were used
         for m in d:
-            if m != None and not used.has_key(m):
+            if m != None and not m in used:
                 raise ValueError("Material '%s' of value (%s) was not used."
                                  % (m, self))
         return plan
@@ -213,7 +214,8 @@ class Value:
 
 def _remove_unit_rec(data, unit, new_unit):
     if isinstance(data, (types.FunctionType, numpy.ndarray)):
-        scale_factor = remove_unit(unit, new_unit)
+        u = unit if unit != None else 1.0
+        scale_factor = remove_unit(u, new_unit)
         return (data, scale_factor)
 
     else:

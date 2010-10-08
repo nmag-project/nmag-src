@@ -87,7 +87,7 @@ known_quantities = [
   Quantity(            'pin', 'pfield',       SI(1),   None),
   Quantity('current_density', 'pfield', SI('A/m^2'),   '_*',  'stt'),
   Quantity(           'dmdt',  'field',   SI('1/s'), '_?_*'),
-  Quantity(    'dm_dcurrent',  'field', SI('A/m^3'), '_?_*',  'stt'),
+  Quantity(    'dm_dcurrent',  'field', SI('1/s'), '_?_*',  'stt'),
   Quantity(          'H_ext',  'field',   SI('A/m'),   '_*'),
   Quantity(         'H_anis',  'field',   SI('A/m'), '_?_*',  'anis'),
   Quantity(         'H_exch',  'field',   SI('A/m'), '_?_*',  'exch'),
@@ -131,6 +131,7 @@ class SimulationCore(object):
         # Every quantity the user may want to save needs to be listed here
         self.known_quantities = known_quantities
         self.known_quantities_by_name = known_quantities_by_name
+        self.known_field_quantities = known_field_quantities
 
         ### Set the simulation name
         if name == None:
@@ -248,7 +249,7 @@ class SimulationCore(object):
                                               "included in the model.")
 
     def get_all_field_names(self):
-        return [q.name for q in known_field_quantities
+        return [q.name for q in self.known_field_quantities
                 if q.context == None
                 or q.context in self.components]
 

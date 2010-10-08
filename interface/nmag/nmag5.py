@@ -25,6 +25,7 @@ from simulation_core import SimulationCore
 from nsim.model import *
 from nsim.su_units import SimulationUnits
 from nsim.si_units.si import SI, bohr_magneton, positron_charge
+import nfem
 import nfem.hdf5_v01 as hdf5
 
 # Get some object into this namespace
@@ -302,7 +303,9 @@ class Simulation(SimulationCore):
         self.model.quantities["H_ext"].set_value(v)
 
     def set_m(self, values, subfieldname=None):
-        v = Value(values, subfieldname)
+        sfn = (subfieldname[2:] if subfieldname.startswith("m_")
+               else subfieldname)
+        v = (Value(sfn, values) if sfn != None else Value(values))
         self.model.quantities["m"].set_value(v)
 
     def set_pinning(self, values):
@@ -311,7 +314,7 @@ class Simulation(SimulationCore):
         self.model.quantities["pin"].set_value(v)
 
     def set_current_density(self, values, unit=None):
-        v = Value(values) if unit == None else Value(values, unit=unit)
+        v = Value(values) if unit == None else Value(values, unit)
         self.model.quantities["current_density"].set_value(v)
 
     def advance_time(self, target_time, max_it=-1, exact_tstop=True):
@@ -491,6 +494,13 @@ class Simulation(SimulationCore):
         lg.info("Written fields %s data to %s" % (str(fieldnames), filename))
         timer1.stop('save_fields')
 
+    def load_m_from_h5file(self, file_name):
+        m = self.model.quantities["m"]
+        names_and_shapes = nfem.data_doftypes(m.master)
+        for subfield_name, shape in names_and_shapes:
+            arr = hdf5.get_subfield_from_h5file(file_name, subfield_name)
+            self.set_m(arr, subfieldname=subfield_name)
+
 
 def _add_micromagnetics(model, contexts, quantity_creator=None):
     if "mumag" in contexts:
@@ -618,7 +628,7 @@ def _add_stt(model, contexts, quantity_creator=None):
     grad_m = qc(SpaceField, "grad_m", [3, 3], subfields=True,
                 unit=SI(1e9, "1/m"))
     dm_dcurrent = qc(SpaceField, "dm_dcurrent", [3], subfields=True,
-                     unit=SI(1e-15, "m^2/A"))
+                     unit=SI(1e-12, "1/s"))
     model.add_quantity([P, xi, current_density, grad_m, dm_dcurrent])
 
     # Define new computations

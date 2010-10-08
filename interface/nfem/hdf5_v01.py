@@ -1621,10 +1621,63 @@ def average_data_has_step(filename,step):
     else:
         log.debug("Have not found step %d in average table in %s" % (step,filename))
         result = False
-
-
     return result
 
+def get_subfield_from_h5file(filename, subfieldname, id=None, row=None,
+                             unit=None):
+    """
+    Retrieve data from h5 file. Data are returned as `SI-value`_\ s.
+
+    Analog to get_subfield_ (which returns subfield data for a
+    subfield of a simulation object), but will retrieve data from
+    saved ``_dat.h5`` file.
+
+    :Parameters:
+      `filename` : string
+         The full name of the ``_dat.h5`` data file.
+
+      `subfieldname` : string
+         The name of the subfield to be retrieved.
+
+      `id` : integer
+         The ``id`` of the configuration to return (defaults to 0)
+
+      `row` : integer
+         If the ``id`` is not specified, the ``row`` can
+         be used to address the data row with index ``row``.
+
+         For example, the magnetisation may have been saved at some
+         point during the simulation into a file (for example
+         using the `Restart example`_ functionality, or using the
+         save_data_ method for the first time to save the m-field
+         (i.e. ``sim.save_data(fields=['m']``) into a new file).
+
+         We can use ``row=0`` to read the first magnetisation
+         configuration that has been written into this file (and
+         ``row=1`` to access the second etc).
+
+    :Returns:
+      numpy array
+    """
+
+    if unit:
+        raise NotImplementedError("This feature is not implemented yet "
+                                  "(unit=*).")
+
+    fh = open_pytables_file(filename,'r')
+    field = fieldname_by_subfieldname(fh, subfieldname)
+    if id == None:
+        if row == None:
+            row = 0
+    else:
+        row, _, _, _ = \
+          get_row_stage_step_time_for_field_and_id(fh, field, id)
+
+    supos, sidata, site = get_dof_row_data(fh, field, subfieldname, row)
+
+    close_pytables_file(fh)
+
+    return numpy.array(sidata)
 
 def report_append_field_timings():
     for key in append_fields_timings:
