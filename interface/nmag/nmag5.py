@@ -655,11 +655,12 @@ def _add_llg(model, contexts, quantity_creator=None):
 
     H_unit = SI(1e6, "A/m")
     t_unit = SI(1e-12, "s")
+    one = SI(1)
     invt_unit = 1/t_unit
 
     # Create the LLG constants
     gamma_GG = qc(Constant, "gamma_GG", subfields=True, unit=SI(1e6, "m/A s"))
-    alpha = qc(Constant, "alpha", subfields=True, unit=SI(1))
+    alpha = qc(Constant, "alpha", subfields=True, unit=one)
     norm_coeff = qc(Constant, "norm_coeff", subfields=True, unit=invt_unit)
     model.add_quantity([gamma_GG, alpha, norm_coeff])
 
@@ -667,7 +668,8 @@ def _add_llg(model, contexts, quantity_creator=None):
     dmdt = qc(SpaceField, "dmdt", [3], subfields=True, unit=invt_unit)
     H_total = qc(SpaceField, "H_total", [3], subfields=True, unit=H_unit)
     H_ext = qc(SpaceField, "H_ext", [3], unit=H_unit)
-    model.add_quantity([dmdt, H_total, H_ext])
+    pin = qc(SpaceField, "pin", [], value=Value(1), unit=one)
+    model.add_quantity([dmdt, H_total, H_ext, pin])
 
     # Equation for the effective field H_total
     eq = "%range i:3; H_total(i) <- H_ext(i) + H_exch(i) + H_demag(i);"
@@ -677,11 +679,12 @@ def _add_llg(model, contexts, quantity_creator=None):
     eq = \
       ("%range i:3, j:3, k:3, p:3, q:3;"
        "dmdt(i) <- "
-       "  (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_total(k)"
-       "+ alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q))"
-       "+ norm_coeff*(1.0 - m(j)*m(j))*m(i)"
-       "+ P*(1.0 + alpha*xi)*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*dm_dcurrent(q)"
-       "+ P*(xi - alpha)*eps(i,j,k)*m(j)*dm_dcurrent(k);")
+       "((-gamma_GG/(1 + alpha*alpha))"
+       " *(eps(i,j,k)*m(j)*H_total(k)"
+       "   + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q))"
+       " + norm_coeff*(1.0 - m(j)*m(j))*m(i)"
+       " + P*(1.0 + alpha*xi)*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*dm_dcurrent(q)"
+       " + P*(xi - alpha)*eps(i,j,k)*m(j)*dm_dcurrent(k))*pin;")
     # Note: when P=0 the last two terms (STT) are automatically simplified!
 
     llg = Equation("llg", eq)
@@ -689,8 +692,8 @@ def _add_llg(model, contexts, quantity_creator=None):
     # Equation for the Jacobian: we omit the third term on the RHS
     eq = ("%range i:3, j:3, k:3, p:3, q:3; "
           "dmdt(i) <- "
-          "    (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_total(k)"
-          "  + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q));")
+          "(  (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_total(k)"
+          " + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q)))*pin;")
     llg_jacobi = Equation("llg-jacobi", eq)
 
 
