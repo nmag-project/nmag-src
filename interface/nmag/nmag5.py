@@ -24,9 +24,13 @@ import nmesh
 from simulation_core import SimulationCore
 from nsim.model import *
 from nsim.su_units import SimulationUnits
-from nsim.si_units.si import SI, bohr_magneton, positron_charge
+from nsim.si_units.si \
+  import SI, bohr_magneton, positron_charge, degrees_per_ns
 import nfem
 import nfem.hdf5_v01 as hdf5
+import convergence
+
+import ocaml
 
 # Get some object into this namespace
 from material import MagMaterial
@@ -86,6 +90,17 @@ class Simulation(SimulationCore):
 
         # The physics...
         self._model = None              # The nsim.model.Model object
+
+        # XXX NOTE, NOTE, NOTE:
+        # The following two things are used to compute the norm of dm/dt
+        # we should do this better: not on the master node!
+        self._previous_m_field = None
+        self._norm_dist_fun_m = None
+        # Object used to check the convergence criterion and communicate to
+        # the user how convergence is going.
+        self.convergence = convergence.Convergence()
+        self.stopping_dm_dt = 1.0*degrees_per_ns
+        self.max_dm_dt = None
 
         # How the micromagnetic quantities will be constructed, i.e. a
         # dictionary mapping quantity name -> quantity_type, where
@@ -297,15 +312,20 @@ class Simulation(SimulationCore):
     def set_params(self, stopping_dm_dt=None,
                    ts_rel_tol=None, ts_abs_tol=None):
         print "set_params NOT IMPLEMENTED, YET"
+        ts = self.model.timesteppers["ts_llg"]
+        ts.initialise(rtol=ts_rel_tol, atol=ts_abs_tol)
 
     def set_H_ext(self, values, unit=None):
         v = Value(values) if unit == None else Value(values, unit=unit)
         self.model.quantities["H_ext"].set_value(v)
 
     def set_m(self, values, subfieldname=None):
-        sfn = (subfieldname[2:] if subfieldname.startswith("m_")
-               else subfieldname)
-        v = (Value(sfn, values) if sfn != None else Value(values))
+        if subfieldname != None:
+             sfn = (subfieldname[2:] if subfieldname.startswith("m_")
+                    else subfieldname)
+             v = Value(sfn, values)
+        else:
+             v = Value(values)
         self.model.quantities["m"].set_value(v)
 
     def set_pinning(self, values):
@@ -318,17 +338,63 @@ class Simulation(SimulationCore):
         self.model.quantities["current_density"].set_value(v)
 
     def advance_time(self, target_time, max_it=-1, exact_tstop=True):
-        ts = self.model.timesteppers._by_name["ts_llg"]
-        t = ts.advance_time(target_time, max_it=max_it)
+        ts = self.model.timesteppers["ts_llg"]
+
+        # XXX NOTE, NOTE, NOTE: we should improve the following
+        m = self.model.quantities["m"]
+        previous_m_field = self._previous_m_field
+        if previous_m_field == None:
+            self._previous_m_field = previous_m_field = \
+              ocaml.raw_make_field(m.mwe, [], "", m.name + "_previous")
+        ocaml.lam_get_field(self.model.lam, previous_m_field, "v_m")
+
+        t = ts.advance_time(target_time, max_it=max_it,
+                            exact_tstop=exact_tstop)
         step = ts.get_num_steps()
         delta_step = step - self.clock.step
         delta_time = t - self.clock.time
+
+        # The following code should also be improved!
+        ocaml.lam_get_field(self.model.lam, m.master, "v_m")
+        compute_norm = self._norm_dist_fun_m
+        if compute_norm == None:
+            self._norm_dist_fun_m = compute_norm = \
+              ocaml.mwe_norm_dist_fun(m.mwe)
+        delta_norms = compute_norm(m.master, previous_m_field)
+        max_dm = max([max_dm for _, max_dm, _ in delta_norms])
+        if delta_time > 0.0:
+            self.max_dm_dt = max_dm/delta_time
+
+
         self.clock.step = step
         self.clock.time = t
         self.clock.stage_step += delta_step
         self.clock.stage_time += delta_time
         self.clock.last_step_dt_si = ts.get_last_dt()
         return t
+
+    def is_converged(self):
+        """
+        Returns True when convergence has been reached.
+        """
+        lg.debug("Entering is_converged()")
+        self.clock.convergence = False
+        if self.max_dm_dt != None:
+            converged, new_tol_factor = \
+              self.convergence.check(self.step,
+                                     self.max_dm_dt, self.stopping_dm_dt,
+                                     0.0) #self.ts_in_lam.tol_factor)
+            #if new_tol_factor != None and self._adjust_tolerances == True:
+            #    print "Scaling the tolerances: factor = %f!" % new_tol_factor
+            #    self.ts_in_lam.tol_factor = new_tol_factor
+            #    raw_input()
+            #    self.ts_in_lam.is_initialised = False
+            self.clock.convergence = converged
+            return converged
+
+        else:
+            lg.debug("is_converged(): self.max_dm_dt == None -> False")
+            return False
 
     def save_data(self, fields=None, avoid_same_step=False):
         """

@@ -179,7 +179,7 @@ class Model(object):
         self.sibling_elems = {}
         self.properties_by_region = properties_by_region
         self.mwes = {}               # All the MWEs
-        self.lam = {}
+        self.lam = None
         self._built = {}
 
     def _was_built(self, name):
@@ -389,6 +389,31 @@ class Model(object):
 
         self._built["Equations"] = True
         return equation_dict
+
+    def _build_ccodes(self):
+        ccodes = self.computations._by_type.get('CCode', [])
+        #simplify_context = \
+        #  EqSimplifyContext(quantities=self.quantities,
+        #                    material=self.all_material_names)
+        ccode_dict = {}
+        for ccode in ccodes:
+            logger.info("Building ccode %s" % ccode.name)
+            #eq_text = eq.get_text(context=simplify_context)
+            #mwes_for_eq = eq.get_inouts()
+            #eq_full_name = eq.get_full_name()
+            #equation_dict[eq_full_name] = \
+            #  nlam.lam_local(eq_full_name,
+            #                 aux_args=self.intensive_params,
+            #                 field_mwes=mwes_for_eq,
+            #                 equation=eq_text)
+
+            # We should now register a VM call to compute the equation
+            #logger.info("Creating equation program for %s" % eq.name)
+            #fields = ["v_%s" % name for name in eq.get_inouts()]
+            #eq.add_commands(["SITE-WISE-IPARAMS", eq_full_name, fields, []])
+
+        self._built["CCode"] = True
+        return ccode_dict
 
     def _build_programs(self):
         progs = (self.computations._by_type.get('LAMProgram', [])
@@ -604,6 +629,7 @@ class Model(object):
         bems = self._build_bems()
         ksps = self._build_ksps()
         equations = self._build_equations()
+        ccodes = self._build_ccodes()
         jacobi = {} # Not used (should clean this)
         self._build_dependency_tree()
         timesteppers = self._build_timesteppers()
@@ -617,7 +643,8 @@ class Model(object):
                             operators=operators.values(),
                             bem_matrices=bems.values(),
                             ksps=ksps.values(),
-                            local_operations=equations.values(),
+                            local_operations=(equations.values()
+                                              + ccodes.values()),
                             jacobi_plans=jacobi.values(),
                             programs=programs.values(),
                             timesteppers=timesteppers.values(),

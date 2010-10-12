@@ -12,11 +12,16 @@
 __all__ = ['Equation', 'Operator', 'CCode', 'LAMProgram', 'KSP', 'BEM',
            'Computations']
 
-import eqparser, opparser
+import re
+
+import eqparser
+import opparser
 from eqtree import EqSimplifyContext
 from optree import OpSimplifyContext
 from group import Group
 from obj import ModelObj
+import quantity
+
 
 class Computation(ModelObj):
     """A computation can be regarded as a black box which takes some
@@ -43,10 +48,12 @@ class Computation(ModelObj):
         ins, outs = self.get_inputs_and_outputs(context=context)
         return ins + outs
 
+
 def _expand_commands(cmds):
     def _expand_arg(arg):
         return arg.get_full_name() if isinstance(arg, Computation) else arg
     return [[_expand_arg(arg) for arg in cmd] for cmd in cmds]
+
 
 class LAMProgram(Computation):
     type_str = "LAMProgram"
@@ -64,6 +71,7 @@ class LAMProgram(Computation):
 
     def get_prog_name(self):
         return self.get_full_name()
+
 
 class ParsedComputation(LAMProgram):
     def __init__(self, computation_name, computation_prog_name,
@@ -102,6 +110,7 @@ class ParsedComputation(LAMProgram):
 
         return Computation.get_inputs_and_outputs(self, context=context)
 
+
 class Equation(ParsedComputation):
     type_str = "Equation"
 
@@ -112,6 +121,7 @@ class Equation(ParsedComputation):
                                    equation_tree, equation_string,
                                    inputs=inputs, outputs=outputs,
                                    auto_dep=auto_dep)
+
 
 class Operator(ParsedComputation):
     type_str = "Operator"
@@ -127,8 +137,72 @@ class Operator(ParsedComputation):
         self.mat_opts = mat_opts
         self.cofield_to_field = cofield_to_field
 
+
+_variable_re = re.compile("[$][^$]*[$]")
+
+def ccode_iter(src, fn):
+    def substitutor(state):
+        orig = state.group(0)
+        ret = fn(orig[1:-1])
+        if ret == True:
+            return orig[1:-1]
+        elif ret != None:
+            return ret
+        else:
+            return orig
+    return re.sub(_variable_re, substitutor, src)
+
+def parse_idx(s):
+    try:
+        return int(s)
+    except:
+        return s.strip()
+
+def ccode_subst(src, fn):
+    def substitutor(s):
+        if '(' in s:
+            left, right = s.split('(', 1)
+            if right.endswith(')'):
+                indices = map(parse_idx, right[:-1].split(','))
+                return fn(left.strip(), indices)
+        return fn(s, [])
+
+    return ccode_iter(src, substitutor)
+
+
 class CCode(Computation):
     type_str = "CCode"
+
+    def __init__(self, name, ccode, inputs=None, outputs=None, auto_dep=None):
+        Computation.__init__(self, name, inputs=None, outputs=None,
+                             auto_dep=False)
+        self.orig_ccode = ccode
+        self.ccode = None
+        self.required_quantities = None
+
+    def vivify(self, model):
+        Computation.vivify(self, model)
+
+        # We now substitute the constant quantities inside the ccode and
+        # determine which field quantities are used by the ccode.
+        needed_qs = []
+        def subst(name, indices):
+            q = model.quantities._by_name.get(name, None)
+            assert q != None, ("Quantity %s is used by CCode %s but has not "
+                               "been added to the model." % (name, self.name))
+            if isinstance(q, quantity.Constant):
+                value = q.as_constant(where=None)
+                return "(%s)" % value
+            else:
+                # Remeber the quantity and remove the dollars signs in ccode
+                needed_qs.append(name)
+                return True
+
+        self.ccode = ccode_subst(self.orig_ccode, subst)
+        self.required_quantities = needed_qs
+
+
+
 
 class KSP(Computation):
     type_str = "KSP"
@@ -153,6 +227,7 @@ class KSP(Computation):
         self.nullspace_subfields = nullspace_subfields
         self.nullspace_has_constant = nullspace_has_constant
 
+
 class BEM(Computation):
     type_str = "BEM"
 
@@ -169,6 +244,7 @@ class BEM(Computation):
         self.boundary_spec = boundary_spec
         self.lattice_info = lattice_info
         self.matoptions = matoptions
+
 
 class Computations(Group):
     type_str = "Computation"

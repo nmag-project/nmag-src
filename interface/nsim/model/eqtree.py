@@ -32,7 +32,7 @@ default_simplify_context = EqSimplifyContext()
 
 def _sc(context):
     """If a simplify-context is None, then the default context should be used.
-    This function facilitate the implementation of such a concept. Let's see
+    This function facilitates the implementation of such a concept. Let's see
     how:
 
       x = _sc(context).simplify_tensors
@@ -44,10 +44,7 @@ def _sc(context):
       else:
           x = context.simplify_tensors
     """
-    if context != None:
-        return context
-    else:
-        return default_simplify_context
+    return (context if context != None else default_simplify_context)
 
 class Node(GenericNode):
     pass

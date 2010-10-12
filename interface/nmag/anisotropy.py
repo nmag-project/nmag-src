@@ -30,7 +30,7 @@ class PredefinedAnisotropy:
     def __init__(self, function=None, order=None,
                  anis_type="functional",
                  axis1=None, axis2=None, axis3=None,
-                 K1=None, K2=None, K3=None, 
+                 K1=None, K2=None, K3=None,
                  stringifier=None):
         if function == None and order == None:
             raise NmagUserError, "Please specify a sampling order."
@@ -185,7 +185,7 @@ def cubic_anisotropy(axis1, axis2, K1, K2=0, K3=0):
     if a.K2 != 0.0:
       s += ", %s" % a.K2
     if a.K3 != 0.0:
-      s += ", %s" % a.K3 
+      s += ", %s" % a.K3
     return s
 
   if K3:
@@ -201,3 +201,134 @@ def cubic_anisotropy(axis1, axis2, K1, K2=0, K3=0):
                               K1=K1, K2=K2, K3=K3,
                               stringifier=stringifier)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import re
+
+_variable_re = re.compile("[$][^$]*[$]")
+
+
+def ccode_subst(src, fn):
+    def substitutor(state):
+        orig = state.group(0)
+        v = orig[1:-1]
+        if '(' in v:
+            left, right = v.split('(', 1)
+            if right.endswith(')'):
+                subst = fn(left, right[:-1])
+                return subst if subst != None else orig
+        subst = fn(v, None)
+        return subst if subst != None else orig
+
+    return re.sub(_variable_re, substitutor, src)
+
+
+
+
+class Anisotropy(object):
+    """The anisotropy base class."""
+
+    anisotropy_id = 0
+
+    def __init__(self):
+        # Every anisotropy needs to have an unique name, so that we can assign
+        # a unique name to its parameters within the same model.
+        # Example: if we define two uniaxial anisotropies, then we have two
+        # sets of constants (K1, K2). We then name them as ("u1_K1", "u1_K2")
+        # for the first anisotropy and ("u2_K1", "u2_K2") for the second one.
+        self.name = "a%d" % Anisotropy.anisotropy_id
+        Anisotropy.anisotropy_id += 1
+
+        self.quantities_types = {}
+        self._qs = []
+
+    def _new_quantity(q_type, q_name, *arg, **named_args):
+        abs_q_name = "%s_%s" % (self.name, q_name)
+        self._qs.append((q_type, abs_q_name, arg, named_args))
+
+    #mu_B = qc(Constant, "mu_B", value=Value(bohr_magneton),
+    #          unit=SI(1e-21, "m^2 A"))
+
+    def declare(self, attrs, objs):
+        raise NotImplementedError("Anisotropy.declare not implemented, yet!")
+
+    def get_quantities(self):
+        return []
+
+    def get_E_equation(self):
+        return ""
+
+    def get_H_equation(self):
+        return ""
+
+
+class AnisotropySum(Anisotropy):
+
+    def __init__(self, left=None, right=None):
+        self.terms = []
+        if left != None:
+            self.terms.append(left)
+        if right != None:
+            self.terms.append(right)
+
+    def get_E_equation(self):
+        return " + ".join([term.get_E_equation for term in self.terms])
+
+
+class UniaxialAnisotropy(Anisotropy):
+    def __init__(self, axis, K1, K2=0):
+        Anisotropy.__init__(self)
+        self.axis = axis
+        self.K1 = K1
+        self.K2 = K2
+
+        K_unit = SI(xxx, "J/m^3")
+        self._new_quantity(Constant, "K1", value=Value(K1), unit=K_unit)
+        self._new_quantity(Constant, "K2", value=Value(K1), unit=K_unit)
+        self._new_quantity(Constant, "axis", [3], value=Value(axis),
+                           unit=SI(1))
+
+    def get_E_equation(self):
+        ccode = \
+          ("if ($have_m$ && $have_E$) {\n"
+           "  Real cs = $m$(0)*$axis0$ + $m$(1)*$axis1$ + $m$(2)*$axis2$,\n"
+           "       cs2 = cs*cs, cs4 = cs2*cs2;\n"
+           "  $E$ = -$K1$*cs2 - $K2$*cs4;\n"
+           "}\n")
+        return ccode
+
+    def get_H_equation(self, material=""):
+        ccode = \
+          ("double cs = $m(0)$*$axis(0)$ + $m(1)$*$axis(1)$ + $m(2)$*$axis(2)$,\n"
+           "       factor = -(2*$K1$*cs + 4*$K2$*cs3)/($mu0$*$M_sat$);\n"
+           "$H(0)$ += factor*$axis(0)$;\n"
+           "$H(1)$ += factor*$axis(1)$;\n"
+           "$H(2)$ += factor*$axis(2)$;\n")
+        def subst(field_name, indices):
+            return ("%s_%s(%s)" % (field_name, material, indices)
+                    if material != None else "%s(%s)" % (field_name, indices))
+        return ccode_subst(ccode, subst)
