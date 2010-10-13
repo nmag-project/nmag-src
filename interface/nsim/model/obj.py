@@ -16,7 +16,7 @@ a name (object.name) and a full name which identifies the object univocally
 in the model (call object.get_full_name() to retrieve it).
 '''
 
-class ModelObj:
+class ModelObj(object):
     type_str = None
 
     def __init__(self, name):

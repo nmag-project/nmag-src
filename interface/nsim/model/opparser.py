@@ -14,6 +14,8 @@ representation of the equation which can be used to simplify the equation,
 examine the quantities involved in the equation and finally rewrite it as
 text."""
 
+from os.path import split, realpath
+
 from optree import *
 
 __all__ = ['lexer', 'parser', 'parse']
@@ -411,8 +413,17 @@ def p_error(t):
     raise ValueError("Syntax error when parsing equation%s." % info)
 
 import ply.yacc as yacc
-parser = yacc.yacc(tabmodule='diffop_parsetab',
-                   debugfile='diffop_parser.out')
+
+try:
+    import diffop_parsetab
+    tabmodule = diffop_parsetab
+except:
+    tabmodule = "diffop_parsetab"
+
+parser = yacc.yacc(tabmodule=tabmodule,
+                   #debugfile='diffop_parser.out',
+                   outputdir=split(realpath(__file__))[0])
+raw_input()
 
 def parse_with_start_token(s, start_tokens=[]):
     def token(token_type):
