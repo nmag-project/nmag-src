@@ -5,12 +5,12 @@ etc.)
 """
 
 from nsim.si_units import SI, si
-from anisotropy import *
+from anisotropy import PredefinedAnisotropy, Anisotropy
 
 import logging
 log = logging.getLogger('nmag')
 
-class MagMaterial:
+class MagMaterial(object):
     """
 
     :Parameters:
@@ -173,17 +173,23 @@ class MagMaterial:
                                     % (name, unit))
 
         if isinstance(anisotropy, PredefinedAnisotropy):
-          if anisotropy_order:
-            raise NmagUserError("Cannot specify custom anisotropy_order when "
-                                "using a predefined anisotropy.")
-          self.anisotropy = anisotropy.function
-          self.anisotropy_order = anisotropy.order
+            if anisotropy_order:
+                raise NmagUserError("Cannot specify custom anisotropy_order "
+                                    "when using a predefined anisotropy.")
+                anisotropy_order = anisotropy.order
+                anisotropy = anisotropy.function
+
+        elif isinstance(anisotropy, Anisotropy):
+            pass
+
         else:
-          if anisotropy and not anisotropy_order:
-            raise NmagUserError("You need to specify the anisotropy_order "
+            if anisotropy and not anisotropy_order:
+                raise \
+                  NmagUserError("You need to specify the anisotropy_order "
                                 "when using a custom anisotropy function.")
-          self.anisotropy = anisotropy
-          self.anisotropy_order = anisotropy_order
+
+        self.anisotropy = anisotropy
+        self.anisotropy_order = anisotropy_order
 
         # compute thermal factor (gets multiplied by T/(dV*dt) later)
         self.thermal_factor = (2.0*si.boltzmann_constant*self.llg_damping)/(-si.gamma0*si.mu0*self.Ms)

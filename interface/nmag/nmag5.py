@@ -29,6 +29,7 @@ from nsim.si_units.si \
 import nfem
 import nfem.hdf5_v01 as hdf5
 import convergence
+import anisotropy
 
 import ocaml
 
@@ -42,6 +43,9 @@ timer1 = Timer("save-data")
 
 # Get the logger
 lg = logging.getLogger('nmag')
+
+# XXX NOTE, NOTE, NOTE: Temporary solution
+uniaxial_anisotropy = anisotropy.UniaxialAnisotropy
 
 # These are our default simulation units -- however, they can be
 # modified by the user (by setting nmag.simulation_units manually
@@ -311,7 +315,7 @@ class Simulation(SimulationCore):
 
     def set_params(self, stopping_dm_dt=None,
                    ts_rel_tol=None, ts_abs_tol=None):
-        print "set_params NOT IMPLEMENTED, YET"
+        print "set_params NOT FULLY IMPLEMENTED, YET"
         ts = self.model.timesteppers["ts_llg"]
         ts.initialise(rtol=ts_rel_tol, atol=ts_abs_tol)
 

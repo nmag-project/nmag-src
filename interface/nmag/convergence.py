@@ -61,7 +61,6 @@ class Convergence:
         log.debug("Entering is_converged()")
         #print "max_dm_dt=%s < %s=stopping_dm_dt ? %s" \
         #      % (max_dm_dt, stopping_dm_dt, max_dm_dt < stopping_dm_dt)
-        print max_dm_dt, stopping_dm_dt
         if max_dm_dt < stopping_dm_dt:
             self.countdown -= 1
             if self.countdown < 1:

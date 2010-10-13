@@ -224,29 +224,8 @@ def cubic_anisotropy(axis1, axis2, K1, K2=0, K3=0):
 
 
 
-
-
-
-import re
-
-_variable_re = re.compile("[$][^$]*[$]")
-
-
-def ccode_subst(src, fn):
-    def substitutor(state):
-        orig = state.group(0)
-        v = orig[1:-1]
-        if '(' in v:
-            left, right = v.split('(', 1)
-            if right.endswith(')'):
-                subst = fn(left, right[:-1])
-                return subst if subst != None else orig
-        subst = fn(v, None)
-        return subst if subst != None else orig
-
-    return re.sub(_variable_re, substitutor, src)
-
-
+from nsim.si_units.si import SI
+from nsim.model import Constant, Value
 
 
 class Anisotropy(object):
@@ -266,7 +245,7 @@ class Anisotropy(object):
         self.quantities_types = {}
         self._qs = []
 
-    def _new_quantity(q_type, q_name, *arg, **named_args):
+    def _new_quantity(self, q_type, q_name, *arg, **named_args):
         abs_q_name = "%s_%s" % (self.name, q_name)
         self._qs.append((q_type, abs_q_name, arg, named_args))
 
@@ -306,7 +285,7 @@ class UniaxialAnisotropy(Anisotropy):
         self.K1 = K1
         self.K2 = K2
 
-        K_unit = SI(xxx, "J/m^3")
+        K_unit = SI(1e6, "J/m^3")
         self._new_quantity(Constant, "K1", value=Value(K1), unit=K_unit)
         self._new_quantity(Constant, "K2", value=Value(K1), unit=K_unit)
         self._new_quantity(Constant, "axis", [3], value=Value(axis),
