@@ -423,7 +423,6 @@ except:
 parser = yacc.yacc(tabmodule=tabmodule,
                    #debugfile='diffop_parser.out',
                    outputdir=split(realpath(__file__))[0])
-raw_input()
 
 def parse_with_start_token(s, start_tokens=[]):
     def token(token_type):

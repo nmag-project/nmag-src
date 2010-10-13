@@ -268,7 +268,6 @@ except:
 parser = yacc.yacc(tabmodule=tabmodule,
                    #debugfile='localeqn_parser.out',
                    outputdir=split(realpath(__file__))[0])
-raw_input()
 
 def parse(s):
     return parser.parse(s, lexer=lexer)
