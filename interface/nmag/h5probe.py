@@ -32,7 +32,10 @@ from nsim.si_units.si import SI
 timer1 = Timer("readh5")
 
 def build_full_field_name(field_name, subfield_name):
-    return '%s_%s' % (field_name, subfield_name)
+    if subfield_name == None or len(subfield_name.strip()) == 0:
+        return field_name
+    else:
+        return '%s_%s' % (field_name, subfield_name)
 
 class FieldInfo(object):
     """The purpose of this class is to store additional information about the
