@@ -353,11 +353,13 @@ class UniaxialAnisotropy(Anisotropy):
 
     def get_H_equation(self, material=None, add_only=False):
         ccode = \
-          ("double cs = $m(0)$*$axis(0)$ + $m(1)$*$axis(1)$ + $m(2)$*$axis(2)$,\n"
-           "       factor = -(2*$K1$*cs + 4*$K2$*cs3)/($mu0$*$M_sat$);\n"
-           "$H_anis(0)$ $OP$ factor*$axis(0)$;\n"
-           "$H_anis(1)$ $OP$ factor*$axis(1)$;\n"
-           "$H_anis(2)$ $OP$ factor*$axis(2)$;\n")
+          ("double a0 = $axis(0)$, a1 = $axis(1)$, a2 = $axis(2)$,\n"
+           "       cs = $m(0)$*a0 + $m(1)$*a1 + $m(2)$*a2,\n"
+           "       cs3 = cs*cs*cs,\n"
+           "       factor = (2*$K1$*cs + 4*$K2$*cs3)/($mu0$*$M_sat$);\n"
+           "$H_anis(0)$ $OP$ factor*a0;\n"
+           "$H_anis(1)$ $OP$ factor*a1;\n"
+           "$H_anis(2)$ $OP$ factor*a2;\n")
         op = "+=" if add_only else "="
         ccode = ccode.replace("$OP$", op)
         # Translate generic names into specific names: "K1" --> "a1_K1"

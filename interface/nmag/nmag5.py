@@ -25,7 +25,7 @@ from simulation_core import SimulationCore
 from nsim.model import *
 from nsim.su_units import SimulationUnits
 from nsim.si_units.si \
-  import SI, bohr_magneton, positron_charge, degrees_per_ns
+  import SI, bohr_magneton, positron_charge, degrees_per_ns, mu0
 import nfem
 import nfem.hdf5_v01 as hdf5
 import convergence
@@ -310,7 +310,8 @@ class Simulation(SimulationCore):
 
         # Now we run over the materials and create the anisotropy CCode
         has_anisotropy = False
-        anisotropies = CCode("anisotropies")
+        set_H_anis = CCode("set_H_anis", inputs=["m"], outputs=["H_anis"],
+                           auto_dep=True)
         for mat_name, mat in self.mat_of_mat_name.iteritems():
             # The first thing we have to do is to clear H_anis_mat
             a = mat.anisotropy
@@ -322,16 +323,16 @@ class Simulation(SimulationCore):
                 self.model.add_quantity(a.quantities._all)
 
                 # Now we add the anisotropy C code to the CCode object
-                anisotropies.append(a.get_H_equation(mat_name), materials=mat)
+                set_H_anis.append(a.get_H_equation(mat_name), materials=mat)
 
             elif a != None:
                 raise NmagUserError("The material anisotropy for '%s' is not "
                                     "an Anisotropy object." % mat)
         if has_anisotropy:
             H_anis = SpaceField("H_anis", [3], subfields=True, unit=H_unit)
-            mu0 = Constant("mu0", value=Value(SI(1)), unit=SI(1))
-            self.model.add_quantity([mu0, H_anis])
-            self.model.add_computation(anisotropies)
+            mu0_const = Constant("mu0", value=Value(mu0), unit=SI(1e-6, "N/A^2"))
+            self.model.add_quantity([mu0_const, H_anis])
+            self.model.add_computation(set_H_anis)
 
 
     def get_subfield_average(self, field_name, mat_name):
@@ -432,7 +433,7 @@ class Simulation(SimulationCore):
     def save_data(self, fields=None, avoid_same_step=False):
         """
         Save the *averages* of all defined (subfields) into a ascii
-        data file. The filename is composed of the simulation name
+        data file. The filename iscomposed of the simulation name
         and the extension ``_dat.ndt``. The
         extension ``ndt`` stands for Nmag Data Table (analog to OOMMFs
         ``.odt`` extension for this kind of data file.
@@ -766,7 +767,7 @@ def _add_llg(model, contexts, quantity_creator=None):
     model.add_quantity([dmdt, H_total, H_ext, pin])
 
     # Equation for the effective field H_total
-    eq = "%range i:3; H_total(i) <- H_ext(i) + H_exch(i) + H_demag(i);"
+    eq = "%range i:3; H_total(i) <- H_ext(i) + H_exch(i) + H_demag(i) + H_anis(i);"
     eq_H_total = Equation("H_total", eq)
 
     # Equation of motion

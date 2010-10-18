@@ -413,6 +413,8 @@ class Model(object):
             # We should now register a VM call to compute the equation
             logger.info("Creating ccode program for %s" % ccode.name)
             fields = ["v_%s" % name for name in ccode.get_inouts()]
+            print fields
+            raw_input()
             ccode.add_commands(["SITE-WISE-IPARAMS", ccode_full_name, fields, []])
 
         self._built["CCode"] = True
@@ -420,6 +422,7 @@ class Model(object):
 
     def _build_programs(self):
         progs = (self.computations._by_type.get('LAMProgram', [])
+                 + self.computations._by_type.get('CCode', [])
                  + self.computations._by_type.get('Equation', [])
                  + self.computations._by_type.get('Operator', []))
         prog_dict = {}

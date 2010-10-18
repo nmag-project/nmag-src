@@ -240,7 +240,7 @@ class CCode(LAMProgram):
         self.required_quantities = None
 
     def get_prog_name(self):
-        return "CCode_%s" % self.name
+        return "CCodeProg_%s" % self.name
 
     def append(self, ccode, materials=None):
         self.ccodes.append((ccode, materials))
@@ -267,18 +267,28 @@ class CCode(LAMProgram):
                     all_required_qs.update(required_qs)
 
         self.ccode = ccode
-        self.required_quantities = all_required_qs
+
+        # Remove required quantities that the user specified explicitly
+        for oq in self.outputs + self.inputs:
+            if oq in all_required_qs:
+                all_required_qs.pop(oq)
+
+        # All the required quantities which were automatically detected and
+        # the user did't mention are added as input quantities
+        self.inputs.extend(all_required_qs.values())
 
     def _build_lam_object(self, model):
         if self.ccode == None:
             self._build_ccode(model)
 
+        required_quantities = self.get_inouts()
+        print self.ccode
+        raw_input()
         return \
           nlam.lam_local(self.get_full_name(),
                          aux_args=self.intensive_params,
-                         field_mwes=self.required_quantities.keys(),
+                         field_mwes=required_quantities,
                          c_code=self.ccode)
-
 
 
 class KSP(Computation):
