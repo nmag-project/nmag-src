@@ -401,20 +401,9 @@ class Model(object):
             ccode_full_name = ccode.get_full_name()
             ccode_dict[ccode_full_name] = ccode._build_lam_object(self)
 
-            #eq_text = eq.get_text(context=simplify_context)
-            #mwes_for_eq = eq.get_inouts()
-            #eq_full_name = eq.get_full_name()
-            #equation_dict[eq_full_name] = \
-            #  nlam.lam_local(eq_full_name,
-            #                 aux_args=self.intensive_params,
-            #                 field_mwes=mwes_for_eq,
-            #                 equation=eq_text)
-
-            # We should now register a VM call to compute the equation
+            # We should now register a VM call to launch the CCode
             logger.info("Creating ccode program for %s" % ccode.name)
             fields = ["v_%s" % name for name in ccode.get_inouts()]
-            print fields
-            raw_input()
             ccode.add_commands(["SITE-WISE-IPARAMS", ccode_full_name, fields, []])
 
         self._built["CCode"] = True

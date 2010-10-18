@@ -632,11 +632,17 @@ def _add_exchange(model, contexts, quantity_creator=None):
     model.add_computation(op_exch)
 
 def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
-    if do_demag == False or "demag" in contexts:
-        return
-    contexts.append("demag")
-
     qc = quantity_creator or _default_qc
+
+    if do_demag == False or "demag" in contexts:
+        # We add anyway the H_demag field, since the computation of H_total
+        # requires it. XXX NOTE, NOTE, NOTE: should make this a Constant.
+        H_demag = qc(SpaceField, "H_demag", [3], value=Value([0, 0, 0]),
+                     unit=H_unit)
+        model.add_quantity(H_demag)
+        return
+
+    contexts.append("demag")
 
     # Create the required quantities and add them to the model
     H_demag = qc(SpaceField, "H_demag", [3], unit=H_unit)

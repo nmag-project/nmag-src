@@ -282,8 +282,6 @@ class CCode(LAMProgram):
             self._build_ccode(model)
 
         required_quantities = self.get_inouts()
-        print self.ccode
-        raw_input()
         return \
           nlam.lam_local(self.get_full_name(),
                          aux_args=self.intensive_params,
