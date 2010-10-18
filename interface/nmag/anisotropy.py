@@ -342,16 +342,16 @@ class UniaxialAnisotropy(Anisotropy):
         self._create_quantity(Constant, "axis", [3], subfields=False,
                               value=Value(axis), unit=SI(1))
 
-    def get_E_equation(self, material):
+    def get_E_equation(self, add_only=False):
         ccode = \
-          ("if ($have_m$ && $have_E$) {\n"
-           "  Real cs = $m$(0)*$axis0$ + $m$(1)*$axis1$ + $m$(2)*$axis2$,\n"
-           "       cs2 = cs*cs, cs4 = cs2*cs2;\n"
-           "  $E$ = -$K1$*cs2 - $K2$*cs4;\n"
-           "}\n")
-        return ccode
+          ("  double cs = $m$(0)*$axis0$ + $m$(1)*$axis1$ + $m$(2)*$axis2$,\n"
+           "         cs2 = cs*cs, cs4 = cs2*cs2;\n"
+           "  $E$ $OP$ -$K1$*cs2 - $K2$*cs4;\n")
+        op = "+=" if add_only else "="
+        ccode = ccode.replace("$OP$", op)
+        return ccode_add_prefix(ccode, ["axis", "K1", "K2"], self.name + "_")
 
-    def get_H_equation(self, material=None, add_only=False):
+    def get_H_equation(self, add_only=False):
         ccode = \
           ("double a0 = $axis(0)$, a1 = $axis(1)$, a2 = $axis(2)$,\n"
            "       cs = $m(0)$*a0 + $m(1)$*a1 + $m(2)$*a2,\n"

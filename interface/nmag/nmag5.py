@@ -285,6 +285,8 @@ class Simulation(SimulationCore):
         # Set the values of the constants in the micromagnetic model
         self._set_qs_from_materials()
 
+        self._add_anis()
+
         # Now build the model
         model.build()
 
@@ -308,6 +310,7 @@ class Simulation(SimulationCore):
         set_quantity_value("P", "llg_polarisation")
         set_quantity_value("xi", "llg_xi")
 
+    def _add_anis(self):
         # Now we run over the materials and create the anisotropy CCode
         has_anisotropy = False
         set_H_anis = CCode("set_H_anis", inputs=["m"], outputs=["H_anis"],
@@ -333,6 +336,15 @@ class Simulation(SimulationCore):
             mu0_const = Constant("mu0", value=Value(mu0), unit=SI(1e-6, "N/A^2"))
             self.model.add_quantity([mu0_const, H_anis])
             self.model.add_computation(set_H_anis)
+
+        else:
+            # We add anyway the H_anis field, since the computation of H_total
+            # requires it. XXX NOTE, NOTE, NOTE: should make this a Constant.
+            qc = self._quantity_creator
+            H_anis = qc(SpaceField, "H_anis", [3], subfields=True,
+                        value=Value([0, 0, 0]), unit=H_unit)
+            self._model.add_quantity(H_anis)
+            return
 
 
     def get_subfield_average(self, field_name, mat_name):
