@@ -30,6 +30,7 @@ import nfem
 import nfem.hdf5_v01 as hdf5
 import convergence
 import anisotropy
+from anisotropy import Anisotropy
 
 import ocaml
 
@@ -53,6 +54,9 @@ uniaxial_anisotropy = anisotropy.UniaxialAnisotropy
 simulation_units = \
   SimulationUnits({'A': 1e-3, 'kg': 1e-27, 'm': 1e-9, 's': 1e-12,
                    'cd': 1.0, 'K': 1.0, 'mol': 1.0})
+
+H_unit = SI(1e6, "A/m") # simulation_units.conversion_factor_of(SI("A/m"))
+
 
 
 def _default_qc(q_type, q_name, *args, **named_args):
@@ -304,6 +308,32 @@ class Simulation(SimulationCore):
         set_quantity_value("P", "llg_polarisation")
         set_quantity_value("xi", "llg_xi")
 
+        # Now we run over the materials and create the anisotropy CCode
+        has_anisotropy = False
+        anisotropies = CCode("anisotropies")
+        for mat_name, mat in self.mat_of_mat_name.iteritems():
+            # The first thing we have to do is to clear H_anis_mat
+            a = mat.anisotropy
+            if isinstance(a, Anisotropy):
+                # We enable anisotropy stuff only if necessary
+                has_anisotropy = True
+
+                # First we add the anisotropy quantities to the model
+                self.model.add_quantity(a.quantities._all)
+
+                # Now we add the anisotropy C code to the CCode object
+                anisotropies.append(a.get_H_equation(mat_name), materials=mat)
+
+            elif a != None:
+                raise NmagUserError("The material anisotropy for '%s' is not "
+                                    "an Anisotropy object." % mat)
+        if has_anisotropy:
+            H_anis = SpaceField("H_anis", [3], subfields=True, unit=H_unit)
+            mu0 = Constant("mu0", value=Value(SI(1)), unit=SI(1))
+            self.model.add_quantity([mu0, H_anis])
+            self.model.add_computation(anisotropies)
+
+
     def get_subfield_average(self, field_name, mat_name):
         f = self.model.quantities._by_name.get(field_name, None)
         if f == None:
@@ -368,7 +398,6 @@ class Simulation(SimulationCore):
         max_dm = max([max_dm for _, max_dm, _ in delta_norms])
         if delta_time > 0.0:
             self.max_dm_dt = max_dm/delta_time
-
 
         self.clock.step = step
         self.clock.time = t
@@ -589,8 +618,6 @@ def _add_exchange(model, contexts, quantity_creator=None):
 
     qc = quantity_creator or _default_qc
 
-    H_unit = SI(1e6, "A/m")
-
     # Constants and fields
     exchange_factor = qc(Constant, "exchange_factor", subfields=True,
                          unit=SI(1e-12, "m A"))
@@ -609,8 +636,6 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
     contexts.append("demag")
 
     qc = quantity_creator or _default_qc
-
-    H_unit = SI(1e6, "A/m")
 
     # Create the required quantities and add them to the model
     H_demag = qc(SpaceField, "H_demag", [3], unit=H_unit)
@@ -723,7 +748,6 @@ def _add_llg(model, contexts, quantity_creator=None):
 
     qc = quantity_creator or _default_qc
 
-    H_unit = SI(1e6, "A/m")
     t_unit = SI(1e-12, "s")
     one = SI(1)
     invt_unit = 1/t_unit

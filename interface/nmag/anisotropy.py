@@ -218,17 +218,79 @@ def cubic_anisotropy(axis1, axis2, K1, K2=0, K3=0):
 
 
 
-
-
-
-
-
-
 from nsim.si_units.si import SI
 from nsim.model import Constant, Value
+from nsim.model.quantity import Quantities
 
 
-class Anisotropy(object):
+from nsim.model.computation import ccode_subst
+
+def ccode_add_prefix(ccode, quantity_names, prefix):
+    def substitutor(q_name, indices):
+        if q_name in quantity_names:
+            new_q_name = prefix + q_name
+        else:
+            new_q_name = q_name
+
+        if indices == None:
+            return "$%s$" % new_q_name
+        else:
+            indices_str = ", ".join(map(str, indices))
+            return "$%s(%s)$" % (new_q_name, indices_str)
+    return ccode_subst(ccode, substitutor)
+
+
+class QuantityContainer(object):
+    def __init__(self, allowed_quantities=None):
+        self.quantities_types = \
+          allowed_quantities if allowed_quantities != None else {}
+
+    def _create_quantity(self, q_type, q_name, *args, **named_args):
+        q_type = self.quantities_types.get(q_name, q_type)
+        return q_type(q_name, *args, **named_args)
+
+    def declare(self, attrs, objs):
+        """Provide some attributes for the given objects. 'attrs' is a list
+        of the attributes (a list of strings) to associate to the objects
+        'objs' (a list of strings). Example:
+
+          sim.declare("space field", "llg_damping")
+
+        Can be used to declare that the damping should be a field which can
+        change in space, rather than just a constant.
+        """
+
+        # Available Quantity TypeS
+        aqts = {"constant": Constant, "spacefield": SpaceField,
+                "timefield": TimeField, "spacetimefield": SpaceTimeField}
+        dos = self.quantities_types # Declarable ObjectS
+        recognized_attrs = {}
+
+        declare_usage = ("USAGE: x.declare(attrs, objs) where attrs is a "
+                         "list of attributes (strings) to associate to the "
+                         "objects whose names are in objs (a list of "
+                         "strings).")
+        qt = []
+        for obj_name in objs:
+            if obj_name in dos:
+                assert type(obj_name) == str, declare_usage
+                for attr in attrs:
+                    assert type(attr) == str, declare_usage
+                    fmt_attr = attr.lower().replace(" ", "")
+                    if fmt_attr in qts:
+                        qt.append(fmt_attr)
+                        self.quantities_types[obj_name] = qt[fmt_attr]
+
+                    else:
+                        msg = "Unrecognized attribute '%s'" % attr
+                        raise NmagUserError(msg)
+
+        if len(qt) > 1:
+            msg = "Conflicting attributes %s." % (", ".join(qt))
+            raise NmagUserError(msg)
+
+
+class Anisotropy(QuantityContainer):
     """The anisotropy base class."""
 
     anisotropy_id = 0
@@ -242,40 +304,27 @@ class Anisotropy(object):
         self.name = "a%d" % Anisotropy.anisotropy_id
         Anisotropy.anisotropy_id += 1
 
-        self.quantities_types = {}
-        self._qs = []
+        allowed_quantities = {"K1": None, "K2": None, "axis": None}
+        QuantityContainer.__init__(self, allowed_quantities)
+        self.quantities = Quantities()
 
-    def _new_quantity(self, q_type, q_name, *arg, **named_args):
+    def _create_quantity(self, q_type, q_name, *args, **named_args):
         abs_q_name = "%s_%s" % (self.name, q_name)
-        self._qs.append((q_type, abs_q_name, arg, named_args))
+        q = QuantityContainer._create_quantity(self, q_type, abs_q_name,
+                                               *args, **named_args)
+        # We add the object to the group without the prefix which is
+        # identifying the anisotropy
+        self.quantities.add(q, name=abs_q_name)
+        return q
 
     #mu_B = qc(Constant, "mu_B", value=Value(bohr_magneton),
     #          unit=SI(1e-21, "m^2 A"))
-
-    def declare(self, attrs, objs):
-        raise NotImplementedError("Anisotropy.declare not implemented, yet!")
-
-    def get_quantities(self):
-        return []
 
     def get_E_equation(self):
         return ""
 
     def get_H_equation(self):
         return ""
-
-
-class AnisotropySum(Anisotropy):
-
-    def __init__(self, left=None, right=None):
-        self.terms = []
-        if left != None:
-            self.terms.append(left)
-        if right != None:
-            self.terms.append(right)
-
-    def get_E_equation(self):
-        return " + ".join([term.get_E_equation for term in self.terms])
 
 
 class UniaxialAnisotropy(Anisotropy):
@@ -286,12 +335,14 @@ class UniaxialAnisotropy(Anisotropy):
         self.K2 = K2
 
         K_unit = SI(1e6, "J/m^3")
-        self._new_quantity(Constant, "K1", value=Value(K1), unit=K_unit)
-        self._new_quantity(Constant, "K2", value=Value(K1), unit=K_unit)
-        self._new_quantity(Constant, "axis", [3], value=Value(axis),
-                           unit=SI(1))
+        self._create_quantity(Constant, "K1", subfields=False,
+                              value=Value(K1), unit=K_unit)
+        self._create_quantity(Constant, "K2", subfields=False,
+                              value=Value(K2), unit=K_unit)
+        self._create_quantity(Constant, "axis", [3], subfields=False,
+                              value=Value(axis), unit=SI(1))
 
-    def get_E_equation(self):
+    def get_E_equation(self, material):
         ccode = \
           ("if ($have_m$ && $have_E$) {\n"
            "  Real cs = $m$(0)*$axis0$ + $m$(1)*$axis1$ + $m$(2)*$axis2$,\n"
@@ -300,14 +351,16 @@ class UniaxialAnisotropy(Anisotropy):
            "}\n")
         return ccode
 
-    def get_H_equation(self, material=""):
+    def get_H_equation(self, material=None, add_only=False):
         ccode = \
           ("double cs = $m(0)$*$axis(0)$ + $m(1)$*$axis(1)$ + $m(2)$*$axis(2)$,\n"
            "       factor = -(2*$K1$*cs + 4*$K2$*cs3)/($mu0$*$M_sat$);\n"
-           "$H(0)$ += factor*$axis(0)$;\n"
-           "$H(1)$ += factor*$axis(1)$;\n"
-           "$H(2)$ += factor*$axis(2)$;\n")
-        def subst(field_name, indices):
-            return ("%s_%s(%s)" % (field_name, material, indices)
-                    if material != None else "%s(%s)" % (field_name, indices))
-        return ccode_subst(ccode, subst)
+           "$H_anis(0)$ $OP$ factor*$axis(0)$;\n"
+           "$H_anis(1)$ $OP$ factor*$axis(1)$;\n"
+           "$H_anis(2)$ $OP$ factor*$axis(2)$;\n")
+        op = "+=" if add_only else "="
+        ccode = ccode.replace("$OP$", op)
+        # Translate generic names into specific names: "K1" --> "a1_K1"
+        # ("a1" is the anisotropy name)
+        return ccode_add_prefix(ccode, ["axis", "K1", "K2"], self.name + "_")
+

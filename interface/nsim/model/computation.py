@@ -14,6 +14,8 @@ __all__ = ['Equation', 'Operator', 'CCode', 'LAMProgram', 'KSP', 'BEM',
 
 import re
 
+from nsim import linalg_machine as nlam
+
 import eqparser
 import opparser
 from eqtree import EqSimplifyContext
@@ -161,46 +163,121 @@ def parse_idx(s):
 def ccode_subst(src, fn):
     def substitutor(s):
         if '(' in s:
-            left, right = s.split('(', 1)
-            if right.endswith(')'):
-                indices = map(parse_idx, right[:-1].split(','))
-                return fn(left.strip(), indices)
-        return fn(s, [])
+            name_part, idx_part = s.split('(', 1)
+            name_part = name_part.strip()
+            idx_part = idx_part.strip()
+            assert idx_part.endswith(')')
+            indices = map(parse_idx, idx_part[:-1].split(','))
+            idx_part = "(" + idx_part
+
+        else:
+            name_part = s
+            idx_part = ""
+            indices = None
+
+        out = fn(name_part, indices)
+        if not isinstance(out, tuple):
+            return out
+
+        else:
+            name, indices = out
+            if name == None:
+                name = name_part
+            if indices == None:
+                indices = idx_part
+            return str(name) + str(indices)
 
     return ccode_iter(src, substitutor)
 
+def ccode_material_subst(model, ccode_name, ccode, material,
+                         safety_checks=True):
+    mat_name = material.name
+    required_qs = {}
 
-class CCode(Computation):
+    def subst(name, indices):
+        q = model.quantities._by_name.get(name, None)
+        assert q != None, ("Quantity %s is used by CCode %s but has not "
+                           "been added to the model." % (name, ccode_name))
+        if isinstance(q, quantity.Constant):
+            value = q.as_float(where=mat_name)
+            if hasattr(value, "__iter__"):
+              value = value[indices[0]]
+            return "(%s)" % value
+        else:
+            # Remeber the quantity and remove the dollars signs in ccode
+            required_qs[name] = q
+
+            # Substitute field with subfield
+            if q.subfields:
+                return ("%s_%s" % (name, mat_name), None)
+            else:
+                return True
+
+    subst_ccode = ccode_subst(ccode, subst)
+
+    if safety_checks:
+        qs = [("%s_%s" % (q_name, mat_name) if q.subfields else q_name)
+              for q_name, q in required_qs.iteritems()]
+
+        if len(qs) > 0:
+            safety_ccode = " && ".join(map(lambda s: "have_" + s, qs))
+            subst_ccode = \
+              "if (%s) {\n%s\n}\n" % (safety_ccode, subst_ccode)
+
+    return (subst_ccode, required_qs)
+
+
+class CCode(LAMProgram):
     type_str = "CCode"
 
-    def __init__(self, name, ccode, inputs=None, outputs=None, auto_dep=None):
-        Computation.__init__(self, name, inputs=None, outputs=None,
-                             auto_dep=False)
-        self.orig_ccode = ccode
+    def __init__(self, name, inputs=None, outputs=None, auto_dep=False):
+        LAMProgram.__init__(self, name,
+                            inputs=inputs, outputs=outputs, auto_dep=auto_dep)
+
+        self.ccodes = []
+        self.intensive_params = []
         self.ccode = None
         self.required_quantities = None
 
-    def vivify(self, model):
+    def get_prog_name(self):
+        return "CCode_%s" % self.name
+
+    def append(self, ccode, materials=None):
+        self.ccodes.append((ccode, materials))
+
+    def _build_ccode(self, model):
         Computation.vivify(self, model)
 
         # We now substitute the constant quantities inside the ccode and
         # determine which field quantities are used by the ccode.
-        needed_qs = []
-        def subst(name, indices):
-            q = model.quantities._by_name.get(name, None)
-            assert q != None, ("Quantity %s is used by CCode %s but has not "
-                               "been added to the model." % (name, self.name))
-            if isinstance(q, quantity.Constant):
-                value = q.as_constant(where=None)
-                return "(%s)" % value
+
+        ccode = ""
+        all_required_qs = {}
+        for orig_ccode, mats in self.ccodes:
+            if mats == None:
+                pass
             else:
-                # Remeber the quantity and remove the dollars signs in ccode
-                needed_qs.append(name)
-                return True
+                if not hasattr(mats, "__iter__"):
+                    mats = [mats]
 
-        self.ccode = ccode_subst(self.orig_ccode, subst)
-        self.required_quantities = needed_qs
+                for mat in mats:
+                    subst_ccode, required_qs = \
+                      ccode_material_subst(model, self.name, orig_ccode, mat)
+                    ccode += subst_ccode
+                    all_required_qs.update(required_qs)
 
+        self.ccode = ccode
+        self.required_quantities = all_required_qs
+
+    def _build_lam_object(self, model):
+        if self.ccode == None:
+            self._build_ccode(model)
+
+        return \
+          nlam.lam_local(self.get_full_name(),
+                         aux_args=self.intensive_params,
+                         field_mwes=self.required_quantities.keys(),
+                         c_code=self.ccode)
 
 
 

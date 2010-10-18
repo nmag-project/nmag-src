@@ -398,6 +398,9 @@ class Model(object):
         ccode_dict = {}
         for ccode in ccodes:
             logger.info("Building ccode %s" % ccode.name)
+            ccode_full_name = ccode.get_full_name()
+            ccode_dict[ccode_full_name] = ccode._build_lam_object(self)
+
             #eq_text = eq.get_text(context=simplify_context)
             #mwes_for_eq = eq.get_inouts()
             #eq_full_name = eq.get_full_name()
@@ -408,9 +411,9 @@ class Model(object):
             #                 equation=eq_text)
 
             # We should now register a VM call to compute the equation
-            #logger.info("Creating equation program for %s" % eq.name)
-            #fields = ["v_%s" % name for name in eq.get_inouts()]
-            #eq.add_commands(["SITE-WISE-IPARAMS", eq_full_name, fields, []])
+            logger.info("Creating ccode program for %s" % ccode.name)
+            fields = ["v_%s" % name for name in ccode.get_inouts()]
+            ccode.add_commands(["SITE-WISE-IPARAMS", ccode_full_name, fields, []])
 
         self._built["CCode"] = True
         return ccode_dict

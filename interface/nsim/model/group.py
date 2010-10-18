@@ -11,7 +11,7 @@
 
 import collections
 
-class Group:
+class Group(object):
     type_str = "GroupItem"
 
     def __init__(self, objs=[]):
@@ -23,10 +23,13 @@ class Group:
     def __getitem__(self, name):
         return self._by_name[name]
 
-    def add(self, obj):
+    def add(self, obj, name=None):
         """Add the given object 'obj' to the current instance.
         If 'obj' is a list, then add all the elements of the list."""
         if isinstance(obj, collections.Sequence):
+            assert name == None, \
+              ("The optional argument name is supposed to be used only "
+               "when adding one quantity at a time.")
             objs = obj
         else:
             objs = [obj]
@@ -39,13 +42,14 @@ class Group:
             except KeyError:
                 self._by_type[obj.type_str] = [obj]
 
-            if self._by_name.has_key(obj.name):
+            n = name if name != None else obj.name
+            if self._by_name.has_key(n):
                 msg = ("Collection.add: found duplicate %s with name '%s' "
                        "(a %s). Make sure that all the objects you define "
                        "have a different name!"
-                       % (self.type_str, obj.name, obj.type_str))
+                       % (self.type_str, n, obj.type_str))
                 raise ValueError(msg)
-            self._by_name[obj.name] = obj
+            self._by_name[n] = obj
 
     def get(self, name):
         """Return the quantity with the given name."""
