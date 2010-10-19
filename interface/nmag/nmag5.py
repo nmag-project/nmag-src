@@ -323,10 +323,17 @@ class Simulation(SimulationCore):
                 has_anisotropy = True
 
                 # First we add the anisotropy quantities to the model
+                if not a.quantities_defined:
+                    a._define_quantities()
+                    assert a.quantities_defined, \
+                      ("Anistropy.quantity_defined is False. Did you call "
+                       "Anisotropy._define_quantities from your custom "
+                       "_define_quantities method?")
+
                 self.model.add_quantity(a.quantities._all)
 
                 # Now we add the anisotropy C code to the CCode object
-                set_H_anis.append(a.get_H_equation(mat_name), materials=mat)
+                set_H_anis.append(a.get_H_equation(), materials=mat)
 
             elif a != None:
                 raise NmagUserError("The material anisotropy for '%s' is not "
@@ -343,9 +350,7 @@ class Simulation(SimulationCore):
             qc = self._quantity_creator
             H_anis = qc(SpaceField, "H_anis", [3], subfields=True,
                         value=Value([0, 0, 0]), unit=H_unit)
-            self._model.add_quantity(H_anis)
-            return
-
+            model.add_quantity(H_anis)
 
     def get_subfield_average(self, field_name, mat_name):
         f = self.model.quantities._by_name.get(field_name, None)

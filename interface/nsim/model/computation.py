@@ -275,7 +275,7 @@ class CCode(LAMProgram):
 
         # All the required quantities which were automatically detected and
         # the user did't mention are added as input quantities
-        self.inputs.extend(all_required_qs.values())
+        self.inputs.extend(all_required_qs.keys())
 
     def _build_lam_object(self, model):
         if self.ccode == None:
