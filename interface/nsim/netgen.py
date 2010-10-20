@@ -1,8 +1,15 @@
-import math, re, os, os.path, types
+import math
+import re
+import os
+import os.path
+import types
 
+from nsim.setup import get_exec_path
+
+nsim_raw = get_exec_path("nsim-raw")
 netgen_bin = "netgen"
-nmeshpp_bin = "nmeshpp"
-nmeshimport_bin = "nmeshimport"
+nmeshpp_bin = "%s %s" % (nsim_raw, get_exec_path("nmeshpp"))
+nmeshimport_bin = "%s %s" % (nsim_raw, get_exec_path("nmeshimport"))
 
 def netgen_mesh_from_file(geo_filename, mesh_filename, mesh_type=None,
                           keep_neu=False, keep_logs=False):
@@ -60,7 +67,7 @@ def netgen_mesh_from_string(s, mesh_filename, mesh_type=None,
     """Similar to netgen_mesh_from_file, but accepts the GEO file as a string
     (first argument), writes the GEO file to disk, generate the mesh and
     finally delete the intermediate files. Example:
-    
+
     from nsim.netgen import netgen_mesh_from_string
     netgen_mesh_from_string("algebraic3d\\n"
                             "solid main = sphere(0, 0, 0; 10) -maxh=3.0;"
@@ -98,7 +105,8 @@ def neu_to_nmesh(neu_file_name, nmesh_file_name):
     '''Calls nmeshimport to convert a mesh from "neutral" file format,
        to nmesh file format.
     '''
-    os.system('nmeshimport --netgen %s %s' % (neu_file_name, nmesh_file_name))
+    os.system('%s --netgen %s %s'
+              % (nmeshimport_bin, neu_file_name, nmesh_file_name))
 
 class NetgenMesh:
     '''This class simplifies the creation of meshes using Netgen.
