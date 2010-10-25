@@ -4,27 +4,6 @@
    ocaml module.
  */
 
-static int (*dyn_CVSpgmr)(void *cvode_mem, int pretype, int maxl) = 0;
-static N_Vector (*dyn_N_VMake_Parallel)(MPI_Comm comm, 
-                          long int local_length,
-                          long int global_length,
-                          realtype *v_data) = 0;
-static void (*dyn_N_VDestroy_Parallel)(N_Vector v) = 0;
-
-static N_Vector (*dyn_N_VMake_Serial)(long int length,
-				      realtype *v_data) = 0;
-static void (*dyn_N_VDestroy_Serial)(N_Vector v) = 0;
-
-static int (*dyn_CVSpilsSetPreconditioner)(void *cvode_mem, CVSpilsPrecSetupFn pset, 
-			     CVSpilsPrecSolveFn psolve, void *P_data) = 0;
-static int (*dyn_CVSpilsSetJacTimesVecFn)(void *cvode_mem, 
-                            CVSpilsJacTimesVecFn jtimes, void *jac_data) = 0;
-static int (*dyn_CVSpilsGetNumPrecEvals)(void *cvode_mem, long int *npevals) = 0;
-static int (*dyn_CVSpilsGetNumPrecSolves)(void *cvode_mem, long int *npsolves) = 0;
-static int (*dyn_CVSpilsGetNumLinIters)(void *cvode_mem, long int *nliters) = 0;
-static int (*dyn_CVSpilsGetNumConvFails)(void *cvode_mem, long int *nlcfails) = 0;
-static int (*dyn_CVSpilsGetNumJtimesEvals)(void *cvode_mem, long int *njvevals) = 0;
-static int (*dyn_CVSpilsGetNumRhsEvals)(void *cvode_mem, long int *nfevalsLS) = 0;
 static void *(*dyn_CVodeCreate)(int lmm, int iter) = 0;
 static int (*dyn_CVodeSetFdata)(void *cvode_mem, void *f_data) = 0;
 static int (*dyn_CVodeSetMaxOrd)(void *cvode_mem, int maxord) = 0;
@@ -47,6 +26,7 @@ static int (*dyn_CVodeGetNumStabLimOrderReds)(void *cvode_mem, long int *nslred)
 static int (*dyn_CVodeGetActualInitStep)(void *cvode_mem, realtype *hinused) = 0;
 static int (*dyn_CVodeGetLastStep)(void *cvode_mem, realtype *hlast) = 0;
 static int (*dyn_CVodeGetCurrentStep)(void *cvode_mem, realtype *hcur) = 0;
+static int (*dyn_CVodeGetCurrentTime)(void *cvode_mem, realtype *tcur) = 0;
 static int (*dyn_CVodeGetTolScaleFactor)(void *cvode_mem, realtype *tolsfac) = 0;
 static int (*dyn_CVodeGetErrWeights)(void *cvode_mem, N_Vector eweight) = 0;
 static int (*dyn_CVodeGetEstLocalErrors)(void *cvode_mem, N_Vector ele) = 0;
@@ -63,6 +43,24 @@ static int (*dyn_CVodeGetNonlinSolvStats)(void *cvode_mem, long int *nniters,
                               long int *nncfails) = 0;
 static char *(*dyn_CVodeGetReturnFlagName)(int flag) = 0;
 static void (*dyn_CVodeFree)(void **cvode_mem) = 0;
+static N_Vector (*dyn_N_VMake_Serial)(long int vec_length, realtype *v_data) = 0;
+static void (*dyn_N_VDestroy_Serial)(N_Vector v) = 0;
+static int (*dyn_CVSpilsSetPreconditioner)(void *cvode_mem, CVSpilsPrecSetupFn pset, 
+			     CVSpilsPrecSolveFn psolve, void *P_data) = 0;
+static int (*dyn_CVSpilsSetJacTimesVecFn)(void *cvode_mem, 
+                            CVSpilsJacTimesVecFn jtimes, void *jac_data) = 0;
+static int (*dyn_CVSpilsGetNumPrecEvals)(void *cvode_mem, long int *npevals) = 0;
+static int (*dyn_CVSpilsGetNumPrecSolves)(void *cvode_mem, long int *npsolves) = 0;
+static int (*dyn_CVSpilsGetNumLinIters)(void *cvode_mem, long int *nliters) = 0;
+static int (*dyn_CVSpilsGetNumConvFails)(void *cvode_mem, long int *nlcfails) = 0;
+static int (*dyn_CVSpilsGetNumJtimesEvals)(void *cvode_mem, long int *njvevals) = 0;
+static int (*dyn_CVSpilsGetNumRhsEvals)(void *cvode_mem, long int *nfevalsLS) = 0;
+static N_Vector (*dyn_N_VMake_Parallel)(MPI_Comm comm, 
+                          long int local_length,
+                          long int global_length,
+                          realtype *v_data) = 0;
+static void (*dyn_N_VDestroy_Parallel)(N_Vector v) = 0;
+static int (*dyn_CVSpgmr)(void *cvode_mem, int pretype, int maxl) = 0;
 
 typedef struct {
     void **library;
@@ -71,19 +69,6 @@ typedef struct {
 } SundialsFnTable;
 
 static SundialsFnTable symbols_table[] = {
-  {& libsundials_cvode, "CVSpgmr", (void **) & dyn_CVSpgmr},
-  {& libsundials_nvec_parallel, "N_VMake_Parallel", (void **) & dyn_N_VMake_Parallel},
-  {& libsundials_nvec_parallel, "N_VDestroy_Parallel", (void **) & dyn_N_VDestroy_Parallel},
-  {& libsundials_nvec_serial, "N_VMake_Serial", (void **) & dyn_N_VMake_Serial},
-  {& libsundials_nvec_serial, "N_VDestroy_Serial", (void **) & dyn_N_VDestroy_Serial},
-  {& libsundials_cvode, "CVSpilsSetPreconditioner", (void **) & dyn_CVSpilsSetPreconditioner},
-  {& libsundials_cvode, "CVSpilsSetJacTimesVecFn", (void **) & dyn_CVSpilsSetJacTimesVecFn},
-  {& libsundials_cvode, "CVSpilsGetNumPrecEvals", (void **) & dyn_CVSpilsGetNumPrecEvals},
-  {& libsundials_cvode, "CVSpilsGetNumPrecSolves", (void **) & dyn_CVSpilsGetNumPrecSolves},
-  {& libsundials_cvode, "CVSpilsGetNumLinIters", (void **) & dyn_CVSpilsGetNumLinIters},
-  {& libsundials_cvode, "CVSpilsGetNumConvFails", (void **) & dyn_CVSpilsGetNumConvFails},
-  {& libsundials_cvode, "CVSpilsGetNumJtimesEvals", (void **) & dyn_CVSpilsGetNumJtimesEvals},
-  {& libsundials_cvode, "CVSpilsGetNumRhsEvals", (void **) & dyn_CVSpilsGetNumRhsEvals},
   {& libsundials_cvode, "CVodeCreate", (void **) & dyn_CVodeCreate},
   {& libsundials_cvode, "CVodeSetFdata", (void **) & dyn_CVodeSetFdata},
   {& libsundials_cvode, "CVodeSetMaxOrd", (void **) & dyn_CVodeSetMaxOrd},
@@ -102,6 +87,7 @@ static SundialsFnTable symbols_table[] = {
   {& libsundials_cvode, "CVodeGetActualInitStep", (void **) & dyn_CVodeGetActualInitStep},
   {& libsundials_cvode, "CVodeGetLastStep", (void **) & dyn_CVodeGetLastStep},
   {& libsundials_cvode, "CVodeGetCurrentStep", (void **) & dyn_CVodeGetCurrentStep},
+  {& libsundials_cvode, "CVodeGetCurrentTime", (void **) & dyn_CVodeGetCurrentTime},
   {& libsundials_cvode, "CVodeGetTolScaleFactor", (void **) & dyn_CVodeGetTolScaleFactor},
   {& libsundials_cvode, "CVodeGetErrWeights", (void **) & dyn_CVodeGetErrWeights},
   {& libsundials_cvode, "CVodeGetEstLocalErrors", (void **) & dyn_CVodeGetEstLocalErrors},
@@ -113,5 +99,18 @@ static SundialsFnTable symbols_table[] = {
   {& libsundials_cvode, "CVodeGetNonlinSolvStats", (void **) & dyn_CVodeGetNonlinSolvStats},
   {& libsundials_cvode, "CVodeGetReturnFlagName", (void **) & dyn_CVodeGetReturnFlagName},
   {& libsundials_cvode, "CVodeFree", (void **) & dyn_CVodeFree},
+  {& libsundials_nvec_serial, "N_VMake_Serial", (void **) & dyn_N_VMake_Serial},
+  {& libsundials_nvec_serial, "N_VDestroy_Serial", (void **) & dyn_N_VDestroy_Serial},
+  {& libsundials_cvode, "CVSpilsSetPreconditioner", (void **) & dyn_CVSpilsSetPreconditioner},
+  {& libsundials_cvode, "CVSpilsSetJacTimesVecFn", (void **) & dyn_CVSpilsSetJacTimesVecFn},
+  {& libsundials_cvode, "CVSpilsGetNumPrecEvals", (void **) & dyn_CVSpilsGetNumPrecEvals},
+  {& libsundials_cvode, "CVSpilsGetNumPrecSolves", (void **) & dyn_CVSpilsGetNumPrecSolves},
+  {& libsundials_cvode, "CVSpilsGetNumLinIters", (void **) & dyn_CVSpilsGetNumLinIters},
+  {& libsundials_cvode, "CVSpilsGetNumConvFails", (void **) & dyn_CVSpilsGetNumConvFails},
+  {& libsundials_cvode, "CVSpilsGetNumJtimesEvals", (void **) & dyn_CVSpilsGetNumJtimesEvals},
+  {& libsundials_cvode, "CVSpilsGetNumRhsEvals", (void **) & dyn_CVSpilsGetNumRhsEvals},
+  {& libsundials_nvec_parallel, "N_VMake_Parallel", (void **) & dyn_N_VMake_Parallel},
+  {& libsundials_nvec_parallel, "N_VDestroy_Parallel", (void **) & dyn_N_VDestroy_Parallel},
+  {& libsundials_cvode, "CVSpgmr", (void **) & dyn_CVSpgmr},
   {(void **) 0, (char *) 0, (void *) 0}
 };

@@ -14,7 +14,7 @@
 
 exception Sundials_sp_caml_interface_exn of string;;
 
-let _ = Callback.register_exception 
+let _ = Callback.register_exception
   "ocaml_exn_sundials_sp_caml_interface"
   (Sundials_sp_caml_interface_exn "")
 ;;
@@ -27,7 +27,7 @@ let version () = Snippets.md5
 
 type cvode;;
 
-type simple_c_array = 
+type simple_c_array =
     (float, Bigarray.float64_elt, Bigarray.c_layout)
       Bigarray.Array1.t;;
 
@@ -45,16 +45,16 @@ type mirage_dof_mapping =
     }
 ;;
 
-type preconditioning_type = 
+type preconditioning_type =
     PREC_NONE | PREC_LEFT | PREC_RIGHT | PREC_BOTH
 ;;
 
 (* XXX REDO: *)
-type ty_fun_rhs_raw = 
+type ty_fun_rhs_raw =
     (float * simple_c_array * simple_c_array) -> unit -> int;;
 
 type ty_fun_preconditioner_setup_raw =
-    (bool * 
+    (bool *
        float * float *
        simple_c_array *
        simple_c_array *
@@ -64,7 +64,7 @@ type ty_fun_preconditioner_setup_raw =
 ;;
 
 type ty_fun_preconditioner_solve_raw =
-    (int * 
+    (int *
        float * float * float *
        simple_c_array *
        simple_c_array *
@@ -161,6 +161,9 @@ external cvode_get_precond_stats_raw:
   cvode -> (float*float*float*float*float*float)
   = "caml_sundials_sp_cvode_get_precond_stats";;
 
+external cvode_get_current_time:
+  cvode -> float = "caml_sundials_sp_cvode_get_current_time";;
+
 external cvode_get_nonlinsolv_stats_raw:
   cvode -> (float*float) = "caml_sundials_sp_cvode_get_nonlinsolv_stats";;
 
@@ -239,7 +242,7 @@ let cvode_get_stats cvode =
 ;;
 
 
-(** This function we use to just set up a problem in a simple and straightforward way. 
+(** This function we use to just set up a problem in a simple and straightforward way.
     Mostly intended to lower the initial barrier for playing around with some systems.
 
     The intention is that one should be able to investigate the Korteweg-de-Vries
@@ -327,14 +330,14 @@ let cvode_context_get_int (ccontext:cvode_context) key =
   | Some x -> Some (int_of_float x)
 ;;
 
-  
-let ensure_libraries_are_initialized () =  
+
+let ensure_libraries_are_initialized () =
   let () =
     (if Mpi_petsc.petsc_check_initialized ()
     then ()
     else
       let _ =
-	Mpi_petsc.petsc_init 
+	Mpi_petsc.petsc_init
           [|"foo"; (*"-info"*)|]
           (Printf.sprintf "%s/.petscrc" (Unix.getenv "HOME"))
 	  "[help message]"
@@ -347,7 +350,7 @@ let ensure_libraries_are_initialized () =
        Otherwise, we do it here, with default paths. Note that this
        might give rise to quite strange problems if the library paths
        are not correct...
-       
+
        XXX this evidently has to be changed if sundials uses a
        different path than /usr/local/lib. We use that here as the
        debian package, which has sundials in /usr/lib, does not
@@ -378,21 +381,21 @@ let cvode_setup_simple
     () =
   let () = Printf.fprintf stderr "DDD cvode_setup_simple is EXPERIMENTAL/UNTESTED code!\n%!" in
   (* === Obtain Tweaking Parameters === *)
-  let rel_tol = 
+  let rel_tol =
     match cvode_context_get_float cvode_context "cvode_rtol" with
     | Some x -> x | None -> 1e-8
   in
-  let abs_tol = 
+  let abs_tol =
     match cvode_context_get_float cvode_context "cvode_atol" with
     | Some x -> x | None -> 1e-5
   in
-  let cvode_max_order = 
+  let cvode_max_order =
     match cvode_context_get_int cvode_context "cvode_max_order"
     with
     | None -> 2
     | Some x -> x
   in
-  let krylov_max = 
+  let krylov_max =
     match cvode_context_get_int cvode_context "krylov_max"
     with
     | None -> 300
@@ -402,13 +405,13 @@ let cvode_setup_simple
   let ksp_atol = cvode_context_get_float cvode_context "ksp_atol" in
   let ksp_dtol = cvode_context_get_float cvode_context "ksp_dtol" in
   let ksp_maxiter = cvode_context_get_int cvode_context "ksp_maxiter" in
-  let jacobi_prealloc_diagonal = 
+  let jacobi_prealloc_diagonal =
     match cvode_context_get_int cvode_context "jacobi_prealloc_diagonal"
     with
     | None -> 25
     | Some x -> x
   in
-  let jacobi_prealloc_off_diagonal = 
+  let jacobi_prealloc_off_diagonal =
     match cvode_context_get_int cvode_context "jacobi_prealloc_off_diagonal"
     with
     | None -> 50
@@ -460,12 +463,12 @@ let cvode_setup_simple
 	    (* let () = Printf.printf "DDD [Node=%d] get_precond - duplicate jacobian\n%!" myrank in *)
 	  let mx = Mpi_petsc.matrix_duplicate true jacobian in
 	    (* let () = Printf.printf "DDD [Node=%d] get_precond - ksp_create\n%!" myrank in *)
-	  let () = 
+	  let () =
 	    begin
 	      Mpi_petsc.matrix_copy true jacobian mx; (* true = "Same nonzero pattern" *)
 	      Mpi_petsc.matrix_scale mx (-.gamma);
 	      Mpi_petsc.matrix_add_identity mx 1.0;
-	    end 
+	    end
 	  in
 	  let ksp = Mpi_petsc.ksp_create ~communicator:comm mx mx in
 	  let () = Mpi_petsc.ksp_set_up ksp in
@@ -496,7 +499,7 @@ let cvode_setup_simple
       (
 	if was_present
 	then Mpi_petsc.matrix_zero_entries jacobian
-	else 
+	else
 	  (if not(use_jacobian)
 	   then debug 5 "XXX Re-Jacobi DISABLED!\n" (* XXX adjust: MUST NOT set a Jacobi function at the end then! *)
 	   else
@@ -623,7 +626,7 @@ let cvode_setup_simple
   let () = cvode_set_max_order cvode cvode_max_order in
   let () = cvode_set_max_num_steps cvode 100000000 in
   let () =
-    cvode_setup_jacobi_times_vector_raw 
+    cvode_setup_jacobi_times_vector_raw
       cvode
       cvode_fun_jacobi_times_vector
   in
@@ -705,7 +708,7 @@ let cvode_setup_simple
    make_fun_populate_Jy: empty_jacobian_y -> fun_popuate_JY -> fun_populate_Jy
 
    Note signature:
-   
+
    fun_populate_JY:
    fun_inc_JY: (sparse_matrix -> row -> col -> contrib -> ()) -> ()
 
@@ -732,7 +735,7 @@ let cvode_setup_simple
 
    Hence, for the Jacobian, we get extra terms:
 
-   JY_km = d Ydot_k / d Ym 
+   JY_km = d Ydot_k / d Ym
 
    JY[c]_km =   JY_km
             - sum_n (  JY_lm c_n,l c_n,k C_n
@@ -753,7 +756,7 @@ let cvode_setup_simple
     violated by numerical drift - but maybe the Y -> y equalizing is just enough
     to get that sorted out)
 
-   c_n,k  
+   c_n,k
    c_n,lm
    C_n
    C_n,k
@@ -774,7 +777,7 @@ let cvode_setup_simple
    micromagnetism: the local orthonormal frames m /m x H / m x (m x H)
    are defined in terms of H_total. So, d [constraint] / d[Y_k] will
    contain d [H_total] / dm terms. We cannot include H_demag here, or
-   we will risk ending up with a dense Jacobian. The best we can 
+   we will risk ending up with a dense Jacobian. The best we can
    do is to just use the localizing contributions, dH_exchange / dM,
    and dH_anisotropy / dM.
 
@@ -802,7 +805,7 @@ let cvode_setup_simple
  *)
 
 
-type ('configuration_vector,'fun_jacobi_filler) cvode_constraints = 
+type ('configuration_vector,'fun_jacobi_filler) cvode_constraints =
     (* Note that we abstract out the configuration vector.
        Rationale: In a distributed system, it may in some
        systems be possible to evaluate constraints without
@@ -837,7 +840,7 @@ type ('configuration_vector,'fun_jacobi_filler) cvode_constraints =
 	   float);
      (* These give 1/|grad constraint(Y)|^2
 	Note that a make_cvode_constraints function
-	could easily produce defaults here that 
+	could easily produce defaults here that
 	call the constraint functions.
       *)
      cc_invnormsq_grads:
@@ -938,7 +941,7 @@ type ('configuration_vector,'fun_jacobi_filler) cvode_constraints =
 
         fun_rhs:(time:float -> wizard:par_rhs_wizard -> int) ->
 
-       where par_rhs_wizard is a structure that offers a number of 
+       where par_rhs_wizard is a structure that offers a number of
        "methods" (functions, really) which can be used to do all
        sorts of things:
 
@@ -966,7 +969,7 @@ type ('configuration_vector,'fun_jacobi_filler) cvode_constraints =
        Then, these "multi-sequential" vectors actually come from physical vectors
        that are being mapped to them in a tricky way. Two cases must be discerned here:
 
-       - Without DOF identification (e.g. periodic BC): 
+       - Without DOF identification (e.g. periodic BC):
          physical/y-mapping does not involve parallel communication, but pieces can
          be read off directly.
 
@@ -1030,7 +1033,7 @@ type ('configuration_vector,'fun_jacobi_filler) cvode_constraints =
 
     -> there are two sorts of dependencies of parallel resources:
 
-    "depends" = "needs to be defined" - e.g. 
+    "depends" = "needs to be defined" - e.g.
       - a KSP depends on its matrix,
       - a timestepper depends on the operator
         matrices for the Jacobian.
@@ -1051,7 +1054,7 @@ type ('configuration_vector,'fun_jacobi_filler) cvode_constraints =
 
 (* This is supposed to provide a set of functions  *)
 
-type 'parallel_handle cvode_par_functions = 
+type 'parallel_handle cvode_par_functions =
     {
      cpf_exec_in_parallel_return_handles_on_master :
        (unit -> 'parallel_handle array) -> 'parallel_handle array;
@@ -1063,7 +1066,7 @@ type 'parallel_handle cvode_par_functions =
    with a "single multisequential vector with identified duplicates removed".
 
    So far, this only is used in conjunction with assembling multi-physics
-   degrees of freedom (which may feature periodic boundary conditions) 
+   degrees of freedom (which may feature periodic boundary conditions)
    into a single y-vector, and associated tech (ydot/setting Jacobian entries).
 
    Presumably, we will not have much use beyond that, for other
@@ -1111,7 +1114,7 @@ let grand_field_unification_layout
   let vv_distrib = Array.map fun_fstruct_getdistrib v_fieldstructures in
     (* Evidently, we want to arrange y such that parallel distribution of the y vector
        matches parallel distribution of the mesh. This means that we have to describe
-       y-components by site. As we generally take sites to be in lexicographical 
+       y-components by site. As we generally take sites to be in lexicographical
        ordering, this will then automatically induce the distribution of the y-vector.
     *)
   let v_sites =
@@ -1134,7 +1137,7 @@ let grand_field_unification_layout
 	 array_foreach_do_n v_mwes_primary_fields
 	   (fun nr_mwe mwe ->
 	      let v_dofs = try Hashtbl.find mwe.mwe_dofs_by_site site with | Not_found -> no_dofs in
-		array_foreach_do v_dofs 
+		array_foreach_do v_dofs
 		  (fun dof ->
 		     let dof_nr = dof.dof_nr in
 		     let machine = the_dof_machine mwe dof in
@@ -1193,7 +1196,7 @@ let cvode_setup_simple_par
      then ()
      else
        let _ =
-	 Mpi_petsc.petsc_init 
+	 Mpi_petsc.petsc_init
            [|"foo"; (*"-info"*)|]
            (Printf.sprintf "%s/.petscrc" (Unix.getenv "HOME"))
 	   "[help message]"
@@ -1268,12 +1271,12 @@ let cvode_setup_simple_par
 	    (* let () = Printf.printf "DDD [Node=%d] get_precond - duplicate jacobian\n%!" myrank in *)
 	  let mx = Mpi_petsc.matrix_duplicate true jacobian in
 	    (* let () = Printf.printf "DDD [Node=%d] get_precond - ksp_create\n%!" myrank in *)
-	  let () = 
+	  let () =
 	    begin
 	      Mpi_petsc.matrix_copy true jacobian mx; (* true = "Same nonzero pattern" *)
 	      Mpi_petsc.matrix_scale mx (-.gamma);
 	      Mpi_petsc.matrix_add_identity mx 1.0;
-	    end 
+	    end
 	  in
 	  let ksp = Mpi_petsc.ksp_create ~communicator:comm mx mx in
 	  let () = Mpi_petsc.ksp_set_up ksp in
@@ -1304,7 +1307,7 @@ let cvode_setup_simple_par
       (
 	if was_present
 	then Mpi_petsc.matrix_zero_entries jacobian
-	else 
+	else
 	  (if not(use_jacobian)
 	   then debug 5 "XXX Re-Jacobi DISABLED!\n" (* XXX adjust: MUST NOT set a Jacobi function at the end then! *)
 	   else
@@ -1431,7 +1434,7 @@ let cvode_setup_simple_par
   let () = cvode_set_max_order cvode cvode_max_order in
   let () = cvode_set_max_num_steps cvode 100000000 in
   let () =
-    cvode_setup_jacobi_times_vector_raw 
+    cvode_setup_jacobi_times_vector_raw
       cvode
       cvode_fun_jacobi_times_vector
   in
