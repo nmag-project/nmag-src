@@ -1,6 +1,12 @@
 all_lib_and_funcs = {}
 
-all_lib_and_funcs["/usr/include/cvode.h"] = (
+prefix = "/usr/local"
+include_path = "%s/include" % prefix
+
+def include(filename):
+  return "%s/%s" % (include_path, filename)
+ 
+all_lib_and_funcs[include("cvode/cvode.h")] = (
   "libsundials_cvode",
   [
     # All these functions:
@@ -14,6 +20,7 @@ all_lib_and_funcs["/usr/include/cvode.h"] = (
     "CVodeSetInitStep", "CVodeSetMinStep", "CVodeSetMaxStep",
     "CVodeSetTolerances", "CVodeSetStopTime", "CVodeGetNumSteps",
     "CVodeGetLastStep", "CVodeGetCurrentStep", "CVodeGetActualInitStep",
+    "CVodeGetCurrentTime",
     "CVodeGetWorkSpace", "CVodeGetNumStabLimOrderReds",
     "CVodeGetTolScaleFactor", "CVodeGetErrWeights", "CVodeGetEstLocalErrors",
     "CVodeGetNumNonlinSolvIters", "CVodeGetNumNonlinSolvConvFails",
@@ -22,7 +29,7 @@ all_lib_and_funcs["/usr/include/cvode.h"] = (
   ]
 )
 
-all_lib_and_funcs["/usr/include/cvode/cvode_spils.h"] = (
+all_lib_and_funcs[include("cvode/cvode_spils.h")] = (
   "libsundials_cvode",
   ["CVSpilsSetJacTimesVecFn", "CVSpilsSetPreconditioner",
    "CVSpilsGetNumLinIters", "CVSpilsGetNumConvFails",
@@ -31,18 +38,18 @@ all_lib_and_funcs["/usr/include/cvode/cvode_spils.h"] = (
   ]
 )
 
-all_lib_and_funcs["/usr/local/include/nvector_serial.h"] = (
+all_lib_and_funcs[include("nvector/nvector_serial.h")] = (
   "libsundials_nvec_serial",
   ["N_VMake_Serial", "N_VDestroy_Serial"]
 )
 
 
-all_lib_and_funcs["/usr/local/include/nvector_parallel.h"] = (
+all_lib_and_funcs[include("nvector/nvector_parallel.h")] = (
   "libsundials_nvec_parallel",
   ["N_VMake_Parallel", "N_VDestroy_Parallel"]
 )
 
-all_lib_and_funcs["/usr/include/cvode/cvode_spgmr.h"] = (
+all_lib_and_funcs[include("cvode/cvode_spgmr.h")] = (
   "libsundials_cvode",
   ["CVSpgmr"])
 
