@@ -350,7 +350,7 @@ class Simulation(SimulationCore):
             qc = self._quantity_creator
             H_anis = qc(SpaceField, "H_anis", [3], subfields=True,
                         value=Value([0, 0, 0]), unit=H_unit)
-            model.add_quantity(H_anis)
+            self.model.add_quantity(H_anis)
 
     def get_subfield_average(self, field_name, mat_name):
         f = self.model.quantities._by_name.get(field_name, None)
@@ -389,6 +389,14 @@ class Simulation(SimulationCore):
         v = Value(values) if unit == None else Value(values, unit)
         self.model.quantities["current_density"].set_value(v)
 
+    def reinitialise(self,
+                     rel_tolerance=None,
+                     abs_tolerance=None,
+                     initial_time=None):
+        ts = self.model.timesteppers["ts_llg"]
+        ts.initialise(rtol=rel_tolerance, atol=abs_tolerance,
+                      initial_time=initial_time)
+
     def advance_time(self, target_time, max_it=-1, exact_tstop=True):
         ts = self.model.timesteppers["ts_llg"]
 
@@ -400,11 +408,13 @@ class Simulation(SimulationCore):
               ocaml.raw_make_field(m.mwe, [], "", m.name + "_previous")
         ocaml.lam_get_field(self.model.lam, previous_m_field, "v_m")
 
+        t0 = ts.get_time()
+        step0 = ts.get_num_steps()
         t = ts.advance_time(target_time, max_it=max_it,
                             exact_tstop=exact_tstop)
         step = ts.get_num_steps()
-        delta_step = step - self.clock.step
-        delta_time = t - self.clock.time
+        delta_step = step - step0
+        delta_time = t - t0
 
         # The following code should also be improved!
         ocaml.lam_get_field(self.model.lam, m.master, "v_m")
@@ -417,10 +427,10 @@ class Simulation(SimulationCore):
         if delta_time > 0.0:
             self.max_dm_dt = max_dm/delta_time
 
-        self.clock.step = step
-        self.clock.time = t
-        self.clock.stage_step += delta_step
-        self.clock.stage_time += delta_time
+        self.clock.step += delta_step
+        self.clock.time += delta_time
+        self.clock.stage_step = step
+        self.clock.stage_time = t
         self.clock.last_step_dt_si = ts.get_last_dt()
         return t
 

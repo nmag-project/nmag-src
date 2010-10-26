@@ -28,16 +28,15 @@ def _update_progress_file(self, H_ext, progress_file_name,
                                     progress_message_minimum_delay):
         tmpf = open(progress_file_name, 'w')
         tmpf.write(time.asctime() + '\n')
-        for k, v in self.clock.items():
-            tmpf.write("%20s : %s\n" % (k, v))
+        tmpf.write(str(self.clock))
         tmpf.write("\n")
         tmpf.write(self.convergence.get_log())
         tmpf.close()
 
         log.info("it %d, time %s; stage %d; H_ext=%s"
-                 % (self.clock['step'],
-                    self.clock['time_reached_si'].dens_str(),
-                    self.clock['stage'],
+                 % (self.clock.step,
+                    self.clock.time_reached_si.dens_str(),
+                    self.clock.stage,
                     str_of_SI_vector(H_ext)))
 
 def _string_normalise(s, lower=True, spaces='_'):
@@ -407,7 +406,7 @@ def simulation_hysteresis(self, H_ext_list,
     for what, _ in thing_when_tuples:
         key = str(what) # If what is a function we convert it
                         # to string and then use it as the key
-        if next_save_time.has_key(key):
+        if key in next_save_time:
             msg = (
               "Error in optional argument 'save' or 'do' of method "
               "'hysteresis': the list of (thing_to_save, when) "
@@ -444,14 +443,14 @@ def simulation_hysteresis(self, H_ext_list,
                  % progress_file_name)
 
     # Loop over the given fields
-    stage = self.clock['stage']
-    self.clock["exit_hysteresis"] = False
+    stage = self.clock.stage
+    self.clock.exit_hysteresis = False
     for H_ext in H_ext_list[stage-1:]:
         log.info("hysteresis: starting new stage: field = %s"
                  %  str_of_SI_vector(H_ext))
         self.do_next_stage(stage=stage)
         stage = None # Next time, just increase the stage counter
-        self.clock["stage_end"] = False
+        self.clock.stage_end = False
         if H_ext:
           self.set_H_ext(H_ext)
         self.reinitialise(initial_time=0)
@@ -470,9 +469,9 @@ def simulation_hysteresis(self, H_ext_list,
         #       because we want to check for saving fields
         #       if convergence is reached!
         while True:
-            self.clock["stage_end"] = converged = self.is_converged()
+            self.clock.stage_end = converged = self.is_converged()
             log.debug("hysteresis loop, stage %d, converged = %s"
-                      % (self.clock['stage'],str(converged)))
+                      % (self.clock.stage, str(converged)))
             # Find out the next time we need to check for convergence
             deltas = my_next_deltas(convergence_check, self.clock)
             log.debug("Time to next event: deltas = %s", str(deltas))
@@ -496,8 +495,8 @@ def simulation_hysteresis(self, H_ext_list,
                               str(nst), str(time_matches)))
 
                     log.info("hysteresis: saving %s at id=%s,step=%s.\n%s"
-                             % (what, self.clock['id'],
-                                self.clock['step'], str(self.clock)))
+                             % (what, self.clock.id,
+                                self.clock.step, str(self.clock)))
                     what(self)
 
                 next_save_time[key] = nst
@@ -507,7 +506,7 @@ def simulation_hysteresis(self, H_ext_list,
 
             (delta_step, delta_time, delta_real_time) = deltas
             log.debug("hysteresis: current time is %s"
-                      % (str(self.clock['time'])))
+                      % (str(self.clock.time)))
             log.debug("predicted advance: "
                       "delta_step=%s, delta_time=%s, delta_real_time=%s"
                       % (str(delta_step), str(delta_time),
@@ -519,16 +518,16 @@ def simulation_hysteresis(self, H_ext_list,
                 # such a speficication!
                 target_time = self.max_time_reached
             else:
-                target_time = self.clock['stage_time'] + delta_time
+                target_time = self.clock.stage_time + delta_time
 
                 if delta_step == None: delta_step = -1
 
-            if self.clock["exit_hysteresis"]:
+            if self.clock.exit_hysteresis:
                 log.debug("Exit from the hysteresis loop has been forced "
                           "using the tag 'exit': exiting now!")
                 return
 
-            if self.clock["stage_end"]:
+            if self.clock.stage_end:
                 log.debug("Reached end of stage in hysteresis command, "
                           "converged=%s, exiting now!" % converged)
                 break
@@ -545,8 +544,9 @@ def simulation_hysteresis(self, H_ext_list,
             try:
                 _update_progress_file(self, H_ext, progress_file_name,
                                       progress_message_minimum_delay)
-            except:
-                pass # Do not stop the simulation for such a stupid reason!
+            except Exception as excp:
+                log.info("Problem when generating progress file. "
+                         "Got exception: %s." % str(excp))
 
 simulation_hysteresis.__argdoclong__ = """
 (

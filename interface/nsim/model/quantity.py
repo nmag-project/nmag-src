@@ -263,7 +263,7 @@ class SpaceField(Quantity):
             assert len(set_plan) == 1
             v, m, u = set_plan[0]
             scale_factor = float(u)
-            flexible_set_fielddata(self.master, self.name, m, 1e9,
+            flexible_set_fielddata(self.master, self.name, m, 1e-9,
                                    scale_factor=scale_factor,
                                    normalise=False)
 
