@@ -540,7 +540,7 @@ class Simulation(SimulationCore):
         timer1.stop('save_data')
         lg.debug("Leaving save_data")
 
-    def _create_h5_file(self,filename):
+    def _create_h5_file(self, filename):
         lg.debug("_create_h5_file: initial creation of '%s'" % filename)
         hdf5.create_file(filename)
         hdf5.tagfile(filename,'nsimdata','0.1')
@@ -627,6 +627,9 @@ class Simulation(SimulationCore):
         for subfield_name, shape in names_and_shapes:
             arr = hdf5.get_subfield_from_h5file(file_name, subfield_name)
             self.set_m(arr, subfieldname=subfield_name)
+
+    def save_m_to_file(self, file_name):
+        self._save_fields(file_name, fieldnames=["m"])
 
 
 def _add_micromagnetics(model, contexts, quantity_creator=None):

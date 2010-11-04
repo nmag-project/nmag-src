@@ -143,10 +143,12 @@ class NetgenMesh:
             try:
                 var_name = var.group(0)[1:-1]
             except:
-                raise "NetgenMesh: Error when substituting variable."
+                raise ValueError("NetgenMesh: Error when substituting "
+                                 "variable.")
             if self._vars_dict.has_key(var_name):
                 return str(self._vars_dict[var_name])
-            raise "NetgenMesh: Variable '%s' not found!" % var_name
+            raise ValueError("NetgenMesh: Variable '%s' not found!"
+                             % var_name)
 
         return re.sub(self._var_re, substitutor, src)
 
@@ -171,10 +173,12 @@ class NetgenMesh:
 
     def save(self, file_name, force_update=False, delete_neu=True):
         def save_error(msg):
-            raise "Error in method `save` of class `NetgenMesh`: %s." % msg
+            raise ValueError("Error in method `save` of class `NetgenMesh`: "
+                             "%s." % msg)
 
         if not ("." in file_name):
-            save_error("file name does not have an extension.")
+            save_error("file name (%s) does not have an extension"
+                       % file_name)
 
         ext = file_extension(file_name).lower()
         if not (ext in ["neu", "h5", "nmesh"]):
