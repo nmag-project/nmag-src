@@ -26,7 +26,7 @@
    petsc for being initialized, and the vector data structure for
    being valid. However, these check functions are internal to the
    petsc module... So, for now, we do not do that. Not much harm done.
-  
+
    XXX NOTE: what if a callback function raises an exception?
    This may severely mess up internal de-allocation routines,
    hence we should see that we do catch all exceptions from callbacks.
@@ -37,7 +37,7 @@
    add-on, in such a way that someone who does not intend to use
    libsundials functions or features should not have to worry about
    installing the library in order to work with our code. We can
-   indeed achieve this through dynamic linking techniques. 
+   indeed achieve this through dynamic linking techniques.
 
    However, there is an issue with sundials-specific definitions: in
    order to also get rid of the build-dependency on libsundials
@@ -242,7 +242,7 @@ static void finalize_cvode(value block)
 
 /* XXX p.38[48] cvodesetfdata, p.61[71] CVRhsFn */
 
-/* 
+/*
    callback_data is a memory block containing two OCaml registered global roots.
    First one holds the callback function, the second one a tuple which we use
    to assemble the arguments for the callback.
@@ -254,7 +254,7 @@ static int rhs_fn_wrapper(realtype time,
 			  void *callback_data)
 {
   CAMLparam0();	/* We need this because we use ml heap-allocations */
-  
+
   value *callback_ml=(value *)callback_data;
   realtype *y_data, *ydot_data;
   long local_size[1];
@@ -271,7 +271,7 @@ static int rhs_fn_wrapper(realtype time,
   /* fprintf(stderr,"DDD Sundials-SP: rhs_fn_wrapper #2\n");fflush(stderr); */
 
   if(callback_fun==Val_unit)
-    {  
+    {
       own_raise_with_string(*caml_named_value(err_exn_name),"No Callback function registered!");
     }
 
@@ -309,7 +309,7 @@ static int rhs_fn_wrapper(realtype time,
   Store_field(callback_args,0,copy_double(time));
   Store_field(callback_args,1,ba_y);
   Store_field(callback_args,2,ba_ydot);
-  
+
   /* callback_return=caml_callback(callback,callback_args);
      For strange reasons, this did not compile... */
 
@@ -332,7 +332,7 @@ static int rhs_fn_wrapper(realtype time,
   Store_field(callback_args,1,Val_unit);
   Store_field(callback_args,2,Val_unit);
   /* This ensures our bigarrays can be GC'd. */
-  
+
   CAMLreturn(Int_val(callback_return));
 }
 
@@ -343,7 +343,7 @@ static int preconditioner_setup_wrapper(realtype t, N_Vector y, N_Vector fy,
 					N_Vector tmp3)
 {
   CAMLparam0();	/* We need this because we use ml heap-allocations */
-  
+
   value *callback_ml=(value *)callback_data;
   realtype *y_data, *fy_data, *tmp1_data, *tmp2_data,*tmp3_data;
   int i;
@@ -360,7 +360,7 @@ static int preconditioner_setup_wrapper(realtype t, N_Vector y, N_Vector fy,
   is_parallel=Bool_val(Field(callback_ml[0],4));
 
   if(callback_fun==Val_unit)
-    {  
+    {
       own_raise_with_string(*caml_named_value(err_exn_name),"No Callback function registered!");
     }
 
@@ -406,7 +406,7 @@ static int preconditioner_setup_wrapper(realtype t, N_Vector y, N_Vector fy,
 
   ba_tmp1=alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,
 			 1, tmp1_data, local_size);
-  
+
   ba_tmp2=alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,
 			 1, tmp2_data, local_size);
 
@@ -429,7 +429,7 @@ static int preconditioner_setup_wrapper(realtype t, N_Vector y, N_Vector fy,
   Store_field(callback_args,5,ba_tmp1);
   Store_field(callback_args,6,ba_tmp2);
   Store_field(callback_args,7,ba_tmp3);
-  
+
   /* callback_return=caml_callback(callback,callback_args);
      For strange reasons, this did not compile... */
 
@@ -449,7 +449,7 @@ static int preconditioner_setup_wrapper(realtype t, N_Vector y, N_Vector fy,
   /* fprintf(stderr,"DDD Sundials-SP: pc_setup_wrapper #8\n");fflush(stderr); */
 
   *jcurPtr=(Val_bool(Field(callback_return,0))?TRUE:FALSE);
-  
+
   CAMLreturn(Int_val(Field(callback_return,1)));
   /* return 0 => success
      positive => recoverable
@@ -463,7 +463,7 @@ static int preconditioner_solve_wrapper(realtype t, N_Vector y, N_Vector fy,
 					int lr, void *callback_data, N_Vector tmp)
 {
   CAMLparam0();	/* We need this because we use ml heap-allocations */
-  
+
   value *callback_ml=(value *)callback_data;
   realtype *y_data, *fy_data, *r_data, *z_data,*tmp_data;
   int i;
@@ -480,7 +480,7 @@ static int preconditioner_solve_wrapper(realtype t, N_Vector y, N_Vector fy,
   is_parallel=Bool_val(Field(callback_ml[0],4));
 
   if(callback_fun==Val_unit)
-    {  
+    {
       own_raise_with_string(*caml_named_value(err_exn_name),"No Callback function registered!");
     }
 
@@ -540,7 +540,7 @@ static int preconditioner_solve_wrapper(realtype t, N_Vector y, N_Vector fy,
   Store_field(callback_args,6,ba_r);
   Store_field(callback_args,7,ba_z);
   Store_field(callback_args,8,ba_tmp);
-  
+
   /* callback_return=caml_callback(callback_fun,callback_args);
      For strange reasons, this did not compile... */
 
@@ -552,7 +552,7 @@ static int preconditioner_solve_wrapper(realtype t, N_Vector y, N_Vector fy,
   Store_field(callback_args,7,Val_unit);
   Store_field(callback_args,8,Val_unit);
   /* This ensures our bigarrays can be GC'd. */
-  
+
   CAMLreturn(Int_val(callback_return));
   /* return 0 => success
      positive => recoverable
@@ -568,7 +568,7 @@ static int jacobian_times_vector_wrapper(N_Vector v, N_Vector Jv,
 					 void *callback_data, N_Vector tmp)
 {
   CAMLparam0();	/* We need this because we use ml heap-allocations */
-  
+
   value *callback_ml=(value *)callback_data;
   realtype *v_data, *Jv_data, *y_data, *fy_data,*tmp_data;
   int i;
@@ -585,7 +585,7 @@ static int jacobian_times_vector_wrapper(N_Vector v, N_Vector Jv,
   is_parallel=Bool_val(Field(callback_ml[0],4));
 
   if(callback_fun==Val_unit)
-    {  
+    {
       own_raise_with_string(*caml_named_value(err_exn_name),"No Callback function registered!");
     }
 
@@ -604,7 +604,7 @@ static int jacobian_times_vector_wrapper(N_Vector v, N_Vector Jv,
       y_data=NV_DATA_P(y);
       fy_data=NV_DATA_P(fy);
       tmp_data=NV_DATA_P(tmp);
-      
+
       local_size[0]=NV_LOCLENGTH_P(y);
     }
   else
@@ -614,7 +614,7 @@ static int jacobian_times_vector_wrapper(N_Vector v, N_Vector Jv,
       y_data=NV_DATA_S(y);
       fy_data=NV_DATA_S(fy);
       tmp_data=NV_DATA_S(tmp);
-      
+
       local_size[0]=NV_LENGTH_S(y);
     }
 
@@ -624,7 +624,7 @@ static int jacobian_times_vector_wrapper(N_Vector v, N_Vector Jv,
 
   ba_Jv=alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,
 		       1, Jv_data, local_size);
-  
+
 
   ba_y=alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,
 		      1, y_data, local_size);
@@ -657,7 +657,7 @@ static int jacobian_times_vector_wrapper(N_Vector v, N_Vector Jv,
   Store_field(callback_args,4,Val_unit);
   Store_field(callback_args,5,Val_unit);
   /* This ensures our bigarrays can be GC'd. */
-  
+
   CAMLreturn(Int_val(callback_return));
   /* return 0 => success
      other => unrecoverable error
@@ -699,7 +699,7 @@ CAMLprim value caml_sundials_sp_cvode_make_raw_ba(value ml_args)
 	     ml_initial_time,ml_rel_tol,ml_abs_tol);
 
   /* fprintf(stderr,"Sundials-SP: making CVODE #1!\n");fflush(stderr); */
-  
+
   ml_comm=Field(ml_args,0);
   ml_is_parallel=Field(ml_args,1);
   ml_fun_rhs=Field(ml_args,2);
@@ -742,7 +742,7 @@ CAMLprim value caml_sundials_sp_cvode_make_raw_ba(value ml_args)
   root_cells[0]=Val_unit;
   root_cells[1]=Val_unit;
   root_cells[2]=Val_unit;
-  
+
   caml_register_global_root(&root_cells[0]);
   caml_register_global_root(&root_cells[1]);
   caml_register_global_root(&root_cells[2]);
@@ -751,10 +751,10 @@ CAMLprim value caml_sundials_sp_cvode_make_raw_ba(value ml_args)
 
   callbacks_block = alloc_tuple(5);
   callbacks_args = alloc_tuple(4);
-  
+
   for(i=0;i<4;i++) {Store_field(callbacks_block,i,Val_unit);}
   for(i=0;i<4;i++) {Store_field(callbacks_args,i,Val_unit);}
-  
+
   Store_field(callbacks_block,4,Val_bool(is_parallel));
   Store_field(callbacks_block,0,ml_fun_rhs);
 
@@ -795,9 +795,9 @@ CAMLprim value caml_sundials_sp_cvode_make_raw_ba(value ml_args)
 		       rel_tol,
 		       &abs_tol
 		       );
-  
+
   flag2=dyn_CVodeSetFdata(cvode,&root_cells[0]);
-  
+
   if(flag!=CV_SUCCESS || flag2!=CV_SUCCESS)
     {
       if(is_parallel) {
@@ -810,7 +810,7 @@ CAMLprim value caml_sundials_sp_cvode_make_raw_ba(value ml_args)
       caml_remove_global_root(&root_cells[0]);
       caml_remove_global_root(&root_cells[1]);
       caml_remove_global_root(&root_cells[2]);
-      
+
       switch(flag) {
       case CV_MEM_NULL:
       case CV_MEM_FAIL:
@@ -828,7 +828,7 @@ CAMLprim value caml_sundials_sp_cvode_make_raw_ba(value ml_args)
 			      "CVodeMalloc weird failure!");
       }
     }
-  
+
   CAMLreturn(cvode_block);
 }
 
@@ -849,13 +849,13 @@ CAMLprim value caml_sundials_sp_cvode_reinit(value ml_cvode,
 
   cvode = (void *) Field(ml_cvode, 1);
   nvec_initial_config = (N_Vector) Field(ml_cvode, 3);
-  
+
   abs_tol=Double_val(ml_abs_tol);
-  
+
   if(cvode == NULL)
     own_raise_with_string(*caml_named_value(err_exn_name),
                           "CVode no longer valid!");
-  
+
   flag = dyn_CVodeReInit(
 			 cvode,
 			 rhs_fn_wrapper,
@@ -881,7 +881,7 @@ CAMLprim value caml_sundials_sp_cvode_reinit(value ml_cvode,
                             "CVodeReInit unknown error!");
     }
   }
-  
+
   CAMLreturn(Val_unit);
 }
 
@@ -925,7 +925,7 @@ CAMLprim value caml_sundials_sp_cvode_setup_cvspgmr_raw(value ml_cvode,
   default:
     precond_type=PREC_NONE;
   }
-   
+
   flag=dyn_CVSpgmr(cvode,precond_type,Int_val(ml_krylov_max));
 
   if(flag!=CVSPILS_SUCCESS)
@@ -937,7 +937,7 @@ CAMLprim value caml_sundials_sp_cvode_setup_cvspgmr_raw(value ml_cvode,
 
   Store_field(root_cells[0],1,ml_preconditioner_setup_fun);
   Store_field(root_cells[0],2,ml_preconditioner_solve_fun);
-  
+
   flag=dyn_CVSpilsSetPreconditioner(cvode,
 				    preconditioner_setup_wrapper,
 				    preconditioner_solve_wrapper,
@@ -949,7 +949,7 @@ CAMLprim value caml_sundials_sp_cvode_setup_cvspgmr_raw(value ml_cvode,
       own_raise_with_string(*caml_named_value(err_exn_name),
 			    "CVode: CVSpilsSetPreconditioner failed");
     }
-  
+
   CAMLreturn(Val_unit);
 }
 
@@ -972,19 +972,19 @@ CAMLprim value caml_sundials_sp_cvode_setup_jacobi_times_vector_raw(value ml_cvo
       own_raise_with_string(*caml_named_value(err_exn_name),
 			    "CVode no longer valid!");
     }
-  
+
   root_cells=(value *)Field(ml_cvode,6);
   Store_field(root_cells[0],3,ml_jv_fun);
 
   flag=dyn_CVSpilsSetJacTimesVecFn(cvode,jacobian_times_vector_wrapper,
 				   root_cells);
-  
+
   if(flag!=CVSPILS_SUCCESS)
     {
       own_raise_with_string(*caml_named_value(err_exn_name),
 			    "CVode: CVSpilsSetJacTimesVecFn failed!");
     }
-  
+
   CAMLreturn(Val_unit);
 }
 
@@ -1007,7 +1007,7 @@ CAMLprim value caml_sundials_sp_cvode_set_max_ord(value ml_cvode,
 			    "CVode no longer valid!");
     }
 
-  
+
   flag=dyn_CVodeSetMaxOrd(cvode,Int_val(ml_ord));
 
   if(flag!=CV_SUCCESS)
@@ -1037,7 +1037,7 @@ CAMLprim value caml_sundials_sp_cvode_set_max_num_steps(value ml_cvode,
 			    "CVode no longer valid!");
     }
 
-  
+
   flag=dyn_CVodeSetMaxNumSteps(cvode,Int_val(ml_steps));
 
   if(flag!=CV_SUCCESS)
@@ -1068,7 +1068,7 @@ CAMLprim value caml_sundials_sp_cvode_set_init_step(value ml_cvode,
 			    "CVode no longer valid!");
     }
 
-  
+
   flag=dyn_CVodeSetInitStep(cvode,Double_val(ml_step));
 
   if(flag!=CV_SUCCESS)
@@ -1098,7 +1098,7 @@ CAMLprim value caml_sundials_sp_cvode_set_min_step(value ml_cvode,
 			    "CVode no longer valid!");
     }
 
-  
+
   flag=dyn_CVodeSetMinStep(cvode,Double_val(ml_step));
 
   if(flag!=CV_SUCCESS)
@@ -1128,7 +1128,7 @@ CAMLprim value caml_sundials_sp_cvode_set_max_step(value ml_cvode,
 			    "CVode no longer valid!");
     }
 
-  
+
   flag=dyn_CVodeSetMaxStep(cvode,Double_val(ml_step));
 
   if(flag!=CV_SUCCESS)
@@ -1195,7 +1195,7 @@ CAMLprim value caml_sundials_sp_cvode_get_num_steps(value ml_cvode)
 			    "CVode no longer valid!");
     }
 
-  
+
   flag=dyn_CVodeGetNumSteps(cvode,&nsteps);
 
   if(flag!=CV_SUCCESS)
@@ -1220,7 +1220,7 @@ typedef enum {
 /* Here we wrap the CVode function which a nicer interface, where we can
    specify whether we would like to advance up to a given time
    or/and number of steps. We also allow to specify if we want to advance
-   to exactly the given time or to nearly the specified time. 
+   to exactly the given time or to nearly the specified time.
    The behaviour can be tuned by specifying a value for adv_mode which is
    obtained by or-ing some ADVMODE_* flags. */
 static int My_CVode_Advance_Time(void *cvode_mem, N_Vector yout,
@@ -1239,7 +1239,7 @@ static int My_CVode_Advance_Time(void *cvode_mem, N_Vector yout,
     dyn_CVodeSetStopTime(cvode_mem, DBL_MAX);
     flag = dyn_CVode(cvode_mem, *target_time, yout, target_time, itask);
     /* ...we now check for 'flag' and report errors... */
- 
+
   } else if (adv_mode == 0) {
     if (err_stream != NULL)
       fprintf(err_stream,
@@ -1308,7 +1308,7 @@ CAMLprim value caml_sundials_sp_cvode_advance_raw_ba(value ml_args)
 
        0:comm, 1:is_parallel, 2:cvode, 3:vec,
        4:advance_mode, 5:target_time, 6:nr_steps,
-       7:verbose 
+       7:verbose
    */
 
   CAMLlocal3(ml_comm, ml_cvode, ml_vec);
@@ -1318,7 +1318,7 @@ CAMLprim value caml_sundials_sp_cvode_advance_raw_ba(value ml_args)
       advance_mode = Int_val(Field(ml_args, 4)),
       nr_steps = Int_val(Field(ml_args, 6)),
       verbose = Int_val(Field(ml_args, 7)),
-      flag; 
+      flag;
   void *cvode;
   N_Vector y_out;
   MPI_Comm comm;
@@ -1359,7 +1359,7 @@ CAMLprim value caml_sundials_sp_cvode_advance_raw_ba(value ml_args)
   } else {
     dyn_N_VDestroy_Serial(y_out);
   }
-  
+
   /* fprintf(stderr,"DDD Sundials-SP: cvode_advance_raw_ba #5\n");fflush(stderr); */
 
   CAMLreturn(copy_double(target_time));
@@ -1428,6 +1428,26 @@ CAMLprim value caml_sundials_sp_cvode_get_integrator_stats(value ml_cvode)
   Store_field(result, 8, copy_double((double) hcur));
   Store_field(result, 9, copy_double((double) tcur));
   CAMLreturn(result);
+}
+
+CAMLprim value caml_sundials_sp_cvode_get_current_time(value ml_cvode)
+{
+  CAMLparam1(ml_cvode);
+  void *cvode;
+
+  realtype tcur;
+
+  sundials_sp_checkinit();
+  cvode = (void*) Field(ml_cvode, 1);
+  if (!cvode)
+    own_raise_with_string(*caml_named_value(err_exn_name),
+                          "CVode no longer valid!");
+
+  if (CV_SUCCESS != dyn_CVodeGetCurrentTime(cvode, & tcur))
+    own_raise_with_string(*caml_named_value(err_exn_name),
+                          "Unable to get current time.");
+
+  CAMLreturn(copy_double(tcur));
 }
 
 CAMLprim value caml_sundials_sp_cvode_get_nonlinsolv_stats(value ml_cvode)

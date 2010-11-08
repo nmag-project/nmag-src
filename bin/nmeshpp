@@ -556,7 +556,7 @@ def do_refine(mesh,options,outfile):
 
 def do_connectivityplot(mesh,options,filename):
     import pylab
-    import numarray
+    import numpy
     import os
     fileformats = ['png','eps','ps','svg']
     filenameext = os.path.basename(filename).split('.')[-1]
@@ -566,7 +566,7 @@ def do_connectivityplot(mesh,options,filename):
         logging.warn("Connectivity plot: Don't know fileformat '%s' (extension of '%s') -- will save as png." % (filenameext,filename))
         filename=filename+'.png'
     n=len(mesh.points)
-    c = numarray.zeros(shape=(n,n),typecode=numarray.Bool)
+    c = numpy.zeros(shape=(n,n), dtype=numpy.bool)
     for (i,j) in mesh.links:
         c[i,j]=True
         c[j,i]=True

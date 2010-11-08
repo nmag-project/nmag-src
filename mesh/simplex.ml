@@ -69,10 +69,12 @@ let my_fill_point_matrices m0 ba =
                      in point_coords.{nr_row})))
 
 let my_build_point_matrices m0 () =
+  let mr = mem_report_begin "point matrices" in
   let d = Mesh0.get_nr_dims m0 in
   let n = Mesh0.get_nr_simplices m0 in
   let ba = F.create3 n (d + 1) (d + 1) in
-  let () = my_fill_point_matrices m0 ba
+  let () = my_fill_point_matrices m0 ba in
+  let () = mem_report_end mr
   in ba
 
 (* NOTE: in the function above we build the inverses of the extended point
@@ -80,6 +82,7 @@ let my_build_point_matrices m0 () =
      msd_ext_point_coords, since we want to be independent from that.
  *)
 let my_fill_inv_point_matrices_and_dets simplex () =
+  let mr = mem_report_begin "inverse point matrices and their determinants" in
   let m0 = simplex.msd_mesh0 in
   let d = Mesh0.get_nr_dims m0 in
   let n = Mesh0.get_nr_simplices m0 in
@@ -95,7 +98,8 @@ let my_fill_inv_point_matrices_and_dets simplex () =
              F.set_all2 mx (fun i1 i2 -> inv_mx.(i1).(i2));
              F.set1 dets nr_spx det;
            end)
-  in ()
+  in
+    mem_report_end mr
 
 let my_fill_c_data simplex midpoints radii compute =
   let m0 = simplex.msd_mesh0 in
@@ -112,7 +116,7 @@ let my_fill_c_data simplex midpoints radii compute =
     done
 
 let my_fill_ic_data simplex () =
-  let mr = mem_report_begin "computation of incircle data" in
+  let mr = mem_report_begin "incircle data" in
   let d = Mesh0.get_nr_dims simplex.msd_mesh0 in
   let midpoints = Deferred.create simplex.msd_ic_midpoints in
   let radii = Deferred.create simplex.msd_ic_radii in
@@ -122,7 +126,7 @@ let my_fill_ic_data simplex () =
     ()
 
 let my_fill_cc_data simplex () =
-  let mr = mem_report_begin "computation of circumcircle data" in
+  let mr = mem_report_begin "circumcircle data" in
   let d = Mesh0.get_nr_dims simplex.msd_mesh0 in
   let midpoints = Deferred.create simplex.msd_cc_midpoints in
   let radii = Deferred.create simplex.msd_cc_radii in

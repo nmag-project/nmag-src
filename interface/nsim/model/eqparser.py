@@ -14,6 +14,8 @@ representation of the equation which can be used to simplify the equation,
 examine the quantities involved in the equation and finally rewrite it as
 text."""
 
+from os.path import split, realpath
+
 from eqtree import *
 
 __all__ = ['lexer', 'parser', 'parse']
@@ -256,8 +258,16 @@ def p_error(t):
     raise ValueError("Syntax error when parsing equation%s." % info)
 
 import ply.yacc as yacc
-parser = yacc.yacc(tabmodule='localeqn_parsetab',
-                   debugfile='localeqn_parser.out')
+
+try:
+    import localeqn_parsetab
+    tabmodule = localeqn_parsetab
+except:
+    tabmodule = "localeqn_parsetab"
+
+parser = yacc.yacc(tabmodule=tabmodule,
+                   #debugfile='localeqn_parser.out',
+                   outputdir=split(realpath(__file__))[0])
 
 def parse(s):
     return parser.parse(s, lexer=lexer)

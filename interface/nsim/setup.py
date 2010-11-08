@@ -35,6 +35,8 @@ log = logging.getLogger('') # Use root logger as long as we don't have our own
 # The feature stores, used to propagate setup information to all the parts of
 # the program, both the Python and OCaml code.
 import nsim
+from nsim.versions import get_version_string
+
 pyfeatures = None
 ocamlfeatures = None
 
@@ -437,7 +439,7 @@ def setup(argv=None, do_features=True, do_logging=True,
                   % ocaml.get_nsim_sundials_library_path())
 
         nr_cpus = ocaml.petsc_mpi_nr_nodes()
-        log.info("Nsim simulator")
+        log.info("Nsim %s" % get_version_string())
         log.info("Runid is '%s'" % (pyfeatures.get('etc', 'runid')))
         log.info("Using %d CPUs" % (nr_cpus))
 

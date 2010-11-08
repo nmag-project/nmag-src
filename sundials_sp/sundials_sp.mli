@@ -81,6 +81,8 @@ external cvode_get_integrator_stats_raw :
 external cvode_get_precond_stats_raw :
   cvode -> float * float * float * float * float * float
   = "caml_sundials_sp_cvode_get_precond_stats"
+external cvode_get_current_time :
+  cvode -> float = "caml_sundials_sp_cvode_get_current_time";;
 external cvode_get_nonlinsolv_stats_raw : cvode -> float * float
   = "caml_sundials_sp_cvode_get_nonlinsolv_stats"
 external cvode_get_tol_scale_factor : cvode -> float

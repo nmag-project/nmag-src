@@ -246,8 +246,6 @@ class FieldNode(Node):
             return self.data[0] + str(bspecs)
 
     def _collect_quantities(self, collections, parsing):
-        print self.data
-        #raw_input()
         qn = self.data[1]
         collections[parsing][qn] = True
 

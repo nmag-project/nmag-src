@@ -3741,7 +3741,9 @@ let set_field_uniformly dof_stem (FEM_field (mwe, _, v) as field) value =
 	       then ()
 	       else
                  let () = have_set_something := true in
-                   v_ba.{i} <- Bigarray.Genarray.get value indices
+                   if Array.length indices = 0
+                   then v_ba.{i} <- Bigarray.Genarray.get value [|0|]
+                   else v_ba.{i} <- Bigarray.Genarray.get value indices
 	   done)
     in !have_set_something
   with

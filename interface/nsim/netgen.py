@@ -1,8 +1,15 @@
-import math, re, os, os.path, types
+import math
+import re
+import os
+import os.path
+import types
 
+from nsim.setup import get_exec_path
+
+nsim_raw = get_exec_path("nsim-raw")
 netgen_bin = "netgen"
-nmeshpp_bin = "nmeshpp"
-nmeshimport_bin = "nmeshimport"
+nmeshpp_bin = "%s %s" % (nsim_raw, get_exec_path("nmeshpp"))
+nmeshimport_bin = "%s %s" % (nsim_raw, get_exec_path("nmeshimport"))
 
 def netgen_mesh_from_file(geo_filename, mesh_filename, mesh_type=None,
                           keep_neu=False, keep_logs=False):
@@ -60,7 +67,7 @@ def netgen_mesh_from_string(s, mesh_filename, mesh_type=None,
     """Similar to netgen_mesh_from_file, but accepts the GEO file as a string
     (first argument), writes the GEO file to disk, generate the mesh and
     finally delete the intermediate files. Example:
-    
+
     from nsim.netgen import netgen_mesh_from_string
     netgen_mesh_from_string("algebraic3d\\n"
                             "solid main = sphere(0, 0, 0; 10) -maxh=3.0;"
@@ -98,7 +105,8 @@ def neu_to_nmesh(neu_file_name, nmesh_file_name):
     '''Calls nmeshimport to convert a mesh from "neutral" file format,
        to nmesh file format.
     '''
-    os.system('nmeshimport --netgen %s %s' % (neu_file_name, nmesh_file_name))
+    os.system('%s --netgen %s %s'
+              % (nmeshimport_bin, neu_file_name, nmesh_file_name))
 
 class NetgenMesh:
     '''This class simplifies the creation of meshes using Netgen.
@@ -135,10 +143,12 @@ class NetgenMesh:
             try:
                 var_name = var.group(0)[1:-1]
             except:
-                raise "NetgenMesh: Error when substituting variable."
+                raise ValueError("NetgenMesh: Error when substituting "
+                                 "variable.")
             if self._vars_dict.has_key(var_name):
                 return str(self._vars_dict[var_name])
-            raise "NetgenMesh: Variable '%s' not found!" % var_name
+            raise ValueError("NetgenMesh: Variable '%s' not found!"
+                             % var_name)
 
         return re.sub(self._var_re, substitutor, src)
 
@@ -163,10 +173,12 @@ class NetgenMesh:
 
     def save(self, file_name, force_update=False, delete_neu=True):
         def save_error(msg):
-            raise "Error in method `save` of class `NetgenMesh`: %s." % msg
+            raise ValueError("Error in method `save` of class `NetgenMesh`: "
+                             "%s." % msg)
 
         if not ("." in file_name):
-            save_error("file name does not have an extension.")
+            save_error("file name (%s) does not have an extension"
+                       % file_name)
 
         ext = file_extension(file_name).lower()
         if not (ext in ["neu", "h5", "nmesh"]):

@@ -32,7 +32,10 @@ from nsim.si_units.si import SI
 timer1 = Timer("readh5")
 
 def build_full_field_name(field_name, subfield_name):
-    return '%s_%s' % (field_name, subfield_name)
+    if subfield_name == None or len(subfield_name.strip()) == 0:
+        return field_name
+    else:
+        return '%s_%s' % (field_name, subfield_name)
 
 class FieldInfo(object):
     """The purpose of this class is to store additional information about the
@@ -53,9 +56,13 @@ class FieldInfo(object):
             filehandle = hdf5.open_pytables_file(filehandle)
             fh_to_close = filehandle
 
-        u = hdf5.get_mesh_unit(filehandle)
+        u = SI(1e-9, "m") #hdf5.get_mesh_unit(filehandle)
+        # ^^^ note that the mesh which is stored in the file has already
+        # been rescaled by the unit provided by the user, hence we can always
+        # take u = 1 nm
         self.meshunit = "m" # Always in m
         self.scale = float(u/SI("m"))
+
         units_by_dofname = hdf5.get_units_by_dofname(filehandle)
         self.valueunit_si = eval(units_by_dofname[full_name])
         self.valueunit = self.valueunit_si.dens_str(angles=False)

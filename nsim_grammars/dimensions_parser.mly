@@ -3,7 +3,7 @@
 
 %token <int> INT
 %token <string> STRING
-%token LPAREN RPAREN 
+%token LPAREN RPAREN
 %token SLASH HAT
 %token EOF
 
@@ -21,15 +21,20 @@ parse_dimension:
   | dimensions SLASH dimensions  {Array.of_list (List.append $1 (List.map (fun (n,num,den) -> (n,-num,den)) $3))}
 
 dimensions:
-  | {[]}
-  | INT dimensions {if $1 <> 1 then failwith "Bad integer in dimension specification (should be 1)" else $2}
-  | dimension dimensions {$1::$2}
+                              {[]}
+  | INT dimensions            {if $1 <> 1
+                               then failwith "Bad integer in dimension specification (should be 1)"
+                               else $2}
+  | dimension dimensions      {$1::$2}
 
 dimension:
-  | STRING {($1,1,1)}
-  | STRING HAT power {let (n,d)=$3 in ($1,n,d)}
+    STRING                    {($1, 1, 1)}
+  | STRING HAT power          {let (n, d) = $3 in ($1, n, d)}
 
 power:
-  | LPAREN power RPAREN {$2}
-  | INT  {($1,1)}
-  | INT SLASH INT {($1,$3)}
+    INT                       {($1, 1)}
+  | LPAREN frac_power RPAREN  {$2}
+
+frac_power:
+    INT                       {($1, 1)}
+  | INT SLASH INT             {($1, $3)}

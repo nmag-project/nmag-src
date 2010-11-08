@@ -75,10 +75,10 @@ let effective_petsc_argv = ref [||]
 
 let pyfem_ccpla = ref None;;
 
-let initial_working_directory_ref = ref (Unix.getcwd());; 
+let initial_working_directory_ref = ref (Unix.getcwd());;
 
 let mpi_prefix = "-p4" in
-let (args, petsc_args) = 
+let (args, petsc_args) =
   let initial_group = "--nsim-opts" in
   let petsc_group = "--petsc-opts" in
   let groups = [|petsc_group; initial_group|] in
@@ -98,7 +98,7 @@ let (mpi_args, non_mpi_args) =
    * standard.
    *)
   let rec scan pos mpi non_mpi =
-    if pos=Array.length args 
+    if pos=Array.length args
     then (List.rev mpi,List.rev non_mpi)
     else
       let arg = args.(pos) in
@@ -143,14 +143,14 @@ let petscrc_file =
  *)
 let cd = Sys.getcwd () in
 let () = pyfem_ccpla :=
-  Some (Ccpla.setup ~petsc_argv:!effective_petsc_argv Sys.argv 
+  Some (Ccpla.setup ~petsc_argv:!effective_petsc_argv Sys.argv
                     nsim_opcode_interpreter
-                    (fun () -> exit 0)) 
+                    (fun () -> exit 0))
 in
 let () = Sys.chdir cd in (* Can anyone explain why the command above ^^^
                             changes the current working directory???
                             Anyway, here is a temporary fix! *)
- 
+
   ()
 ;;
 
@@ -164,32 +164,32 @@ let reportmem tag =
                       time vmem rss tag)
 ;;
 
-let _py_get_initial_working_directory = 
+let _py_get_initial_working_directory =
   (* Is this function still used? No -- schedule for removal? HF 21/12/2009 *)
   python_pre_interfaced_function
     ~doc:"Return working directory (from OCaml's perspective) in which pyfem3 was started"
     [||]
-    ( fun args -> 
+    ( fun args ->
 	pystring_fromstring !initial_working_directory_ref
 );;
 
-let _py_getcwd = 
+let _py_getcwd =
   python_pre_interfaced_function
   (* Is this function still used? No -- schedule for removal? HF 21/12/2009 *)
     ~doc:"Return current working directory as string"
     [||]
-    ( fun args -> 
-      let cwd = (Unix.getcwd()) in 
-    pystring_fromstring cwd 
+    ( fun args ->
+      let cwd = (Unix.getcwd()) in
+    pystring_fromstring cwd
 );;
 
 let _py_mpi_status =
   python_pre_interfaced_function
     ~doc:"Print number of nodes in MPI ring (executes on master only)."
     [||]
-    ( fun args -> 
-      let () = (Mpi_petsc.mpi_status ()) in 
-    pynone() 
+    ( fun args ->
+      let () = (Mpi_petsc.mpi_status ()) in
+    pynone()
 );;
 
 
@@ -197,20 +197,20 @@ let _py_ccpla_hello =
   python_pre_interfaced_function
     ~doc:"Ping hello messages from all nodes (in the Centrally Coordinated Parallel Linear Algebra (CCPLA) Machine). Useful for mpi-testing and debugging via stdout. Report hostname and rank for each node."
     [||]
-    ( fun args -> 
-      let () = match !pyfem_ccpla with 
+    ( fun args ->
+      let () = match !pyfem_ccpla with
 	| None -> failwith "No ccpla found"
 	| Some x -> Ccpla.ccpla_hello x
       in
-	pynone() 
+	pynone()
 );;
 
 let _py_execute_on_all_nodes_hello =
   python_pre_interfaced_function
     ~doc:"Ping hello messages from all nodes Centrally Coordinated Parallel Linear Algebra (CCPLA) Machine, triggered via the nsim_execute_all_CPUs function (useful for mpi-testing)"
     [||]
-    ( fun args -> 
-      let () = match !pyfem_ccpla with 
+    ( fun args ->
+      let () = match !pyfem_ccpla with
 	| None -> failwith "No ccpla found"
 	| Some ccpla -> Nsim.nsim_execute_all_CPUs ccpla (
 	    fun ()->
@@ -303,11 +303,11 @@ and _sample_element = make_element 1 ("T",[||]) 1
 (* let _sample_mwe =
   make_mwe "sample mwe" (fun sx -> _sample_element) _sample_mesh;; *)
 let _sample_mwe =
-  make_mwe "sample mwe" (fun sx -> _sample_element) dummy_mesh;; 
+  make_mwe "sample mwe" (fun sx -> _sample_element) dummy_mesh;;
 
 
 let _sample_mesh_fca = (([||],[||]) : (((Mesh.point_id array * int array) * int) array * (int array)));;
-  
+
 let _sample_field =
   FEM_field (_sample_mwe, None, Mpi_petsc.vector_dummy());;
 
@@ -447,7 +447,7 @@ let _py_petsc_cpu_cycles =
 			   pytuple2(pystring_fromstring "Matrix Solver",pyfloat_fromdouble nr_ksp),
 			   pytuple2(pystring_fromstring "Matrix*Vector",pyfloat_fromdouble nr_mat),
 			   pytuple2(pystring_fromstring "Vector",pyfloat_fromdouble nr_vec))
-	   | _ -> 
+	   | _ ->
 	       failwith "Bad command!")
 ;;
 
@@ -462,7 +462,7 @@ function Nlog.getLogger X will create a new logger X if it doesn't
 exist yet. So to create an (Ocaml) Nlog logger from Python we use
 getLogger to achieve this but ignore the return value (as there seems
 not to be much point in getting a handle of the ocaml-logging function
-(that is used to log events in ocaml) in Python. 
+(that is used to log events in ocaml) in Python.
 
 *)
 
@@ -473,19 +473,19 @@ let _py_nlog_setupLogger =
     [|StringType;|]
     (fun py_args ->
        let logname = pystring_asstring py_args.(0) in
-       let () = match !pyfem_ccpla with 
+       let () = match !pyfem_ccpla with
 	 | None -> failwith "No ccpla found"
 	 | Some ccpla -> Nsim.nsim_execute_all_CPUs ccpla (
 	     fun ()->
 	       let rank = Mpi_petsc.comm_rank Mpi_petsc.comm_world in
 	       let _ = Nlog.getLogger logname in
-	       if debug_mpi_loggers 
-	       then 
-		 Printf.printf "Registered logger %s on proc %d\n%!" logname rank 
-	       else 
+	       if debug_mpi_loggers
+	       then
+		 Printf.printf "Registered logger %s on proc %d\n%!" logname rank
+	       else
 		 ()
 	   )
-       in 
+       in
 	 pynone() );;
 
 
@@ -500,28 +500,28 @@ let _py_nlog_setLogLevel =
 	 if do_not_use_logger then pyint_fromint 0
 	 else
 	   (* Set level on Master, and return last level value from here *)
-	   let previous_loglevel = Nlog.setLogLevel logname 
+	   let previous_loglevel = Nlog.setLogLevel logname
 	     (Nlog.level_of_int loglevel)
 	   in
-	   let () = match !pyfem_ccpla with 
+	   let () = match !pyfem_ccpla with
 	     | None -> failwith "No ccpla found"
 	     | Some ccpla -> Nsim.nsim_execute_all_CPUs ccpla (
 		 fun ()->
 		   let rank = Mpi_petsc.comm_rank Mpi_petsc.comm_world in
-		   if rank != 0 
-		   then 
-		     let () = if debug_mpi_loggers then 
+		   if rank != 0
+		   then
+		     let () = if debug_mpi_loggers then
 		       let () = Printf.printf "Setting level of %s on rank %d:\n%!" logname rank in ()
 		     else
-		       () 
+		       ()
 		     in
-		     let oldlevel_slave = Nlog.setLogLevel logname (Nlog.level_of_int loglevel) 
-		     in 
+		     let oldlevel_slave = Nlog.setLogLevel logname (Nlog.level_of_int loglevel)
+		     in
 		       if (Nlog.int_of_level oldlevel_slave) != (Nlog.int_of_level previous_loglevel) then
-			 logwarn (Printf.sprintf 
-				    "Loglevel on rank %d is %d != master level =%d" 
-				    rank 
-				    (Nlog.int_of_level oldlevel_slave) 
+			 logwarn (Printf.sprintf
+				    "Loglevel on rank %d is %d != master level =%d"
+				    rank
+				    (Nlog.int_of_level oldlevel_slave)
 				    (Nlog.int_of_level previous_loglevel)
 				 )
 		       else
@@ -530,51 +530,51 @@ let _py_nlog_setLogLevel =
 	   in pyint_fromint (Nlog.int_of_level previous_loglevel)
     );;
 
-let _py_nlog_printLoggerInfo = 
+let _py_nlog_printLoggerInfo =
   python_pre_interfaced_function
     ~doc:"Printing an overview of all registered loggers (on the master node) to stdout."
     [||]
-    (fun py_args -> 
-       let () = 
+    (fun py_args ->
+       let () =
 	 (if do_not_use_logger
 	  then ()
-	  else Nlog.printLoggerInfo ()) 
+	  else Nlog.printLoggerInfo ())
       in pynone() );;
 
 
-let _py_nlog_printLoggerInfo_mpi = 
+let _py_nlog_printLoggerInfo_mpi =
   python_pre_interfaced_function
     ~doc:"Printing an overview of all registered loggers on rank n to stdout. (Debug only.)"
     [|IntType|]
-    (fun py_args -> 
+    (fun py_args ->
        let n = pyint_asint py_args.(0) in
        let () = (
 	 if do_not_use_logger
 	 then ()
-	 else 
-	   let () = match !pyfem_ccpla with 
+	 else
+	   let () = match !pyfem_ccpla with
 	     | None -> failwith "No ccpla found"
 	     | Some ccpla -> Nsim.nsim_execute_all_CPUs ccpla (
 		 fun ()->
 		   let rank = Mpi_petsc.comm_rank Mpi_petsc.comm_world in
 		     if rank == n then
 		       let () = if debug_mpi_loggers then
-			 Printf.printf "Registered loggers on rank %d:\n%!" rank 
-		       else 
+			 Printf.printf "Registered loggers on rank %d:\n%!" rank
+		       else
 			 ()
 		       in
 		       let _ = Nlog.printLoggerInfo ()
 		       in ()
 		     else
-		       (* 
+		       (*
 		       let () = if debug_mpi_loggers then
-			 Printf.printf "Skipping loggers on rank %d:\n%!" rank 
-		       else 
+			 Printf.printf "Skipping loggers on rank %d:\n%!" rank
+		       else
 			 ()
 		       in *) ()
 	       )
 	   in ())
-       in 
+       in
 	pynone()
     );;
 
@@ -590,8 +590,8 @@ let _py_nlog_logmsg =
        else
 	 let loggername = pystring_asstring py_args.(0) in
 	 let level = Nlog.level_of_int (pyint_asint py_args.(1)) in
-	 let message = pystring_asstring py_args.(2) in 
-	 let () = Nlog.logmsg loggername level message in 
+	 let message = pystring_asstring py_args.(2) in
+	 let () = Nlog.logmsg loggername level message in
 	   pynone())
 ;;
 
@@ -604,21 +604,21 @@ let _py_nlog_logmsg_mpi =
        else
 	 let loggername = pystring_asstring py_args.(0) in
 	 let level = Nlog.level_of_int (pyint_asint py_args.(1)) in
-	 let message = pystring_asstring py_args.(2) in 
-	   
-	 let () = match !pyfem_ccpla with 
+	 let message = pystring_asstring py_args.(2) in
+
+	 let () = match !pyfem_ccpla with
 	   | None -> failwith "No ccpla found"
 	   | Some ccpla -> Nsim.nsim_execute_all_CPUs ccpla (
-	     fun ()-> 
-	       let rank = Mpi_petsc.comm_rank Mpi_petsc.comm_world in 
+	     fun ()->
+	       let rank = Mpi_petsc.comm_rank Mpi_petsc.comm_world in
 	       let () = if debug_mpi_loggers then
-		 Printf.printf "logmsg_mpi on %d\n%!" rank 
+		 Printf.printf "logmsg_mpi on %d\n%!" rank
 	       else
 		 ()
-	       in 
+	       in
 		 Nlog.logmsg loggername level message
     )
-	 in 
+	 in
 	   pynone())
 ;;
 
@@ -637,16 +637,16 @@ let _py_nlog_register_handler =
 					   system is set up, and thus will always produce
 					   output (because by default there is not loglevel
 					   set. *)
-	 
-       (* let () =  if do_not_use_logger 
-	  then 
+
+       (* let () =  if do_not_use_logger
+	  then
 	  ()
 	  else *)
 
        let do_logging_on_slaves =
 	 let slavelog = Snippets.get_feature ~domain:"nmag" "slavelog" in
 	   match slavelog with
-	     | Some slavelog -> 
+	     | Some slavelog ->
 		 if slavelog = "None" || slavelog = "false" || slavelog = "False" then
 		   let () = logdebug (Printf.sprintf "slavolog=%s->False\n%!" slavelog) in
 		     false
@@ -658,7 +658,7 @@ let _py_nlog_register_handler =
 		     let msg = Printf.sprintf "Unknown value for feature 'nmag':'slavelog': '%s'" slavelog in
 		     let () = logerror msg in
 		       failwith msg
-	     | None -> let () = logdebug (Printf.sprintf "slavolog -> No slavelog entry\n%!") in 
+	     | None -> let () = logdebug (Printf.sprintf "slavolog -> No slavelog entry\n%!") in
 		 false
        in
        let pyemitfunc level msg =
@@ -666,17 +666,17 @@ let _py_nlog_register_handler =
 	   ()
        in
        let rank1 = Mpi_petsc.comm_rank Mpi_petsc.comm_world in
-       let () = 
+       let () =
 	 if rank1 = 0 then
-	   Nlog.setLogHandler logname pyemitfunc 
+	   Nlog.setLogHandler logname pyemitfunc
 	 else
 	   failwith "This code is only executed on the master. Impossible"
-       in 
-       let register_slaveemitter = 
+       in
+       let register_slaveemitter =
 	 ( fun () ->
 	     let rank = Mpi_petsc.comm_rank Mpi_petsc.comm_world in
-	     let () = if debug_mpi_loggers then 
-	       Printf.printf "Entering register_slaveemmiter, rank=%d\n%!" rank 
+	     let () = if debug_mpi_loggers then
+	       Printf.printf "Entering register_slaveemmiter, rank=%d\n%!" rank
 	     else
 	       ()
 	     in
@@ -684,11 +684,11 @@ let _py_nlog_register_handler =
 	     let slaveemitfunc = (
 	       fun level msg ->
 		 (* Provide a slave emitter *)
-		 let () = Printf.printf "%s-%10s:%s %6s %s\n%!" 
-		   slave_string 
-		   logname 
-		   (Nlog.localtime ()) 
-		   (Nlog.string_of_level (Nlog.level_of_int level)) 
+		 let () = Printf.printf "%s-%10s:%s %6s %s\n%!"
+		   slave_string
+		   logname
+		   (Nlog.localtime ())
+		   (Nlog.string_of_level (Nlog.level_of_int level))
 		   msg
 		 in ()
 	     )
@@ -702,12 +702,12 @@ let _py_nlog_register_handler =
 		     Nlog.setLogHandler logname (fun l m -> ())
 	 )
        in
-       let () = match !pyfem_ccpla with 
+       let () = match !pyfem_ccpla with
 	 | None -> failwith "No ccpla found"
 	 | Some ccpla -> Nsim.nsim_execute_all_CPUs ccpla (
-	     fun ()-> 
+	     fun ()->
 	       let rank = Mpi_petsc.comm_rank Mpi_petsc.comm_world in
-	       let () = register_slaveemitter () in 
+	       let () = register_slaveemitter () in
 	       let () = if debug_mpi_loggers then
 		 Printf.printf "Calling register_slaveemitter (-> setLogHandler on node %d)\n%!" rank
 	       else
@@ -983,7 +983,7 @@ let _py_body_csg csg_error_label csg =
   python_pre_interfaced_function
     [|ListType|]
     (fun args ->
-      let bodies = py_homogeneous_list_as_array 
+      let bodies = py_homogeneous_list_as_array
 	~error_label:csg_error_label
 	"FEM-Body"
 	(fun x -> ocamlpill_type_of x = pysym_fem_body)
@@ -1149,8 +1149,8 @@ let _py_delaunay =
 	  (pylist_toarray args.(0))
       in
       let triangulated = Qhull.delaunay points in
-      pylist_fromarray 
-	(Array.map 
+      pylist_fromarray
+	(Array.map
 	   (fun v -> pylist_fromarray (Array.map pyint_fromint v))
 	   triangulated))
 ;;
@@ -1172,7 +1172,7 @@ let _py_simple_convex_mesh =
       (* maybe add: a function that gives local weights... *)
     |]
     (fun args ->
-      let v_hull_points = 
+      let v_hull_points =
 	Array.map
 	  py_number_list_as_float_array
 	  (pylist_toarray args.(0))
@@ -1184,7 +1184,7 @@ let _py_simple_convex_mesh =
       let nr_points = nr_hull_points + nr_interior_points in
       let dim = Array.length v_hull_points.(0) in
       let generate_point () =
-	let indices = 
+	let indices =
 	  Array.init dim
 	    (fun _ -> Mt19937.int rng nr_hull_points) in
 	let weights = Array.init dim
@@ -1219,7 +1219,7 @@ let _py_simple_convex_mesh =
 	let p1 = v_points.(ix1)
 	and p2 = v_points.(ix2)
 	in
-	let rec walk n sum = 
+	let rec walk n sum =
 	  if n = dim then sqrt(sum)
 	  else walk (n+1) (sum+.(p1.(n)-.p2.(n))*.(p1.(n)-.p2.(n)))
 	in walk 0 0.0
@@ -1237,10 +1237,10 @@ let _py_simple_convex_mesh =
 	   (Note: If we did not do this, there would be a strong
 	   tendency to generate meshes that crash Qhull!)
 	 *)
-	let weight_p = 1.0 in 
+	let weight_p = 1.0 in
 
 	let p = Array.map (fun x -> x*.weight_p) v_points.(ix) in
-	let total_weight = 
+	let total_weight =
 	  Array.fold_left
 	    (fun weight ix_neighbour ->
 	      let w = distance_weight ix_neighbour ix in
@@ -1252,7 +1252,7 @@ let _py_simple_convex_mesh =
 	      in
 	      (weight+.w)) weight_p
 	    neighbours
-	in 
+	in
 	let () =
 	  for i=0 to dim-1 do
 	    p.(i) <- p.(i) /. total_weight
@@ -1291,7 +1291,7 @@ let _py_simple_convex_mesh =
 	     triangulation)
       in
       let ddd = Printf.printf "DDD made mesh!\n%!" in
-      let () = mesh_grow_bookkeeping_data ~do_connectivity:true the_mesh in 
+      let () = mesh_grow_bookkeeping_data ~do_connectivity:true the_mesh in
       let ddd = Printf.printf "DDD did connectivity!\n%!" in
       ocamlpill_from_mesh the_mesh)
 ;;
@@ -1328,16 +1328,16 @@ let _py_mesh_bodies_raw =
 	  (ocamlpill_hard_unwrap:(pyobject -> body))
 	  args.(5)
       in
-      let type_error s = 
-	raise 
+      let type_error s =
+	raise
 	  (Pycaml_exn
 	      (Pyerr_TypeError, s))
       in
-	
-      let hints = 
-	Array.map 
+
+      let hints =
+	Array.map
 	  (fun mesh_body_pytuple ->
-	    if pytype mesh_body_pytuple <> ListType 
+	    if pytype mesh_body_pytuple <> ListType
 	    then type_error "The hint provided doesn't match the type specification"
 	    else
 	      let mesh_body_tuple = pylist_toarray mesh_body_pytuple in
@@ -1461,9 +1461,9 @@ let _py_mesh_plotinfo_links =
       let links = mesh_plotinfo_links m in
 	pylist_fromarray
 	  (Array.map
-	     (fun (ix1,ix2) -> pytuple2(pyint_fromint ix1,pyint_fromint ix2)) 
+	     (fun (ix1,ix2) -> pytuple2(pyint_fromint ix1,pyint_fromint ix2))
 	     links));;
-      
+
 
 let _py_mesh_plotinfo_simplices =
   python_pre_interfaced_function
@@ -1515,17 +1515,17 @@ let _py_mesh_plotinfo_surfaces_and_surfacesregions =
     ~doc:"For a give mesh (CamlpillType), return a list of surface simplices (one for each simplex) and a list of regions they belong to. Double counts surfaces when there is a region to both sides. Returns (list of list of int, lists of int)."
     [|CamlpillType|]
     ( fun args ->
-      let mesh = mesh_from_ocamlpill args.(0) in 
+      let mesh = mesh_from_ocamlpill args.(0) in
       let (surface_simplices, surface_regions) = mesh_plotinfo_surfaces_and_surfacesregions mesh
-      in 
-	pytuple2 
-	  (pylist_fromarray 
-	      ( Array.map 
-		  (fun pointidarray -> 
+      in
+	pytuple2
+	  (pylist_fromarray
+	      ( Array.map
+		  (fun pointidarray ->
 		    pylist_fromarray (Array.map pyint_fromint pointidarray))
 		  surface_simplices
 	      )
-	      , 
+	      ,
 	  pylist_fromarray ( Array.map pyint_fromint surface_regions)
 	  )
     )
@@ -1634,9 +1634,9 @@ let _py_mesh_readfile =
 	| Some mesh -> mesh
 	| _ -> impossible ()(*failwith "Reading mesh failed!"*)
       in
-      let () = 
-	(if do_reorder 
-	 then 
+      let () =
+	(if do_reorder
+	 then
 	   let points_coords = Array.map (fun p -> p.mp_coords) mesh.mm_points in
 	     (* extract coordinates of periodic points to update mesh.mm_periodic after the reordering *)
 	   let periodic_points = Array.map (fun per_ix_arr -> Array.map (fun per_ix -> points_coords.(per_ix)) per_ix_arr  ) mesh.mm_periodic_points in
@@ -1645,7 +1645,7 @@ let _py_mesh_readfile =
 	     mesh.mm_periodic_points <- Array.map ( fun per_arr -> Array.map (fun p -> array_position p new_points_coords 0 ) per_arr) periodic_points
 	 else ())
       in
-      let () = 
+      let () =
 	if do_distribute then
 	  _do_distribute_mesh mesh
 	else ()
@@ -1746,7 +1746,7 @@ let _py_mesh_from_points_and_simplices =
        py_bool_type (* if true, set up distribution across cluster *)
      |]
     (fun args ->
-      let () = reportmem "_py_mesh_from_points_and_simplices: beginning of function" 
+      let () = reportmem "_py_mesh_from_points_and_simplices: beginning of function"
       in
       let dim = pyint_asint args.(0) in
       let nodes_arr = py_float_list_list_as_array ~error_label:"mesh_from_points_and_simplices: points"
@@ -1757,7 +1757,7 @@ let _py_mesh_from_points_and_simplices =
 	  ~length_inner:(dim+1) args.(2)
       in
       let simplices_regions_arr = py_int_list_as_array args.(3) in
-      if (Array.length simplices_indices_arr) <> (Array.length simplices_regions_arr) 
+      if (Array.length simplices_indices_arr) <> (Array.length simplices_regions_arr)
       then failwith "Number of simplices different from number of regions"
       else
 	let periodic_points_arr = py_int_list_list_as_array args.(4) in
@@ -1773,9 +1773,9 @@ let _py_mesh_from_points_and_simplices =
 	  | _ -> failwith "Building internal mesh data structure failed"
 	in
 	let () = reportmem "_py_mesh_from_points_and_simplices: Before optional reordering"  in
-	let () = 
-	  (if do_reorder 
-	   then 
+	let () =
+	  (if do_reorder
+	   then
 	   let points_coords = Array.map (fun p -> p.mp_coords) mesh.mm_points in
 	     (* extract coordinates of periodic points to update mesh.mm_periodic after the reordering *)
 	   let periodic_points = Array.map (fun per_ix_arr -> Array.map (fun per_ix -> points_coords.(per_ix)) per_ix_arr  ) mesh.mm_periodic_points in
@@ -1784,13 +1784,13 @@ let _py_mesh_from_points_and_simplices =
 	     mesh.mm_periodic_points <- Array.map ( fun per_arr -> Array.map (fun p -> array_position p new_points_coords 0 ) per_arr) periodic_points
 	   else ())
 	in
-	let () = reportmem "_py_mesh_from_points_and_simplices: before do_distribute" in  
-	let () = 
+	let () = reportmem "_py_mesh_from_points_and_simplices: before do_distribute" in
+	let () =
 	  (if do_distribute then
 	     _do_distribute_mesh mesh
 	   else ())
 	in
-	let () = reportmem "_py_mesh_from_points_and_simplices: very end before returning ocamlpill" in  
+	let () = reportmem "_py_mesh_from_points_and_simplices: very end before returning ocamlpill" in
 	  ocamlpill_from_mesh mesh)
 ;;
 
@@ -2214,7 +2214,7 @@ let __py_element_associator py_body_elem =
 ;;
 
 let __py_properties_by_region py_props =
-  Array.map 
+  Array.map
     (fun py_pair ->
        let a = guarded_pytuple_toarray py_pair in
        let () = (if Array.length a <> 2
@@ -2245,8 +2245,8 @@ let _py_make_mwe =
 	__py_element_associator args.(2)
       in
       let fun_outer_region =
-	py_optionally 
-	  (fun c -> 
+	py_optionally
+	  (fun c ->
 	     fun nr_site pos -> pyint_asint (pyeval_callobject(c,(pytuple_fromsingle (float_array_to_python pos)))))
 	  args.(3)
       in
@@ -2357,7 +2357,7 @@ let _py_mwe_norm_fun =
 	      let py_norms =
 		pylist_fromarray
 		  (Array.map
-		     (fun (stem,norm1,norm2) -> 
+		     (fun (stem,norm1,norm2) ->
 			pytuple3(pystring_fromstring stem,
 				 pyfloat_fromdouble norm1,
 				 pyfloat_fromdouble norm2))
@@ -2396,7 +2396,7 @@ let _py_mwe_norm_dist_fun =
 	      let py_norms =
 		pylist_fromarray
 		  (Array.map
-		     (fun (stem,norm1,norm2) -> 
+		     (fun (stem,norm1,norm2) ->
 			pytuple3(pystring_fromstring stem,
 				 pyfloat_fromdouble norm1,
 				 pyfloat_fromdouble norm2))
@@ -2437,11 +2437,11 @@ let _py_set_field_at_site =
   python_pre_interfaced_function
     ~doc:"set_field_at_site(field_pill, site, subfield_name, data_tensor)\n\n
   Note: 1. if subfield_name is wrong, nothing will happen (no error, no change of data).
-        2. if data_tensor is 'shorter' than actual data in subfield, we get an error message 
-           (something like 
+        2. if data_tensor is 'shorter' than actual data in subfield, we get an error message
+           (something like
 
-             OCaml exception 'Failure: Python tensor does not have entry [|2|]: 
-                                       1. index range is 2, wanted index: 2' 
+             OCaml exception 'Failure: Python tensor does not have entry [|2|]:
+                                       1. index range is 2, wanted index: 2'
                                        (set_field_at_site)
            )
         3. if data_tensor is too long, the 'extra' components will be silently ignored
@@ -2532,7 +2532,7 @@ let _py_mwe_subfield_data =
        let ((_,subfield_indices),sites_and_dofs) = mwe_subfield_info mwe subfield_name in
        let nr_sites = Array.length sites_and_dofs in
        let rank = Array.length subfield_indices in
-       let index_weights = 
+       let index_weights =
 	 let w = Array.make rank 1 in
 	 let rec walk pos =
 	   if pos<0 then w
@@ -2567,7 +2567,7 @@ let _py_mwe_subfield_data =
        in !r_result)
 ;;
 
-(* XXX MISNOMER! SHOULD BE: py_mwe_field_nr_entries! FIXME! 
+(* XXX MISNOMER! SHOULD BE: py_mwe_field_nr_entries! FIXME!
    Similarly for functions below!
 *)
 let _py_data_length =
@@ -2600,7 +2600,7 @@ let _py_data_dofvector_from_field =
     (fun args ->
       let mwe = __mwe_from_mwe_or_field_or_cofield args.(0) in
       let dofname = pystring_asstring args.(1) in
-      let mwedofs=mwe.mwe_dofs in 
+      let mwedofs=mwe.mwe_dofs in
       pytuple2 (pylist_fromarray [|pynone()|] ,pylist_fromarray [|pynone()|])
     )
 ;;
@@ -2837,7 +2837,7 @@ let __parse_if_coeffs ifc =
            || pytype triplet.(0) <> IntType
 	   || pytype triplet.(1) <> IntType
 	   || pytype triplet.(2) <> FloatType
-	then 
+	then
 	  raise (Pycaml_exn(Pyerr_TypeError,
 			    Printf.sprintf "interface coeffs list: entry %d is not a (int,int,float) triplet!"
 			      (1+nr_p)))
@@ -2908,7 +2908,7 @@ let _py_plot_scalar_field =
       (fun args ->
 	 let field = field_from_ocamlpill args.(0) in
 	 let geom =
-	   py_float_list_as_array 
+	   py_float_list_as_array
 	     ~error_label:"_py_plot_scalar_field: geometry specification vector"
 	     ~length:4
 	     args.(6)
@@ -3185,7 +3185,7 @@ let _py_site_wise_applicator =
 	      [|ListType;ListType;ListType|]
 	      (fun args ->
 		 let aux_args =
-		   py_float_list_as_array 
+		   py_float_list_as_array
 		     ~length:nr_aux_args
 		     ~error_label:"Site-wise applicator " args.(0)
 		 in
@@ -3402,7 +3402,7 @@ let _py_cvode_reinit =
       IntType;    (* max nr_steps, -1 for "no limit" *)
     |]
     (fun args ->
-       let cvode = cvode_from_ocamlpill args.(0) in 
+       let cvode = cvode_from_ocamlpill args.(0) in
        let FEM_field (_,_,v_result) = field_from_ocamlpill args.(1) in
        let target_time = pyfloat_asdouble args.(2) in
        let max_steps = pyint_asint args.(3) in
@@ -3438,6 +3438,15 @@ let _py_cvode_get_stats =
               pytuple2(pystring_fromstring desc_string,
                        pyfloat_fromdouble float_value))
             stats))
+;;
+
+let _py_cvode_get_current_time =
+  python_pre_interfaced_function
+    [|CamlpillType|]
+    (fun args ->
+      let py_cvode = args.(0) in
+      let cvode = cvode_from_ocamlpill py_cvode in
+        pyfloat_fromdouble (Sundials_sp.cvode_get_current_time cvode))
 ;;
 
 let _py_parse_physical_dimensions =
@@ -3476,7 +3485,7 @@ let _py_parse_physical_dimensions =
 	      allowed_dimensions)
        in
 	 if Hashtbl.length ht_powers>0
-	 then failwith 
+	 then failwith
 	     (Printf.sprintf "Encountered unknown physical dimensions: %s"
 		(string_array_to_string (hashtbl_keys ~sorter:compare ht_powers)))
 	 else result)
@@ -3488,16 +3497,16 @@ let _py_parse_physical_dimensions =
    Function to work out the maximum angle between the vector data on
    neighbouring sites. This (as far as we know) is only useful
    information for magnetisation vectors described by first order basis
-   functions. 
+   functions.
 
    T.F. Note: A number of variables in that code do have misleading names!
 *)
 
 let _vector_field_max_angle field =
   let () = ensure_field_is_unrestricted field in
-  let (FEM_field (mwe,_, data)) = field in 
+  let (FEM_field (mwe,_, data)) = field in
   let () = mwe_ensure_has_neighbour_pairs mwe in
-  let subfields = mwe.mwe_subfields in 
+  let subfields = mwe.mwe_subfields in
   let dofnames = Array.map fst subfields in
   let nr_dofnames = Array.length dofnames in
 
@@ -3509,48 +3518,48 @@ let _vector_field_max_angle field =
       if Array.length v2 <> len
       then failwith "Tried to calculate scalar product for vectors of different dimension"
       else
-	let (scalar_pr,sq_v1,sq_v2) = 
+	let (scalar_pr,sq_v1,sq_v2) =
 	  let rec walk n scalar_prod_sf v1_square_sf v2_square_sf =
 	    if n = len
 	    then (scalar_prod_sf,v1_square_sf,v2_square_sf)
-	    else 
-	      walk (n+1) (scalar_prod_sf+.v1.(n)*.v2.(n)) (v1_square_sf+.v1.(n)*.v1.(n)) (v2_square_sf+.v2.(n)*.v2.(n)) 
+	    else
+	      walk (n+1) (scalar_prod_sf+.v1.(n)*.v2.(n)) (v1_square_sf+.v1.(n)*.v1.(n)) (v2_square_sf+.v2.(n)*.v2.(n))
 	  in walk 0 0.0 0.0 0.0
 	in
 	  scalar_pr/.((sqrt sq_v1)*.(sqrt sq_v2))
   in
 
   let compute_angle v1 v2 =
-    let angle = 
-      try 
+    let angle =
+      try
 	acos (max (-1.0) (min 1.0 (compute_cosine v1 v2)))      (* angle in radiants *)
-      with 
+      with
       | _ -> failwith "fem.ml - vector_field_max_angle - : division by zero"
     in
       angle
   in
-  let () = 
+  let () =
     for name_ix = 0 to nr_dofnames-1 do
       let vec_len = (snd subfields.(name_ix)).(0)   in
       let v1 = Array.make vec_len 0.0 in
       let v2 = Array.make vec_len 0.0 in
-      
-      let (ixs_dofs_with_field_le,ixs_dofs_with_field_ri) = 
+
+      let (ixs_dofs_with_field_le,ixs_dofs_with_field_ri) =
 	match !(mwe.mwe_dof_neighbour_pairs) with
 	  | None -> ([||],[||])
-	  | Some dofs_with_all_fields -> 
+	  | Some dofs_with_all_fields ->
 	      dofs_with_all_fields.(name_ix)
       in
       let len_data = Array.length ixs_dofs_with_field_le in
-      let max_angle_ref = ref 0.0 in 
-	Mpi_petsc.with_petsc_vector_as_bigarray data 
-	  (fun ba_field -> 
+      let max_angle_ref = ref 0.0 in
+	Mpi_petsc.with_petsc_vector_as_bigarray data
+	  (fun ba_field ->
 	     let rec walk n =
-	       if n = len_data 
+	       if n = len_data
 	       then
 		 let (field_name,initial_val) = max_angle_by_dofname.(name_ix) in
 		   max_angle_by_dofname.(name_ix) <- (field_name,!max_angle_ref)
-	       else 
+	       else
 		 let initial_ix_dof_a = ixs_dofs_with_field_le.(n)
 		 and initial_ix_dof_b = ixs_dofs_with_field_ri.(n)
 		 in
@@ -3563,18 +3572,18 @@ let _vector_field_max_angle field =
 		   done
 		 in
 		 let new_angle = compute_angle v1 v2 in
-		 let () = 
-		   if new_angle > !max_angle_ref 
+		 let () =
+		   if new_angle > !max_angle_ref
 		   then max_angle_ref := new_angle
 		   else ()
 		 in
-		   walk (n+1) 
+		   walk (n+1)
 	     in
-	       walk 0 
+	       walk 0
 	  )
     done
   in max_angle_by_dofname;;
-  
+
 
 let _py_mumag_vector_field_max_angles =
   python_pre_interfaced_function
@@ -3585,7 +3594,7 @@ let _py_mumag_vector_field_max_angles =
 
  This is important for micromagnetic calculations to check the 'max angle' stays small.
 
- This function only works for 1st order basis functions and for vector data 
+ This function only works for 1st order basis functions and for vector data
  (i.e. the degree of freedom has to be a vector such as the magnetisation).
 
  (not implemented as yet)
@@ -3597,7 +3606,7 @@ let _py_mumag_vector_field_max_angles =
        let dofname_maxangle_array = _vector_field_max_angle field in
 	 pylist_fromarray
 	   (Array.map
-	      (fun (dofname,maxangle) -> pytuple2(pystring_fromstring dofname,pyfloat_fromdouble maxangle)) 
+	      (fun (dofname,maxangle) -> pytuple2(pystring_fromstring dofname,pyfloat_fromdouble maxangle))
 	      dofname_maxangle_array));;
 
 (* --- BEGIN NSIM MODULE --- *)
@@ -3666,7 +3675,7 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 		else
 		  parse_or_error
 		    Ddiffop_lexer.token
-		    Ddiffop_parser.short_vector_restriction 
+		    Ddiffop_parser.short_vector_restriction
 		    field_restr_spec
 	      in
 	      let is_field = py_is_true data.(3) in
@@ -3686,7 +3695,7 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 	      let mwe_name_ri = guarded_pystring_asstring data.(2) in
 	      let op = guarded_pystring_asstring data.(3) in
 	      let matoptions = parsed_matoptions data.(4) in
-	      let opt_mwe_name_mid = 
+	      let opt_mwe_name_mid =
 		py_optionally guarded_pystring_asstring data.(5) in
 		{loms_name=name;
 		 loms_mwe_name_le = mwe_name_le;
@@ -3717,7 +3726,7 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 	      let boundary_spec = pystring_asstring data.(4) in
 	      let lattice_info =
 		py_optionally
-		  (fun py_linfo -> 
+		  (fun py_linfo ->
 		     let a = guarded_pytuple_toarray py_linfo in
 		     let v_py_ortho_trans = guarded_pylist_toarray a.(0)
 		     and v_py_ortho_gf_disp = guarded_pylist_toarray a.(1)
@@ -3728,7 +3737,7 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 			    Array.init 3
 			      (fun row ->
 				 Array.init 3
-				   (fun col -> 
+				   (fun col ->
 				      let e = _py_tensor_entry py_ortho [|row;col|] in
 					guarded_pynumber_asfloat e)))
 			 v_py_ortho_trans
@@ -3845,7 +3854,7 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 	      let mwe_lhs_name = guarded_pystring_asstring data.(1) in
 	      let mwe_names = Array.map guarded_pystring_asstring (guarded_pylist_toarray data.(2)) in
 	      let derive_me =
-		Array.map 
+		Array.map
 		  (fun py_contrib_spec_pieces ->
 		     let contrib_spec_pieces = guarded_pylist_toarray py_contrib_spec_pieces in
 		       Array.map
@@ -3893,7 +3902,7 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 	      in
 	      let args_fields = parse_args_fields_cofields data.(1) in
 	      let args_cofields = parse_args_fields_cofields data.(2) in
-	      let ops = 
+	      let ops =
 		Array.map
 		  (fun py_data ->
 		     let data = guarded_pylist_toarray py_data in
@@ -3913,11 +3922,11 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 							   (fun _ x -> sqrt(x)))
 			 | "AXPBY" -> LC_pvec_axpby
 			     (
-			       (if pytype data.(1) = FloatType 
+			       (if pytype data.(1) = FloatType
 				then CCCOEFF_float (pyfloat_asdouble data.(1))
 				else CCCOEFF_var (guarded_pystring_asstring data.(1))),
 			       guarded_pystring_asstring data.(2),
-			       (if pytype data.(3) = FloatType 
+			       (if pytype data.(3) = FloatType
 				then CCCOEFF_float (pyfloat_asdouble data.(3))
 				else CCCOEFF_var (guarded_pystring_asstring data.(3))),
 			       guarded_pystring_asstring data.(4)
@@ -4017,7 +4026,7 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 	      let pc_opt_atol = py_optionally guarded_pyfloat_asfloat data.(8) in
 	      let pc_opt_dtol = py_optionally guarded_pyfloat_asfloat data.(9) in
 	      let pc_opt_maxit = py_optionally guarded_pyint_asint data.(10) in
-	      let names_phys_field_buffers = 
+	      let names_phys_field_buffers =
 		Array.map guarded_pystring_asstring (guarded_pylist_toarray data.(11))
 	      in
 	      let max_order = guarded_pyint_asint data.(12) in
@@ -4035,7 +4044,7 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 			guarded_pystring_asstring z.(1)))
 		  (guarded_pylist_toarray data.(17))
 	      in
-		{ 
+		{
 		  (* lts=Linalgmachine Timestepper Specification *)
 		  Nsim.lts_name = name;
 		  Nsim.lts_jacobian = name_jacobian;
@@ -4082,7 +4091,7 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 	   ~relevant_mwes:mwes
 	   linalg_script
        in
-       let () = logdebug (Printf.sprintf "raw_make_lam before returning OCamlPill") 
+       let () = logdebug (Printf.sprintf "raw_make_lam before returning OCamlPill")
        in
 	 ocamlpill_from_linalg_machine machine
     )
@@ -4240,7 +4249,7 @@ let _py_lam_bem_field_strength =
        let boundary_vec_name = pystring_asstring args.(6) in
        let pos = py_float_list_as_array args.(7) in
        let mwe = linalg_machine.get_mwe mwe_name in
-       let buffer = make_field mwe in	
+       let buffer = make_field mwe in
 	 (* ^ XXX wasteful allocation of buffer! Need linalg_machine-internal probe_field! *)
        let () = linalg_machine.get_field lam_vector_field_name buffer in
        let probed = probe_field buffer ~dof_stem pos in
@@ -4298,7 +4307,7 @@ let _py_lam_set_iparam =
 	 pynone())
 ;;
 
-  
+
 
 let _py_nsim_anisotropy_equations =
   python_pre_interfaced_function
@@ -4363,14 +4372,14 @@ let _py_memory_footprint =
        let x = args.(0) in
        let value = Snippets.get_feature ~domain:"debug" "do_ocaml_pill_memory_reports" in
        let inactive = (-1.,-1.,-1.) in
-       let (sz_data,sz_headers,sz_depth) = 
+       let (sz_data,sz_headers,sz_depth) =
 	 match value with
 	   | None -> inactive
-	   | Some value -> 
-	       if value = "True" || value = "true" then   
-		   memory_footprint(ocamlpill_hard_unwrap args.(0)) 
+	   | Some value ->
+	       if value = "True" || value = "true" then
+		   memory_footprint(ocamlpill_hard_unwrap args.(0))
 	       else
-		 inactive 
+		 inactive
      in
       pytuple3 ((pyfloat_fromdouble sz_data),
 	        (pyfloat_fromdouble sz_headers),
@@ -4387,17 +4396,17 @@ let _py_ml_heap_footprint =
 
 
 
-let _py_debug_absorb_list = 
+let _py_debug_absorb_list =
   python_pre_interfaced_function
     ~doc:"Debug function that takes a python list and does nothing with it. Returns None"
     [|ListType|]
     (fun args -> pynone());;
 
 (* Print sundials library for info (debug): *)
-let get_nsim_sundials_library_path () = 
+let get_nsim_sundials_library_path () =
   sundials_path (Printf.sprintf "%s/" Nsimconf.sundials_lib_path);;
 
-let _py_get_nsim_sundials_library_path = 
+let _py_get_nsim_sundials_library_path =
   python_pre_interfaced_function
     ~doc:"Returns search path for sundials libraries."
     [||]
@@ -4406,7 +4415,7 @@ let _py_get_nsim_sundials_library_path =
     )
 ;;
 
-let _py_reset_signal_handler = 
+let _py_reset_signal_handler =
   python_pre_interfaced_function
     ~doc:"Reset handler for given signal number to default (e.g. to overcome petsc's SEGV handler)."
     [|IntType|]
@@ -4422,7 +4431,7 @@ let _py_get_numpy_dbl_array =
   python_pre_interfaced_function
     ~doc:"Test passing of NumPy array (generated from OCaml) to Python"
     [|IntType|]
-    (fun args -> 
+    (fun args ->
         pyobject_of_pytensor
           (pytensor_init double_items
              [|(pyint_asint args.(0)); 3|]
@@ -4493,7 +4502,7 @@ let _ =
       ("mesh_from_points_and_simplices",_py_mesh_from_points_and_simplices);
       ("mesh_scale_node_positions",_py_mesh_scale_node_positions);
       (* Only to get timings: *)
-      ("mesh_grow_bookkeeping_data_all",_py_mesh_grow_bookkeeping_data_all); 
+      ("mesh_grow_bookkeeping_data_all",_py_mesh_grow_bookkeeping_data_all);
       (* -- *)
       ("copy_mesher_defaults", _py_copy_mesher_defaults);
 
@@ -4569,7 +4578,7 @@ let _ =
       ("mwe_subfield_metadata",_py_mwe_subfield_metadata);
       ("mwe_subfield_data",_py_mwe_subfield_data);
       ("field_entry_wise",_py_field_entry_wise);
- 
+
       ("plot_scalar_field",_py_plot_scalar_field); (* field dof_stem filename color_scheme plot_order offset+scale *)
       ("raw_make_field",_py_raw_make_field_or_cofield true);
       ("raw_make_cofield",_py_raw_make_field_or_cofield false);
@@ -4609,6 +4618,7 @@ let _ =
       (*("raw_cvode_advance",_py_raw_cvode_advance);*)
       ("cvode_get_step_info",_py_cvode_get_step_info);
       ("cvode_get_stats",_py_cvode_get_stats);
+      ("cvode_get_current_time", _py_cvode_get_current_time);
       ("get_nsim_sundials_library_path", _py_get_nsim_sundials_library_path);
       (* -- DDD -- *)
       ("mumag_vector_field_max_angles",_py_mumag_vector_field_max_angles);
@@ -4669,7 +4679,7 @@ let () = Gc.set
 *)
 
 let () =
-  let argv = !effective_argv in 
+  let argv = !effective_argv in
   (* let () = Printf.printf "DDD effective_argv=%s\n%!" (string_array_to_string argv) in *)
   let () = set_python_argv (array_one_shorter argv 0) in
   if Array.length argv>1

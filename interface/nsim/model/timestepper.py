@@ -66,6 +66,7 @@ class Timestepper(ModelObj):
         self.jacobi_prealloc_diagonal = jacobi_prealloc_diagonal
         self.jacobi_prealloc_off_diagonal = jacobi_prealloc_off_diagonal
         self.initialised = False
+        self.need_reinitialise = True
 
     def initialise(self, initial_time=None,
                    rtol=None, atol=None,
@@ -74,16 +75,21 @@ class Timestepper(ModelObj):
         self.atol = self.atol if atol == None else atol
         self.pc_rtol = self.pc_rtol if pc_rtol == None else pc_rtol
         self.pc_atol = self.pc_atol if pc_atol == None else pc_atol
-        self.initial_time = (self.initial_time if initial_time == None
-                             else initial_time)
+
+        if initial_time == None:
+            if self.initialised:
+                initial_time = self.get_time()
+            else:
+                initial_time = self.initial_time
 
         if self._is_vivified():
-            initial_time = remove_unit(self.initial_time, self.time_unit)
+            initial_time = remove_unit(initial_time, self.time_unit)
             ocaml.lam_ts_init(self.get_lam(), self.get_full_name(),
-                              self.initial_time, self.rtol, self.atol)
+                              initial_time, self.rtol, self.atol)
 
             # XXX NOTE: HERE WE SHOULD ALSO SET THE PC TOLERANCES
             self.initialised = True
+            self.need_reinitialise = False
 
     def _ret_time(self, t):
         if self.time_unit is not None:
@@ -94,7 +100,7 @@ class Timestepper(ModelObj):
     def advance_time(self, target_time, max_it=-1, exact_tstop=False):
         target_time = remove_unit(target_time, self.time_unit)
 
-        if not self.initialised:
+        if self.need_reinitialise:
             self.initialise()
 
         final_t_su = \
@@ -109,11 +115,15 @@ class Timestepper(ModelObj):
 
     def get_num_steps(self):
         """Get the number of steps computed so far."""
-        return ocaml.cvode_get_num_steps(self.get_cvode())
+        return int(ocaml.cvode_get_num_steps(self.get_cvode()))
 
     def get_last_dt(self):
         """Return the last step length."""
         return self._ret_time(ocaml.cvode_get_step_info(self.get_cvode())[0])
+
+    def get_time(self):
+        """Return the last step length."""
+        return self._ret_time(ocaml.cvode_get_current_time(self.get_cvode()))
 
 
 

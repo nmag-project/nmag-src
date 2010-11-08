@@ -24,7 +24,8 @@ a Model, then it is uniquely associated with a field in that model and can
 hence be set, etc.
 """
 
-__all__ = ['Constant', 'SpaceField', 'TimeField', 'SpaceTimeField']
+__all__ = ['Quantity',
+           'Constant', 'SpaceField', 'TimeField', 'SpaceTimeField']
 
 import ocaml
 import collections, types
@@ -169,13 +170,20 @@ class Quantity(ModelObj):
 class Constant(Quantity):
     type_str = "Constant"
 
+    #def vivify(self, model):
+        #if self.value == None:
+            #raise ValueError("Constant quantity '%s' must be set before the "
+                             #"construction of the model." % self.name)
+
+        #Quantity.vivify(self, model)
+
     def is_constant(self):
         return True
 
     def _get_value(self, where=None):
         if self.value == None:
-            raise AttributeError("The Quantity initial value has not been "
-                                 "set, yet!")
+            raise AttributeError("The initial value has not been set for the "
+                                 "Constant quantity '%s'." % self.name)
         if where == None:
             assert self.def_on_mat == False, \
               ("This field is defined per material! as_constant then "
@@ -204,7 +212,7 @@ class SpaceField(Quantity):
         self.mesh = None                 # Mesh
         self.mesh_unit = None            # Mesh unit
         self.volume_unit = None          # Volume unit
-        self.master = None               # Master copy of the field
+        self._master = None              # Master copy of the field
         self.material_names = None       # Name of materials where field
                                          # is defined
         self.restrictions = restrictions # Restrictions for the field
@@ -215,9 +223,19 @@ class SpaceField(Quantity):
         self.mesh_unit = model.mesh_unit
         self.volume_unit = self.mesh_unit**self.mesh.dim
         self.mwe = mwe = model.mwes[self.name]
-        self.master = ocaml.raw_make_field(mwe, [], "", "")
         self.material_names = model.all_material_names
         self.set_value(self.value)
+
+    def get_master(self):
+        if self._master != None:
+            return self._master
+        else:
+            assert self.vivified, \
+              "Cannot get master before vivification of field(%s)" % self.name
+            self._master = field = ocaml.raw_make_field(self.mwe, [], "", "")
+            return field
+
+    master = property(get_master)
 
     def set_value(self, value):
         if not self.vivified:
@@ -245,7 +263,7 @@ class SpaceField(Quantity):
             assert len(set_plan) == 1
             v, m, u = set_plan[0]
             scale_factor = float(u)
-            flexible_set_fielddata(self.master, self.name, m, 1e9,
+            flexible_set_fielddata(self.master, self.name, m, 1e-9,
                                    scale_factor=scale_factor,
                                    normalise=False)
 
@@ -276,6 +294,12 @@ class SpaceField(Quantity):
             assert len(raw_result) == 1
             name, data = raw_result[0]
             return Value(data, u)
+
+    def save(self):
+        assert False
+
+    def load(self, filename):
+        assert False
 
 class TimeField(Quantity):
     type_str = "TimeField"

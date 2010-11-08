@@ -13,7 +13,7 @@ SimulationCore ---|                       |---> Simulation
 NOTE: Derived from the old Simulation class in nsim/interface/nmag/main.py
 which was joint work of all the Nmag developers. See the file AUTHORS.
 
-Copyright |copy| 2009 
+Copyright |copy| 2009
 
 :Author: M Franchin, M Najafi
 
@@ -29,20 +29,21 @@ from nsim.si_units import SI
 from nsim.colwriter import ColDescriptor, ColWriter
 import hysteresis as hysteresis_m
 import nsim.setup
+from clock import SimulationClock
 
 features, _ = nsim.setup.get_features()
 
 log = logging.getLogger('nmag')
 
 
-class Quantity:
+class Quantity(object):
     '''A quantity is a description of any thing that may be saved inside
     a ndt file. It may just represent an integer-floating point number
     or a vector field. The Quantity class is a descriptor for such a thing.
     It contains details about the corresponding type, SI unit, the id name,
     the signature (indices and per-material).'''
 
-    def __init__(self, name, type, units, signature=None):
+    def __init__(self, name, type, units, signature=None, context=None):
         '''name is the ID name for the quantity. type is the type of the
         quantity (int, float, date, field, pfield). unit is an SI object
         representing the unit of the data. signature is useful only for
@@ -58,6 +59,7 @@ class Quantity:
         if signature == None:
             self.signature = name
         self.parent = None
+        self.context = context
 
     def sub_quantity(self, name):
         q = Quantity(name=name, type=self.type,
@@ -67,7 +69,7 @@ class Quantity:
 
 # The following table contains all the quantities which may be saved to file.
 known_quantities = [
-  #                      name      type         unit   signature
+  #                      name      type         unit signature context
   Quantity(             'id',    'int',       SI(1),   None),
   Quantity(           'step',    'int',       SI(1),   None),
   Quantity(     'stage_step',    'int',       SI(1),   None),
@@ -77,35 +79,38 @@ known_quantities = [
   Quantity(     'stage_time',  'float',     SI('s'),   None),
   Quantity(      'real_time',  'float',     SI('s'),   None),
   Quantity(       'unixtime',  'float',     SI('s'),   None),
+  Quantity(       'maxangle',  'float',       SI(1),   None),
   Quantity(      'localtime',   'date',        None,   None),
-  Quantity('current_density', 'pfield', SI('A/m^2'),   '_*'),
-  Quantity(            'pin', 'pfield',       SI(1),   None),
+  Quantity(        'H_total',  'field',   SI('A/m'), '_?_*'),
   Quantity(              'M',  'field',   SI('A/m'), '_?_*'),
   Quantity(              'm', 'pfield',       SI(1), '_?_*'),
-  Quantity(           'dmdt',  'field', SI('A/m s'), '_?_*'),
-  Quantity(    'dm_dcurrent',  'field', SI('A/m^3'), '_?_*'),
-  Quantity(        'H_total',  'field',   SI('A/m'), '_?_*'),
+  Quantity(            'pin', 'pfield',       SI(1),   None),
+  Quantity('current_density', 'pfield', SI('A/m^2'),   '_*',  'stt'),
+  Quantity(           'dmdt',  'field',   SI('1/s'), '_?_*'),
+  Quantity(    'dm_dcurrent',  'field', SI('1/s'), '_?_*',  'stt'),
   Quantity(          'H_ext',  'field',   SI('A/m'),   '_*'),
-  Quantity(         'H_anis',  'field',   SI('A/m'), '_?_*'),
-  Quantity(         'H_exch',  'field',   SI('A/m'), '_?_*'),
-  Quantity(        'H_demag',  'field',   SI('A/m'),   '_*'),
+  Quantity(         'H_anis',  'field',   SI('A/m'), '_?_*',  'anis'),
+  Quantity(         'H_exch',  'field',   SI('A/m'), '_?_*',  'exch'),
+  Quantity(        'H_demag',  'field',   SI('A/m'),   '_*',  'demag'),
   Quantity(        'E_total',  'field', SI('J/m^3'),   '_?'),
   Quantity(          'E_ext',  'field', SI('J/m^3'),   '_?'),
-  Quantity(         'E_anis',  'field', SI('J/m^3'),   '_?'),
-  Quantity(         'E_exch',  'field', SI('J/m^3'),   '_?'),
-  Quantity(        'E_demag',  'field', SI('J/m^3'),   '_?'),
-  Quantity(            'phi',  'field',     SI('A'),   None),
-  Quantity(            'rho',  'field', SI('A/m^2'),   None),
-  Quantity(     'maxangle_m',  'field',     SI('A'),   '_?')
+  Quantity(         'E_anis',  'field', SI('J/m^3'),   '_?',  'anis'),
+  Quantity(         'E_exch',  'field', SI('J/m^3'),   '_?',  'exch'),
+  Quantity(        'E_demag',  'field', SI('J/m^3'),   '_?',  'demag'),
+  Quantity(            'phi',  'field',     SI('A'),   None,  'demag'),
+  Quantity(            'rho',  'field', SI('A/m^2'),   None,  'demag')
 ]
 
 known_quantities_by_name = dict([(q.name, q) for q in known_quantities])
+known_field_quantities = [q for q in known_quantities
+                            if q.type in ('field', 'pfield')]
 
 def not_implemented(fn_name, cl_name):
     raise NotImplementedError("%s is not implemented by %s"
                               % (fn_name, cl_name))
 
-class SimulationCore:
+
+class SimulationCore(object):
     def __init__(self, name=None, do_demag=True,
                  id="Generic Simulation class"):
         self.class_id = id       # String identifying the kind of Simulation
@@ -114,18 +119,19 @@ class SimulationCore:
         self.do_demag = do_demag # Whether we should include the demag field
 
         # List of all the materials used by the Simulation object
-        self.materials = []
+        self.materials = None
 
         # Dictionary used by the hysteresis method to find abbreviations for
         # frequently used things to save or do.
         # Example: for ``sim.hysteresis(..., save=[('averages', at(...))])``
-        # the string 'averages' needs to be a key in this dictionary. 
+        # the string 'averages' needs to be a key in this dictionary.
         # The corresponding value is the function to call.
         self.action_abbreviations = {}
 
         # Every quantity the user may want to save needs to be listed here
         self.known_quantities = known_quantities
         self.known_quantities_by_name = known_quantities_by_name
+        self.known_field_quantities = known_field_quantities
 
         ### Set the simulation name
         if name == None:
@@ -160,42 +166,8 @@ class SimulationCore:
                            "will be continued." % filename)
                     raise NmagUserError(msg)
 
-        ### NOTE: We should probably make this a proper object (class Clock)
-        # This is the simulator "clock" in a generalised sense:
-        # it is a dictionary which specifies all the parameters which define
-        # the current time, such as the simulation time, step number, ...
-        # In particular:
-        #  id   : unique identifier for data saved. Everytime any data is
-        #         saved, this number will be increased by one.
-        #  stage: the stage number. The stage counter increases whenever
-        #         the field is changed;
-        #  step: the step number. The total number of steps performed
-        #        by this instance of the simulation (always increases);
-        #  stage_step: step number from the beginning of the current stage;
-        #  zero_stage_step: the value of 'step' at the beginning of the stage;
-        #  time: the simulation time. The total simulation time
-        #        which was simulated by this instance of the simulator
-        #        (always increases)
-        #  stage_time: the simulation time from the beginning of the stage;
-        #  zero_stage_time: the value of 'time' at the beginning of the stage;
-        #  real_time: the real time used for advancing time;
-        #  last_step_dt: last time step's length
-        self.clock = {'id':-1,
-                      'stage':1,
-                      'step':0,
-                      'time':SI(0.0, "s"),
-                      'stage_step':0,
-                      'stage_time':SI(0.0, "s"),
-                      'real_time':SI(0.0, "s"),
-                      'stage_end':False,
-                      'convergence':False,
-                      'exit_hysteresis':False,
-                      'zero_stage_time':SI(0.0, "s"),
-                      'zero_stage_step':0,
-                      'time_reached_su':0.,
-                      'time_reached_si':SI(0.0, "s"),
-                      'last_step_dt_su':0.,
-                      'last_step_dt_si':SI(0.0, "s")}
+        # See documentation for SimulationClock object
+        self.clock = SimulationClock()
 
         # The advance_time method does not allow to carry on the simulation
         # up to t = infinite. Sometimes we want to simulate for n steps,
@@ -220,7 +192,7 @@ class SimulationCore:
                                                        avoid_same_step=True))
         self.add_save_abbrev('save_restart',
                              lambda sim: sim.save_restart_file())
-        self.add_do_abbrev('do_next_stage', 
+        self.add_do_abbrev('do_next_stage',
                            SimulationCore.hysteresis_next_stage)
         self.add_do_abbrev('do_exit', SimulationCore.hysteresis_exit)
 
@@ -232,13 +204,22 @@ class SimulationCore:
                                       ('pfield', '% 25.13g'),
                                       ( 'field', '% 25.13g')])
 
-    def _get_id(self): return self.clock['id']
-    def _get_stage(self): return self.clock['stage']
-    def _get_step(self): return self.clock['step']
-    def _get_time(self): return self.clock['time']
-    def _get_stage_step(self): return self.clock['stage_step']
-    def _get_stage_time(self): return self.clock['stage_time']
-    def _get_real_time(self): return self.clock['real_time']
+        # The following list contains a description of the physics components
+        # which are included in the physical model For example,
+        # ["exch", "demag"] indicates that exchange and demag are included.
+        # In this case, spin transfer torque is not. This information
+        # is used to understand which fields are relevant and which are not
+        # (so that we do not save empty fields). Following the previous
+        # example, dm_dcurrent, current_density won't be saved.
+        self._components = None
+
+    def _get_id(self): return self.clock.id
+    def _get_stage(self): return self.clock.stage
+    def _get_step(self): return self.clock.step
+    def _get_time(self): return self.clock.time
+    def _get_stage_step(self): return self.clock.stage_step
+    def _get_stage_time(self): return self.clock.stage_time
+    def _get_real_time(self): return self.clock.real_time
 
     id = property(_get_id, doc="ID.")
     stage = property(_get_stage, doc="Stage number.")
@@ -253,35 +234,54 @@ class SimulationCore:
     real_time = property(_get_real_time,
                          doc="Time passed in the 'real' world.")
 
+    def get_components(self):
+        if self._components != None:
+            return self._components
+
+        else:
+            components = ["exch"]
+            if self.do_demag:
+                components.append("demag")
+            self._components = components
+            return components
+
+    components = property(get_components, doc="Get the physical components "
+                                              "included in the model.")
+
+    def get_all_field_names(self):
+        return [q.name for q in self.known_field_quantities
+                if q.context == None
+                or q.context in self.components]
+
     def hysteresis_next_stage(sim):
         """Terminate the current stage of the hysteresis computation
         and start the next one. This function is intended to be called
         by one of the functions passed to ``hysteresis`` using the ``save``
         or ``do`` optional arguments).
         """
-        sim.clock["stage_end"] = True
+        sim.clock.stage_end = True
 
     def hysteresis_exit(sim):
         """Exit from the running hysteresis computation. This function can be
         used to exit from an hysteresis loop computation and is intended to be
-        called by one of the functions passed to ``hysteresis`` using the 
+        called by one of the functions passed to ``hysteresis`` using the
         ``save`` or ``do`` optional arguments).
         """
-        sim.clock["exit_hysteresis"] = True
-        sim.clock["stage_end"] = True
+        sim.clock.exit_hysteresis = True
+        sim.clock.stage_end = True
 
     # The methods 'hysteresis', 'relax', 'hysteresis_next_stage' and
     # 'hysteresis_exit' of the class 'Simulation' are defined inside a separate
     # module: this helps to keep the sources cleaner.
     relax = hysteresis_m.simulation_relax
- 
+
     hysteresis = hysteresis_m.simulation_hysteresis
 
     hysteresis.__argdoclong__ = \
       hysteresis_m.simulation_hysteresis.__argdoclong__
 
 
-    def add_action_abbrev(self, abbreviation, function, prefix=None): 
+    def add_action_abbrev(self, abbreviation, function, prefix=None):
         if prefix == None:
             self.action_abbreviations[abbreviation] = function
             return
@@ -290,24 +290,24 @@ class SimulationCore:
             valid_prefixes = ["save", "do"]
             if not (prefix in valid_prefixes):
                 raise NmagUserError("Valid prefixes for action abbreviations "
-                                    "are %s, you gave '%s'!" 
+                                    "are %s, you gave '%s'!"
                                     % (valid_prefixes, prefix))
 
             if abbreviation.startswith(prefix):
                 self.action_abbreviations[abbreviation] = function
             else:
-                full_abbreviation = prefix + '_' + abbreviation 
+                full_abbreviation = prefix + '_' + abbreviation
                 self.action_abbreviations[full_abbreviation] = function
 
     def add_save_abbrev(self, abbreviation, function):
         '''Add an abbreviation to be used in the 'save' argument of the
         hysteresis method. For example, if you use the following:
-            
+
             def funky_function(sim): print "Hello, I'm Funky!"
             sim.add_save_abbrev('funky', funky_function)
-            
-        Then you can call: 
-            
+
+        Then you can call:
+
             sim.hysteresis(Hs, save=[('funky', at('convergence'))])
 
         and this will be equivalent to:
@@ -322,42 +322,30 @@ class SimulationCore:
         self.add_action_abbrev(abbreviation, function, prefix='do')
 
     def do_next_stage(self, stage=None):
-        if stage == None:
-            self.clock['stage'] += 1
-        else:
-            self.clock['stage'] = stage
-        self.clock['stage_step'] = 0
-        self.clock['stage_time'] = SI(0.0, "s")
-        self.clock['convergence'] = False
-        self.clock['zero_stage_step'] = self.clock['step']
-        self.clock['zero_stage_time'] = self.clock['time']
+        self.clock.inc_stage(stage=stage)
+
+    def _get_filename(self, ext):
+        basename = self.name + ext
+        return nsim.snippets.output_file_location(basename)
 
     def _ndtfilename(self):
-        ndtbasename = self.name+'_dat.ndt'
-        ndtfilename = nsim.snippets.output_file_location(ndtbasename)
-        return ndtfilename
+        return self._get_filename("_dat.ndt")
 
     def _h5filename(self):
-        h5basename = self.name+'_dat.h5'
-        h5filename = nsim.snippets.output_file_location(h5basename)
-        return h5filename
+        return self._get_filename("_dat.h5")
 
     def _statfilename(self):
-        statbasename = self.name + '_cvode.log'
-        statfilename = nsim.snippets.output_file_location(statbasename)
-        return statfilename
+        return self._get_filename("_cvode.log")
 
     def _tolfilename(self):
-        tolbasename = self.name + '_tol.log'
-        tolfilename = nsim.snippets.output_file_location(tolbasename)
-        return tolfilename
+        return self._get_filename("_tol.log")
 
     def get_restart_file_name(self):
         """Return the default name for the restart file."""
         return self.name + "_restart.h5"
 
     def is_converged(self):
-        return self.clock['convergence']
+        return self.clock.convergence
 
     def get_materials_of_field(self, field_name):
         '''Returns all the materials for which the field with the given name
@@ -413,7 +401,8 @@ class SimulationCore:
             else: # except:
                 return
 
-            for i, comp_value in enumerate(avg):
+            avg_iterable = avg if type(avg) == list else [avg]
+            for i, comp_value in enumerate(avg_iterable):
                 comp_name = "%s_%s" % (prefix, i)
                 columns.append((comp_name, comp_value))
                 quantities.append(quantity.sub_quantity(comp_name))
@@ -432,7 +421,10 @@ class SimulationCore:
 
         return (columns, quantities)
 
-    def save_data(self, fields=None, avoid_same_step=False):
+    def _save_fields(self, filename=None, fieldnames=[]):
+        self._raise_not_implemented("load_m_from_file")
+
+    def _save_averages(self, fields=None, avoid_same_step=False):
         '''Save the averages of all available fields into the NDT file.
         If fields is a list of fields name, then these fields will be saved
         into the h5 file. If fields == 'all', then all the available fields
@@ -472,6 +464,9 @@ class SimulationCore:
         # Write finally the data to file
         self._ndt_writer.write_row(columns)
 
+    def save_data(self, fields=None, avoid_same_step=False):
+        self._save_averages(fields=fields, avoid_same_step=avoid_same_step)
+
     def _raise_not_implemented(self, fn_name):
         #raise NotImplementedError("%s is not implemented by %s"
         #                          % (fn_name, self.class_id))
@@ -487,13 +482,13 @@ class SimulationCore:
     def create_mesh(self, cell_nums, cell_sizes, materials,
                     regions=None, origin=(0.0, 0.0, 0.0),):
         '''Specify the FD mesh to use.
-        
+
         - ``cell_nums`` if a list containing the number of cells per each
           dimension.
 
         - ``cell_sizes`` is a list the sizes of the cells for each dimension
-          (the FD mesh is made by cells having all the same size). 
-        
+          (the FD mesh is made by cells having all the same size).
+
         - ``materials`` is the material (in case of single material
           simulation) or a list of tuples (region, material), in case of
           multi-material simulation.

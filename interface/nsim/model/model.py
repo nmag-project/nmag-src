@@ -134,7 +134,7 @@ def _extended_properties_by_region(region_materials, min_region=-1,
 
 #-----------------------------------------------------------------------------
 
-class Model:
+class Model(object):
     def __init__(self, name, mesh, mesh_unit, region_materials, min_region=-1,
                  properties_by_region=[]):
         # Just save the relevant stuff
@@ -179,7 +179,7 @@ class Model:
         self.sibling_elems = {}
         self.properties_by_region = properties_by_region
         self.mwes = {}               # All the MWEs
-        self.lam = {}
+        self.lam = None
         self._built = {}
 
     def _was_built(self, name):
@@ -321,11 +321,11 @@ class Model:
               nlam.lam_operator(op_full_name, mwe_out[0], mwe_in[0], op_text)
 
             # We should now register a VM call to compute the equation
-            logger.info("Creating equation SWEX for %s" % op.name)
+            logger.info("Creating operator program for %s" % op.name)
             v_in, v_out = ["v_%s" % name for name in mwe_in + mwe_out]
             op.add_commands(["SM*V", op_full_name, v_in, v_out])
-            if True:
-                op.add_commands(["CFBOX","H_exch","v_H_exch"])
+            if op.cofield_to_field:
+                op.add_commands(["CFBOX", mwe_out[0], v_out])
 
         self._built["Operator"] = True
         return operator_dict
@@ -383,15 +383,35 @@ class Model:
                              equation=eq_text)
 
             # We should now register a VM call to compute the equation
-            logger.info("Creating equation SWEX for %s" % eq.name)
+            logger.info("Creating equation program for %s" % eq.name)
             fields = ["v_%s" % name for name in eq.get_inouts()]
             eq.add_commands(["SITE-WISE-IPARAMS", eq_full_name, fields, []])
 
         self._built["Equations"] = True
         return equation_dict
 
+    def _build_ccodes(self):
+        ccodes = self.computations._by_type.get('CCode', [])
+        #simplify_context = \
+        #  EqSimplifyContext(quantities=self.quantities,
+        #                    material=self.all_material_names)
+        ccode_dict = {}
+        for ccode in ccodes:
+            logger.info("Building ccode %s" % ccode.name)
+            ccode_full_name = ccode.get_full_name()
+            ccode_dict[ccode_full_name] = ccode._build_lam_object(self)
+
+            # We should now register a VM call to launch the CCode
+            logger.info("Creating ccode program for %s" % ccode.name)
+            fields = ["v_%s" % name for name in ccode.get_inouts()]
+            ccode.add_commands(["SITE-WISE-IPARAMS", ccode_full_name, fields, []])
+
+        self._built["CCode"] = True
+        return ccode_dict
+
     def _build_programs(self):
         progs = (self.computations._by_type.get('LAMProgram', [])
+                 + self.computations._by_type.get('CCode', [])
                  + self.computations._by_type.get('Equation', [])
                  + self.computations._by_type.get('Operator', []))
         prog_dict = {}
@@ -511,11 +531,13 @@ class Model:
                                if name not in x_and_dxdt]
 
             else:
-                raise ValueError("Timestepper %s has x=%s and dxdt=%s, but "
-                                 "does not refer to one of them in its "
-                                 "jacobian: %s."
-                                 % (ts.name, ts.x, ts.dxdt,
-                                    ts.eq_for_jacobian.text))
+                eq = ts.eq_for_jacobian
+                msg = ("Timestepper %s has x=%s and dxdt=%s, but does not "
+                       "refer to one of them in the jacobian computed from "
+                       "%s, which was simplified from: %s."
+                       % (ts.name, ts.x, ts.dxdt,
+                          eq.simplified_tree, eq.text))
+                raise ValueError(msg)
 
             # List of all quantities involved in jacobi equation
             all_names = x_and_dxdt + other_names
@@ -602,6 +624,7 @@ class Model:
         bems = self._build_bems()
         ksps = self._build_ksps()
         equations = self._build_equations()
+        ccodes = self._build_ccodes()
         jacobi = {} # Not used (should clean this)
         self._build_dependency_tree()
         timesteppers = self._build_timesteppers()
@@ -615,7 +638,8 @@ class Model:
                             operators=operators.values(),
                             bem_matrices=bems.values(),
                             ksps=ksps.values(),
-                            local_operations=equations.values(),
+                            local_operations=(equations.values()
+                                              + ccodes.values()),
                             jacobi_plans=jacobi.values(),
                             programs=programs.values(),
                             timesteppers=timesteppers.values(),
