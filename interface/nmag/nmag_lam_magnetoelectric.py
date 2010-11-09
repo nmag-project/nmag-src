@@ -986,9 +986,9 @@ H_magnetoelectric_$MAT$(i) <-
                                  "v_grad_m"],
                                 []],
                                # DDD Debug Multiferroic Code
-                               ["DEBUG","Electric_ext","v_Electric_ext",6],
-                               ["DEBUG","grad_m","v_grad_m",18],
-                               ["DEBUG","H_magnetoelectric","v_H_magnetoelectric",6],
+                               ## ["DEBUG","Electric_ext","v_Electric_ext",6],
+                               ## ["DEBUG","grad_m","v_grad_m",18],
+                               ## ["DEBUG","H_magnetoelectric","v_H_magnetoelectric",6],
                                ["TSTOP","H_magnetoelectric"]
                                ])
 
