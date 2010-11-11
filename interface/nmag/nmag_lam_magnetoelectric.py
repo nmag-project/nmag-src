@@ -267,7 +267,7 @@ def nmag_lam(timestepper,
             param["LLG_C5"] = mat.su_llg_stt_nadiab
             param["THERMAL_FACTOR"] = mat.su_thermal_factor
             param["STT_PREFACTOR"] = mat.su_llg_stt_prefactor
-            param["MULTIFERROIC_FACTOR"] = mat.su_magnetoelectric_coupling
+            param["MAGNETOELECTRIC_FACTOR"] = mat.su_magnetoelectric_coupling
             # Run over all the RHS terms
             terms = []
             for template_coeff, template_term in template_rhs_terms:
@@ -485,8 +485,8 @@ E_total_$MAT$ <- E_demag_$MAT$ + E_exch_$MAT$ + E_ext_$MAT$ + E_anis_$MAT$%s;
 
     template_H_magnetoelectric = """
 H_magnetoelectric_$MAT$(i) <-
-  (2.0)*($MULTIFERROIC_FACTOR$) * ($ABS_MAG$) * Electric_ext(i) * grad_m_$MAT$(j,j)
-  +(-2.0)*($MULTIFERROIC_FACTOR$) * ($ABS_MAG$) * Electric_ext(j) * grad_m_$MAT$(j,i);
+  (2.0)*($MAGNETOELECTRIC_FACTOR$) * ($ABS_MAG$) * Electric_ext(i) * grad_m_$MAT$(j,j)
+  +(-2.0)*($MAGNETOELECTRIC_FACTOR$) * ($ABS_MAG$) * Electric_ext(j) * grad_m_$MAT$(j,i);
 """
 
 
