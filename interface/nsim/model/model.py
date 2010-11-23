@@ -100,7 +100,7 @@ def _extended_properties_by_region(region_materials, min_region=-1,
     pbr = {}
 
     def add_prop(region,prop):
-        if pbr.has_key(region):
+        if region in pbr:
             pbr[region][prop] = True
         else:
             pbr[region] = {prop: True}
@@ -150,7 +150,7 @@ class Model(object):
         regions_of_subfield = {}
         for region_idx, subfield_names in enumerate(region_materials):
             for subfield_name in subfield_names:
-                if regions_of_subfield.has_key(subfield_name):
+                if subfield_name in regions_of_subfield:
                     region_idxs = regions_of_subfield[subfield_name]
                 else:
                     regions_of_subfield[subfield_name] = region_idxs = []
@@ -183,9 +183,7 @@ class Model(object):
         self._built = {}
 
     def _was_built(self, name):
-        if self._built.has_key(name):
-            return self._built.has_key(name)
-        return False
+        return (name in self._built)
 
     def add_quantity(self, quant):
         """Add the given quantity 'quant' to the current physical model.
@@ -209,7 +207,7 @@ class Model(object):
             for mat_name in region:
                 logger.info("Processing material '%s'" % name)
 
-                if not all_materials.has_key(mat_name):
+                if not mat_name in all_materials:
                     elem_name = "%s_%s" % (name, mat_name)
                     elem = ocaml.make_element(elem_name, shape, self.dim, 1)
                     all_materials[mat_name] = (mat_name, elem)
@@ -267,14 +265,14 @@ class Model(object):
         return elems
 
     def _build_mwe(self, name):
-        if self.sibling_elems.has_key(name):
+        if name in self.sibling_elems:
             p_name = self.sibling_elems[name] # prototype name
-            assert not self.sibling_elems.has_key(p_name), \
+            assert not p_name in self.sibling_elems, \
                    "Cannot have sibling field of a sibling field."
 
             logger.info("Building MWE %s as sibling of %s" % (name, p_name))
 
-            if self.mwes.has_key(p_name):
+            if p_name in self.mwes:
                 p_mwe = self.mwes[p_name]
             else:
                 p_mwe = self._build_mwe(p_name)
@@ -461,14 +459,14 @@ class Model(object):
                 for o in outputs:
                     q_dependencies[o] = (computation, inputs)
                 for q_name in inputs + outputs:
-                    if not involved_qs.has_key(q_name):
+                    if not q_name in involved_qs:
                         involved_qs[q_name] = None
 
         # Determine primary quantities
         derived_qs = []
         primary_qs = []
         for q_name in involved_qs:
-            if q_dependencies.has_key(q_name):
+            if q_name in q_dependencies:
                 derived_qs.append(q_name)
             else:
                 primary_qs.append(q_name)
@@ -503,7 +501,7 @@ class Model(object):
         assert self._was_built("DepTree"), \
           "The target-maker builder can be used only after building the " \
           "dependency tree!"
-        if not self.quantities.dependencies.has_key(target):
+        if not target in self.quantities.dependencies:
             primaries[target] = primaries.get(target, 0) + 1
         else:
             computation, inputs = self.quantities.dependencies[target]
@@ -559,7 +557,7 @@ class Model(object):
             all_v_names = ["v_%s" % name for name in all_names]
             derivs = [("PRIMARY", "")]*(2*nr_primary_fields)
             for name in other_names:
-                if how_to_derive.has_key(name):
+                if name in how_to_derive:
                     derivs.append(how_to_derive[name])
                 else:
                     derivs.append(("IGNORE", ""))
@@ -613,7 +611,7 @@ class Model(object):
         vectors = {}
         for mwe_name in self.mwes:
             vec_name = "v_%s" % mwe_name
-            assert not vectors.has_key(vec_name), \
+            assert not vec_name in vectors, \
                    "Duplicate definition of vector '%s'" % vec_name
             quantity = self.quantities._by_name[mwe_name]
             vectors[vec_name] = \
@@ -658,6 +656,9 @@ class Model(object):
         for ts in self.timesteppers._all:
             ts.vivify(self)
 
+        logger.info("Vivifiying computations...")
+        for eq in self.computations._all:
+            eq.vivify(self)
 
     def build(self):
         # I'm keeping the same order of execution that we were using in the

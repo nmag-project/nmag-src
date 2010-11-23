@@ -14,6 +14,8 @@ __all__ = ['Equation', 'Operator', 'CCode', 'LAMProgram', 'KSP', 'BEM',
 
 import re
 
+import ocaml
+
 from nsim import linalg_machine as nlam
 
 import eqparser
@@ -73,6 +75,11 @@ class LAMProgram(Computation):
 
     def get_prog_name(self):
         return self.get_full_name()
+
+    def execute(self, fields=[], cofields=[]):
+        """Execute the LAMProgram."""
+        ocaml.lam_execute(self.get_lam(), self.get_prog_name(),
+                          fields, cofields)
 
 
 class ParsedComputation(LAMProgram):
