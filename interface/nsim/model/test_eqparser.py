@@ -53,8 +53,8 @@ def test_simplify():
                ("a <- 1*(0.5 + b - (5 - 4)/2);", "a <- b;"),
                ("a <- -1*-1;", "a <- 1.0;"),
                ("a <- --1;", "a <- 1.0;"),
-               ("a <- -b/(2*5);", "a <- -0.1*b;"),
-               ("a <- +b/(2*5);", "a <- 0.1*b;"),]
+               ("a <- +b/(2*5);", "a <- 0.1*b;"),
+               ("a <- -b/(2*5);", "a <- -0.1*b;")] # need to fix this
     for string, result in strings:
         my_result = str(parse(string).simplify()).replace("\n", "")
         assert my_result == result, ("Simplified of '%s' is '%s', but '%s' "
@@ -162,9 +162,31 @@ def test_llg_multimaterial():
       % (eq_rhs, my_result, result))
     print "passed"
 
+def test_multimaterial():
+    print "Testing multimaterial simplification"
+    from quantity import Constant, SpaceField, Quantities
+    C1 = Constant("C1", subfields=False, value=Value(-0.17688))
+    C2 = Constant("C2", subfields=True, value=Value(-0.08844))
+    m = SpaceField("m", [3], subfields=True)
+    dmdt = SpaceField("dmdt", [3], subfields=True)
+    quantities = Quantities([C1, C2, m, dmdt])
+
+    strings = [("%range i:3; m <- 0;",
+                "%range i:3; m_Py <- 0.0; m_Co <- 0.0;"),]
+
+    context = EqSimplifyContext(quantities=quantities, material=['Py', 'Co'])
+    for string, result in strings:
+        my_result = \
+          str(parse(string).simplify(context=context)).replace("\n", "")
+        assert compare_strings(my_result, result), \
+          ("Simplified of '%s' is '%s', but '%s' is expected."
+           % (string, my_result, result))
+        print "passed"
+
 if __name__ == "__main__":
     test_consistency()
     test_simplify()
     test_simplify_quantities()
     test_llg()
+    test_multimaterial()
     test_llg_multimaterial()

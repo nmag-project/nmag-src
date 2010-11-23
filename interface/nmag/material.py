@@ -5,7 +5,7 @@ etc.)
 """
 
 from nsim.si_units import SI, si
-from anisotropy import PredefinedAnisotropy, Anisotropy
+from anisotropy import PredefinedAnisotropy
 
 import logging
 log = logging.getLogger('nmag')
@@ -179,14 +179,18 @@ class MagMaterial(object):
                 anisotropy_order = anisotropy.order
                 anisotropy = anisotropy.function
 
-        elif isinstance(anisotropy, Anisotropy):
-            pass
+        elif anisotropy != None or anisotropy_order != None:
+            # At this point we must import anisotropy5 (and nsim.model)
+            from anisotropy5 import Anisotropy
+            if isinstance(anisotropy, Anisotropy):
+                pass
 
-        else:
-            if anisotropy and not anisotropy_order:
-                raise \
-                  NmagUserError("You need to specify the anisotropy_order "
-                                "when using a custom anisotropy function.")
+            else:
+                if anisotropy and not anisotropy_order:
+                    raise \
+                      NmagUserError("You need to specify the "
+                                    "anisotropy_order when using a custom "
+                                    "anisotropy function.")
 
         self.anisotropy = anisotropy
         self.anisotropy_order = anisotropy_order

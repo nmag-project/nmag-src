@@ -387,7 +387,7 @@ class TensorNode(UnaryNode):
     def simplify(self, context=None):
         # First, let's check whether this is a special tensor. If that is the
         # case, then we should just treat it specially.
-        if self.special_tensors.has_key(self.data[0]):
+        if self.data[0] in self.special_tensors:
             return Node.simplify(self, context=context)
 
         # We should go through the quantities, find this one and - if it is
@@ -411,7 +411,7 @@ class TensorNode(UnaryNode):
 
     def _collect_quantities(self, collections, parsing):
         name = self.data[1]
-        if self.special_tensors.has_key(name):
+        if name in self.special_tensors:
             return
         collections[parsing][name] = True
 

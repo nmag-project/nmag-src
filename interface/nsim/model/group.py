@@ -23,6 +23,10 @@ class Group(object):
     def __getitem__(self, name):
         return self._by_name[name]
 
+    def __contains__(self, item):
+        return self._by_name.__contains__(item)
+        # ^^^ or should we rather define Group(dict)?
+
     def add(self, obj, name=None):
         """Add the given object 'obj' to the current instance.
         If 'obj' is a list, then add all the elements of the list."""

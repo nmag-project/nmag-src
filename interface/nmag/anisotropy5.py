@@ -360,9 +360,9 @@ class UniaxialAnisotropy(Anisotropy):
 
     def get_E_equation(self, add_only=False):
         ccode = \
-          ("  double cs = $m$(0)*$axis0$ + $m$(1)*$axis1$ + $m$(2)*$axis2$,\n"
-           "         cs2 = cs*cs, cs4 = cs2*cs2;\n"
-           "  $E$ $OP$ -$K1$*cs2 - $K2$*cs4;\n")
+          ("double cs = $m(0)$*$axis(0)$ + $m(1)$*$axis(1)$ + $m(2)$*$axis(2)$,\n"
+           "       cs2 = cs*cs, cs4 = cs2*cs2;\n"
+           "$E_anis$ $OP$ -$K1$*cs2 - $K2$*cs4;\n")
         op = "+=" if add_only else "="
         ccode = ccode.replace("$OP$", op)
         return ccode_add_prefix(ccode, ["axis", "K1", "K2"], self.name + "_")

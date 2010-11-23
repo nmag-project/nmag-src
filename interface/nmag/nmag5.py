@@ -55,8 +55,8 @@ simulation_units = \
   SimulationUnits({'A': 1e-3, 'kg': 1e-27, 'm': 1e-9, 's': 1e-12,
                    'cd': 1.0, 'K': 1.0, 'mol': 1.0})
 
-H_unit = SI(1e6, "A/m") # simulation_units.conversion_factor_of(SI("A/m"))
-
+H_unit = SI(1e6, "A/m")   # simulation_units.conversion_factor_of(SI("A/m"))
+E_unit = SI(1e6, "J/m^3") # simulation_units.conversion_factor_of(SI("J/m^3"))
 
 
 def _default_qc(q_type, q_name, *args, **named_args):
@@ -316,6 +316,8 @@ class Simulation(SimulationCore):
         has_anisotropy = False
         set_H_anis = CCode("set_H_anis", inputs=["m"], outputs=["H_anis"],
                            auto_dep=True)
+        set_E_anis = CCode("set_E_anis", inputs=["m"], outputs=["E_anis"],
+                           auto_dep=True)
         for mat_name, mat in self.mat_of_mat_name.iteritems():
             # The first thing we have to do is to clear H_anis_mat
             a = mat.anisotropy
@@ -335,15 +337,16 @@ class Simulation(SimulationCore):
 
                 # Now we add the anisotropy C code to the CCode object
                 set_H_anis.append(a.get_H_equation(), materials=mat)
+                set_E_anis.append(a.get_E_equation(), materials=mat)
 
             elif a != None:
                 raise NmagUserError("The material anisotropy for '%s' is not "
                                     "an Anisotropy object." % mat)
         if has_anisotropy:
             H_anis = SpaceField("H_anis", [3], subfields=True, unit=H_unit)
-            mu0_const = Constant("mu0", value=Value(mu0), unit=SI(1e-6, "N/A^2"))
-            self.model.add_quantity([mu0_const, H_anis])
-            self.model.add_computation(set_H_anis)
+            E_anis = SpaceField("E_anis", [], subfields=True, unit=E_unit)
+            self.model.add_quantity([H_anis, E_anis])
+            self.model.add_computation([set_H_anis, set_E_anis])
 
         else:
             # We add anyway the H_anis field, since the computation of H_total
@@ -351,7 +354,9 @@ class Simulation(SimulationCore):
             qc = self._quantity_creator
             H_anis = qc(SpaceField, "H_anis", [3], subfields=True,
                         value=Value([0, 0, 0]), unit=H_unit)
-            self.model.add_quantity(H_anis)
+            E_anis = qc(SpaceField, "E_anis", [], subfields=True,
+                        value=Value(0), unit=E_unit)
+            self.model.add_quantity([H_anis, E_anis])
 
     def get_subfield_average(self, field_name, mat_name):
         f = self.model.quantities._by_name.get(field_name, None)
@@ -457,6 +462,15 @@ class Simulation(SimulationCore):
         else:
             lg.debug("is_converged(): self.max_dm_dt == None -> False")
             return False
+
+    def _save_averages(self, *args, **named_args):
+        # XXX NOTE NOTE NOTE:
+        # Temporary fix for the dependency deficiencies of Nmag5
+        # (to be solved in a better way)
+        for en in ["en_demag", "en_exch", "en_ext", "set_E_anis", "en_total"]:
+            if en in self.model.computations:
+                self.model.computations[en].execute()
+        return SimulationCore._save_averages(self, *args, **named_args)
 
     def save_data(self, fields=None, avoid_same_step=False):
         """
@@ -641,7 +655,8 @@ def _add_micromagnetics(model, contexts, quantity_creator=None):
     qc = quantity_creator or _default_qc
     m = qc(SpaceField, "m", [3], subfields=True, unit=SI(1))
     M_sat = qc(Constant, "M_sat", subfields=True, unit=SI(1e6, "A/m"))
-    model.add_quantity([m, M_sat])
+    mu0_const = Constant("mu0", value=Value(mu0), unit=SI(1e-6, "N/A^2"))
+    model.add_quantity([m, M_sat, mu0_const])
 
 def _add_exchange(model, contexts, quantity_creator=None):
     if "exch" in contexts:
@@ -848,22 +863,23 @@ def _add_energies(model, contexts, quantity_creator=None):
     contexts.append("mumag_energies")
 
     qc = quantity_creator or _default_qc
-    E_unit = SI(1e6, "J/m^3")
     E_demag = qc(SpaceField, "E_demag", subfields=True, unit=E_unit)
     E_exch = qc(SpaceField, "E_exch", subfields=True, unit=E_unit)
     E_ext = qc(SpaceField, "E_ext", subfields=True, unit=E_unit)
-    E_anis = qc(SpaceField, "E_anis", subfields=True, unit=E_unit)
+    # E_anis defined in _add_anis
     E_total = qc(SpaceField, "E_total", subfields=True, unit=E_unit)
-    model.add_quantity([E_demag, E_exch, E_ext, E_anis, E_total])
+    model.add_quantity([E_demag, E_exch, E_ext, E_total])
 
+    eq = "%range i:3; E_demag <- -0.5*mu0*M_sat*m(i)*H_demag(i);"
+    en_demag = Equation("en_demag", eq)
 
-    en_demag = Equation("en_demag",
-                        "%range i:3; E_demag <- -0.5*M_sat*m(i)*H_demag(i);")
-    en_exch = Equation("en_exch",
-                       "%range i:3; E_exch <- -0.5*M_sat*m(i)*H_exch(i);")
-    en_ext = Equation("en_ext",
-                      "%range i:3; E_ext <- -M_sat*m(i)*H_ext(i);")
-    en_total = \
-      Equation("en_total",
-               "%range i:3; E_total <- E_demag + E_exch + E_ext + E_anis;")
+    eq = "%range i:3; E_exch <- -0.5*mu0*M_sat*m(i)*H_exch(i);"
+    en_exch = Equation("en_exch", eq)
+
+    eq = "%range i:3; E_ext <- -mu0*M_sat*m(i)*H_ext(i);"
+    en_ext = Equation("en_ext", eq)
+
+    eq = "%range i:3; E_total <- E_demag + E_exch + E_ext + E_anis;"
+    en_total = Equation("en_total", eq)
+
     model.add_computation([en_demag, en_exch, en_ext, en_total])
