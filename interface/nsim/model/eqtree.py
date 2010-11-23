@@ -284,7 +284,6 @@ class TensorProductNode(AssocOpNode):
                 new_children.append(new_factor)
                 new_data.append(op)
 
-        insert_factor = (constant_factor != 1.0)
         # We can omit the factor when it is one and is followed by a
         # multiplicative term
         omit_prefactor = (constant_factor == 1.0
@@ -294,6 +293,8 @@ class TensorProductNode(AssocOpNode):
             new_data[0] = None
 
         else:
+            if len(new_data) > 0 and new_data[0] == None:
+                new_data[0] = '*'
             new_children.insert(0, FloatNode(constant_factor))
             new_data.insert(0, None)
 

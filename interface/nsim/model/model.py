@@ -523,15 +523,16 @@ class Model(object):
 
             all_names = inputs + outputs
             x_and_dxdt = ts.x + ts.dxdt
-            if contains_all(all_names, x_and_dxdt):
+            if contains_all(outputs, ts.dxdt):
                 other_names = [name
                                for name in all_names
                                if name not in x_and_dxdt]
 
             else:
+                print ts.dxdt, outputs
                 eq = ts.eq_for_jacobian
-                msg = ("Timestepper %s has x=%s and dxdt=%s, but does not "
-                       "refer to one of them in the jacobian computed from "
+                msg = ("Jacobian for timestepper %s (x=%s and dxdt=%s) does "
+                       "not determine the value of dxdt. The Jacobian is "
                        "%s, which was simplified from: %s."
                        % (ts.name, ts.x, ts.dxdt,
                           eq.simplified_tree, eq.text))

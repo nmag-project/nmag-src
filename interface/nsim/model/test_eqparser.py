@@ -52,7 +52,9 @@ def test_simplify():
                ("a <- (2);", "a <- 2.0;"),
                ("a <- 1*(0.5 + b - (5 - 4)/2);", "a <- b;"),
                ("a <- -1*-1;", "a <- 1.0;"),
-               ("a <- --1;", "a <- 1.0;"),]
+               ("a <- --1;", "a <- 1.0;"),
+               ("a <- -b/(2*5);", "a <- -0.1*b;"),
+               ("a <- +b/(2*5);", "a <- 0.1*b;"),]
     for string, result in strings:
         my_result = str(parse(string).simplify()).replace("\n", "")
         assert my_result == result, ("Simplified of '%s' is '%s', but '%s' "
