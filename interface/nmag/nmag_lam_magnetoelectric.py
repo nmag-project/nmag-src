@@ -182,7 +182,7 @@ def nmag_lam(timestepper,
 
     grad_m_mats = []
     grad_m_mats_stt = []
-    grad_m_mats_multiferroic = []
+    grad_m_mats_magnetoelectric = []
     for region in region_materials:
         for mat in region:
             logger.info("Processing material '%s'" % (mat.name))
@@ -191,11 +191,11 @@ def nmag_lam(timestepper,
             if(not all_materials.has_key(mat.name)):
                 elem_E = ocaml.make_element("E_" + mat.name, [], dim, 1)
                 elem_m = ocaml.make_element("m_" + mat.name, [3], dim, 1)
-                if mat.su_llg_stt_prefactor != 0 or mat.su_multiferroic_coupling != 0:
+                if mat.su_llg_stt_prefactor != 0 or mat.su_magnetoelectric_coupling != 0:
                     if mat.su_llg_stt_prefactor != 0:
                         grad_m_mats_stt.append(mat.name)
-                    if mat.su_multiferroic_coupling != 0:
-                        grad_m_mats_multiferroic.append(mat.name)
+                    if mat.su_magnetoelectric_coupling != 0:
+                        grad_m_mats_magnetoelectric.append(mat.name)
 
                     elem_grad_m = ocaml.make_element("grad_m_" + mat.name, [3, 3], dim, 1)
                 else:
@@ -203,9 +203,9 @@ def nmag_lam(timestepper,
                 all_materials[mat.name] = (mat, elem_E, elem_m, elem_grad_m)
 
     do_stt = (len(grad_m_mats_stt) > 0)
-    do_multiferroic = (len(grad_m_mats_multiferroic) > 0)
+    do_magnetoelectric = (len(grad_m_mats_magnetoelectric) > 0)
     
-    need_grad_m = do_stt or do_multiferroic
+    need_grad_m = do_stt or do_magnetoelectric
 
     # In nmag, multi-material simulations presently are implemented by
     # dynamically generating the strings describing the equation of
@@ -267,7 +267,7 @@ def nmag_lam(timestepper,
             param["LLG_C5"] = mat.su_llg_stt_nadiab
             param["THERMAL_FACTOR"] = mat.su_thermal_factor
             param["STT_PREFACTOR"] = mat.su_llg_stt_prefactor
-            param["MULTIFERROIC_FACTOR"] = mat.su_multiferroic_coupling
+            param["MAGNETOELECTRIC_FACTOR"] = mat.su_magnetoelectric_coupling
             # Run over all the RHS terms
             terms = []
             for template_coeff, template_term in template_rhs_terms:
@@ -341,18 +341,18 @@ def nmag_lam(timestepper,
     mwe_H_demag=ocaml.make_mwe("H_demag",mesh,enumerated_list(elems_H_demag),[],ext_pbr)
     mwe_scalar=ocaml.make_mwe("scalar",mesh,enumerated_list(elems_scalar),[],ext_pbr)
     mwe_grad_m = None
-    mwe_H_multiferroic = None
+    mwe_H_magnetoelectric = None
     mwe_current_density = None
     mwe_dm_dcurrent = None
 
     if need_grad_m:
         mwe_grad_m=ocaml.make_mwe("grad_m",mesh,enumerated_list(elems_grad_m),[],ext_pbr)
 
-    if do_multiferroic:
-        mwe_H_multiferroic=ocaml.mwe_sibling(mwe_m,
-                                             "H_multiferroic",
-                                             "H_multiferroic/m",
-                                             m_relabeled("H_multiferroic_"))
+    if do_magnetoelectric:
+        mwe_H_magnetoelectric=ocaml.mwe_sibling(mwe_m,
+                                             "H_magnetoelectric",
+                                             "H_magnetoelectric/m",
+                                             m_relabeled("H_magnetoelectric_"))
     if do_stt:
         mwe_current_density=ocaml.mwe_sibling(mwe_H_demag,
                                               "current_density",
@@ -392,14 +392,14 @@ def nmag_lam(timestepper,
 
     mwes_for_H_total = ["H_total", "H_exch", "H_ext", "H_anis"]
 
-    # XXX T.F. Note: Does not include multiferroic energy yet!
+    # XXX T.F. Note: Does not include magnetoelectric energy yet!
     mwes_for_E_total = ["m", "E_anis", "E_ext", "E_demag", "E_exch",
                         "E_total", "H_ext", "H_demag", "H_exch", "H_total"]
     template_eq_H_total = "H_total_$MAT$(j) <- H_ext(j) + H_exch_$MAT$(j) + H_anis_$MAT$(j)"
 
-    if do_multiferroic:
-        mwes_for_H_total.append("H_multiferroic")
-        template_eq_H_total +=  " + H_multiferroic_$MAT$(j)"
+    if do_magnetoelectric:
+        mwes_for_H_total.append("H_magnetoelectric")
+        template_eq_H_total +=  " + H_magnetoelectric_$MAT$(j)"
 
     if do_demag or True: # disabled check - always build this
         template_eq_H_total +=  " + H_demag(j)"
@@ -483,10 +483,10 @@ E_ext_$MAT$ <- -1.0*($ABS_MAG$)*(%f)*m_$MAT$(i)*H_ext(i);
 E_total_$MAT$ <- E_demag_$MAT$ + E_exch_$MAT$ + E_ext_$MAT$ + E_anis_$MAT$%s;
 """%(energy_factor, energy_factor, energy_factor, extra_E_contribs)
 
-    template_H_multiferroic = """
-H_multiferroic_$MAT$(i) <-
-  (2.0)*($MULTIFERROIC_FACTOR$) * ($ABS_MAG$) * Electric_ext(i) * grad_m_$MAT$(j,j)
-  +(-2.0)*($MULTIFERROIC_FACTOR$) * ($ABS_MAG$) * Electric_ext(j) * grad_m_$MAT$(j,i);
+    template_H_magnetoelectric = """
+H_magnetoelectric_$MAT$(i) <-
+  (2.0)*($MAGNETOELECTRIC_FACTOR$) * ($ABS_MAG$) * Electric_ext(i) * grad_m_$MAT$(j,j)
+  +(-2.0)*($MAGNETOELECTRIC_FACTOR$) * ($ABS_MAG$) * Electric_ext(j) * grad_m_$MAT$(j,i);
 """
 
 
@@ -501,7 +501,7 @@ H_multiferroic_$MAT$(i) <-
  }
 """
 
-    eq_H_multiferroic=vivify_template(template_H_multiferroic,prefix="%range i:3, j:3;\n")
+    eq_H_magnetoelectric=vivify_template(template_H_magnetoelectric,prefix="%range i:3, j:3;\n")
 
     eq_H_total=vivify_template(template_eq_H_total,prefix="%range j:3;\n")
 
@@ -566,7 +566,7 @@ H_multiferroic_$MAT$(i) <-
                        ("E_demag",mwe_E_demag),("E_ext",mwe_E_ext),
                        ("E_anis",mwe_E_anis),("E_lc",mwe_E_lc),
                        ("Electric_ext",mwe_Electric_ext),
-                       ("H_multiferroic",mwe_H_multiferroic),
+                       ("H_magnetoelectric",mwe_H_magnetoelectric),
                        ]:
         if mwe != None:
             m_f = (mwe,ocaml.raw_make_field(mwe,[],"",""))
@@ -706,11 +706,11 @@ H_multiferroic_$MAT$(i) <-
         jacobi_contribs_dH_dm.append(("equation",eq_H_anis))
 
 
-    if do_multiferroic:
-        lam_mwes["H_multiferroic"]=mwe_H_multiferroic
+    if do_magnetoelectric:
+        lam_mwes["H_magnetoelectric"]=mwe_H_magnetoelectric
         lam_mwes["Electric_ext"]=mwe_Electric_ext
 
-        lam_vectors["v_H_multiferroic"]=nlam.lam_vector(name="v_H_multiferroic",mwe_name="H_multiferroic")
+        lam_vectors["v_H_magnetoelectric"]=nlam.lam_vector(name="v_H_magnetoelectric",mwe_name="H_magnetoelectric")
         lam_vectors["v_Electric_ext"]=nlam.lam_vector(name="v_Electric_ext",mwe_name="Electric_ext")
 
     #Sequential jacobian (i.e. not MPI)
@@ -830,7 +830,7 @@ H_multiferroic_$MAT$(i) <-
                   "update_dmdt":nlam.lam_program("update_dmdt",
                                                  commands=[["TSTART","update_dmdt"],
                                                            ["GOSUB", "set_grad_m"],
-                                                           ["GOSUB", "set_H_multiferroic"],
+                                                           ["GOSUB", "set_H_magnetoelectric"],
                                                            ["GOSUB", "set_dm_dcurrent"],
                                                            ["GOSUB", "update_H_total"],
                                                            ["SITE-WISE-IPARAMS","local_dmdt",fields_for_dmdt,[]],
@@ -968,35 +968,35 @@ H_multiferroic_$MAT$(i) <-
         lam_programs["set_dm_dcurrent"] = \
           nlam.lam_program("set_dm_dcurrent", commands=[])
 
-    if do_multiferroic:
-        lam_local["local_H_multiferroic"] = \
-          nlam.lam_local("local_H_multiferroic",
+    if do_magnetoelectric:
+        lam_local["local_H_magnetoelectric"] = \
+          nlam.lam_local("local_H_magnetoelectric",
                          aux_args=intensive_params,
-                         field_mwes=["H_multiferroic", "Electric_ext", "grad_m"],
-                         equation=eq_H_multiferroic)
+                         field_mwes=["H_magnetoelectric", "Electric_ext", "grad_m"],
+                         equation=eq_H_magnetoelectric)
 
-        lam_programs["set_H_multiferroic"] = \
-          nlam.lam_program("set_H_multiferroic",
+        lam_programs["set_H_magnetoelectric"] = \
+          nlam.lam_program("set_H_magnetoelectric",
                            commands=\
                            [
-                               ["TSTART","H_multiferroic"],
-                               ["SITE-WISE-IPARAMS", "local_H_multiferroic",
-                                ["v_H_multiferroic",
+                               ["TSTART","H_magnetoelectric"],
+                               ["SITE-WISE-IPARAMS", "local_H_magnetoelectric",
+                                ["v_H_magnetoelectric",
                                  "v_Electric_ext",
                                  "v_grad_m"],
                                 []],
                                # DDD Debug Multiferroic Code
-                               ["DEBUG","Electric_ext","v_Electric_ext",6],
-                               ["DEBUG","grad_m","v_grad_m",18],
-                               ["DEBUG","H_multiferroic","v_H_multiferroic",6],
-                               ["TSTOP","H_multiferroic"]
+                               ## ["DEBUG","Electric_ext","v_Electric_ext",6],
+                               ## ["DEBUG","grad_m","v_grad_m",18],
+                               ## ["DEBUG","H_magnetoelectric","v_H_magnetoelectric",6],
+                               ["TSTOP","H_magnetoelectric"]
                                ])
 
-        update_H_total_commands=[["GOSUB", "set_H_multiferroic"]]+update_H_total_commands
+        update_H_total_commands=[["GOSUB", "set_H_magnetoelectric"]]+update_H_total_commands
 
     else:
-        lam_programs["set_H_multiferroic"] = \
-          nlam.lam_program("set_H_multiferroic", commands=[])
+        lam_programs["set_H_magnetoelectric"] = \
+          nlam.lam_program("set_H_magnetoelectric", commands=[])
 
     # Thermal code presently is a relic, and a somewhat awkward hack
     # that uses highly specialized C code to implement a fluctuating

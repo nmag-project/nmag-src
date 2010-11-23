@@ -2,8 +2,8 @@ __docformat__ = "restructuredtext"
 
 # TODO:
 #  - Add Electric_ext for the electric field
-#  - Add H_multiferroic [X]
-#  - Note that we do not yet have E_multiferroic, and hence this is also not included in E_total!
+#  - Add H_magnetoelectric [X]
+#  - Note that we do not yet have E_magnetoelectric, and hence this is also not included in E_total!
 
 # Standard modules
 import sys, types, math, logging, time, os
@@ -57,7 +57,7 @@ def _field_dependency_engine(to_mbuf_copier,
                              have_demag=True,
                              have_exch=True,
                              have_stt=False,
-                             have_multiferroic=False,
+                             have_magnetoelectric=False,
                              ):
     # given a list 'l', returns a list where None entries have been removed
     flt = lambda l: [li for li in l if li != None]
@@ -77,9 +77,9 @@ def _field_dependency_engine(to_mbuf_copier,
         if have_stt: return thing_if
         return thing_else
 
-    # The same for 'have_multiferroic'
-    def if_have_multiferroic(thing_if, thing_else=None):
-        if have_multiferroic: return thing_if
+    # The same for 'have_magnetoelectric'
+    def if_have_magnetoelectric(thing_if, thing_else=None):
+        if have_magnetoelectric: return thing_if
         return thing_else
 
 
@@ -91,8 +91,8 @@ def _field_dependency_engine(to_mbuf_copier,
         {"name":"mbuf_Temperature"},
         {"name":"mbuf_current_density"},
         {"name":"mbuf_Electric_ext"}, # EF = Electric field; Note that E already denotes the energy density!
-        {"name":"mbuf_H_multiferroic"},
-        # {"name":"mbuf_E_multiferroic"}, # XXX Not yet!
+        {"name":"mbuf_H_magnetoelectric"},
+        # {"name":"mbuf_E_magnetoelectric"}, # XXX Not yet!
         {"name":"mbuf_dm_dcurrent","depends_on":["lam_m"],"how_to_make":[to_mbuf_copier("dm_dcurrent")]},
         # XXX Note: this is tricky, as we may have situations where the temperature
         # is user-controlled just like H_ext, and others where this is dynamical!
@@ -148,7 +148,7 @@ def _field_dependency_engine(to_mbuf_copier,
         # ---
         {"name":"lam_M","depends_on":["lam_m"],"how_to_make":[lam_executor("set_M")]},
         {"name":"lam_grad_m","depends_on":["lam_m"],"how_to_make":[]},
-        {"name":"lam_H_multiferroic","depends_on":["lam_Electric_ext","lam_grad_m","lam_m"],"how_to_make":[]}, # XXX this is internal, hence does not provide how_to_make yet!
+        {"name":"lam_H_magnetoelectric","depends_on":["lam_Electric_ext","lam_grad_m","lam_m"],"how_to_make":[]}, # XXX this is internal, hence does not provide how_to_make yet!
         {"name":"lam_H_anis","depends_on":["lam_m"],"how_to_make":[lam_executor("set_H_anis")]},
         {"name":"lam_H_lc","depends_on":["lam_m"],"how_to_make":[lam_executor("set_H_lc")]},
 
@@ -168,7 +168,7 @@ def _field_dependency_engine(to_mbuf_copier,
         {"name":"lam_H_total",
          "depends_on":flt([if_have_exch( "lam_H_exch" ),
                            if_have_demag("lam_H_demag"),
-                           if_have_multiferroic("lam_H_multiferroic"),
+                           if_have_magnetoelectric("lam_H_magnetoelectric"),
                            "lam_H_ext",
                            "lam_H_anis"]),
          "how_to_make":[lam_executor("set_H_total")]},
@@ -215,7 +215,7 @@ fields_on_materials = ["H_demag", "H_ext", "Electric_ext", "phi", "rho", "pin",
                        "Temperature", "current_density"]
 # Names of the fields defined just over the space
 fields_on_space = ['H_anis', 'M', 'dmdt', 'm', 'grad_m',
-                   'H_multiferroic',
+                   'H_magnetoelectric',
                    'E_anis', 'E_exch', 'E_demag', 'E_total', 'E_ext',
                    'H_total', 'H_exch', 'H_therm', 'dm_dcurrent']
 
@@ -244,7 +244,7 @@ fieldunits_by_fieldname = {'phi':SI("A"),
                            'current_density':SI("A/m^2"),
                            'dm_dcurrent':SI("A/m^3"),
                            'pin':SI(""),
-                           'H_multiferroic':SI("A/m"),
+                           'H_magnetoelectric':SI("A/m"),
                            'Electric_ext':SI("V/m"),
                            }
 
@@ -257,7 +257,7 @@ otherunits_by_name = {'time':SI('s'),
                       'stage':SI(1)
                       }
 
-import nmag_lam_multiferroic as nmag_lam
+import nmag_lam_magnetoelectric as nmag_lam
 
 # debug variables to study timing
 from nsim.timings import Timer
@@ -315,8 +315,8 @@ class MagMaterial:
         Example (and default value): ``SI(1.3e-11, "J/m")``
 
 
-      `multiferroic_coupling` : SI Object
-        The coupling strength for the multiferroic interaction in 1/Coulomb:
+      `magnetoelectric_coupling` : SI Object
+        The coupling strength for the magnetoelectric interaction in 1/Coulomb:
 
         Example (and default value): ``SI(0, "1/A s")``
 
@@ -364,7 +364,7 @@ class MagMaterial:
     llg_damping=SI(0.5),
     llg_gamma_G=SI(2.210173e5, "m/A s"),
     exchange_coupling=SI(1.3e-11, "J/m"),
-    multiferroic_coupling=SI(0,"1/A s"),
+    magnetoelectric_coupling=SI(0,"1/A s"),
     anisotropy=None,
     anisotropy_order=None,
     do_precession=True)
@@ -404,8 +404,8 @@ class MagMaterial:
                  # to obtain faster convergence.
                  exchange_coupling=SI(1.3e-11, "J/m"),
                  # the exchange coupling constant.
-                 multiferroic_coupling=SI(0,"1/A s"),
-                 # The multiferroic coupling constant
+                 magnetoelectric_coupling=SI(0,"1/A s"),
+                 # The magnetoelectric coupling constant
                  anisotropy=None,
                  # PredefinedAnisotropy object, or function a(m) which returns an energy
                  # density for the given direction of the magnetisation m.
@@ -430,7 +430,7 @@ class MagMaterial:
         self.do_precession = do_precession
         self.properties = properties
         self.exchange_coupling=exchange_coupling
-        self.multiferroic_coupling=multiferroic_coupling
+        self.magnetoelectric_coupling=magnetoelectric_coupling
         self.scale_volume_charges = \
           simulation_units.of(scale_volume_charges, compatible_with=SI(1))
 
@@ -455,7 +455,7 @@ class MagMaterial:
         self.su_llg_damping = simulation_units.of(self.llg_damping, compatible_with=SI(""))
         self.su_llg_normalisationfactor = simulation_units.of(self.llg_normalisationfactor, compatible_with=SI("s^(-1)"))
         self.su_exchange_coupling = simulation_units.of(self.exchange_coupling, compatible_with=SI("J/m"))
-        self.su_multiferroic_coupling = simulation_units.of(self.multiferroic_coupling, compatible_with=SI("1/A s"))
+        self.su_magnetoelectric_coupling = simulation_units.of(self.magnetoelectric_coupling, compatible_with=SI("1/A s"))
 
         # compute thermal factor (gets multiplied by T/(dV*dt) later)
         self.thermal_factor = (2.0*si.boltzmann_constant*self.llg_damping)/(-si.gamma0*si.mu0*self.Ms)
@@ -507,7 +507,7 @@ class MagMaterial:
         attrs = filter(lambda a : a[0] != '_', dir(self))
         if not self.extended_print:
             attrs = ['name', 'Ms', 'exchange_coupling',
-                     'multiferroic_coupling',
+                     'magnetoelectric_coupling',
                      'anisotropy', 
                      'anisotropy_order', 'llg_gamma_G', 'llg_damping',
                      'llg_normalisationfactor', 'do_precession',
