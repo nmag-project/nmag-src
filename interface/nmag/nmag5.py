@@ -29,8 +29,8 @@ from nsim.si_units.si \
 import nfem
 import nfem.hdf5_v01 as hdf5
 import convergence
-import anisotropy
-from anisotropy import Anisotropy
+import anisotropy5
+from anisotropy5 import Anisotropy
 
 import ocaml
 
@@ -46,7 +46,7 @@ timer1 = Timer("save-data")
 lg = logging.getLogger('nmag')
 
 # XXX NOTE, NOTE, NOTE: Temporary solution
-uniaxial_anisotropy = anisotropy.UniaxialAnisotropy
+uniaxial_anisotropy = anisotropy5.UniaxialAnisotropy
 
 # These are our default simulation units -- however, they can be
 # modified by the user (by setting nmag.simulation_units manually
@@ -281,6 +281,7 @@ class Simulation(SimulationCore):
         _add_demag(model, contexts, self._quantity_creator, self.do_demag)
         _add_stt(model, contexts, self._quantity_creator)
         _add_llg(model, contexts, self._quantity_creator)
+        _add_energies(model, contexts, self._quantity_creator)
 
         # Set the values of the constants in the micromagnetic model
         self._set_qs_from_materials()
@@ -840,3 +841,29 @@ def _add_llg(model, contexts, quantity_creator=None):
                      derivatives=derivatives,
                      time_unit=t_unit)
     model.add_timestepper(ts)
+
+def _add_energies(model, contexts, quantity_creator=None):
+    if "mumag_energies" in contexts:
+        return
+    contexts.append("mumag_energies")
+
+    qc = quantity_creator or _default_qc
+    E_unit = SI(1e6, "J/m^3")
+    E_demag = qc(SpaceField, "E_demag", subfields=True, unit=E_unit)
+    E_exch = qc(SpaceField, "E_exch", subfields=True, unit=E_unit)
+    E_ext = qc(SpaceField, "E_ext", subfields=True, unit=E_unit)
+    E_anis = qc(SpaceField, "E_anis", subfields=True, unit=E_unit)
+    E_total = qc(SpaceField, "E_total", subfields=True, unit=E_unit)
+    model.add_quantity([E_demag, E_exch, E_ext, E_anis, E_total])
+
+
+    en_demag = Equation("en_demag",
+                        "%range i:3; E_demag <- -0.5*M_sat*m(i)*H_demag(i);")
+    en_exch = Equation("en_exch",
+                       "%range i:3; E_exch <- -0.5*M_sat*m(i)*H_exch(i);")
+    en_ext = Equation("en_ext",
+                      "%range i:3; E_ext <- -M_sat*m(i)*H_ext(i);")
+    en_total = \
+      Equation("en_total",
+               "%range i:3; E_total <- E_demag + E_exch + E_ext + E_anis;")
+    model.add_computation([en_demag, en_exch, en_ext, en_total])
