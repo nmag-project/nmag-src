@@ -1418,7 +1418,7 @@ let pts_jacobi_vivificator
 		     let () =
 		       let fc = classify_float this_factor in
 			 if fc <> FP_zero && fc <> FP_normal
-			   || (abs_float this_factor > 1e10)
+			   || (abs_float this_factor > 1e20)
 			 then Printf.printf "ROGUE FACTOR: buf_factors_fields=%s buf_factors_offsets=%s nr_factor=%d factor=%f\n%!" (int_array_to_string buf_factors_fields) (int_array_to_string buf_factors_offsets) nr_factor this_factor
 			 else ()
 		     in
