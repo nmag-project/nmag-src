@@ -605,8 +605,8 @@ class Simulation(SimulationCore):
         lg.log(15, "Saving field(s) %s into '%s'"
                % (str(fieldnames), filename))
 
-        lg.debug("save_fields (%s): time_reached_si is %s"
-                 % (filename, self.clock.time_reached_si.dens_str()))
+        lg.debug("save_fields (%s): time is %s"
+                 % (filename, self.clock.time.dens_str()))
 
         # Get medata for all fields, and for the ones we are meant to save.
         # We need the 'all fields' data in case the data file will be
@@ -628,7 +628,7 @@ class Simulation(SimulationCore):
         # if the file is new, all the required meta data will be added.
         timer1.start('append_fields')
         hdf5.append_fields(filename, fields_to_save, all_fields_to_save,
-                           self.clock.time_reached_si, self.clock.step,
+                           self.clock.time, self.clock.step,
                            self.clock.stage, self.clock.id,
                            simulation_units)
         timer1.stop('append_fields')

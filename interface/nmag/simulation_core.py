@@ -401,11 +401,15 @@ class SimulationCore(object):
             else: # except:
                 return
 
-            avg_iterable = avg if type(avg) == list else [avg]
-            for i, comp_value in enumerate(avg_iterable):
-                comp_name = "%s_%s" % (prefix, i)
-                columns.append((comp_name, comp_value))
-                quantities.append(quantity.sub_quantity(comp_name))
+            if type(avg) == list:
+                for i, comp_value in enumerate(avg):
+                    comp_name = "%s_%s" % (prefix, i)
+                    columns.append((comp_name, comp_value))
+                    quantities.append(quantity.sub_quantity(comp_name))
+
+            else:
+                columns.append((prefix, avg))
+                quantities.append(quantity.sub_quantity(prefix))
 
         # Loop over all the fields and add averages for all their components
         for quantity in self.known_quantities:

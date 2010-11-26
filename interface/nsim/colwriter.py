@@ -14,7 +14,7 @@ def _value_in_units(value, units):
 def _build_header(col_data_list, columns):
     header = []
     for col_name, col_data in col_data_list:
-        if columns.has_key(col_name):
+        if col_name in columns:
             column = columns[col_name]
             col_fmt = column.format
             col_units = column.units
@@ -24,6 +24,10 @@ def _build_header(col_data_list, columns):
 
             header.append((col_name, col_fmt, col_title,
                            col_units, column.units_str))
+        else:
+            print col_name, "not in header"
+            print columns
+            raw_input()
 
     return header
 
