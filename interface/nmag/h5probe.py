@@ -707,7 +707,7 @@ class Fields:
                        "well (tolerance=%g) with one for which the data was "
                        "saved (t=%g, row=%d): using this!"
                        % (time, equality_tolerance, save_time, save_row))
-                return self.set_field_data(field_name, subfield_name, save_id)
+                return self.set_field_data(field_name, subfield_name, save_row)
 
             elif save_time < time:
                 if lower_maximum == None or save_time > lower_maximum[0]:
