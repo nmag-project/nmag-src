@@ -2,30 +2,30 @@
 File to be called in the initial set up phase of nmag.
 
 Tasks:
- 
+
  - extract run_id
  - provide globally visible feature object for high-level python settings
     (features) which provides run_id
  - provide data for ocaml features
  - scan for command line parameters
- 
+
    - logging level
    - loggingconfiguration file
    - ocaml feature configuration file
-  
+
  - read configuration files for
- 
+
    - logging
- 
+
      - set up loggers
-     
+
    - other nsim/nmag settings
-   
+
      - set ocaml features from config files
- 
+
  - write configuration in files so we know what we have done (this is
    _ocaml.conf, _log.conf, _nmag.conf)
- 
+
 """
 
 import sys, os, logging, optparse, time
@@ -43,7 +43,7 @@ ocamlfeatures = None
 # A dictionary to keep track of what setup stage has been done already
 task_done = {'completed': False,
              'features': False,
-             'cmdline': False, 
+             'cmdline': False,
              'logging': False,
              'welcome': False}
 
@@ -88,7 +88,7 @@ def tune(act_as_library=False):
     if act_as_library:
         for task in ['cmdline', 'welcome', 'logging']:
             task_done[task] = True
-   
+
 def get_nmag_runid(argv):
     if argv == None or len(argv) == 0:
         return 'interactive-session'
@@ -102,7 +102,7 @@ def generate_cmdline_parser():
     usage = ("usage: %prog [options] \n\n"
              "(C) University of Southampton, United Kingdom, 2005, 2006")
 
-    version = (nsim.snippets.get_version_string() + 
+    version = (nsim.snippets.get_version_string() +
                "\n\nUse 'nsimversion' to find the version of your "
                "nmag release.")
 
@@ -113,9 +113,9 @@ def generate_cmdline_parser():
     parser.add_option('--loglevel',  '-l', help=help,
                       type='string', metavar='LEVEL')
 
-    help = 'log to console only'
-    parser.add_option('--nologfile', help=help,
-                      dest='nologfile', action='store_true')
+    help = 'Force logging even in interactive mode'
+    parser.add_option('--log', help=help,
+                      dest='forcelog', action='store_true')
 
     help = 'remove all existing data files for this simulation script'
     parser.add_option('--clean', help=help,
@@ -151,7 +151,7 @@ def generate_cmdline_parser():
     help = ("Debug-feature: will write configuration files that reflect the "
             "settings of internal 'feature' structures, and logging "
             "configurations.")
-    parser.add_option('--dumpconf', help=help, 
+    parser.add_option('--dumpconf', help=help,
                       dest='dumpconf', action='store_true')
 
     return parser
@@ -189,7 +189,7 @@ def setup_things(options, arguments):
     # Do we actually need this?
     # fangohr 26/08/2008: Yes, this is useful for debugging and to understand
     #                     the configuration code.
-    
+
     # Write current configurations if required
     if pyfeatures.get('nmag', 'dumpconf', raw=True):
         log.info("Found --dumpconf switch, dumping configurations...")
@@ -208,7 +208,7 @@ def setup_things(options, arguments):
                  % conf_filename_2)
 
         logfilepath = pyfeatures.config.defaults()['logfilepath']
-        logconf = nsim.features.Features(local=True, 
+        logconf = nsim.features.Features(local=True,
                                          defaults={'logfilepath':logfilepath})
         logconfigfilename = pyfeatures.get('nmag', 'logconfigfile')
         logconf.from_file(logconfigfilename)
@@ -220,7 +220,7 @@ def setup_things(options, arguments):
 
     if pyfeatures.get('nmag', 'slavelog', raw=True):
         import ocaml
-        ocaml.nlog_log_mpi('ocaml.ocaml', 20, 
+        ocaml.nlog_log_mpi('ocaml.ocaml', 20,
                            'Log messages from slaves are reported to stdout')
 
 def setup_ocaml_loggers():
@@ -258,7 +258,7 @@ def setup_ocaml_loggers():
 
     # First make sure a logger has been registered with Nlog.
     # (This will -- if the logger doesn't exist -- create one.)
-    
+
     log.debug("Calling ocaml.nlog_setupLogger for nmesh.ocaml")
     ocaml.nlog_setupLogger("nmesh.ocaml")
 
@@ -299,7 +299,7 @@ def setup(argv=None, do_features=True, do_logging=True,
           do_welcome=None, log_to_console_only=None,
           warn_about_py_ext=True):
     """Carry out the various stages of the setup of Nsim.
-    
+
     do_cmdline: the command line is parsed using the OptionParser object stored
     inside cmdline_parser variable. If it has not been set by the user, then
     it is automatically generated in this function.
@@ -321,12 +321,15 @@ def setup(argv=None, do_features=True, do_logging=True,
     if do_cmdline:
         global cmdline_parser
         if cmdline_parser == None:
-            cmdline_parser = generate_cmdline_parser() 
+            cmdline_parser = generate_cmdline_parser()
         (options, arguments) = cmdline_parser.parse_args(argv)
+        is_interactive = (len(arguments) == 0)
 
         # Deal here with some of the command line args
-        if options.nologfile:
-            log_to_console_only = True
+        if options.forcelog:
+            log_to_console_only = False
+        else:
+            log_to_console_only = is_interactive
 
         task_done['cmdline'] = True
 
@@ -344,7 +347,7 @@ def setup(argv=None, do_features=True, do_logging=True,
         logconfigfile = options.logconfigfile
 
     # We can now construct the feature objects
-    global pyfeatures, ocamlfeatures 
+    global pyfeatures, ocamlfeatures
     if do_features:
         pyfeatures = \
           nsim.features.Features(defaults={'logfilepath':logfilepath})
@@ -356,7 +359,7 @@ def setup(argv=None, do_features=True, do_logging=True,
 
         if logconfigfile == None:
             # The user has not provided his own configuration file for logging
-            # we then have to use one of the default files. 
+            # we then have to use one of the default files.
             if log_to_console_only:
                 logconfigfile = "logging-console.conf"
 
