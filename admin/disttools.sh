@@ -39,6 +39,9 @@ function allsrc_dev_compose {
   ALLSRC_DIR_NAME=$1
   ALLSRC_NSIM_BRANCH=$2
 
+  # File where to put version control info
+  INFOFILE=nsim/interface/nsim/info.py
+
   STARTING_DIR=`pwd`
 
   msg "NOTE: output of each command is redirected to $LOG_FILE"
@@ -50,6 +53,13 @@ function allsrc_dev_compose {
   (cd nmag && make hierarchy) && \
   msg "Checking out the nsim repository..." && \
   $VC_CHECKOUT $REPOS_NSIM_MAIN nsim >> $LOG_FILE && \
+  msg "Marking repositories with versions" && \
+  echo 'nsim_vcinfo = """' >> $INFOFILE && \
+  (cd nmag && $VC_INFO) >> $INFOFILE && \
+  echo '"""' >> $INFOFILE && \
+  echo 'dist_vcinfo = """' >> $INFOFILE && \
+  (cd nsim && $VC_INFO) >> $INFOFILE && \
+  echo '"""' >> $INFOFILE && \
   msg "Unpacking required packages in pkg directory" && \
   mv nsim nmag/ &&
   untar_pkg_file $LOG_FILE
