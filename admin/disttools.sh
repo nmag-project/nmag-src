@@ -54,7 +54,9 @@ function allsrc_dev_compose {
   msg "Checking out the nsim repository..." && \
   $VC_CHECKOUT $REPOS_NSIM_MAIN nsim >> $LOG_FILE && \
   msg "Marking repositories with versions" && \
-  echo 'nsim_vcinfo = """' >> $INFOFILE && \
+  echo "dist_mode = 'all-source'" >> $INFOFILE && \
+  echo "dist_date = '`date`'" >> $INFOFILE && \
+  echo 'vcinfo = """' >> $INFOFILE && \
   (cd nmag && $VC_INFO) >> $INFOFILE && \
   echo '"""' >> $INFOFILE && \
   echo 'dist_vcinfo = """' >> $INFOFILE && \
