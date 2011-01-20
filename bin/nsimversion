@@ -9,13 +9,7 @@ It will also report the paths for interface/nsim and interface/nmag.
 
 """
 
-
 import nsim.versions
 print nsim.versions.get_nmag_release_dist_svn_string()
 print nsim.versions.get_nmag_paths_string()
-	
-	
-	
-	
-	
 	

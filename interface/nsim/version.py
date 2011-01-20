@@ -51,7 +51,7 @@ def generate_info():
     this_file = this_module.get("__file__", "?")
     ls  = (["# File generated automatically by %s" % this_file,
             "# DO NOT EDIT MANUALLY!"] +
-           ["%s = %s" % (key, value)
+           ["%s = %s" % (key, repr(value))
             for key, value in all_infos.iteritems()
             if value != default_infos[key]])
     return "\n".join(ls) + "\n"

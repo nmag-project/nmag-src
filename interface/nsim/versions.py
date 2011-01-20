@@ -45,14 +45,14 @@ def get_nmag_release_date():
 
 def get_nmag_dist_date():
     import version
-    return ("unknown" if version.release_date == None
-            else version.release_date)
+    return ("unknown" if version.dist_date == None
+            else version.dist_date)
 
 def get_nmag_release_dist_svn_string():
     v = get_version_string()
     msg = "Versions:"
     msg += "\n\t          nsim version = " + str(v)
-    msg += "\n\t          nmag release = " + str(get_nmag_release())
+    msg += "\n\t               VC info = " + str(get_nmag_release())
     msg += "\n\tnmag distribution mode = " + str(get_nmag_distmode())
     msg += "\n\t     nmag release date = " + str(get_nmag_release_date())
     msg += "\n\t     distribution date = " + str(get_nmag_dist_date())
