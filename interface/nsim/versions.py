@@ -18,15 +18,8 @@ def read_first_line(fname):
           return None
 
 def get_version_string():
-    try:
-        import version
-        ver, release_date = version.version
-        if release_date == None:
-            return "%d.%d.%d-dev" % tuple(ver)
-        else:
-            return "%d.%d.%d" % tuple(ver)
-    except:
-        return "(unknown)"
+    import version
+    return version.version_str
 
 def _get_nmag_path():
     nsimpath = get_absolute_librarypath(nsim)[0]
@@ -34,40 +27,35 @@ def _get_nmag_path():
     return nmagpath
 
 def get_nmag_release():
-    nmagpath = _get_nmag_path()
-
-    RELEASE = read_first_line(os.path.join(nmagpath,'RELEASE'))
-
-    if RELEASE:
-        return RELEASE
+    import version
+    if version.vcinfo != None:
+        return version.vcinfo.split()[1]
     else:
-        return "(unknown)"
+        return "unreleased"
 
 def get_nmag_distmode():
-    nmagpath = _get_nmag_path()
-    DISTMODE = read_first_line(os.path.join(nmagpath,'DISTMODE'))
-
-    if DISTMODE:
-         return DISTMODE
-    else:
-         return "(unknown)"
+    import version
+    return ("unknown" if version.dist_mode == None
+            else version.dist_mode)
 
 def get_nmag_release_date():
-    nmagpath = _get_nmag_path()
-    RELEASEDATE = read_first_line(os.path.join(nmagpath,'RELEASEDATE'))
+    import version
+    return ("n/a" if version.release_date == None
+            else version.release_date)
 
-    if RELEASEDATE:
-         return RELEASEDATE
-    else:
-         return "(unknown)"
+def get_nmag_dist_date():
+    import version
+    return ("unknown" if version.release_date == None
+            else version.release_date)
 
 def get_nmag_release_dist_svn_string():
     v = get_version_string()
     msg = "Versions:"
-    msg += "\n\tnsim.version           =" + str(v)
-    msg += "\n\tnmag-release           =" + str(get_nmag_release())
-    msg += "\n\tnmag-distribution-mode =" + str(get_nmag_distmode())
-    msg += "\n\tnmag-release-date      =" + str(get_nmag_release_date())
+    msg += "\n\t          nsim version = " + str(v)
+    msg += "\n\t          nmag release = " + str(get_nmag_release())
+    msg += "\n\tnmag distribution mode = " + str(get_nmag_distmode())
+    msg += "\n\t     nmag release date = " + str(get_nmag_release_date())
+    msg += "\n\t     distribution date = " + str(get_nmag_dist_date())
     return msg
 
 def get_nmag_paths():
@@ -81,8 +69,7 @@ def get_nmag_paths():
 def get_nmag_paths_string():
     paths = get_nmag_paths()
     msg  = "Paths:"
-    msg += "\n\tnsimpath       : %s" % paths['nsimpath']
-    msg += "\n\tnmagpath       : %s" % paths['nmagpath']
-    msg += "\n\tnmagpath (real): %s" % paths['realnmagpath']
+    msg += "\n\tnsimpath = %s" % paths['nsimpath']
+    msg += "\n\tnmagpath = %s" % paths['realnmagpath']
     return msg
 
