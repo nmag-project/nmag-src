@@ -12,6 +12,10 @@ function fatalerr {
   exit 1
 }
 
+function get_version {
+  (cd "$1" && cd interface/nsim && $PYTHON version.py)
+}
+
 function untar_pkg_file {
   LOG_FILE="$1"
   if [ -f $PKGS_FILE ]; then

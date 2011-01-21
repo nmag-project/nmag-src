@@ -57,4 +57,4 @@ def generate_info():
     return "\n".join(ls) + "\n"
 
 if __name__ == "__main__":
-    print generate_info()
+    print version_str

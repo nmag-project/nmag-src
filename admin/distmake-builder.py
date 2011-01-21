@@ -87,16 +87,17 @@ script.writeln("# Script generated from the following answers:")
 script.writeln(comment(str(plan)))
 script.writeln(". disttools.sh")
 
+# # Import interface/nsim/versions.py to get version information
+# import os
+# import sys
+# sys.path.insert(0, os.path.join("..", "interface", "nsim"))
+# import version
+# sys.path.pop(0)
 
-from version import current
-major, minor, patch = current
-if want_repo.chosen == 0:
-    pkg_name = "nmag-%d.%d" % (major, minor)
+# # Here is the package name
+# pkg_name = "nmag-%s" % version.version_str
 
-else:
-    pkg_name = "nmag-%d.%d-dev" % (major, minor)
-
-script.writeln("PKGNAME=\"%s\"" % pkg_name)
+script.writeln("PKGNAME=nmag-`get_version ..`")
 script.writeln("allsrc_dev_compose \"$PKGNAME\" 'trunk'")
 
 if want_doc.chosen:

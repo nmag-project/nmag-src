@@ -1,8 +1,22 @@
+import os
 import sys
+import time
+from commands import getoutput
 
 from choice import ChoiceList, Choice, OpenQuestion, Alternative, Script
-from version import current
 
+# Retrieve version information
+sys.path.insert(0, os.path.join("..", "interface", "nsim"))
+import version
+sys.path.pop(0)
+
+
+transition_repos = "./transition"
+if os.path.exists(transition_repos):
+    print("ERROR: directory '%s' already exists. This typically means that a "
+          "release was attempted but not completed. Please, complete the "
+          "release or remove the directory manually and retry.")
+    sys.exit(1)
 
 class Version(object):
     def __init__(self, major=None, minor=None, patch=None):
@@ -32,6 +46,7 @@ class Version(object):
         else:
             raise ValueError("Unknown kind in method Version.next")
 
+current = version.version
 v = Version(current[0], current[1], current[2])
 
 #=============================================================================
@@ -127,9 +142,38 @@ HOW VERSIONING WORKS:
 """
 confirm(msg)
 
-print ("I will now create a clone of the repository in the current "
-       "directory. I will call it transition")
+print("I will now create a clone of the repository in the current "
+      "directory. I will call it %s" % transition_repos)
 confirm()
+print getoutput("hg clone .. %s" % transition_repos)
+
+
+# We take the old version information and overwrite the version number
+# and release date
+info_filename = os.path.join(".", "transition", "interface", "nsim", "info.py")
+print "Updating version information in %s" % info_filename
+
+version.all_infos["version"] = \
+  (new_version.major, new_version.minor, new_version.patch)
+version.all_infos["release_date"] = time.asctime()
+
+f = open(info_filename, "w")
+f.write(version.generate_info())
+f.close()
+
+print("\nCommitting version change...")
+confirm()
+print getoutput("cd %s && hg commit -m \"Committed version %s\""
+                % (transition_repos, new_version))
+
+print("\nTagging version...")
+print getoutput("cd %s && hg tag \"nsim-%s\""
+                % (transition_repos, new_version))
+
+print("\nCreating tarball...")
+confirm()
+#print getoutput("cd transition && cd admin && bash rbld.bash")
+print getoutput("cd %s && cd admin && bash _relbld.bash" % transition_repos)
 
 sys.exit(0)
 
