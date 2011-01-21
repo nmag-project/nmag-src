@@ -15,7 +15,8 @@ transition_repos = "./transition"
 if os.path.exists(transition_repos):
     print("ERROR: directory '%s' already exists. This typically means that a "
           "release was attempted but not completed. Please, complete the "
-          "release or remove the directory manually and retry.")
+          "release or remove the directory manually and retry."
+          % transition_repos)
     sys.exit(1)
 
 class Version(object):
@@ -174,6 +175,18 @@ print("\nCreating tarball...")
 confirm()
 #print getoutput("cd transition && cd admin && bash rbld.bash")
 print getoutput("cd %s && cd admin && bash _relbld.bash" % transition_repos)
+
+# Getting back the
+info_filename = os.path.join(".", "transition", "interface", "nsim", "info.py")
+print "Updating version information in %s" % info_filename
+
+version.all_infos["version"] = \
+  (new_version.major, new_version.minor, new_version.patch)
+version.all_infos["release_date"] = time.asctime()
+
+f = open(info_filename, "w")
+f.write(version.generate_info())
+f.close()
 
 sys.exit(0)
 

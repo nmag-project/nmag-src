@@ -11,6 +11,9 @@
 # Q: I collected enough information. What should I do:
 #    Generate a bash script to create the distribution file
 . disttools.sh
+# We make the tarball from the current repository rather than the one on the
+# server (gamma.kk)
+REPOS_NSIM_MAIN=`cd .. && pwd`
 PKGNAME=nmag-`get_version ..`
 allsrc_dev_compose "$PKGNAME" 'trunk'
 add_doc "$PKGNAME"
@@ -22,3 +25,4 @@ remove_hg "$PKGNAME/nsim/tests"
 remove_hg "$PKGNAME/nsim/interface/nmag/manual"
 gen_tarball "$PKGNAME"
 remove_directory "$PKGNAME"
+
