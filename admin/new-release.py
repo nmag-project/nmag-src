@@ -176,25 +176,28 @@ confirm()
 #print getoutput("cd transition && cd admin && bash rbld.bash")
 print getoutput("cd %s && cd admin && bash _relbld.bash" % transition_repos)
 
-# Getting back the
+print("\nMoving tarball to ./")
+print getoutput("mv %s/admin/nmag-*.tar.gz ." % transition_repos)
+
+# Getting back to dev mode
 info_filename = os.path.join(".", "transition", "interface", "nsim", "info.py")
 print "Updating version information in %s" % info_filename
 
 version.all_infos["version"] = \
   (new_version.major, new_version.minor, new_version.patch)
-version.all_infos["release_date"] = time.asctime()
+version.all_infos["release_date"] = version.default_infos["release_date"]
 
 f = open(info_filename, "w")
 f.write(version.generate_info())
 f.close()
 
+print("\nCommitting...")
+confirm()
+print getoutput("cd %s && hg commit -m \"Back to %s-dev\""
+                % (transition_repos, new_version))
+
+
 sys.exit(0)
-
-
-
-
-
-
 
 
 
