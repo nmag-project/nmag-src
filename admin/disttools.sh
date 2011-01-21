@@ -61,10 +61,10 @@ function allsrc_dev_compose {
   echo "dist_mode = 'all-source'" >> $INFOFILE && \
   echo "dist_date = '`date`'" >> $INFOFILE && \
   echo 'vcinfo = """' >> $INFOFILE && \
-  (cd nmag && $VC_INFO) >> $INFOFILE && \
+  (cd nsim && $VC_INFO) >> $INFOFILE && \
   echo '"""' >> $INFOFILE && \
   echo 'dist_vcinfo = """' >> $INFOFILE && \
-  (cd nsim && $VC_INFO) >> $INFOFILE && \
+  (cd nmag && $VC_INFO) >> $INFOFILE && \
   echo '"""' >> $INFOFILE && \
   msg "Unpacking required packages in pkg directory" && \
   mv nsim nmag/ &&
