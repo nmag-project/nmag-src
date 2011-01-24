@@ -1,0 +1,17 @@
+#!$NMAGBINDIR$/nsim-raw
+
+"""This utility will report the
+1. Nsim version (with the -dev suffix in case of versions not released
+   officially,
+2. The release date (in case of officially released version),
+3. The version control information (revision number) of the code,
+4. The distribution mode,
+5. The distribution date.
+
+It will also report the paths for interface/nsim and interface/nmag.
+
+"""
+
+import nsim.versions
+print nsim.versions.get_nmag_release_dist_svn_string()
+print nsim.versions.get_nmag_paths_string()
