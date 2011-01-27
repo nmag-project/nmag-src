@@ -49,13 +49,23 @@ def get_nmag_dist_date():
             else version.dist_date)
 
 def get_nmag_release_dist_svn_string():
-    v = get_version_string()
+    """Obsolete: use get_nmag_release_info."""
+    return get_nmag_release_info()
+
+def get_nmag_release_info():
+    """This function returns a string with:
+    1. Nsim version (with the -dev suffix in case of versions not released
+       officially,
+    2. The release date (in case of officially released version),
+    3. The version control information (revision number) of the code,
+    4. The distribution mode,
+    5. The distribution date."""
     msg = "Versions:"
-    msg += "\n\t          nsim version = " + str(v)
-    msg += "\n\t               VC info = " + str(get_nmag_release())
-    msg += "\n\tnmag distribution mode = " + str(get_nmag_distmode())
-    msg += "\n\t     nmag release date = " + str(get_nmag_release_date())
-    msg += "\n\t     distribution date = " + str(get_nmag_dist_date())
+    msg += "\n\t     nsim version = " + str(get_version_string())
+    msg += "\n\t     release date = " + str(get_nmag_release_date())
+    msg += "\n\t          VC info = " + str(get_nmag_release())
+    msg += "\n\tdistribution mode = " + str(get_nmag_distmode())
+    msg += "\n\tdistribution date = " + str(get_nmag_dist_date())
     return msg
 
 def get_nmag_paths():

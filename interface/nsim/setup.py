@@ -35,8 +35,8 @@ log = logging.getLogger('') # Use root logger as long as we don't have our own
 # The feature stores, used to propagate setup information to all the parts of
 # the program, both the Python and OCaml code.
 import nsim
-from nsim.versions import get_version_string
-
+from nsim.versions import get_version_string, get_nmag_release_info,\
+                          get_nmag_paths_string
 pyfeatures = None
 ocamlfeatures = None
 
@@ -102,9 +102,13 @@ def generate_cmdline_parser():
     usage = ("usage: %prog [options] \n\n"
              "(C) University of Southampton, United Kingdom, 2005, 2006")
 
-    version = (nsim.snippets.get_version_string() +
-               "\n\nUse 'nsimversion' to find the version of your "
-               "nmag release.")
+    import nsim.versions
+    version = "%s\n%s\n" % (get_nmag_release_info(),
+                            get_nmag_paths_string())
+
+    #version = (nsim.snippets.get_version_string() +
+    #           "\n\nUse 'nsimversion' to find the version of your "
+    #           "nmag release.")
 
     parser = optparse.OptionParser(usage=usage, version=version)
 
