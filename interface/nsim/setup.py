@@ -100,15 +100,11 @@ def generate_cmdline_parser():
 
     # Setup OptionParser to (semi-conveniently) parse input options
     usage = ("usage: %prog [options] \n\n"
-             "(C) University of Southampton, United Kingdom, 2005, 2006")
+             "Copyright (C) 2005-2011 "
+             "University of Southampton, United Kingdom")
 
     import nsim.versions
-    version = "%s\n%s\n" % (get_nmag_release_info(),
-                            get_nmag_paths_string())
-
-    #version = (nsim.snippets.get_version_string() +
-    #           "\n\nUse 'nsimversion' to find the version of your "
-    #           "nmag release.")
+    version = "%s\n%s\n" % (get_nmag_release_info(), get_nmag_paths_string())
 
     parser = optparse.OptionParser(usage=usage, version=version)
 

@@ -2,7 +2,7 @@
 # Copyright (C) 2010 University of Southampton
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
 #
-# WEB:     http://nmag.soton.ac.uk 
+# WEB:     http://nmag.soton.ac.uk
 # CONTACT: nmag@soton.ac.uk
 #
 # AUTHOR(S) OF THIS FILE: XXX
@@ -61,8 +61,9 @@ def partial_traceback(start_tb=0):
 
     finally:
         etype = value = tb = None
- 
+
 def main(args, locals=None, globals=None, use_ipython=True):
+    import os.path
     from nsim.setup import setup
     options, arguments = setup(argv=args[1:], warn_about_py_ext=False)
     sys.argv = arguments
@@ -70,6 +71,8 @@ def main(args, locals=None, globals=None, use_ipython=True):
     if len(arguments) > 0:
         # Execute a file
         try:
+            script_path = os.path.realpath(os.path.split(arguments[0])[0])
+            sys.path.insert(0, script_path)
             execfile(arguments[0], globals, locals)
 
         except SystemExit, exit_status:
