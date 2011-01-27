@@ -2,7 +2,7 @@ SHELL=/bin/bash
 
 .PHONY: all build-bin clean
 
-all: nsim nsim-raw nsimversion
+all: nsim nsim-raw
 
 nsim: nsim.in root.inc nsim-raw
 	. ./root.inc && \
@@ -12,11 +12,6 @@ nsim: nsim.in root.inc nsim-raw
 nsim-raw: nsim-raw.in root.inc
 	. ./root.inc && \
 	sed -e 's|\$$NMAGROOTDIR\$$|'"$$NMAG_ROOT"'|g' nsim-raw.in > $@ || rm $@
-	chmod u+x $@
-
-nsimversion: nsimversion.in nsim-raw root.inc
-	. ./root.inc && \
-	sed -e 's|\$$NMAGBINDIR\$$|'"$$NMAG_BIN"'|g' nsimversion.in > $@ || rm $@
 	chmod u+x $@
 
 root.inc:
@@ -29,5 +24,5 @@ build-bin:
 	$(MAKE)
 
 clean:
-	rm -f nsim nsim-raw nsimversion root.inc
+	rm -f nsim nsim-raw root.inc
 
