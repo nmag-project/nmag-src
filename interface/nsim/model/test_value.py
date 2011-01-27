@@ -1,4 +1,4 @@
-from nsim.model import Value
+from value import Value
 
 def x_evalx(x, xs, evalxs):
     xs.append(x)

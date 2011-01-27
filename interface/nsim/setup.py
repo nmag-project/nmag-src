@@ -117,6 +117,10 @@ def generate_cmdline_parser():
     parser.add_option('--log', help=help,
                       dest='forcelog', action='store_true')
 
+    help = 'Deactivate logging'
+    parser.add_option('--nolog', help=help,
+                      dest='forcelog', action='store_false')
+
     help = 'remove all existing data files for this simulation script'
     parser.add_option('--clean', help=help,
                       dest='clean', action='store_true')
@@ -153,6 +157,9 @@ def generate_cmdline_parser():
             "configurations.")
     parser.add_option('--dumpconf', help=help,
                       dest='dumpconf', action='store_true')
+
+    # Set default values for shared destinations
+    parser.set_defaults(forcelog=None)
 
     return parser
 
@@ -326,10 +333,14 @@ def setup(argv=None, do_features=True, do_logging=True,
         is_interactive = (len(arguments) == 0)
 
         # Deal here with some of the command line args
-        if options.forcelog:
-            log_to_console_only = False
-        else:
+        if options.forcelog == None:
             log_to_console_only = is_interactive
+
+        elif options.forcelog == True:
+            log_to_console_only = False
+
+        else:
+            log_to_console_only = True
 
         task_done['cmdline'] = True
 
