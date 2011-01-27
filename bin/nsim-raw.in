@@ -12,7 +12,13 @@
 RT="$NMAGROOTDIR$"
 
 # Set PYTHONPATH so that Python can find Nsim modules
-export PYTHONPATH=$RT/interface:$PYTHONPATH
+INTERFACE_PATH=$RT/interface
+if [ x$PYTHONPATH == x ]; then
+  PYTHONPATH=$INTERFACE_PATH
+else
+  PYTHONPATH=$INTERFACE_PATH:$PYTHONPATH
+fi
+export PYTHONPATH
 
 # Check whether the ldflags.bash file exists.
 # This file sets environment variables so that all the libraries
