@@ -266,6 +266,12 @@ class TensorProductNode(AssocOpNode):
         constant_factor = 1.0
         for factor, op in zip(self.children, self.data):
             new_factor = factor.simplify(context=context)
+
+            # Sign folding: take all the signs out of the factors and
+            # move them to the leading constant
+            constant_factor *= new_factor.data
+            new_factor.data = 1.0
+
             if new_factor.is_zero(context=context):
                 if op == '/':
                     raise ValueError("Found division by zero during "
