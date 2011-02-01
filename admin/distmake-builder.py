@@ -130,7 +130,7 @@ if want_repo.chosen != 1:
         script.writeln('remove_hg "$PKGNAME/nsim/tests"')
 
     if remove_doc_hg:
-        script.writeln('remove_hg "$PKGNAME/nsim/interface/nmag/manual"')
+        script.writeln('remove_hg "$PKGNAME/doc/manual"')
 
 if want_tarb.chosen in [0, 2]:
     script.writeln('gen_tarball "$PKGNAME"')

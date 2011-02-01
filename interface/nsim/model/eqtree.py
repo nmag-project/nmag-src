@@ -268,7 +268,7 @@ class TensorProductNode(AssocOpNode):
             new_factor = factor.simplify(context=context)
 
             # Sign folding: take all the signs out of the factors and
-            # move them to the leading constant
+            # move them to the leading constant.
             constant_factor *= new_factor.data
             new_factor.data = 1.0
 

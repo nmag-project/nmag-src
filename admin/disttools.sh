@@ -86,7 +86,7 @@ function allsrc_dev_compose {
 
 function add_doc {
   echo "Adding documentation"
-  $VC_CHECKOUT "$REPOS_NSIM_DOC" "$1/nsim/interface/nmag/manual" >>$LOG_FILE \
+  $VC_CHECKOUT "$REPOS_NSIM_DOC" "$1/doc/manual" >>$LOG_FILE \
   || fatalerr "Cannot add the documentation to the distribution"
 }
 
