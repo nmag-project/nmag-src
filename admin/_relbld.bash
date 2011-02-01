@@ -6,6 +6,8 @@
 #    Yes, include the big test suite.
 # Q: Do you want to use the repositories?
 #    No, I don't care about version control.
+# Q: Do you want to remove nmagprobe and its documentation?
+#    Remove it, as this tarball will be given to people outside the consortium,
 # Q: Do you want a tarball or the directory?
 #    Give me just a tarball.
 # Q: I collected enough information. What should I do:
@@ -22,7 +24,9 @@ remove_hg "$PKGNAME"
 remove_hg "$PKGNAME/nsim"
 remove_dir "$PKGNAME" nsim/admin nsim/devel nsim/obsolete nsim/prototypes nsim/usersupport nsim/utils
 remove_hg "$PKGNAME/nsim/tests"
-remove_hg "$PKGNAME/nsim/interface/nmag/manual"
+remove_hg "$PKGNAME/doc/manual"
+remove_file "$PKGNAME" nsim/bin/nmagprobe
+remove_dir "$PKGNAME" doc/manual/nmag/example_nmagprobe
 gen_tarball "$PKGNAME"
 remove_directory "$PKGNAME"
 

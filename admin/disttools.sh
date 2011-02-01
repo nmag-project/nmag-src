@@ -110,6 +110,14 @@ function remove_dir {
   || fatalerr "cannot remove directories"
 }
 
+function remove_file {
+  MAIN_DIR=$1
+  shift 1
+  echo "Removing files $* from $1"
+  (cd $MAIN_DIR && for FILE in $*; do rm $FILE; done) \
+  || fatalerr "cannot remove files"
+}
+
 function gen_tarball {
   echo "Generating tarball for distribution"
   tar czvf "$1.tar.gz" $1/ >> $LOG_FILE \
