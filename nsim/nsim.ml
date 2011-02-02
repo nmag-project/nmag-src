@@ -2384,7 +2384,8 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	    (j_recomputed, 0)
 	in
 	  (* === CVODE PC-Solve === *)
-        let log_precond_ksp = Mpi_petsc.petsc_log_stage_register "TS_KSP" in
+        let ts_ksp_name = Printf.sprintf "TS_KSP_%s" name_ts in
+        let log_precond_ksp = Mpi_petsc.petsc_log_stage_register ts_ksp_name in
 	let cvode_fun_preconditioner_solve args () =
 	  (* let () = Printf.printf "[Node=%d] pc-solve\n%!" myrank in *)
 	  let t0 = Unix.gettimeofday() in
