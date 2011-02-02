@@ -1,6 +1,9 @@
+import sys
+
 all_lib_and_funcs = {}
 
-prefix = "/usr/local"
+prefix = "/usr/local" if len(sys.argv) < 2 else sys.argv[1]
+
 include_path = "%s/include" % prefix
 
 def include(filename):
