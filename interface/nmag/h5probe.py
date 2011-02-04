@@ -196,6 +196,9 @@ def vector_filter(filter_spec):
     if filter_name == 'identity':
         fn = lambda x: x
     elif filter_name == 'component':
+        letter = filter_args.strip().lower()
+        if letter in ["x", "y", "z"]:
+            filter_args = {"x": 0, "y": 1, "z": 2}[letter]
         fn = vector_component(int(filter_args))
     elif filter_name == 'norm':
         fn = vector_norm
@@ -1063,7 +1066,7 @@ def main(prog, args):
 
     ft_axes = None
     if options.ft_axes != None:
-        ft_axes = [int(axis) for axis in options.ft_axes.split(',')]
+        ft_axes = options.ft_axes.split(',')
 
     if scalar_mode == None:
         scalar_mode = 'identity'
@@ -1085,7 +1088,17 @@ def main(prog, args):
         # but in this library 0 corresponds to x, 1:y, 2:z and 3:t.
         # here we convert the user representation to our internal one.
         d = l.dim + ts.dim
-        ft_axes = [(a - 1) % d for a in ft_axes]
+        def map_axis(axis):
+            if type(axis) == int:
+                return (axis - 1) % d
+
+            else:
+                letter = axis.strip().lower()
+                if letter in ["t", "x", "y", "z"]:
+                    return map_axis({"t": 0, "x": 1, "y": 2, "z": 3}[letter])
+                else:
+                    return map_axis(int(letter))
+        ft_axes = map(map_axis, ft_axes)
 
     if options.verbose:
         heading = "EXECUTING PROBE WITH FOLLOWING SETTINGS:"
