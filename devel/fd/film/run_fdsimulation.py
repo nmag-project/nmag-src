@@ -20,7 +20,7 @@ def rectangle(pos):
 
 s.create_mesh([10, 10, 1], [2.0*nm, 2.0*nm, 3.0*nm], mat_Py,regions=rectangle)
     
-s.set_m([1,1,1])
+s.set_m([1, 1, 1])
 
 Hs = nmag.vector_set(direction=[1.0, 1.0, 1.0],
                      norm_list=[1.00, 0.95, [], 0.1, 0.09, [],
