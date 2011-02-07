@@ -19,3 +19,11 @@ svn2hg-transition
 The scripts which were used to migrate from SVN to Mercurial.
 They are not useful anymore, but document how the process was actually done.
 
+--------------
+new-release.py
+--------------
+
+Script to release a new version of Nmag.
+It is an interactive scripts which asks you what it should do and give some
+hints about what you are supposed to do in the whole release process.
+
