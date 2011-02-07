@@ -18,8 +18,6 @@ def _build_header(col_data_list, columns):
             column = columns[col_name]
             col_fmt = column.format
             col_units = column.units
-            print col_name, col_fmt, col_units
-            raw_input()
             col_text = col_fmt % _value_in_units(col_data, col_units)
             col_width = max(len(col_text), len(column.title))
             col_title = column.title.rjust(col_width)
