@@ -90,7 +90,7 @@ class FDSimulation(SimulationCore):
 
     def _setup(self, doing=None):
         assert not self.initialised, \
-               "FDSimulation._setup has already been called" 
+               "FDSimulation._setup has already been called"
 
         if self.fd_mesh == None:
             if doing != None:
@@ -132,7 +132,7 @@ class FDSimulation(SimulationCore):
 
         self.integrator = Integrator(self.fd_model, self.ts_rel_tol,
                                      self.ts_abs_tol, self.ts_tstep0,
-                                     method="bdf", order=2)
+                                     method="rk", order=2)
 
         self.initialised = True
 
@@ -165,7 +165,7 @@ class FDSimulation(SimulationCore):
 
     def set_m(self, values, subfieldname=None):
         print "FIXME: set_m, set_H_ext etc are not fully implemented, yet!"
-        
+
         if subfieldname != None:
             self._fd_na("multi-material")
         self._setup_if_needed("setting the magnetisation")
@@ -176,7 +176,7 @@ class FDSimulation(SimulationCore):
                 factor *= self.units.of(u, compatible_with=SI(1))
             except:
                 pass
-        
+
         M = self.fd_mesh.create_vectorfield(values,'magnetic')
         M.shape = self.fd_mesh.get_vectorfield_flat_shape()
         norm_to(self.fd_mesh, M, factor)
@@ -243,17 +243,17 @@ class FDSimulation(SimulationCore):
 
         if field_name == 'm':
             Ms = self.units.of(material.Ms)
-            return average(self.integrator.M)/Ms
+            return list(average(self.integrator.M)/Ms)
 
         elif field_name == 'M':
-            return average(self.integrator.M)*SI('A/m')
+            return list(average(self.integrator.M)*SI('A/m'))
 
         elif field_name in ['H_ext', 'H_exch', 'H_demag']:
             try:
                 H, E, H_avg = \
                   self.field_array.calculate_field(self.M, 0.0, field_name,
                                                    True, True)
-                return H_avg*SI('A/m')
+                return list(H_avg*SI('A/m'))
             except:
                 return None
 
