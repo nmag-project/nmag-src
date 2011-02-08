@@ -29,6 +29,7 @@ from   nsim.shell      import ipython
 from   anisotropy      import *
 from   simulation_core import SimulationCore
 from   hlib            import default_hmatrix_setup, HMatrixSetup
+from   clock      import SimulationClock
 
 import hysteresis as hysteresis_implementation
 import convergence
@@ -1082,7 +1083,6 @@ class Simulation(SimulationCore):
 
         if exact_tstop != None:
             self._default_exact_tstop = exact_tstop
-
 
         self.ts_in_lam.is_initialised = False
 
@@ -2911,6 +2911,8 @@ class Simulation(SimulationCore):
         # when the restart file was saved
         clock_repr = hdf5.get_attribute(file_name, '/data/fields/m', 'clock')
         self.clock = eval(clock_repr)
+        # ^^^ Here we need SimulationClock to be visible in the current scope
+
         log.info("Got clock object from restart file: %s" % self.clock)
         stage = self.clock.stage
         if self.clock.convergence:

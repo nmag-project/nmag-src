@@ -17,6 +17,25 @@ def fmt_time(t, fmt_ps="%.2f", fmt_ns="%.2f"):
             if t_ps < 100.0 else "%s ns" % (fmt_ns % (t_ps/1000.0)))
 
 class SimulationClock(object):
+    # Initial values for all the members of the clock
+    zero_vals = \
+      {             "id": -1,
+                 "stage": 1,
+                  "step": 0,
+                  "time": SI(0.0, "s"),
+            "stage_step": 0,
+            "stage_time": SI(0.0, "s"),
+             "real_time": SI(0.0, "s"),
+             "stage_end": False,
+           "convergence": False,
+       "exit_hysteresis": False,
+       "zero_stage_time": SI(0.0, "s"),
+       "zero_stage_step": 0,
+       "time_reached_su": 0.,
+       "time_reached_si": SI(0.0, "s"),
+       "last_step_dt_su": 0.,
+       "last_step_dt_si": SI(0.0, "s")}
+
     """
     This object specifies all the parameters which define the current time
     in the simulation, such as the simulation time, step number, ...
@@ -37,24 +56,22 @@ class SimulationClock(object):
      real_time: the real time used for advancing time;
      last_step_dt: last time step's length
     """
+    def __init__(self, **args):
+        # Initialise the clock object
+        zero_vals = SimulationClock.zero_vals
+        for key, zero in zero_vals.iteritems():
+            setattr(self, key, args.get(key, zero))
 
-    def __init__(self, id=-1):
-        self.id = id
-        self.stage = 1
-        self.step = 0
-        self.time = SI(0.0, "s")
-        self.stage_step = 0
-        self.stage_time = SI(0.0, "s")
-        self.real_time = SI(0.0, "s")
-        self.stage_end = False
-        self.convergence = False
-        self.exit_hysteresis = False
-        self.zero_stage_time = SI(0.0, "s")
-        self.zero_stage_step = 0
-        self.time_reached_su = 0.
-        self.time_reached_si = SI(0.0, "s")
-        self.last_step_dt_su = 0.
-        self.last_step_dt_si = SI(0.0, "s")
+        # Make sure args contains only known arguments
+        for key in args:
+            if key not in zero_vals:
+                raise TypeError("SimulationClock got an unexpected argument "
+                                "'%s'" % key)
+
+    def __repr__(self):
+        return ("SimulationClock(%s)"
+                % ", ".join(["%s=%s" % (key, repr(getattr(self, key)))
+                            for key in self.zero_vals]))
 
     def __getitem__(self, item_key):
         # Just for compatibility. Should be removed later on
