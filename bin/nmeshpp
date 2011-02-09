@@ -120,8 +120,22 @@ z-direction using '--scale [1,1,2]'"""
 
     parser.add_option("--convert","-c",help="Convert input mesh file to output mesh file. Typically used to change from ASCII nmesh to hdf5 nmesh files. Use extension 'nmesh' for ascii and 'h5' for hdf5 files. HDF5 files are stored in compressed binary and therefore smaller.",action="store_true",dest="convert")
 
-
     parser.add_option("--partitioning",help="create vtk file that shows how the nodes are distributed over cpus. If NP is int, equal distribution of nodes. if NP is list of ints, then the cpu0 takes all nodes from index 0 to the first entry of thelist, cpu1 takes all indices from first list entry to second list entry, etc. Need to provide filename for output file. ", action="store",metavar="NP",dest="partitioning_np")
+
+    distort_doc = """distort the mesh by shifting all surface nodes along the z-axis (or along the axis specified by --shift-axis) in a quasi-random way. Only '1-dimensional' distortion is supported at the moment, i.e., all nodes with the same x-coordinate (or else with the same coordinate along the axis given by --distort-along-axis) are shifted by the same amount. This can be used to model edge roughness of a nanowire, for example. The distortion amplitude (i.e., the amount of shifting) of each node is chosen from a normal distribution with mean 0 and standard deviation D. The correlation in shifting adjacent nodes can be controlled using --correlation-length and --distort-along-axis (for details on how this works see the nmag manual). The value of D can be a single number or a list of numbers (e.g., D=\"[0.1,0.2,0.3]\"). In the latter case multiple output files are created, each distorted with one value of D in the list (the filenames are based on the provided output file name, appended with the individual values of D). Note that when providing a list of values for D, the same randomization seed is used for all distortions (i.e., the 'shape' of the distortion will be the same, only the amplitude will vary)."""
+    parser.add_option("--distort","-d",help=distort_doc,action="store",dest="distort",metavar="D")
+
+    parser.add_option("--correlation-length",help="set correlation length for mesh distortion",\
+                      action="store",dest="correlation_length",default=None,metavar="C")
+
+    parser.add_option("--distort-along-axis",help="axis along which the distortion unfolds (default: X)",\
+                      action="store",dest="distort_along_axis",default="X",metavar="[X|Y|Z]")
+
+    parser.add_option("--shift-axis",help="direction in which the surface nodes are shifted during mesh distortion (default: Z).",\
+                      action="store",dest="shift_axis",default="Z",metavar="[X|Y|Z]")
+
+    parser.add_option("--seed",help="seed the random number generator with S before distorting the mesh.",\
+                      action="store",type="int",dest="distort_seed",default=None,metavar="S")
 
     (options, arguments) = parser.parse_args(argvs)
 
@@ -458,6 +472,194 @@ def do_scale_coordinates(mesh,options,outfile,scalevector):
     logging.info("Saving mesh with modified coordinates to '%s'" % outfile)
     mesh.save(outfile)
     return None
+
+
+def do_distort_mesh_1D(mesh, options, outfile, distort_factor, correlation_length, distort_along_axis, shift_axis):
+    import numpy, scipy.interpolate, math, re
+
+    points = mesh.points
+    surfaces = mesh.surfaces
+    eps = 1e-6
+    input_axis = distort_along_axis
+
+    assert len(points[0])==3
+    logging.debug("distort factor is %s" % distort_factor)
+
+    # TODO: Maybe allow arbitrary axes (not just coordinate directions)
+    if shift_axis == 2:
+        X=0; Y=1; Z=2
+    elif shift_axis == 1:
+        X=2; Y=0; Z=1
+    elif shift_axis == 0:
+        X=1; Y=2; Z=0
+    else:
+        raise IndexError("Axis must be in the range 0..2")
+
+    # Compute min and max coordinates along the specified axis
+    ptcoords = sorted(list(set(map(lambda p: p[input_axis], points))))
+    numpts = len(ptcoords)
+    xmin_global = min(ptcoords)
+    xmax_global = max(ptcoords)
+
+    # Build a hash table with x-values as keys and the indices of
+    # surface triangles that lie 'above' these x-positions as values.
+    h = {} 
+    for x in ptcoords:
+        h[x] = []
+    for i in xrange(len(surfaces)):
+        s = surfaces[i]
+        xmin = min(points[s[0]][input_axis], points[s[1]][input_axis], points[s[2]][input_axis])
+        xmax = max(points[s[0]][input_axis], points[s[1]][input_axis], points[s[2]][input_axis])
+        for x in ptcoords:
+            if x > xmax:
+                break
+            if x >= xmin:
+                h[x].append(i)
+    for k in h.keys():
+        h[k] = list(set(h[k]))
+
+    def same_half_plane(A,B,C,P):
+        # returns true if C and P lie on the same side of the line AB
+        # (after projecting all points into the plane orthogonal to shift_axis)
+        n = numpy.array([A[Y]-B[Y], B[X]-A[X]])
+        v = numpy.array([P[X]-A[X], P[Y]-A[Y]])
+        w = numpy.array([C[X]-A[X], C[Y]-A[Y]])
+
+        if numpy.sign(numpy.dot(v,n)) == numpy.sign(numpy.dot(w,n)):
+            return True
+        elif math.fabs(numpy.dot(v,n)) < eps:
+            # We assume an intersection because P lies very close to the triangle ABC
+            return True
+        else:
+            return False
+    
+    def triangle_intersects(A, B, C, P):
+        return same_half_plane(A,B,C,P) and same_half_plane(B,C,A,P) and same_half_plane(C,A,B,P)
+
+    def is_degenerate(s):
+        A = numpy.array(points[s[0]])
+        B = numpy.array(points[s[1]])
+        C = numpy.array(points[s[2]])
+        v = B-A
+        w = C-A
+        return math.fabs(v[X]*w[Y]-v[Y]*w[X]) < eps
+
+    def get_possibly_intersecting_surfaces(P):
+        x = P[input_axis]
+        return h[x]
+
+    def find_intersecting_surfaces(P):
+        S = []
+        for i in h[P[input_axis]]:  # iterate over all possibly intersecting surfaces
+            s = surfaces[i]
+            if is_degenerate(s):
+                # TODO: This test should be superfluous now that we have the hash table h.
+                #       Hmm, noooooo!?!
+                # Hmm, we should think about whether we should include degenerate triangles
+                # for more general axis directions (they may be needed).
+                continue
+            if triangle_intersects(points[s[0]], points[s[1]], points[s[2]], P):
+                #print "   surface %s intersects!" % s
+                S.append(s)
+        return S
+
+    def find_intersecting_surface_point(S, P):
+        A = numpy.array(points[S[0]])
+        B = numpy.array(points[S[1]])
+        C = numpy.array(points[S[2]])
+        n = numpy.cross(B-A, C-A)
+
+        if shift_axis == 0:
+            z = -((P[1]-A[1])*n[1] + (P[2]-A[2])*n[2]) / n[0] + A[0]
+            return [z, P[1], P[2]]
+        elif shift_axis == 1:
+            z = -((P[2]-A[2])*n[2] + (P[0]-A[0])*n[0]) / n[1] + A[1]
+            return [P[0], z, P[2]]
+        elif shift_axis == 2:
+            z = -((P[0]-A[0])*n[0] + (P[1]-A[1])*n[1]) / n[2] + A[2]
+            return [P[0], P[1], z]
+        else:
+            raise IndexError("shift_axis must be one of 0, 1, 2")
+
+    # Given a point P, find all surface triangles of the mesh that
+    # intersect with a line through P in the direction of axis. The two
+    # extremal intersection points along this axis are returned (as numpy
+    # arrays).
+    def find_extremal_intersecting_surface_points(P):
+        slist = find_intersecting_surfaces(P)
+        if slist == []:
+            raise Exception("Could not find any intersecting surfaces for point P=%s"%P)
+        if len(slist) == 1:
+            raise Exception("Could only find a single intersecting surface for point P=%s (there should be at least two)"%P)
+
+        plist = map(lambda S: find_intersecting_surface_point(S, P), slist)
+        P1 = max(plist, key=lambda P: P[shift_axis])
+        P2 = min(plist, key=lambda P: P[shift_axis])
+        return numpy.array(P1), numpy.array(P2)
+
+    def interpolate_coordinate(x, a, b, c, d):
+        if math.fabs(d-c) < eps:
+            print "Interpolated interval is empty: c=%s, d=%s" % (c,d)
+        return (x-a)/float(b-a) * (d-c) + c
+
+    # Create two random deviations along the direction of input_axis
+    # and interpolate each of them with a spline function.
+    xx = numpy.concatenate((numpy.arange(0.5*(xmin_global+xmax_global) - 0.5*correlation_length, xmin_global, -correlation_length)[::-1],
+                            numpy.arange(0.5*(xmin_global+xmax_global) + 0.5*correlation_length, xmax_global,  correlation_length)))
+    if xx[0] != xmin_global:
+        xx = numpy.concatenate(([xmin_global], xx))
+    if xx[-1] != xmax_global:
+        xx = numpy.concatenate((xx, [xmax_global]))
+
+    numpy.random.seed(options.distort_seed)
+    yy1 = numpy.random.normal(size=len(xx))
+    yy2 = numpy.random.normal(size=len(xx))
+    sp1 = scipy.interpolate.InterpolatedUnivariateSpline(xx,yy1)
+    sp2 = scipy.interpolate.InterpolatedUnivariateSpline(xx,yy2)
+
+    # ## For debugging: plot the random distortion functions
+    # import pylab
+    # xxfine = numpy.linspace(xmin_global, xmax_global, 500)
+    # #pylab.plot(xx, yy1, 'b')
+    # #pylab.plot(xx, yy2, 'r')
+    # pylab.plot(xxfine, map(sp1, xxfine), 'b')
+    # pylab.plot(xxfine, map(sp2, xxfine), 'r')
+    # pylab.show()
+
+    # For each distortion factor, newpoints will contain an array with
+    # the corresponding distorted mesh.
+    newpoints = {}
+    for d in distort_factors:
+        newpoints[d] = []
+
+    numpts = len(points)
+    for i in xrange(len(points)):
+        if i % 1000 == 0:
+            print "Point %s of %s" % (i, numpts)
+
+        P = points[i]
+        Q1,Q2 = find_extremal_intersecting_surface_points(points[i])
+        for d in distort_factors:
+            R = P[:]
+            dd = float(d) # distort_factors contains string representations of the numbers,
+                          # hence we need to convert them to floats first
+            if dd != 0:
+                w1 = Q1[shift_axis] + dd*sp1(Q1[input_axis])
+                w2 = Q2[shift_axis] + dd*sp2(Q2[input_axis])
+                R[shift_axis] = interpolate_coordinate(R[shift_axis], Q1[shift_axis], Q2[shift_axis], w1, w2)
+            newpoints[d].append(R)
+
+    outfile = re.sub("\.nmesh$", "", outfile)  # strip suffix .nmesh from outfile (if present)
+
+    for d in distort_factors:
+        logging.debug("Creating new mesh instance for distortion factor %s" % d)
+        mesh = nmesh.mesh_from_points_and_simplices(newpoints[d], mesh.simplices, mesh.simplicesregions)
+        suffix = ""
+        if len(distort_factors) > 1:
+            suffix = "-%s"%d
+        mesh.save("%s%s.nmesh" % (outfile,suffix))
+        logging.info("Saved mesh with modified coordinates to '%s%s.nmesh'" % (outfile,suffix))
+    return None
     
 
 
@@ -482,7 +684,7 @@ def do_checkconsistency(mesh):
         sx.sort() 
         return sx
 
-    # check that each point belongs at least
+    # Check that each point belongs at least
     # to one of the simplices
 
     logging.info( "checking points ...")
@@ -498,7 +700,7 @@ def do_checkconsistency(mesh):
 
     check_mesh.append(len( points_in_simplices) != _nr_points(mesh))
 
-    # check that each (N-1)-dim simplex belonging to
+    # Check that each (N-1)-dim simplex belonging to
     # a N-dim simplex have a partner (each face is shared
     # by two simplices or it is on the boundary)
 
@@ -712,8 +914,46 @@ if options.scale:
         
     do_scale_coordinates(mesh,options,outfile,scalevec)
 
+if options.distort:
+    import ast
+    check_and_tag_outfile('--distort')
 
-   
+    # Convert the distortion factor(s) provided at the command line
+    # into a list of strings representing these values (we want a list
+    # of strings because we need to avoid rounding issues at this
+    # point since the output file names should be based exactly on the
+    # command line arguments given).
+    if isinstance(ast.literal_eval(options.distort.lstrip()), (list,tuple)):
+        distort_factors = options.distort.lstrip(' ([').rstrip(' ])').split(',')
+    else:
+        distort_factors = [options.distort]
+    for i in xrange(len(distort_factors)):
+        distort_factors[i] = distort_factors[i].lstrip().rstrip()
+
+    if options.correlation_length:
+        correlation_length = eval(options.correlation_length)
+    else:
+        raise StandardError("No correlation length specified for mesh distortion.")
+
+    if len(distort_factors) > 1 and not options.distort_seed:
+        raise StandardError("When using multiple distortion factors a seed must be specified using --seed")
+
+    if options.distort_along_axis == "X":
+        distort_along_axis = 0
+    elif options.distort_along_axis == "Y":
+        distort_along_axis = 1
+    elif options.distort_along_axis == "Z":
+        distort_along_axis = 2
+
+    if options.shift_axis == "X":
+        shift_axis = 0
+    elif options.shift_axis == "Y":
+        shift_axis = 1
+    elif options.shift_axis == "Z":
+        shift_axis = 2
+
+    do_distort_mesh_1D(mesh, options, outfile, distort_factors, correlation_length, distort_along_axis, shift_axis)
+
 
 if options.refine:
     check_and_tag_outfile('--refine')
