@@ -1628,6 +1628,8 @@ let int_items = 0
 let float_items = 1
 let double_items = 2
 
+external pyarray_of_pyobject: ('a, 'b) kind -> pyobject -> ('a, 'b) pyarray
+  = "pytensor_of_pyobject";;
 external pyarray_create: ('a, 'b) kind -> int -> ('a, 'b) pyarray
   = "pyarray_create";;
 external pyarray_set: ('a, 'b) pyarray -> int -> 'a -> unit = "pyarray_set";;
@@ -1635,7 +1637,7 @@ external pyarray_get: ('a, 'b) pyarray -> int -> 'a = "pyarray_get";;
 external pyarray_kind: ('a, 'b) pyarray -> ('a, 'b) kind = "pyarray_kind";;
 external pyarray_length: ('a, 'b) pyarray -> int = "pyarray_length";;
 
-let pyobject_of_pyarray x = (x : pyobject);;
+let pyarray_to_pyobject x = (x : pyobject);;
 
 let pyarray_init eltype dim setter =
   let a = pyarray_create eltype dim in
@@ -1666,7 +1668,17 @@ external _pytensor_create_from_bigarray_raw:
   -> ('a, 'b) pytensor
       = "pytensor_create_from_bigarray_raw";;
 
-let pyobject_of_pytensor x = x;;
+(* Unsafe because if the pytensor gets destroyed, the BA may end up pointing
+   to an unallocated region of memory. *)
+external pytensor_to_ba_unsafe:
+  ('a, 'b) pytensor ->
+    ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t
+      = "pytensor_to_ba_raw";;
+
+external pytensor_of_pyobject: ('a, 'b) kind -> pyobject -> ('a, 'b) pytensor
+  = "pytensor_of_pyobject";;
+
+let pytensor_to_pyobject x = x;;
 
 (* Call a Python function on a ML bigarray in such a way that Python-wise,
    the Bigarray is represented as numpy array.
@@ -1677,7 +1689,7 @@ let pyobject_of_pytensor x = x;;
    Python finalizer when we make a Bigarray visible to Python, i.e. if
    we stored the Numarray data structure away in such a way that its
    lifetime exceeds that of the underlying Bigarray, we could get in
-   serious trouble. With this function, it is understood that the numy
+   serious trouble. With this function, it is understood that the numpy
    array only lives for the extent of the evaluation.
 
  *)
@@ -1717,6 +1729,15 @@ let pytensor_init element_type dims setter =
   in tensor
 ;;
 
+(*
+let pytensor_copy_to_bigarray pt =
+  ()
+;;
+
+let pytensor_copy_from_bigarray ba = ()
+  pytensor_init
+;;*)
+
 (*************************** END OF NUMPY SUPPORT ***************************)
 
 
@@ -1746,7 +1767,7 @@ let fast_float_array_to_python =
          if l < 32
          then pylist_fromarray (Array.map pyfloat_fromdouble a)
          else
-           pyobject_of_pyarray (pyarray_init double_items l (fun i -> a.(i))))
+           pyarray_to_pyobject (pyarray_init double_items l (fun i -> a.(i))))
   else
     (fun a -> pylist_fromarray (Array.map pyfloat_fromdouble a))
 ;;
@@ -1755,7 +1776,7 @@ let fast_py_float_tensor ?(init=(fun _ -> 0.0)) index_ranges =
   if have_numarr then
     let t = pytensor_init double_items index_ranges init
     in
-      ((pyobject_of_pytensor t), pytensor_set t)
+      ((pytensor_to_pyobject t), pytensor_set t)
   else
     py_float_tensor ~init index_ranges
 ;;

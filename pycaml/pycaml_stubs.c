@@ -10,7 +10,7 @@
 
  for a discussion of result value stealing and a list of functions where
  this becomes relevant.
- 
+
  */
 
 #include "Python.h"
@@ -113,7 +113,7 @@ static void *getcustom( value v ) { return *((void **)Data_custom_val(v)); }
 
 static void pydecref( value v ) {
     if( getcustom(v) )
-      { 
+      {
 	/* printf("GC - pydecref obj 0x%08x to refcount=%d\nOBJ=",getcustom(v),((PyObject *)getcustom(v))->ob_refcnt-1);
 	   PyObject_Print((PyObject *)getcustom(v),stdout,0);
 	   printf("END OBJ\n");
@@ -272,7 +272,7 @@ static void *caml_aux( PyObject *obj ) {
 PyObject *pycall_callback_buggy( PyObject *obj, PyObject *args ) {
     value out;
     value *v;
-    
+
     if( !PyCObject_Check(obj) ) {
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -303,7 +303,7 @@ static PyObject *pycall_callback( PyObject *obj, PyObject *args ) {
     ml_out = callback(ml_func,ml_args);
     out=pyunwrap(ml_out);
     /* T.F.:
-       The result which we have now is borrowed - most probably, 
+       The result which we have now is borrowed - most probably,
        there is only one reference to it which says
        "I am reachable through the ML heap".
        We have to properly transfer ownership, and hence
@@ -391,22 +391,22 @@ value pygencall( value format, value arg ) {
     case 1:
       ((type_1)func)();
       CAMLreturn(Val_unit);
-      
+
     case 2:
       ((type_2)func)(Int_val(arg));
       CAMLreturn(Val_unit);
-      
+
     case 3:
       ((type_3)func)(String_val(arg));
       CAMLreturn(Val_unit);
-      
+
     case 4:
       CAMLreturn(Int_val(((type_4)func)()));
-      
+
     case 5:
       CAMLreturn(Int_val(((type_5)func)
 			 (String_val(arg))));
-      
+
     case 6:
     case 7:
     case 10:
@@ -418,14 +418,14 @@ value pygencall( value format, value arg ) {
 	rv = Val_int(((type_6)func)
 		     (f,String_val(Field(arg,1))));
 	break;
-	
+
       case 7:
 	rv = Val_int(((type_7)func)
 		     (f,
 		      String_val(Field(arg,1)),
 		      Int_val(Field(arg,2))));
 	break;
-	
+
       case 10:
 	rv = pywrap_maybe_steal(do_steal,((type_10)func)
 				(f,
@@ -434,7 +434,7 @@ value pygencall( value format, value arg ) {
 				 pyunwrap(Field(arg,3)),
 				 pyunwrap(Field(arg,4))));
 	break;
-	
+
       case 11:
 	rv = pywrap_maybe_steal(do_steal,((type_11)func)
 				(f,
@@ -445,26 +445,26 @@ value pygencall( value format, value arg ) {
 				 Int_val(Field(arg,5))));
 	break;
       }
-      
+
       fclose( f );
       CAMLreturn( rv );
-      
+
     case 8:
       CAMLreturn(copy_string(((type_8)func)()));
-      
+
     case 9:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_9)func)
 				    (String_val(Field(arg,0)),
 				     Int_val(Field(arg,1)),
 				     pyunwrap(Field(arg,2)),
 				     pyunwrap(Field(arg,3)))));
-      
+
     case 12:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_12)func)
 				    (String_val(Field(arg,0)),
 				     String_val(Field(arg,1)),
 				     Int_val(Field(arg,2)))));
-      
+
     case 13:
       fd = dup(Int_val(Field(arg,1)));
       f = fdopen(fd,"r+");
@@ -480,49 +480,49 @@ value pygencall( value format, value arg ) {
 	 to do it here.
       */
       break;
-      
+
     case 14:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_14)func)(pyunwrap(arg))));
-      
+
     case 15:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_15)func)
 				    (pyunwrap(Field(arg,0)),
 				     pyunwrap(Field(arg,1)),
 				     Int_val(Field(arg,2)))));
-      
+
     case 16:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_16)func)
 				    (pyunwrap(Field(arg,0)),
 				     String_val(Field(arg,1)))));
-      
+
     case 17:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_17)func)(pyunwrap(Field(arg,0)),pyunwrap(Field(arg,1)))));
-      
+
     case 18:
       CAMLreturn(Val_int(((type_18)func)(pyunwrap(arg))));
-      
+
     case 19:
       CAMLreturn(Val_int(((type_19)func)
 			 (pyunwrap(Field(arg,0)),
 			  pyunwrap(Field(arg,1)))));
-      
+
     case 20:
       CAMLreturn(Val_int(((type_20)func)
 			 (pyunwrap(Field(arg,0)),
 			  pyunwrap(Field(arg,1)),
 			  Int_val(Field(arg,2)))));
-      
+
     case 21:
       CAMLreturn(Val_int(((type_21)func)
 			 (pyunwrap(Field(arg,0)),
 			  String_val(Field(arg,1)),
 			  pyunwrap(Field(arg,2)))));
-      
+
     case 22:
       CAMLreturn(Val_int(((type_22)func)
 			 (pyunwrap(Field(arg,0)),
 			  String_val(Field(arg,1)))));
-      
+
       /* T.F.: XXX warnings, as the implementation looks *highly* suspicious! */
     case 23:
       printf("XXX WARNING: using pycaml code that looks highly suspicious, probably is wrong!\n");fflush(stdout);
@@ -534,7 +534,7 @@ value pygencall( value format, value arg ) {
 	/* T.F. Bugfix:
 	   Field(rv,0) = pywrap(ob1);
 	   Field(rv,1) = pywrap(ob2);
-	   
+
 	   Changed to:
 	*/
 	Store_field(rv,0,pywrap(ob1));
@@ -542,35 +542,35 @@ value pygencall( value format, value arg ) {
 	/* How about stealing references here?!? */
 	CAMLreturn(rv);
       }
-      
+
     case 24:
       CAMLreturn(Int_val(((type_24)func)
 			 (pyunwrap(Field(arg,0)),
 			  pyunwrap(Field(arg,1)),
 			  pyunwrap(Field(arg,2)))));
-      
+
     case 25:
       CAMLreturn(copy_int64(((type_25)func)(pyunwrap(arg))));
-      
+
     case 26:
       CAMLreturn(copy_string(((type_26)func)(pyunwrap(arg))));
-      
+
     case 27:
       fprintf(stderr,"XXX This piece of code should not be callable!\n");fflush(stderr);
       CAMLreturn(Val_unit);
-      
+
     case 28:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_28)func)(String_val(arg))));
-      
+
     case 29:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_29)func)()));
-      
+
     case 30:
       ((type_30)func)(pyunwrap(arg));
       CAMLreturn(Val_unit);
     case 31:
       printf("XXX WARNING: using pycaml code that looks highly suspicious, probably is wrong!\n");fflush(stdout);
-      
+
       x = Int_val(Field(arg,1));
       ret_int = ((type_31)func)
 	(pyunwrap(Field(arg,0)),
@@ -587,38 +587,38 @@ value pygencall( value format, value arg ) {
 	Store_field(rv,0,pywrap(ob1));
 	Store_field(rv,1,pywrap(ob2));
 	Store_field(rv,2,Val_int(x));
-	
+
 	CAMLreturn(rv);
       }
-      
+
       /* case 32: string -> int */
-      
+
       /* case 33: unicode ... need to do something coherent */
-      
+
     case 34:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_34)func)(Int64_val(arg))));
-      
+
     case 35:
       CAMLreturn(copy_int64(((type_35)func)()));
-      
+
     case 36:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_36)func)(Double_val(arg))));
-      
+
     case 37:
       CAMLreturn(copy_double(((type_37)func)
 			     (pyunwrap(arg))));
-      
+
       /* case 38: string -> float */
-      
+
     case 39:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_39)func)(Int_val(arg))));
-      
+
     case 40:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_40)func)
 				    (pyunwrap(Field(arg,0)),
 				     Int_val(Field(arg,1)))));
-      
-    case 41:			
+
+    case 41:
       /* PyTuple_SetItem, PySequence_SetItem, PyMapping_SetItem, PyMapping_SetItemString -
 	 do_steal here means:
 	 "do we steal the arg[2] reference (which is an OCaml reference)?"
@@ -633,16 +633,16 @@ value pygencall( value format, value arg ) {
 			    Int_val(Field(arg,1)),
 			    x)));
       }
-    
+
     case 42:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_42)func)
 				    (pyunwrap(Field(arg,0)),
 				     pyunwrap(Field(arg,1)),
 				     pyunwrap(Field(arg,2)))));
-      
+
     case 43: {
       int start,end,step;
-      
+
       ret_int = ((type_43)func)
 	((PySliceObject *)pyunwrap(Field(arg,0)),
 	 Int_val(Field(arg,1)),
@@ -661,25 +661,25 @@ value pygencall( value format, value arg ) {
 	CAMLreturn(rv);
       }
     }
-      
+
     case 44:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_44)func)
 				    (Int_val(Field(arg,0)),
 				     Int_val(Field(arg,1)),
 				     Int_val(Field(arg,2)),
 				     Int_val(Field(arg,3)))));
-      
+
     case 45:
       ((type_45)func)
 	(pyunwrap(Field(arg,0)),
 	 pyunwrap(Field(arg,1)));
       CAMLreturn(Val_unit);
-      
+
     case 46:
       ((type_46)func)
 	(pyunwrap(Field(arg,0)),String_val(Field(arg,1)));
       CAMLreturn(Val_unit);
-      
+
     case 47:
       ob1 = pyunwrap(Field(arg,0));
       ob2 = pyunwrap(Field(arg,1));
@@ -691,7 +691,7 @@ value pygencall( value format, value arg ) {
 	 Field(rv,1) = pywrap(ob2);
 	 Field(rv,2) = pywrap(ob3);
       */
-      
+
       /* XXX T.F. problem: if this interface is used for PyErr_Fetch,
 	 then ob1,ob2,ob3 may be NULL here! We should map this properly
 	 to python!
@@ -700,50 +700,50 @@ value pygencall( value format, value arg ) {
       Store_field(rv,1,pywrap_maybe_steal(do_steal,ob2));
       Store_field(rv,2,pywrap_maybe_steal(do_steal,ob3));
       CAMLreturn(rv);
-      
+
     case 48:
       ((type_48)func)
 	(pyunwrap(Field(arg,0)),
 	 pyunwrap(Field(arg,1)),
 	 pyunwrap(Field(arg,2)));
       CAMLreturn(Val_unit);
-      
+
     case 49:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_49)func)
 				    (pyunwrap(Field(arg,0)),
 				     String_val(Field(arg,1)))));
-      
+
     case 50:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_50)func)
 				    (String_val(Field(arg,0)),
 				     pyunwrap(Field(arg,1)),
 				     String_val(Field(arg,2)))));
-      
+
     case 51:
       CAMLreturn(pywrap_maybe_steal(do_steal,((type_51)func)
 				    (String_val(Field(arg,0)),
 				     pyunwrap(Field(arg,1)),
 				     pyunwrap(Field(arg,2)),
 				     pyunwrap(Field(arg,3)))));
-      
+
     case 52:
       ((type_52)func)(pyunwrap(arg),&rvs,&ret_int);
       rv = copy_string(rvs);
       CAMLreturn(rv);
-      
+
     case 53:
       CAMLreturn(Val_int(((type_53)func)
 			 (pyunwrap(Field(arg,0)),
 			  Int_val(Field(arg,1)),
 			  Int_val(Field(arg,2)),
 			  pyunwrap(Field(arg,3)))));
-      
+
     case 54:
       CAMLreturn(Val_int(((type_54)func)
 			 (pyunwrap(Field(arg,0)),
 			  Int_val(Field(arg,1)),
 			  Int_val(Field(arg,2)))));
-    } 
+    }
     CAMLreturn(rv);
 }
 
@@ -1261,7 +1261,7 @@ typedef struct _python_func_table {
     int steal_result;
     char *desc;
 } python_func_table;
-    
+
 python_func_table the_python_func_table[] = {
 /* 1 */
   { (void *)Py_Initialize, 1,1, "Py_Initialize" },
@@ -1637,7 +1637,7 @@ value pygetfuncarray( value unit ) {
     CAMLreturn(retv);
 }
 
-enum PycamlTypeLabels { 
+enum PycamlTypeLabels {
     TupleType = 0,
     StringType,
     IntType,
@@ -1783,14 +1783,8 @@ static int pycaml_raise_error(int type, char *message)
 /* These were missing */
 value pybool_frombool(value x) {
   CAMLparam1(x);
-  PyObject *py_tf;
+  PyObject *py_tf = (Bool_val(x)) ? Py_True : Py_False;
 
-  if(Bool_val(x)) {
-    py_tf=Py_True;
-  }
-  else {
-    py_tf=Py_False;
-  }
   /* As Py_True/Py_False are expected to behave like Py_None,
      we use pywrap() here, rather than pywrap_steal()
    */
@@ -1845,19 +1839,19 @@ value pylist_toarray( value pylist ) {
 value pylist_set( value pylist, value index, value v ) {
   CAMLparam3(pylist,index,v);
   PyObject *list, *new_entry;
-  
+
   list = pyunwrap(pylist);
   new_entry=pyunwrap(v);
   Py_INCREF(new_entry);
   PyList_SetItem(list,Int_val(index),new_entry);
-  
+
   CAMLreturn(Val_unit);
 }
 
 value pylist_get( value pylist, value index) {
   CAMLparam2(pylist,index);
   PyObject *list = pyunwrap(pylist);
-  
+
   /* T.F.: According to the Python docs, we own the reference produced by
      PySequence_GetItem. Hence, we have to steal that reference...
    */
@@ -1887,7 +1881,7 @@ value pywrap_closure_docstring(value docstring, value closure) {
  */
 value pycaml_prompt(value ml_unit) {
   CAMLparam1(ml_unit);
-  
+
   PyRun_InteractiveLoop(stdin,"<stdin>");
 
   CAMLreturn(Val_unit);
@@ -1898,7 +1892,7 @@ value pycaml_prompt(value ml_unit) {
 value pyrefcount(value pyobj) {
   CAMLparam1(pyobj);
   PyObject *obj = pyunwrap(pyobj);
-  
+
   CAMLreturn(Val_int(obj->ob_refcnt));
 }
 
@@ -1937,6 +1931,40 @@ value raw_have_numarr(value ml_unit) {
 }
 
 #ifdef HAVE_NUMPY_ARRAYOBJECT_H
+static int numpytype_from_ba_type(int ba_type) {
+  switch (ba_type & CAML_BA_KIND_MASK) {
+  case    CAML_BA_FLOAT32: return PyArray_FLOAT32;
+  case    CAML_BA_FLOAT64: return PyArray_FLOAT64;
+  case      CAML_BA_SINT8: return PyArray_INT8;
+  case      CAML_BA_UINT8: return PyArray_UINT8;
+  case     CAML_BA_SINT16: return PyArray_INT16;
+  case     CAML_BA_UINT16: return PyArray_UINT16;
+  case      CAML_BA_INT32: return PyArray_INT32;
+  case      CAML_BA_INT64: return PyArray_INT64;
+  case   CAML_BA_CAML_INT: return -1;
+  case CAML_BA_NATIVE_INT: return -1;
+  case  CAML_BA_COMPLEX32: return PyArray_COMPLEX64;
+  case  CAML_BA_COMPLEX64: return PyArray_COMPLEX128;
+  default: return -1;
+  }
+}
+
+static int numpytype_to_ba_type(int numpytype) {
+  switch (numpytype) {
+  case       PyArray_INT8: return CAML_BA_SINT8;
+  case      PyArray_UINT8: return CAML_BA_UINT8;
+  case      PyArray_INT16: return CAML_BA_SINT16;
+  case     PyArray_UINT16: return CAML_BA_UINT16;
+  case      PyArray_INT32: return CAML_BA_INT32;
+  case      PyArray_INT64: return CAML_BA_INT64;
+  case    PyArray_FLOAT32: return CAML_BA_FLOAT32;
+  case    PyArray_FLOAT64: return CAML_BA_FLOAT64;
+  case  PyArray_COMPLEX64: return CAML_BA_COMPLEX32;
+  case PyArray_COMPLEX128: return CAML_BA_COMPLEX64;
+  default: return -1;
+  }
+}
+
 static int numpytype_from_eltype(int eltype) {
   switch(eltype) {
   case 0: return PyArray_INT;
@@ -1949,6 +1977,9 @@ static int numpytype_from_eltype(int eltype) {
   }
 }
 
+/* Note the PyArray_INT32, PyArray_INT64, etc. are defined in terms of
+ * PyArray_INT, PyArray_LONG, etc.
+ */
 static int eltype_from_numpytype(int numpytype) {
   switch(numpytype) {
   case PyArray_INT: return 0;
@@ -1958,7 +1989,7 @@ static int eltype_from_numpytype(int numpytype) {
     caml_invalid_argument("Pycaml(NumPy): Unsupported NumPy array type!");
     assert(0);
     return 0;
-  } 
+  }
 }
 
 #else
@@ -1992,7 +2023,7 @@ value pyarray_set(value pyarray, value index, value value_to_set) {
   if (!PyArray_Check(arr)) {
     caml_invalid_argument("Pycaml.numarr_set: the given pyobject is not a "
                           "NumPy array!");
-  
+
   } else {
     npy_intp *dims = PyArray_DIMS(arr),
              i = Int_val(index);
@@ -2032,7 +2063,7 @@ value pyarray_get(value pyarray, value index) {
   if (!PyArray_Check(arr)) {
     caml_invalid_argument("Pycaml.numarr_get: the given pyobject is not a "
                           "NumPy array!");
-  
+
   } else {
     npy_intp *dims = PyArray_DIMS(arr),
              i = Int_val(index);
@@ -2123,29 +2154,16 @@ value pytensor_create_from_bigarray_raw(value ml_ba) {
     caml_invalid_argument("Pycaml.pytensor_create_from_bigarray: bigarray must have C layout!");
   }
 
-  ba_type=(ba->flags & BIGARRAY_KIND_MASK);
+  ba_type = (ba->flags & BIGARRAY_KIND_MASK);
+  na_type = numpytype_from_ba_type(ba_type);
 
-  switch(ba_type) {
-  case BIGARRAY_FLOAT32:
-    na_type=tFloat32;
-    break;
-  case BIGARRAY_FLOAT64:
-    na_type=tFloat64;
-    break;
-  case BIGARRAY_INT32:
-    na_type=tInt32;
-    break;
-  case BIGARRAY_INT64:
-    na_type=tInt64;
-    break;
-  default:
-    /* Don't know what this was - so, let's just create a byte array... */
+  /* Don't know what this was - so, let's just create a byte array... */
+  if (na_type == -1)
     na_type=tUInt8;
-  }
 
   my_dims = (npy_intp *) malloc(sizeof(npy_intp)*rank);
   if (my_dims != NULL) {
-    int i, tensor_type;
+    int i;
     for(i = 0; i < rank; i++)
       my_dims[i] = ba->dim[i];
 
@@ -2181,7 +2199,7 @@ value raw_pytensor_set(value pytensor, value indices, value value_to_set) {
 
   } else if (!int_tensor && tensor_type != PyArray_DOUBLE) {
     CAMLreturn(Val_int(2)); /* items are not double float numbers */
-  
+
   } else {
     void *data = PyArray_DATA(numarr);
     int indices_size = Wosize_val(indices), i;
@@ -2206,3 +2224,79 @@ value raw_pytensor_set(value pytensor, value indices, value value_to_set) {
   CAMLreturn(Val_int(-1));
 }
 
+value pytensor_to_ba_raw(value v_pytensor) {
+  CAMLparam1(v_pytensor);
+
+#ifdef HAVE_NUMPY_ARRAYOBJECT_H
+  PyObject *pytensor = pyunwrap(v_pytensor);
+  int is_fortran_array, is_c_array;
+
+  CAMLlocal1(v_ba);
+
+  init_numarr_package();
+
+  is_fortran_array = PyArray_ISFARRAY(pytensor);
+  is_c_array = PyArray_ISCARRAY(pytensor);
+
+  if (is_fortran_array || is_c_array) {
+    /* Behaved array in Fortran or C order */
+    int nd = PyArray_NDIM(pytensor);
+    npy_intp *dims = PyArray_DIMS(pytensor);
+    void *data = PyArray_BYTES(pytensor);
+
+    if (nd <= CAML_BA_MAX_NUM_DIMS) {
+      /* BA parameters */
+      int numpytype = numpytype_to_ba_type(PyArray_TYPE(pytensor));
+
+      if (numpytype != -1) {
+        int i, ba_flags = 0;
+        intnat ml_dims[CAML_BA_MAX_NUM_DIMS];
+
+        for (i = 0; i < nd; i++)
+          ml_dims[i] = dims[i];
+
+        ba_flags = (numpytype & CAML_BA_KIND_MASK);
+        ba_flags |= (is_c_array) ? CAML_BA_C_LAYOUT : CAML_BA_FORTRAN_LAYOUT;
+
+        v_ba = caml_ba_alloc(ba_flags, nd, data, ml_dims);
+        CAMLreturn(v_ba);
+
+      } else
+        caml_invalid_argument("Pycaml(NumPy): Unrecognized array type!");
+
+    } else
+      caml_invalid_argument("Pycaml(NumPy): Numpy array has too many "
+                            "dimensions to be converted to a Bigarray!");
+
+  } else
+    caml_invalid_argument("Pycaml(NumPy): Array should be contiguous "
+                          "and behaved!");
+
+  assert(0);
+#else
+  caml_invalid_argument("Pycaml(NumPy): Missing NumPy support.");
+
+#endif
+  CAMLreturn(Val_unit);
+}
+
+value pytensor_of_pyobject(value v_kind, value v_pyobj) {
+  CAMLparam2(v_kind, v_pyobj);
+#ifdef HAVE_NUMPY_ARRAYOBJECT_H
+  PyObject *pyobj = pyunwrap(v_pyobj);
+
+  init_numarr_package();
+
+  if (PyArray_Check(pyobj)) {
+    if (eltype_from_numpytype(PyArray_TYPE(pyobj)) == Int_val(v_kind))
+      CAMLreturn(v_pyobj);
+
+    else
+      caml_invalid_argument("Numpy array has wrong element type!");
+
+  } else
+    caml_invalid_argument("Object is not a numpy array!");
+
+#endif
+  CAMLreturn(v_pyobj);
+}

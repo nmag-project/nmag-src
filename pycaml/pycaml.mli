@@ -1,7 +1,7 @@
 (** Embedding Python into OCaml.
 
    A Derivative of Art Yerkes' 2002 Pycaml module.
-   
+
 
    Modifications (C) 2005 Dr. Thomas Fischbacher, Giuliano Bordignon,
    Dr. Hans Fangohr, SES, University of Southampton
@@ -11,8 +11,8 @@
 (** {2 Background Information} *)
 
 (** The original code is available in Debian as package "pycaml".
-    
-    For various reasons, we hijacked it so that we can easily both fix bugs 
+
+    For various reasons, we hijacked it so that we can easily both fix bugs
     and extend it. This is permitted by the Pycaml license (the GNU LGPL).
 
     Note: the layout and hierarchical structure of the documentation
@@ -23,16 +23,16 @@
 
 (** Python objects are wrapped up within OCaml as entities of type [pyobject].
 *)
-type pyobject 
+type pyobject
 
 (** The following types are slightly esoteric; normally, users of this
     module should not have any need to access them.
 *)
 
-type funcptr 
+type funcptr
 type funcent = (funcptr * int * int * bool)
 
-type pymodule_func = { pyml_name : string ; 
+type pymodule_func = { pyml_name : string ;
 		       pyml_func : (pyobject -> pyobject) ;
 		       pyml_flags : int ;
 		       pyml_doc : string }
@@ -130,8 +130,8 @@ human-readable strings. *)
     OCaml and pycaml. (Note: However, this still needs more testing!)
 *)
 
-val py_initialize : unit -> unit 
-val py_finalize : unit -> unit 
+val py_initialize : unit -> unit
+val py_finalize : unit -> unit
 
 (** {3 Functions from the original Pycaml} *)
 
@@ -190,7 +190,7 @@ val pylist_get : pyobject -> int -> pyobject
 
 val pyrefcount: pyobject -> int
 
-val pywrap_closure_docstring : string -> (pyobject -> pyobject) -> pyobject 
+val pywrap_closure_docstring : string -> (pyobject -> pyobject) -> pyobject
 (** While the functions in ocaml.* should not be made visible
    to end users directly, it may nevertheless be helpful to be
    able to set docstrings on them.
@@ -289,7 +289,7 @@ val py_string_list_list_as_array :
 
 (** This helper simplifies the creation of OCaml callbacks that
     can be registered in Python's "[ocaml]" module.
-    
+
     First argument: An array of [pyobject_type] Python types.
 
     Second argument: A "body" function B mapping an OCaml array
@@ -300,7 +300,7 @@ val py_string_list_list_as_array :
     message.
 
     The body function (as well as the optional checks) will be wrapped
-    up in code that first checks for the correct number and the specified 
+    up in code that first checks for the correct number and the specified
     Python types of arguments, so B can rely on the n'th entry of its Python
     argument array being of the Python type specified in the n'th
     position of the type array.
@@ -320,7 +320,7 @@ val python_pre_interfaced_function :
   ?doc:string ->
   ?extra_guards:(pyobject -> string option) array ->
   pyobject_type array ->
-  (pyobject array -> pyobject) -> 
+  (pyobject array -> pyobject) ->
   (string -> pyobject)
 
 
@@ -341,7 +341,7 @@ val python_pre_interfaced_function :
      {li Python should be allowed to take a peek at the type name of a
          wrapped OCaml value at runtime}
     }
-    
+
     Thus, before one can opaquely wrap up OCaml values in "ocamlpills"
     for Python, one has to register a type name with Pycaml. From the
     Python side, the function [ocaml.sys_ocamlpill_type(x)] will map
@@ -365,7 +365,7 @@ val ocamlpill_type_of : pyobject -> string
     that, though.)
 
    XXX Provide example code!
-*) 
+*)
 val make_ocamlpill_wrapper_unwrapper :
   string -> 'a -> ('a -> pyobject) * (pyobject -> 'b)
 
@@ -429,15 +429,15 @@ val python : unit -> int
     this does not seem to be 100% reliable, and especially seems to fail
     in many situations where [Pycaml.ipython()] is called not from the
     OCaml toplevel. May be some crazy terminal handling bug.
-   
+
     Addition: 23/01/2006 fangohr:
-    
+
     On Mac OS X, one of the problems is that there are often several Python
     installations. (One is provided by Apple, but usually a fink or Darwinport
-    installation is actually meant to use.) For fink-python (the binary 
-    installed in /sw/bin, it helps to set the shell environment variable 
+    installation is actually meant to use.) For fink-python (the binary
+    installed in /sw/bin, it helps to set the shell environment variable
     PYTHONHOME=/sw .
- 
+
     Then the call to ipython works fine.
 
 *)
@@ -469,7 +469,7 @@ val ipython : unit -> int
    - [example_test_interface]: Function that just prints a test string.
 
    - [example_the_answer]: The number "42", put in the [ocaml] module by OCaml.
-   
+
    - [example_make_powers]: A function mapping an integer [n] and a float [p]
    to the array {v [|1.0**p,2.0**p,...,(float_of_int n)**p|] v}.
 
@@ -478,7 +478,7 @@ val ipython : unit -> int
 
    It is instructive to have a look at the pycaml source providing the
    [example_] entries to see how one can publish other constants and
-   functions to Python. 
+   functions to Python.
  *)
 
 (** {2 Code Examples} *)
@@ -524,212 +524,212 @@ v}
 
 (** {2 Appendix: signatures of undocumented functions from the original Pycaml} *)
 
-val pyerr_print : unit -> unit 
-val py_exit : int -> unit 
-val pyerr_printex : int -> unit 
-val py_setprogramname : string -> unit 
-val py_setpythonhome : string -> unit 
-val py_isinitialized : unit -> int 
-val pyrun_simplestring : string -> int 
-val pyrun_anyfile : int * string -> int 
-val pyrun_simplefile : int * string -> int 
-val pyrun_interactiveone : int * string -> int 
-val pyrun_interactiveloop : int * string -> int 
-val py_fdisinteractive : int * string -> int 
-val pyrun_anyfileex : int * string * int -> int 
-val pyrun_simplefileex : int * string * int -> int 
-val py_getprogramname : unit -> string 
-val py_getpythonhome : unit -> string 
-val py_getprogramfullpath : unit -> string 
-val py_getprefix : unit -> string 
-val py_getexecprefix : unit -> string 
-val py_getpath : unit -> string 
-val py_getversion : unit -> string 
-val py_getplatform : unit -> string 
-val py_getcopyright : unit -> string 
-val py_getcompiler : unit -> string 
-val py_getbuildinfo : unit -> string 
-val pyrun_string : string * int * pyobject * pyobject -> pyobject 
-val pyrun_file : int * string * int * pyobject * pyobject -> pyobject 
-val pyrun_fileex : int * string * int * pyobject * pyobject * int -> pyobject 
-  
-val py_compilestring : string * string * int -> pyobject 
-val pyobject_print : pyobject * int * int -> int 
-val pyobject_repr : pyobject -> pyobject 
-val pyobject_str : pyobject -> pyobject 
-val pyobject_unicode : pyobject -> pyobject 
-val pyobject_richcompare : pyobject * pyobject * int -> pyobject 
-val pyobject_getattrstring : pyobject * string -> pyobject 
-val pyobject_getattr : pyobject * pyobject -> pyobject 
-val pyobject_istrue : pyobject -> int 
-val pyobject_not : pyobject -> int 
-val pycallable_check : pyobject -> int 
-val pyobject_compare : pyobject * pyobject -> int 
-val pyobject_hasattr : pyobject * pyobject -> int 
-val pyobject_richcomparebool : pyobject * pyobject * int -> int 
-val pyobject_setattrstring : pyobject * string * pyobject -> int 
-val pyobject_hasattrstring : pyobject * string -> int 
-val pynumber_coerce : pyobject * pyobject -> (pyobject * pyobject) option 
-  
-val pynumber_coerceex : pyobject * pyobject -> (pyobject * pyobject) option 
-  
-val pyobject_setattr : pyobject * pyobject * pyobject -> int 
-val pyobject_hash : pyobject -> int64 
-val pystring_size : pyobject -> int 
-val pystring_asstring : pyobject -> string 
-val pystring_fromstring : string -> pyobject 
-val pystring_format : pyobject * pyobject -> pyobject 
-val pydict_new : unit -> pyobject 
-val pydict_getitem : pyobject * pyobject -> pyobject 
-val pydict_setitem : pyobject * pyobject * pyobject -> int 
-val pydict_delitem : pyobject * pyobject -> int 
-val pydict_clear : pyobject -> unit 
-val pydict_next : pyobject * int -> (pyobject * pyobject * int) option 
-  
-val pydict_keys : pyobject -> pyobject 
-val pydict_values : pyobject -> pyobject 
-val pydict_items : pyobject -> pyobject 
-val pydict_copy : pyobject -> pyobject 
-val pydict_size : pyobject -> int 
-val pydict_getitemstring : pyobject * string -> pyobject 
-val pydict_delitemstring : pyobject * string -> int 
-val pydict_setitemstring : pyobject * string * pyobject -> int 
-val pyint_fromlong : int64 -> pyobject 
-val pyint_aslong : pyobject -> int64 
-val pyint_getmax : unit -> int64 
-val pyfloat_fromdouble : float -> pyobject 
-val pyfloat_asdouble : pyobject -> float 
-val pymodule_new : string -> pyobject 
-val ourpy_initemptymodule : string -> pyobject 
-val pymodule_getdict : pyobject -> pyobject 
-val pymodule_getname : pyobject -> string 
-val pymodule_getfilename : pyobject -> string 
-val pytuple_new : int -> pyobject 
-val pytuple_size : pyobject -> int 
-val pytuple_getitem : pyobject * int -> pyobject 
-val pytuple_setitem : pyobject * int * pyobject -> int 
-val pytuple_getslice : pyobject * int * int -> int 
-val pyslice_new : pyobject * pyobject * pyobject -> pyobject 
-val pyslice_getindices : pyobject * int -> (int * int * int) option 
-val pyrange_new : int * int * int * int -> pyobject 
-val pyerr_setnone : pyobject -> unit 
-val pyerr_setobject : pyobject * pyobject -> unit 
-val pyerr_setstring : pyobject * string -> unit 
-val pyerr_occurred : unit -> pyobject 
-val pyerr_clear : unit -> unit 
-val pyerr_fetch :
-  pyobject * pyobject * pyobject -> pyobject * pyobject * pyobject 
-val pyerr_restore : pyobject * pyobject * pyobject -> unit 
-val pyerr_givenexceptionmatches : pyobject * pyobject -> int 
-val pyerr_exceptionmatches : pyobject -> int 
-val pyerr_normalizeexception :
-  pyobject * pyobject * pyobject -> pyobject * pyobject * pyobject 
-val pyclass_new : pyobject * pyobject * pyobject -> pyobject 
-val pyinstance_new : pyobject * pyobject * pyobject -> pyobject 
-val pyinstance_newraw : pyobject * pyobject -> pyobject 
-val pymethod_new : pyobject * pyobject * pyobject -> pyobject 
-val pymethod_function : pyobject -> pyobject 
-val pymethod_self : pyobject -> pyobject 
-val pymethod_class : pyobject -> pyobject 
-val pymodule_new : string -> pyobject 
-val pymodule_getdict : pyobject -> pyobject 
-val pymodule_getname : pyobject -> string 
-val pymodule_getfilename : pyobject -> string 
-val pyimport_getmagicnumber : unit -> int64 
-val pyimport_execcodemodule : pyobject * string -> pyobject 
-val pyimport_execcodemoduleex : string * pyobject * string -> pyobject 
-  
-val pyimport_getmoduledict : unit -> pyobject 
-val pyimport_addmodule : string -> pyobject 
-val pyimport_importmodule : string -> pyobject 
-val pyimport_importmoduleex :
-  string * pyobject * pyobject * pyobject -> pyobject 
-val pyimport_import : string -> pyobject 
-val pyimport_reloadmodule : pyobject -> pyobject 
-val pyimport_cleanup : unit -> unit 
-val pyimport_importfrozenmodule : string -> int 
-val pyeval_callobjectwithkeywords :
-  pyobject * pyobject * pyobject -> pyobject 
-val pyeval_callobject : pyobject * pyobject -> pyobject 
-val pyeval_getbuiltins : unit -> pyobject 
-val pyeval_getglobals : unit -> pyobject 
-val pyeval_getlocals : unit -> pyobject 
-val pyeval_getframe : unit -> pyobject 
-val pyeval_getrestricted : unit -> int 
-val pyobject_type : pyobject -> pyobject 
-val pyobject_size : pyobject -> int 
-val pyobject_getitem : pyobject * pyobject -> pyobject 
-val pyobject_setitem : pyobject * pyobject * pyobject -> int 
-val pyobject_delitem : pyobject * pyobject -> pyobject 
-val pyobject_ascharbuffer : pyobject -> string 
-val pyobject_asreadbuffer : pyobject -> string 
-val pyobject_aswritebuffer : pyobject -> string 
-val pynumber_check : pyobject -> int 
-val pynumber_add : pyobject * pyobject -> pyobject 
-val pynumber_subtract : pyobject * pyobject -> pyobject 
-val pynumber_multiply : pyobject * pyobject -> pyobject 
-val pynumber_divide : pyobject * pyobject -> pyobject 
-val pynumber_remainder : pyobject * pyobject -> pyobject 
-val pynumber_divmod : pyobject * pyobject -> pyobject 
-val pynumber_power : pyobject * pyobject * pyobject -> pyobject 
-val pynumber_negative : pyobject -> pyobject 
-val pynumber_positive : pyobject -> pyobject 
-val pynumber_absolute : pyobject -> pyobject 
-val pynumber_invert : pyobject -> pyobject 
-val pynumber_lshift : pyobject * pyobject -> pyobject 
-val pynumber_rshift : pyobject * pyobject -> pyobject 
-val pynumber_and : pyobject * pyobject -> pyobject 
-val pynumber_xor : pyobject * pyobject -> pyobject 
-val pynumber_or : pyobject * pyobject -> pyobject 
-val pynumber_int : pyobject -> pyobject 
-val pynumber_long : pyobject -> pyobject 
-val pynumber_float : pyobject -> pyobject 
-val pynumber_inplaceadd : pyobject * pyobject -> pyobject 
-val pynumber_inplacesubtract : pyobject * pyobject -> pyobject 
-val pynumber_inplacemultiply : pyobject * pyobject -> pyobject 
-val pynumber_inplacedivide : pyobject * pyobject -> pyobject 
-val pynumber_inplaceremainder : pyobject * pyobject -> pyobject 
-val pynumber_inplacelshift : pyobject * pyobject -> pyobject 
-val pynumber_inplacershift : pyobject * pyobject -> pyobject 
-val pynumber_inplaceand : pyobject * pyobject -> pyobject 
-val pynumber_inplacexor : pyobject * pyobject -> pyobject 
-val pynumber_inplaceor : pyobject * pyobject -> pyobject 
-val pynumber_inplacepower : pyobject * pyobject * pyobject -> pyobject 
+val pyerr_print : unit -> unit
+val py_exit : int -> unit
+val pyerr_printex : int -> unit
+val py_setprogramname : string -> unit
+val py_setpythonhome : string -> unit
+val py_isinitialized : unit -> int
+val pyrun_simplestring : string -> int
+val pyrun_anyfile : int * string -> int
+val pyrun_simplefile : int * string -> int
+val pyrun_interactiveone : int * string -> int
+val pyrun_interactiveloop : int * string -> int
+val py_fdisinteractive : int * string -> int
+val pyrun_anyfileex : int * string * int -> int
+val pyrun_simplefileex : int * string * int -> int
+val py_getprogramname : unit -> string
+val py_getpythonhome : unit -> string
+val py_getprogramfullpath : unit -> string
+val py_getprefix : unit -> string
+val py_getexecprefix : unit -> string
+val py_getpath : unit -> string
+val py_getversion : unit -> string
+val py_getplatform : unit -> string
+val py_getcopyright : unit -> string
+val py_getcompiler : unit -> string
+val py_getbuildinfo : unit -> string
+val pyrun_string : string * int * pyobject * pyobject -> pyobject
+val pyrun_file : int * string * int * pyobject * pyobject -> pyobject
+val pyrun_fileex : int * string * int * pyobject * pyobject * int -> pyobject
 
-val pysequence_check : pyobject -> int 
-val pysequence_size : pyobject -> int 
-val pysequence_length : pyobject -> int 
-val pysequence_concat : pyobject * pyobject -> pyobject 
-val pysequence_repeat : pyobject * int -> pyobject 
-val pysequence_getitem : pyobject * int -> pyobject 
-val pysequence_getslice : pyobject * int * int -> int 
-val pysequence_setitem : pyobject * int * pyobject -> int 
-val pysequence_delitem : pyobject * pyobject * int -> int 
-val pysequence_setslice : pyobject * int * int * pyobject -> int 
-val pysequence_delslice : pyobject * int * int -> int 
-val pysequence_tuple : pyobject -> pyobject 
-val pysequence_list : pyobject -> pyobject 
-val pysequence_fast : pyobject * string -> pyobject 
-val pysequence_count : pyobject * pyobject -> int 
-val pysequence_contains : pyobject * pyobject -> int 
-val pysequence_in : pyobject * pyobject -> int 
-val pysequence_index : pyobject * pyobject -> int 
-val pysequence_inplaceconcat : pyobject * pyobject -> pyobject 
-val pysequence_inplacerepeat : pyobject * string -> int 
-val pymapping_check : pyobject -> int 
-val pymapping_size : pyobject -> int 
-val pymapping_length : pyobject -> int 
-val pymapping_haskeystring : pyobject * string -> pyobject 
-val pymapping_haskey : pyobject * pyobject -> int 
-val pymapping_getitemstring : pyobject * string -> pyobject 
-val pymapping_setitemstring : pyobject * int * pyobject -> int 
+val py_compilestring : string * string * int -> pyobject
+val pyobject_print : pyobject * int * int -> int
+val pyobject_repr : pyobject -> pyobject
+val pyobject_str : pyobject -> pyobject
+val pyobject_unicode : pyobject -> pyobject
+val pyobject_richcompare : pyobject * pyobject * int -> pyobject
+val pyobject_getattrstring : pyobject * string -> pyobject
+val pyobject_getattr : pyobject * pyobject -> pyobject
+val pyobject_istrue : pyobject -> int
+val pyobject_not : pyobject -> int
+val pycallable_check : pyobject -> int
+val pyobject_compare : pyobject * pyobject -> int
+val pyobject_hasattr : pyobject * pyobject -> int
+val pyobject_richcomparebool : pyobject * pyobject * int -> int
+val pyobject_setattrstring : pyobject * string * pyobject -> int
+val pyobject_hasattrstring : pyobject * string -> int
+val pynumber_coerce : pyobject * pyobject -> (pyobject * pyobject) option
+
+val pynumber_coerceex : pyobject * pyobject -> (pyobject * pyobject) option
+
+val pyobject_setattr : pyobject * pyobject * pyobject -> int
+val pyobject_hash : pyobject -> int64
+val pystring_size : pyobject -> int
+val pystring_asstring : pyobject -> string
+val pystring_fromstring : string -> pyobject
+val pystring_format : pyobject * pyobject -> pyobject
+val pydict_new : unit -> pyobject
+val pydict_getitem : pyobject * pyobject -> pyobject
+val pydict_setitem : pyobject * pyobject * pyobject -> int
+val pydict_delitem : pyobject * pyobject -> int
+val pydict_clear : pyobject -> unit
+val pydict_next : pyobject * int -> (pyobject * pyobject * int) option
+
+val pydict_keys : pyobject -> pyobject
+val pydict_values : pyobject -> pyobject
+val pydict_items : pyobject -> pyobject
+val pydict_copy : pyobject -> pyobject
+val pydict_size : pyobject -> int
+val pydict_getitemstring : pyobject * string -> pyobject
+val pydict_delitemstring : pyobject * string -> int
+val pydict_setitemstring : pyobject * string * pyobject -> int
+val pyint_fromlong : int64 -> pyobject
+val pyint_aslong : pyobject -> int64
+val pyint_getmax : unit -> int64
+val pyfloat_fromdouble : float -> pyobject
+val pyfloat_asdouble : pyobject -> float
+val pymodule_new : string -> pyobject
+val ourpy_initemptymodule : string -> pyobject
+val pymodule_getdict : pyobject -> pyobject
+val pymodule_getname : pyobject -> string
+val pymodule_getfilename : pyobject -> string
+val pytuple_new : int -> pyobject
+val pytuple_size : pyobject -> int
+val pytuple_getitem : pyobject * int -> pyobject
+val pytuple_setitem : pyobject * int * pyobject -> int
+val pytuple_getslice : pyobject * int * int -> int
+val pyslice_new : pyobject * pyobject * pyobject -> pyobject
+val pyslice_getindices : pyobject * int -> (int * int * int) option
+val pyrange_new : int * int * int * int -> pyobject
+val pyerr_setnone : pyobject -> unit
+val pyerr_setobject : pyobject * pyobject -> unit
+val pyerr_setstring : pyobject * string -> unit
+val pyerr_occurred : unit -> pyobject
+val pyerr_clear : unit -> unit
+val pyerr_fetch :
+  pyobject * pyobject * pyobject -> pyobject * pyobject * pyobject
+val pyerr_restore : pyobject * pyobject * pyobject -> unit
+val pyerr_givenexceptionmatches : pyobject * pyobject -> int
+val pyerr_exceptionmatches : pyobject -> int
+val pyerr_normalizeexception :
+  pyobject * pyobject * pyobject -> pyobject * pyobject * pyobject
+val pyclass_new : pyobject * pyobject * pyobject -> pyobject
+val pyinstance_new : pyobject * pyobject * pyobject -> pyobject
+val pyinstance_newraw : pyobject * pyobject -> pyobject
+val pymethod_new : pyobject * pyobject * pyobject -> pyobject
+val pymethod_function : pyobject -> pyobject
+val pymethod_self : pyobject -> pyobject
+val pymethod_class : pyobject -> pyobject
+val pymodule_new : string -> pyobject
+val pymodule_getdict : pyobject -> pyobject
+val pymodule_getname : pyobject -> string
+val pymodule_getfilename : pyobject -> string
+val pyimport_getmagicnumber : unit -> int64
+val pyimport_execcodemodule : pyobject * string -> pyobject
+val pyimport_execcodemoduleex : string * pyobject * string -> pyobject
+
+val pyimport_getmoduledict : unit -> pyobject
+val pyimport_addmodule : string -> pyobject
+val pyimport_importmodule : string -> pyobject
+val pyimport_importmoduleex :
+  string * pyobject * pyobject * pyobject -> pyobject
+val pyimport_import : string -> pyobject
+val pyimport_reloadmodule : pyobject -> pyobject
+val pyimport_cleanup : unit -> unit
+val pyimport_importfrozenmodule : string -> int
+val pyeval_callobjectwithkeywords :
+  pyobject * pyobject * pyobject -> pyobject
+val pyeval_callobject : pyobject * pyobject -> pyobject
+val pyeval_getbuiltins : unit -> pyobject
+val pyeval_getglobals : unit -> pyobject
+val pyeval_getlocals : unit -> pyobject
+val pyeval_getframe : unit -> pyobject
+val pyeval_getrestricted : unit -> int
+val pyobject_type : pyobject -> pyobject
+val pyobject_size : pyobject -> int
+val pyobject_getitem : pyobject * pyobject -> pyobject
+val pyobject_setitem : pyobject * pyobject * pyobject -> int
+val pyobject_delitem : pyobject * pyobject -> pyobject
+val pyobject_ascharbuffer : pyobject -> string
+val pyobject_asreadbuffer : pyobject -> string
+val pyobject_aswritebuffer : pyobject -> string
+val pynumber_check : pyobject -> int
+val pynumber_add : pyobject * pyobject -> pyobject
+val pynumber_subtract : pyobject * pyobject -> pyobject
+val pynumber_multiply : pyobject * pyobject -> pyobject
+val pynumber_divide : pyobject * pyobject -> pyobject
+val pynumber_remainder : pyobject * pyobject -> pyobject
+val pynumber_divmod : pyobject * pyobject -> pyobject
+val pynumber_power : pyobject * pyobject * pyobject -> pyobject
+val pynumber_negative : pyobject -> pyobject
+val pynumber_positive : pyobject -> pyobject
+val pynumber_absolute : pyobject -> pyobject
+val pynumber_invert : pyobject -> pyobject
+val pynumber_lshift : pyobject * pyobject -> pyobject
+val pynumber_rshift : pyobject * pyobject -> pyobject
+val pynumber_and : pyobject * pyobject -> pyobject
+val pynumber_xor : pyobject * pyobject -> pyobject
+val pynumber_or : pyobject * pyobject -> pyobject
+val pynumber_int : pyobject -> pyobject
+val pynumber_long : pyobject -> pyobject
+val pynumber_float : pyobject -> pyobject
+val pynumber_inplaceadd : pyobject * pyobject -> pyobject
+val pynumber_inplacesubtract : pyobject * pyobject -> pyobject
+val pynumber_inplacemultiply : pyobject * pyobject -> pyobject
+val pynumber_inplacedivide : pyobject * pyobject -> pyobject
+val pynumber_inplaceremainder : pyobject * pyobject -> pyobject
+val pynumber_inplacelshift : pyobject * pyobject -> pyobject
+val pynumber_inplacershift : pyobject * pyobject -> pyobject
+val pynumber_inplaceand : pyobject * pyobject -> pyobject
+val pynumber_inplacexor : pyobject * pyobject -> pyobject
+val pynumber_inplaceor : pyobject * pyobject -> pyobject
+val pynumber_inplacepower : pyobject * pyobject * pyobject -> pyobject
+
+val pysequence_check : pyobject -> int
+val pysequence_size : pyobject -> int
+val pysequence_length : pyobject -> int
+val pysequence_concat : pyobject * pyobject -> pyobject
+val pysequence_repeat : pyobject * int -> pyobject
+val pysequence_getitem : pyobject * int -> pyobject
+val pysequence_getslice : pyobject * int * int -> int
+val pysequence_setitem : pyobject * int * pyobject -> int
+val pysequence_delitem : pyobject * pyobject * int -> int
+val pysequence_setslice : pyobject * int * int * pyobject -> int
+val pysequence_delslice : pyobject * int * int -> int
+val pysequence_tuple : pyobject -> pyobject
+val pysequence_list : pyobject -> pyobject
+val pysequence_fast : pyobject * string -> pyobject
+val pysequence_count : pyobject * pyobject -> int
+val pysequence_contains : pyobject * pyobject -> int
+val pysequence_in : pyobject * pyobject -> int
+val pysequence_index : pyobject * pyobject -> int
+val pysequence_inplaceconcat : pyobject * pyobject -> pyobject
+val pysequence_inplacerepeat : pyobject * string -> int
+val pymapping_check : pyobject -> int
+val pymapping_size : pyobject -> int
+val pymapping_length : pyobject -> int
+val pymapping_haskeystring : pyobject * string -> pyobject
+val pymapping_haskey : pyobject * pyobject -> int
+val pymapping_getitemstring : pyobject * string -> pyobject
+val pymapping_setitemstring : pyobject * int * pyobject -> int
 
 val pynull : unit -> pyobject
 
 val pynone : unit -> pyobject
 
 val pytuple_fromarray : pyobject array -> pyobject
-val pytuple_fromsingle : pyobject -> pyobject 
+val pytuple_fromsingle : pyobject -> pyobject
 val pytuple_empty : pyobject
 val pytuple2 : pyobject * pyobject -> pyobject
 val pytuple3 : pyobject * pyobject * pyobject -> pyobject
@@ -739,8 +739,8 @@ val pytuple4 : pyobject * pyobject * pyobject * pyobject -> pyobject
 val pytuple5 :
   pyobject * pyobject * pyobject * pyobject * pyobject -> pyobject
 
-val pyint_fromint : int -> pyobject 
-val pyint_asint : pyobject -> int 
+val pyint_fromint : int -> pyobject
+val pyint_asint : pyobject -> int
 val pytuple_toarray : pyobject -> pyobject array
 val pybool_asbool : pyobject -> bool
 val pybool_frombool : bool -> pyobject
@@ -753,7 +753,7 @@ val pylist_tensor_shape: pyobject -> int list;;
 val pylist_ftensor_iter:
   pyobject -> (int array -> pyobject -> int -> 'a) -> unit;;
 val pylist_ftensor_to_ba: pyobject ->
-  (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Genarray.t;; 
+  (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Genarray.t;;
 (************************** NUMPY SUPPORT (M.F.) ****************************)
 
 type c_int
@@ -781,16 +781,24 @@ external pyarray_kind: ('a, 'b) pyarray -> ('a, 'b) kind = "pyarray_kind";;
 
 external pyarray_length: ('a, 'b) pyarray -> int = "pyarray_length";;
 
-val pyobject_of_pyarray: ('a, 'b) pyarray -> pyobject;;
+val pyarray_to_pyobject: ('a, 'b) pyarray -> pyobject;;
 
 val pyarray_init: ('a, 'b) kind -> int -> (int -> 'a) -> ('a, 'b) pyarray;;
 
 val pyarray_iteri: (int -> 'a -> unit) -> ('a, 'b) pyarray -> unit;;
 
-external pytensor_create: ('a, 'b) kind -> int array -> ('a, 'b) pytensor 
+external pytensor_create: ('a, 'b) kind -> int array -> ('a, 'b) pytensor
 = "pytensor_create";;
 
-val pyobject_of_pytensor: ('a, 'b) pytensor -> pyobject;;
+external pytensor_to_ba_unsafe:
+  ('a, 'b) pytensor ->
+    ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t
+      = "pytensor_to_ba_raw";;
+
+external pytensor_of_pyobject: ('a, 'b) kind -> pyobject -> ('a, 'b) pytensor
+  = "pytensor_of_pyobject";;
+
+val pytensor_to_pyobject: ('a, 'b) pytensor -> pyobject;;
 
 val pyeval_on_ba_vector: pyobject -> ('a,'b,Bigarray.c_layout) Bigarray.Array1.t -> pyobject
 ;;
@@ -798,7 +806,7 @@ val pyeval_on_ba_vector: pyobject -> ('a,'b,Bigarray.c_layout) Bigarray.Array1.t
 external pytensor_set: ('a, 'b) pytensor -> int array -> 'a -> unit
   = "raw_pytensor_set";;
 
-val pytensor_init: ('a, 'b) kind -> int array -> (int array -> 'a) -> 
+val pytensor_init: ('a, 'b) kind -> int array -> (int array -> 'a) ->
   ('a, 'b) pytensor;;
 
 val fast_py_float_tensor : ?init:(int array -> float) -> int array ->
