@@ -24,10 +24,6 @@ def _build_header(col_data_list, columns):
 
             header.append((col_name, col_fmt, col_title,
                            col_units, column.units_str))
-        else:
-            print col_name, "not in header"
-            print columns
-            raw_input()
 
     return header
 
