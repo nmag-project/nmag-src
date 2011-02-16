@@ -290,6 +290,8 @@ val sample_field_type2 :
 val set_field : 'a fem_field -> (dof_name -> dof -> float) -> unit
 val set_field_uniformly: string -> float fem_field ->
   (float, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> bool
+val set_subfield: float fem_field -> string ->
+  (float, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit
 external dipole_evaluator_sumpairs_fast_ccode :
   int * int * float -> float array -> float array -> float array -> unit
   = "caml_dipole_evaluator_sumpairs_fast_ccode"

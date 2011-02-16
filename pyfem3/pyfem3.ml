@@ -2504,6 +2504,22 @@ let _py_set_field_uniformly =
            pyint_fromint 1)
 ;;
 
+let _py_set_field_from_array =
+  python_pre_interfaced_function
+    ~doc:"set_field_from_array (field_pill, subfield_name, numpy_array)\n\n\
+          Set the subfield of the given field to the value of the given \
+          NumPy array."
+    [|CamlpillType; StringType; OtherType|]
+    (fun args ->
+       let field = field_from_ocamlpill args.(0) in
+       let () = want_unrestricted_field field in
+       let subfield_name = pystring_asstring args.(1) in
+       let pyt = pytensor_of_pyobject double_items args.(2) in
+       let ba = pytensor_to_ba_unsafe pyt in
+       let () = set_subfield field subfield_name ba
+       in pynone())
+;;
+
 let _py_mwe_subfield_metadata =
   python_pre_interfaced_function
     ~doc:"mwe_subfield_metadata(field_pill,subfield_name) -> ([site_ids],[site_positions],max_indices,site_volumes)"
@@ -4432,7 +4448,7 @@ let _py_get_numpy_dbl_array =
     ~doc:"Test passing of NumPy array (generated from OCaml) to Python"
     [|IntType|]
     (fun args ->
-        pyobject_of_pytensor
+        pytensor_to_pyobject
           (pytensor_init double_items
              [|(pyint_asint args.(0)); 3|]
              (fun [|i; j|] -> (float_of_int i) +. (float_of_int j)*.0.1)))
@@ -4575,6 +4591,7 @@ let _ =
       ("data_dofvector_from_field",_py_data_dofvector_from_field);
       ("set_field_at_site",_py_set_field_at_site);
       ("set_field_uniformly", _py_set_field_uniformly);
+      ("set_field_from_array", _py_set_field_from_array);
       ("mwe_subfield_metadata",_py_mwe_subfield_metadata);
       ("mwe_subfield_data",_py_mwe_subfield_data);
       ("field_entry_wise",_py_field_entry_wise);

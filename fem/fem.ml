@@ -3726,11 +3726,6 @@ let set_field_uniformly dof_stem (FEM_field (mwe, _, v) as field) value =
   let nr_dofs = Array.length all_dofs in
   let have_set_something = ref false in
   try
-    let (stem, max_indices) =
-      array_find (fun (n, _) -> n = dof_stem) mwe.mwe_subfields in
-    let num_components, index_from_indices, indices_from_index =
-        multi_dim_array_handlers max_indices
-    in
     let () =
       Mpi_petsc.with_petsc_vector_as_bigarray v
         (fun v_ba ->
@@ -3748,6 +3743,44 @@ let set_field_uniformly dof_stem (FEM_field (mwe, _, v) as field) value =
     in !have_set_something
   with
     Not_found -> false
+;;
+
+(* I add this function to make accessing fields via NumPy array faster.
+   One could make this even faster (by removing the call to mwe_subfield_info,
+   for example), but for now we stick to this. mf, 14 feb 2011 *)
+let set_subfield (FEM_field (mwe, _, v) as field) subfield_name value_ba =
+   (* (site * Mesh.coords * dof array) array *)
+  let _, site_coord_dof_array = mwe_subfield_info mwe subfield_name in
+  let num_indices = Bigarray.Genarray.num_dims value_ba in
+  let all_indices = Array.make num_indices 0
+  in
+    Mpi_petsc.with_petsc_vector_as_bigarray v
+      (fun v_ba ->
+         Array.iteri
+           (fun nr_site (_, _, dofs) ->
+              begin
+                all_indices.(0) <- nr_site;
+                Array.iter
+                  (fun dof ->
+                     let stem, indices = the_dof_name mwe dof in
+                       if stem = subfield_name
+                       then
+                         let () =
+                           Array.iteri
+                             (fun i idx -> all_indices.(1 + i) <- idx)
+                             indices
+                         in
+                           v_ba.{dof.dof_nr} <-
+                             Bigarray.Genarray.get value_ba all_indices
+                       else
+                         let msg =
+                           Printf.sprintf
+                             "set_subfield: Internal error (%s<>%s)."
+                             stem subfield_name
+                         in failwith msg)
+                  dofs;
+              end)
+           site_coord_dof_array)
 ;;
 
 (* The computation of the demagnetizing field is quite costly.
