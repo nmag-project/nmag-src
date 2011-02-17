@@ -208,6 +208,22 @@ def set_fielddata_from_numpyarray(field, subfieldname, data,
     if sf != 1.0:
       data *= sf
 
+    # Our OCaml library does not allow to access numpy arrays without
+    # requiring the type system to explicitly know the internal representation
+    # of the array elements. In practice, this means that if an OCaml function
+    # expects a float64 array, it cannot get a float32 array instead. This is
+    # annoying! In priciple, we could - from the OCaml side - avoid the
+    # problem by hiding the internal representation type to the OCaml type
+    # system. This corresponds to change ('a, 'b) kind to 'a kind. I'm not
+    # sure whether this breaks down at some point, though.
+    # As a matter of fact, the bigarray module is designed such that the OCaml
+    # type system knows everywhere what the internal representation of the
+    # elements is, even if such information is stored in the C datastructures
+    # and - in principle - is needed only by the C implementation.
+    # mf, 17 Feb 2011
+    if data.dtype != numpy.double:
+        data = data.astype(numpy.double)
+
     ocaml.set_field_from_array(field, subfieldname, data)
 
 def flexible_set_fielddata(field, subfieldname, data, pos_unit_length,
