@@ -1907,7 +1907,6 @@ value pyrefcount(value pyobj) {
 
 #ifdef HAVE_NUMPY_ARRAYOBJECT_H
 #  include "numpy/arrayobject.h"
-#  include "numpy/arraybase.h"
 #endif
 
 #ifdef HAVE_NUMPY_ARRAYOBJECT_H
@@ -2159,7 +2158,7 @@ value pytensor_create_from_bigarray_raw(value ml_ba) {
 
   /* Don't know what this was - so, let's just create a byte array... */
   if (na_type == -1)
-    na_type=tUInt8;
+    na_type = PyArray_UINT8;
 
   my_dims = (npy_intp *) malloc(sizeof(npy_intp)*rank);
   if (my_dims != NULL) {

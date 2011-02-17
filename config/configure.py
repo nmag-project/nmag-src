@@ -27,6 +27,13 @@ try:
 except:
     pyconfig = {}
 
+# We gather further info on NumPy include directories from NumPy itself
+try:
+    from numpy.distutils.misc_util import get_numpy_include_dirs
+    numpy_include_dirs = get_numpy_include_dirs()
+except:
+    numpy_include_dirs = []
+
 #----------------------------------------------------------------------------
 # Some ugly architecture-dependent choices
 
@@ -271,7 +278,7 @@ configs["numpy-includedir"] = (
   "NUMPY_INCLUDE_PATH",
   "NUMPY",
   ["numpy/arrayobject.h"],
-  [py_headers_dir]
+  numpy_include_dirs
 )
 
 configs["_util-libdir"] = (
