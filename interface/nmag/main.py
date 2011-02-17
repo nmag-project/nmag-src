@@ -29,7 +29,7 @@ from   nsim.shell      import ipython
 from   anisotropy      import *
 from   simulation_core import SimulationCore
 from   hlib            import default_hmatrix_setup, HMatrixSetup
-from   clock      import SimulationClock
+from   clock           import SimulationClock
 
 import hysteresis as hysteresis_implementation
 import convergence

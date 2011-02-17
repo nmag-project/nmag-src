@@ -4,6 +4,12 @@ import ocaml, nfem
 from nmag_exceptions import *
 from nsim.vectools import normalised_vector
 from nsim.si_units import SI
+import nsim.features
+
+features = nsim.features.Features()
+experimental = (features.get("etc", "experimental").strip().lower() == "true"
+                if features.has_sectionkey("etc", "experimental")
+                else False)
 
 import logging
 log = logging.getLogger('nmag')
@@ -265,9 +271,10 @@ def flexible_set_fielddata(field, subfieldname, data, pos_unit_length,
                                     normalise=normalise)
 
     elif type(data) == numpy.ndarray:
-        set_fielddata_from_numpyarray(field, subfieldname, data,
-                                      scale_factor=scale_factor,
-                                      normalise=normalise)
+        fn = (set_fielddata_from_numpyarray if experimental
+              else set_fielddata_from_numpyarray_old)
+        fn(field, subfieldname, data, scale_factor=scale_factor,
+           normalise=normalise)
 
     else:
         print flexible_set_fielddata.__doc__
