@@ -16,8 +16,10 @@ def _set_what_msg(subfieldname, site=None):
     else:
         return "subfield %s" % subfieldname
 
-def _prepare_set_field(field, subfieldname, data, site=None,
-                       scale_factor=1.0, normalise=False, check_site=False):
+def _data_msg(data):
+  return (" By the way, your data is '%s'." % data) if data != None else ""
+
+def _check_field(field, subfieldname, data=None, site=None):
     """
     Internal function used to make some sanity checks before setting a field.
     """
@@ -31,11 +33,11 @@ def _prepare_set_field(field, subfieldname, data, site=None,
         shape_by_subfieldname[sfname] = shape
 
     # 1 Does the field have this subfield:
-    if not subfieldname in shape_by_subfieldname.keys():
+    if subfieldname not in shape_by_subfieldname:
         subfields = shape_by_subfieldname.keys()
         msg = ("You want to set %s but I have only found subfield(s) '%s' "
-               "in the field. By the way, your data is '%s'."
-               % (_set_what_msg(subfieldname, site), subfields, data))
+               "in the field.%s" % (_set_what_msg(subfieldname, site),
+                                    subfields, _data_msg(data)))
         raise NmagUserError(msg)
 
     # 2 Is the shape of the data right?
@@ -44,10 +46,20 @@ def _prepare_set_field(field, subfieldname, data, site=None,
     if shape != shape_by_subfieldname[subfieldname]:
         msg = ("When trying to set %s we have a shape mismatch. The shape of "
                "the subfield data is '%s' but the shape of your data is '%s'."
-               "By the way, your data is '%s'."
+               "%s"
                % (_set_what_msg(subfieldname, site),
-                  shape_by_subfieldname[subfieldname], shape, data))
+                  shape_by_subfieldname[subfieldname], shape,
+                  _data_msg(data)))
         raise NmagUserError(msg)
+
+def _prepare_set_field(field, subfieldname, data, site=None,
+                       scale_factor=1.0, normalise=False, check_site=False):
+    """
+    Internal function used to make some sanity checks before setting a field.
+    """
+
+    # 1-2 check size and shape of field
+    _check_field(field, subfieldname, data, site)
 
     # 3 is the data of the right type --> done by ocaml
 
@@ -147,8 +159,9 @@ def set_fielddata_from_vector(field, subfieldname, data,
 
     log.debug("set_fielddata_from_vector: Done.")
 
-def set_fielddata_from_numpyarray(field, subfieldname, data,
-                                  normalise=False, scale_factor=1.0):
+# To be removed soon
+def set_fielddata_from_numpyarray_old(field, subfieldname, data,
+                                      normalise=False, scale_factor=1.0):
     if type(data) != numpy.ndarray:
         raise NmagUserError,"Expect numpy array but got '%s'" % str(type(data))
 
@@ -169,6 +182,27 @@ def set_fielddata_from_numpyarray(field, subfieldname, data,
         set_field_at_site(field, subfieldname, site, tensor_value,
                           scale_factor=scale_factor,
                           normalise=normalise)
+
+def normalise_array(x):
+  norms = numpy.sqrt((x*x).reshape(len(x),-1).sum(1))
+  new_norm_shape = [len(x)] + [1]*(len(x.shape) - 1)
+  return x/norms.reshape(*new_norm_shape)
+
+def set_fielddata_from_numpyarray(field, subfieldname, data,
+                                  normalise=False, scale_factor=1.0):
+    if type(data) != numpy.ndarray:
+        raise NmagUserError("Expect numpy array but got '%s'" % type(data))
+
+    _check_field(field, subfieldname, data[0] if len(data) > 0 else None)
+
+    if normalise:
+      data = normalise_array(data)
+
+    sf = float(scale_factor)
+    if sf != 1.0:
+      data *= sf
+
+    ocaml.set_field_from_array(field, subfieldname, data)
 
 def flexible_set_fielddata(field, subfieldname, data, pos_unit_length,
                            scale_factor=1.0, normalise=False):
