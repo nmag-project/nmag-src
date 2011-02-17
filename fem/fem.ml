@@ -3752,7 +3752,17 @@ let set_subfield (FEM_field (mwe, _, v) as field) subfield_name value_ba =
    (* (site * Mesh.coords * dof array) array *)
   let _, site_coord_dof_array = mwe_subfield_info mwe subfield_name in
   let num_indices = Bigarray.Genarray.num_dims value_ba in
-  let all_indices = Array.make num_indices 0
+  let all_indices = Array.make num_indices 0 in
+  let () =
+    let ba_len = Bigarray.Genarray.nth_dim value_ba 0 in
+    let subfield_nr_sites = Array.length site_coord_dof_array in
+      if ba_len <> subfield_nr_sites
+      then
+        let msg = Printf.sprintf
+                    "Array has wrong number of entries (should be %d, is %d)"
+                    subfield_nr_sites ba_len
+        in failwith msg
+      else ()
   in
     Mpi_petsc.with_petsc_vector_as_bigarray v
       (fun v_ba ->
@@ -3770,8 +3780,11 @@ let set_subfield (FEM_field (mwe, _, v) as field) subfield_name value_ba =
                              (fun i idx -> all_indices.(1 + i) <- idx)
                              indices
                          in
-                           v_ba.{dof.dof_nr} <-
-                             Bigarray.Genarray.get value_ba all_indices
+                           try
+                             v_ba.{dof.dof_nr} <-
+                               Bigarray.Genarray.get value_ba all_indices
+                           with Invalid_argument _ ->
+                             failwith "Array has wrong dimensions."
                        else
                          let msg =
                            Printf.sprintf
