@@ -1,0 +1,9 @@
+set term pdfcairo
+set out "plot.pdf"
+
+proj(x, y, z) = (x + y + z)/sqrt(3)
+
+plot \
+  "fe.dat" u (proj($1, $2, $3)):(proj($4, $5, $6)) t "FE" w lp, \
+  "fd.dat" u (proj($1, $2, $3)):(proj($4, $5, $6)) t "FD" w lp
+
