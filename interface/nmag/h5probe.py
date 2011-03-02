@@ -214,7 +214,7 @@ def vector_filter(filter_spec):
 
 default_vector_filter = vector_filter('identity')
 
-class ProbeStore:
+class ProbeStore(object):
     def __init__(self, times, lattice, dtype=numpy.float64):
         self.times = times
         self.lattice = lattice
@@ -424,6 +424,12 @@ class ProbeStore:
         else:
             raise NmagUserError("Unrecognised output format '%s'." % out_fmt)
 
+    def filter(self, fn):
+        pass
+
+    def sum(self, axes):
+        pass
+
 def probe_field_on_lattice(lattice, field, subfield, out):
     def do(idx, position):
         probed = ocaml.probe_field(field, subfield, position)
@@ -436,7 +442,7 @@ def probe_field_on_lattice(lattice, field, subfield, out):
                   "Unexpected output from probing function: %s" % str(probed)
     lattice.foreach(do)
 
-class Fields:
+class Fields(object):
     """Class which can be used to load the fields stored inside an Nmag h5
     file. The fields are reconstructed so that they can be manipulated."""
 
@@ -800,7 +806,6 @@ def probe_and_fft_field_from_file(file_name, times, lattice, field_name,
         ps.probe_field(file_name, field_name, subfield_name,
                        filter=vector_to_scalar)
 
-
     if real_out != None:
         ps.write_to_file(real_out, out_fmt=out_fmt)
 
@@ -1138,6 +1143,7 @@ def main(prog, args):
                                   ref_time=ref_time,
                                   vector_to_scalar=vec2scal,
                                   real_out=out_filename,
+                                  complex_to_real=cmplx2real,
                                   fft_out=ft_out_filename,
                                   out_fmt=out_file_format)
 
