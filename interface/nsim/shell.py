@@ -97,6 +97,10 @@ def main(args, locals=None, globals=None, use_ipython=True):
         # We should use ipython, when possible
         try:
             import IPython
+            import readline
+            # ^^^ It turns out that even if "import IPython" works, readline
+            # support may not be installed, leading to a failure subsequently
+            # when the shell is launched.
 
         except:
             use_ipython = False
