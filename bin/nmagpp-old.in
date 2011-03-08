@@ -4,7 +4,7 @@
 
 New design idea (May 2008):
 
-For a number of configurations ('id's) we have a number of different fields stored.
+For a number of configurations ('id's) we have a number of different fields stored. 
 
 Different commands can operate on different ids and different fields
 
@@ -58,7 +58,7 @@ def parse_range_string(rangestring,ids):
         rangelist = [rangelist]
     return rangelist
 
-def parse_fields_string(fieldstring):
+def parse_fields_string(fieldstring): 
 
     """Receive string from command
     line (such as "phi,m" or [phi,m] or ["phi","m"]) and return list
@@ -77,7 +77,7 @@ def parse_fields_string(fieldstring):
     log.debug("parse_fields_string: converted to list: fields='%s'" % fields)
 
     return fields
-
+    
 def get_unit_obj_and_si_conversionfactor( f, si_unit, output_unit ):
     """Return unit (Physical) Object and SI scaling factor for SI/su units
 
@@ -105,7 +105,7 @@ def get_unit_obj_and_si_conversionfactor( f, si_unit, output_unit ):
         unit = si_unit
         si_conversion_factor = 1.0
     elif output_unit == 'su':
-        #get simulation units
+        #get simulation units 
         from nsim.su_units import SimulationUnits
         su = nfem.hdf5_v01.get_su_units(f)
         unit = su.conversion_factor_of(si_unit)
@@ -223,7 +223,7 @@ def dump_field_ascii_1_ts(fh,field,uid,output_unit,options):
             return "%12g" % li
         else:
             return '('+" ".join(map(lambda x :"%12g" % x, li))+' )'
-
+    
     row,stage,step,sitime = nfem.hdf5_v01.get_row_stage_step_time_for_field_and_id(fh,field,uid)
 
     #######
@@ -244,15 +244,15 @@ def dump_field_ascii_1_ts(fh,field,uid,output_unit,options):
 
         print "time     : %g * %s" % (time,time_unit)
         print "id       : %d" % (uid)
-        print "step     : %d" % (step)
+        print "step     : %d" % (step)	
         print "stage    : %d" % (stage)
-
-        #get si_unit for this dof
+        
+        #get si_unit for this dof 
         sibase = eval(nfem.hdf5_v01.get_units_by_dofname(fh)[dofname])
         data,unit = _unit_conversion_helper( field, dofname, sidata, sibase, output_unit, options)
 
 	print "field unit: %s" % (str(unit))
-
+        
         #The mesh is the only data type not (necessarily) stored in SI
         #units. We also leave it to the user to decide in what units to
         #express it (--posunit).
@@ -267,7 +267,7 @@ def dump_field_ascii_1_ts(fh,field,uid,output_unit,options):
 
         print "row: %d" % row
         print "#Start (index in h5 table, dofsite, pos, data)"
-
+        
 	#from IPython.Shell import IPShellEmbed
     	#ipshell = IPShellEmbed([])
     	#ipshell()
@@ -318,10 +318,10 @@ def parse_command_line(argvs):
     This program is used to analyse the _dat.h5 files that nmag produces.
 
     Each _dat.h5 file contains spatially resolved data for
-
+ 
      - a number of different configurations (each of those has a unique
        `id`; this id is the same as given in the ndt file). A configuration
-       is (nearly) the same as the fielddata for a given time step.
+       is (nearly) the same as the fielddata for a given time step. 
 
      - and (potentially) for each id a number of different fields.
 
@@ -335,7 +335,7 @@ def parse_command_line(argvs):
     By default, nmagpp, will work through all ids and all fields and
     carry out some action. The two most useful actions are:
 
-     --dump : this will print all the field dato to stdout
+     --dump : this will print all the field dato to stdout 
 
      --vtk VTKFILENAME : this will convert all fields for a given id
                          into a vtk file.
@@ -388,15 +388,7 @@ def parse_command_line(argvs):
 
     parser.add_option("--fieldlist",help="dump field list (i.e. the names of the fields that are stored in the data file. For each file, show for which ids configurations have been stored)",action="store_true",dest="fl")
 
-    help = ("choose which fields to process (default is all). A list can be "
-            "provided, for example '--fieds m,phi' will process field 'm' "
-            "and field 'phi'. The syntax '+x' can be used to compute and "
-            "save the sum of all the subfields of the field x. For example, "
-            "--fields m,+m,+E_exch will save the magnetisation subfields, "
-            "the sum of all of them (as a new field named 'm_total') and the "
-            "sum of all the exchange energy subfields (as a field named "
-            "'E_exch_total')")
-    parser.add_option("--fields", help=help, action='store', dest="fields")
+    parser.add_option("--fields",help="choose which fields to process (default is all). A list can be provided, for example '--fieds m,phi' will process field 'm' and field 'phi'.",action='store',dest="fields")
 
     parser.add_option("--range",help="select range of ids to process (default is all). A valid python expression can be given (in quotes), such as --range '[1,4,10]' or --range 'range(10,100,2)'. The expression can also refer to a list with name 'ids' that contains all the ids of the file, so that the last saved configuration can be accessed with --range 'max(ids)'.",action="store",dest="range")
 
@@ -417,7 +409,7 @@ def parse_command_line(argvs):
                       dest="missing")
 
     parser.add_option("--posunit",help="express positions in multiplies of FACTOR metres (overrides --su and --si for the positions)",action="store",dest="posfactor",metavar="FACTOR")
-
+    
     parser.add_option("--loglevel",type="string",metavar="LEVEL",\
                       help="verbosity level (root logger): critical|error|warn|info|info2|debug",\
                       action="store",dest="loglevel")
@@ -461,81 +453,12 @@ def do_dump_field_list(f,fields_by_id):
 
     for fieldname in ids_by_fieldname:
         ids_by_fieldname[fieldname].sort()
-        print "field %10s (ids=%s)" % (fieldname,short_list(ids_by_fieldname[fieldname]))
+       	print "field %10s (ids=%s)" % (fieldname,short_list(ids_by_fieldname[fieldname]))
 
 
-class MyVTKWriterTool(object):
-    def __init__(self, points, simplices):
-        self.points = points
-        self.simplices = simplices
-        self.adding = False
-        self.vtk = None
 
-    def add(self, data, data_title):
-        if self.adding:
-            self.vtk = \
-              nfem.visual._vtk_addPointdata(self.vtk, data, data_title)
-        else:
-            self.vtk = \
-              nfem.visual._vtk_createVtkData(self.points, self.simplices,
-                                             data, data_title)
-            self.adding = True
-
-    def tofile(self, filename, format):
-        self.vtk.tofile(filename, format=format)
-
-
-class ComputeTotals(object):
-    def __init__(self, fields=None):
-        self.fields = {}
-        self.units = {}
-        if fields != None:
-            for field in fields:
-                self.fields[field] = True
-
-    def add(self, field, data, unit_str):
-        old_data = self.fields.get(field, None)
-        if old_data == None:
-            return
-
-        elif type(old_data) == bool and old_data == True:
-            self.fields[field] = data.copy()
-            self.units[field] = unit_str
-
-        else:
-            old_data += data
-            assert unit_str == self.units[field]
-
-    def __iter__(self):
-        return self.fields.__iter__()
-
-    def get(self, field):
-        return ("%s_total" % field, self.fields[field])
-
-
-def _reorder_field_list(fieldlist):
-    """Reorder field list so magnetisation comes first."""
-    m_fields = []
-    M_fields = []
-    other_fields = []
-
-    for fieldname in fieldlist:
-        if fieldname.startswith('m'):
-            m_fields.append(fieldname)
-        elif fieldname.startswith('M'):
-            M_fields.append(fieldname)
-        else:
-            other_fields.append(fieldname)
-
-    # Now sort each of the field lists alphabetically and join
-    M_fields.sort()
-    m_fields.sort()
-    other_fields.sort()
-    return m_fields + M_fields + other_fields
-
-def fields2vtkfile(fh, fieldnames, vtkfilename, id, output_unit,
-                   options, replace=True, summed_fields={},
-                   nonsummed_fields={}):
+def fields2vtkfile( fh, fieldnames, vtkfilename, id, output_unit,
+                    options, replace=True):
     """ Currently, scalar and vector data on 2d and 3d meshes is supported.
 
         Optional extra arguments are:
@@ -559,7 +482,7 @@ def fields2vtkfile(fh, fieldnames, vtkfilename, id, output_unit,
             functions).
             In particular, this provides ``options.posfactor`` to scale
             coordinates if requested by user.
-	    It also provides ``options.vtkascii`` (bool) which, if true,
+	    It also provides ``options.vtkascii`` (bool) which, if true, 
             will result in the vtk file written as an ascii file
             (default is binary)
 
@@ -573,37 +496,28 @@ def fields2vtkfile(fh, fieldnames, vtkfilename, id, output_unit,
         log.debug("fields2vtkfile: File '%s' exists: exiting!" % vtkfilename)
         return
 
-    format = 'ascii' if options.vtkascii == True else 'binary'
+    if options.vtkascii==True:
+	format = 'ascii'
+    else:
+        format = 'binary'
 
     log.debug("fields2vtkfile(): Entering, vtkfilename = '%s'" % vtkfilename)
     log.debug("fields2vtkfile(): Fieldlist is %s" % str(fieldnames))
     log.debug("fields2vtkfile(): id is  %s" % id)
 
-    # Check that fields are of the right type
+    #check that fields are of the right type
     if type(fieldnames) != types.ListType:
         fieldlist = [fieldnames]
     else:
         fieldlist = fieldnames
-
     if len(fieldlist) == 0:
-        raise ValueError("No field received")
-
-    # Interpret field operations: for now we accept just one command:
-    #  +x means "compute the sum of all subfields with name x and save the sum
-    #     as a new field named x_total". Example: +m will save the field
-    #     obtained summing m_mat1 + m_mat2 + ...
-    fields_to_sum = [field for field in fieldlist
-                           if summed_fields != None
-                           and field in summed_fields]
-
-    # Reorder field list so that magnetisation comes first. This will
-    # make it the default field in Mayavi.
-    fieldlist = _reorder_field_list(fieldlist)
-    totals = ComputeTotals(fields_to_sum)
+        raise ValueError, "No field received"
 
     supoints = fh.root.mesh.points.read()
-    points, posunit = \
-      _unit_meshposition_conversion_helper(fh, options, supoints)
+
+    points, posunit = _unit_meshposition_conversion_helper(fh,
+                                                           options,
+                                                           supoints)
     points = points.tolist()
 
     log.debug("Number of points in mesh=%d" % len(points))
@@ -611,7 +525,7 @@ def fields2vtkfile(fh, fieldnames, vtkfilename, id, output_unit,
     simplices = fh.root.mesh.simplices.read().tolist()
     log.debug("Number of simplices in mesh=%d" % len(simplices))
 
-    # Check dimensionality of the mesh
+    #check dimensionality of the mesh
     if len(points[0])==2:
         log.debug("mesh is 2d")
         mesh_dim = 2
@@ -629,115 +543,120 @@ def fields2vtkfile(fh, fieldnames, vtkfilename, id, output_unit,
 
     maxind_by_dofname = dict(nfem.hdf5_v01.get_maxind_by_dofname(fh))
 
+
+    log.debug("Original fieldlist: %s" % fieldlist)
+
+    #reorder field list so that magnetisation comes first. This will
+    #make it the default field in Mayavi.
+    m_fields = []
+    M_fields = []	
+    other_fields = []
+
+    for fieldname in fieldlist:
+	if fieldname[0:1] == 'm':
+	  m_fields.append(fieldname)
+	elif fieldname[0:1] == 'M':
+	  M_fields.append(fieldname)
+        else:
+          other_fields.append(fieldname)
+ 
+    #now sort each of the field lists alphabetically and join
+    M_fields.sort()
+    m_fields.sort()
+    other_fields.sort()
+
+    fieldlist = m_fields+M_fields+other_fields
+
+    log.debug("Sorted fieldlist (M,m,other): %s" % fieldlist)	
+
     for field in fieldlist:
-        # Learn about dof in this field:
+        #learn about dof in this field:
         table = fh.getNode(fh.root.data.fields,field)
 
-        # Which dofnames belong to this field?
-        dofnames = [colname for colname in table.colnames
-                            if colname not in ['time', 'step', 'stage', 'id']]
+        #which dofnames belong to this field?
+        dofnames = [colname for colname in table.colnames if not colname in ['time','step','stage','id']]
 
         for dofname in dofnames:
             maxind = eval(maxind_by_dofname[dofname])
 
-            if len(maxind) > 1:
-                raise NfemValueError("Can only deal with scalar and vector "
-                                     "data at the moment (no tensor data).")
-
-            if len(maxind) == 0:
-                dim = 1              # this is a scalar
-
-            elif len(maxind) == 1:
-                if maxind[0] == 2:   # this is a 2d vector
+            #print "maxind",maxind
+            #print "len(maxind)",len(maxind)
+            #print "dofname",dofname
+            #print maxind_by_dofname
+                
+            if len(maxind)>1:
+                raise NfemValueError,"Can only deal with scalar and vector data at the moment (no tensor data)."
+            if len(maxind)==0:
+                dim = 1 #this is a scalar
+            elif len(maxind)==1:
+                if maxind[0] ==2: #this is a 2d vector
                     dim = 2
-                elif maxind[0] == 3: # this is a 3d vector
+                elif maxind[0] ==3: #this is a 3d vector
                     dim = 3
                 else:
-                    raise NfemValueError("Can only process vectors in 2 and "
-                                         "3 dimensions")
+                    raise NfemValueError,"Can only process vectors in 2 and 3 dimensions"
             dof_to_process.append( (field, dofname, dim) )
 
             log.debug("adding %s" % str(dof_to_process[-1]) )
 
-    # pyvtk requires us to create a vtk object and to give it the first
-    # dof at that time. For all subsequent dofs, we can add them one by one.
-
-    # Check that we have some dofs to process:
-    if len(dof_to_process) == 0:
-        raise NfemUserError("Have not found any degrees of freedom to "
-                            "process.")
+    #pyvtk requires us to create a vtk object and to give it the first
+    #dof at that time. For all subsequent dofs, we can add them one by one.
+    
+    #check that we have some dofs to process:
+    if len(dof_to_process)==0:
+        raise NfemUserError,"Have not found any degrees of freedom to process."
 
     names = str(map(lambda a : a[1], dof_to_process))
     log.info("About to write field(s) '%s' to %s" % (names,vtkfilename))
 
-    # Create vtk object with first data set
-    field, dofname, dim = dof_to_process[0]
+    #create vtk object with first data set
+    field,dofname, dim = dof_to_process[0]
 
-    # Here we need to have the row per field name information
+    #Here we need to have the row per field name information
     row = nfem.hdf5_v01.get_row(fh,field,id)
+    log.info("Extracting field %16s from %s at id=%d (that is row=%d), writing to %s" % (field,fh.filename,id,row,vtkfilename))
+    tmppos,sidata,tmpsite = nfem.hdf5_v01.get_dof_row_data_in_meshpoint_order(fh,field,dofname,row)
 
-    log.info("Extracting field %16s from %s at id=%d (that is row=%d), "
-             "writing to %s" % (field, fh.filename, id, row, vtkfilename))
-    tmppos, sidata, tmpsite = \
-      nfem.hdf5_v01.get_dof_row_data_in_meshpoint_order(fh,field,dofname,row)
-
-    # Check that this is first order basis function data:
+    #check that this is first order basis functino data:
     order_check = tmpsite[0]
     if len(order_check) > 1:
-        raise ValueError("Can only handle 1st order basis function data "
-                         "but (%s, %s) seems to be of order %d"
-                         % (field, dofname, order_check))
-    vtk = MyVTKWriterTool(points, simplices)
+        raise ValueError,"Can only handle 1st order basis function data "\
+              "but (%s,%s) seems to be of order %d" % (field,dofname,order_check)
 
     si_units_dict = nfem.hdf5_v01.get_units_by_dofname(fh)
     si_unit = eval(si_units_dict[dofname])
-    data, unit = _unit_conversion_helper(field, dofname, sidata, si_unit,
-                                         output_unit, options)
 
-    unit_str = unit.dens_str()
-    totals.add(field, data, unit_str)
-    data = data.tolist()  # Convert numpy array to list for pyvtk
-    if nonsummed_fields == None or (field in nonsummed_fields):
-      vtk.add(data, dofname + unit_str)
+    data,unit = _unit_conversion_helper( field, dofname, sidata, si_unit, output_unit, options)
+    unit_str=unit.dens_str()
+
+    data = data.tolist()  #convert numpy array to list for pyvtk
+
+    vtk = nfem.visual._vtk_createVtkData(points,simplices,data,dofname+unit_str)
     log.log(15,"Adding %d-dim field %s to %s" % (dim,dofname,vtkfilename))
 
-    # And then process all others
+    #and then process all others
     for dof in dof_to_process[1:]:
-        field, dofname, dim = dof
-        log.debug("About to process field '%s', dof '%s' " % (field,dofname))
+        field,dofname,dim = dof
+	log.debug("About to process field '%s', dof '%s' " % (field,dofname))
 
         #if only_dofname:
         #    if dofname!=only_dofname:
         #        continue
-        log.debug("Adding %d-dim dof %s to %s" % (dim, dofname, vtkfilename))
+        log.debug("Adding %d-dim dof %s to %s" % (dim,dofname,vtkfilename))
 
-        # Here we need to have the row per field name information (again)
-        row = nfem.hdf5_v01.get_row(fh, field, id)
+	#Here we need to have the row per field name information (again)
 
-        log.info("Extracting field %16s from %s at id=%d (that is row=%d), "
-                 "writing to %s" % (field, fh.filename, id, row, vtkfilename))
+	row = nfem.hdf5_v01.get_row(fh,field,id)
+	log.info("Extracting field %16s from %s at id=%d (that is row=%d), writing to %s" % (field,fh.filename,id,row,vtkfilename))
 
-        tmppos, sidata, tmpsite = \
-          nfem.hdf5_v01.get_dof_row_data_in_meshpoint_order(fh, field, dofname, row)
-
+	tmppos,sidata,tmpsite = nfem.hdf5_v01.get_dof_row_data_in_meshpoint_order(fh,field,dofname,row)
         si_unit = eval(si_units_dict[dofname])
-        data, unit = _unit_conversion_helper(field, dofname, sidata, si_unit,
-                                             output_unit, options)
+        data,unit = _unit_conversion_helper( field, dofname, sidata, si_unit, output_unit, options)
+        unit_str=unit.dens_str()
+	data = data.tolist()
+        vtk = nfem.visual._vtk_addPointdata(vtk,data,dofname+unit_str)
 
-        unit_str = unit.dens_str()
-        totals.add(field, data, unit_str)
-        data = data.tolist()
-        if nonsummed_fields == None or (field in nonsummed_fields):
-          vtk.add(data, dofname + unit_str)
-
-    # Save also total fields, if needed
-    for field in totals:
-        field_title, data = totals.get(field)
-        log.info("Writing total field %s to %s" % (field_title, vtkfilename))
-        vtk.add(data, field_title)
-
-    # Save to file
-    vtk.tofile(vtkfilename, format=format)
+    vtk.tofile(vtkfilename,format=format)
 
 
 def do_id_list(f,fields_by_id,verbose=False):
@@ -753,7 +672,7 @@ def do_id_list(f,fields_by_id,verbose=False):
             row,stage,step,time = nfem.hdf5_v01.get_row_stage_step_time_for_field_and_id(f,fields_by_id[id][0],id)
             print "%4d %6d %9.4g" % (stage,step,time),
         print "%s" % short_list(fields_by_id[id],formattoken="%s ")
-
+                                             
 
 
 def pretty_print_dict(dic):
@@ -775,7 +694,7 @@ logging.debug("Arguments are: '%s'" % str(arguments))
 outfile = None
 outfile_feature = None
 
-shorten_list = True
+shorten_list = True 
 
 if len(arguments) == 0:
     raise ValueError,"Don't know what this means (expect at least one arguments which is the program name)"
@@ -788,7 +707,7 @@ elif len(arguments) in [2,3]:
 if len(arguments) == 3:
     outfile = arguments[2]
     logging.debug("output file name is '%s'" % outfile)
-
+    
 if len(arguments) >= 4:
     print "Arguments are:",arguments
     print "Options   are:",options
@@ -839,60 +758,44 @@ if options.printall:
     log.info("Found '--printall' switch: will print all lists completely")
     shorten_list = False
 
-nonsummed_fields = {}
-summed_fields = {}
 if options.fields:
-    user_fields = parse_fields_string(options.fields)
-    plus_fields = map(lambda s: s.lstrip("+"),
-                      filter(lambda s: s.startswith("+"), user_fields))
-    nonplus_fields = filter(lambda s: not s.startswith("+"), user_fields)
+    fields = parse_fields_string(options.fields)
 
-    # Reduce fields_by_id by taking out any fields not provided by the user
-    log.info("requested fields are = %r" % repr(user_fields))
-    for id, avail_fields in fields_by_id.iteritems():
-        for avail_field in avail_fields:
-            if avail_field in nonplus_fields:
-                nonsummed_fields.setdefault(id, []).append(avail_field)
-            if avail_field in plus_fields:
-                summed_fields.setdefault(id, []).append(avail_field)
-
-    # Construct the dictionary of all required fields for each id
-    fields_by_id = nonsummed_fields.copy()
-    for id, fields in summed_fields.iteritems():
-        for summed_field in fields:
-            if summed_field not in fields_by_id.get(id, []):
-                fields_by_id.setdefault(id, []).append(summed_field)
-
-    #print fields_by_id[0]
-    #print nonsummed_fields[0]
-    #print summed_fields[0]
-    #raw_input()
+    log.info("requested fields are = %r" % repr(fields))
+    #reduce fields_by_id by taking out any fields not provided by the user
+    new_fields_by_id = {}
+    for id in fields_by_id:
+        for field in fields_by_id[id]:
+            if field in fields:
+                if new_fields_by_id.has_key(id):
+                    new_fields_by_id[id].append(field)
+                else:
+                    new_fields_by_id[id] = [field]
+    fields_by_id = new_fields_by_id
 
     log.debug("Fields_by_id after parsing --fields\n"+pretty_print_dict(fields_by_id))
-
 else:
-    log.info("Selecting all fields")
-    nonsummed_fields = fields_by_id
+    fields = [] 
+
 
 if options.range:
     user_range = parse_range_string(options.range,fields_by_id.keys())
 
-    ids = fields_by_id.keys()
-    sl = short_list(ids, maxitem=30, formattoken="%2d ", enditems=3)
-    log.info("available id-range = %r" % sl)
-    log.log(15,"available id-range (all) = %r" % ids)
+    log.info("available id-range = %r" % short_list(fields_by_id.keys(),maxitem=30, formattoken="%2d ", enditems=3))
+    log.log(15,"available id-range (all) = %r" % fields_by_id.keys())	
     log.info("requested id-range = %r" % repr(user_range))
+    
+    #reduce available time steps to what user requested
 
-    # Reduce available time steps to what user requested
     new_fields_by_id = {}
-    for id in ids:
+    for id in fields_by_id:
         if id in user_range:
             new_fields_by_id[id] = fields_by_id[id]
     fields_by_id = new_fields_by_id
 
     log.info("id-range to be processed: %s" % repr(short_list(fields_by_id.keys())))
 
-    log.debug("Fields_by_id after parsing --fields\n"+pretty_print_dict(fields_by_id))
+    log.debug("Fields_by_id after parsing --fields\n"+pretty_print_dict(fields_by_id))    
 
 
 #in what units should we produce output
@@ -916,6 +819,7 @@ if options.dumpascii:
     dump_fields_ascii(fh,fields_by_id,output_unit,options)
 
 if options.vtk:
+
     ids = fields_by_id.keys()
     ids.sort()
 
@@ -925,10 +829,8 @@ if options.vtk:
             filename = filename[:-4]
         filename = "%s-%06d.vtk" % (filename,id)
 
-        fields2vtkfile(fh, fields_by_id[id], filename, id,
-                       output_unit, options, replace=options.missing,
-                       summed_fields=summed_fields.get(id, {}),
-                       nonsummed_fields=nonsummed_fields.get(id, {}))
+        fields2vtkfile(fh, fields_by_id[id], filename, id, 
+                       output_unit, options, replace=options.missing)
 
 if outfile_feature == None and outfile!=None:
     logging.warn("Outfile name provided but not used ('%s')" % outfile)

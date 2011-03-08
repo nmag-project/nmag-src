@@ -319,6 +319,10 @@ def get_row(f,fieldname,id):
     ids = map(int,f.getNode(f.root.data.fields,fieldname).col('id').tolist())
     return ids.index(id)
 
+def get_rows(f, fieldname):
+    """For a given field name, return an array rs which can be indexed in the
+    following way: 'rs[i]' is the row corresponding to id i."""
+    return map(int, f.getNode(f.root.data.fields,fieldname).col('id').tolist())
 
 def get_ids_for_field(f,fieldname):
     log.info("Getting ids for field %s" % fieldname)
