@@ -2,22 +2,27 @@ SHELL=/bin/bash
 
 .PHONY: all build-bin clean
 
-all: nsim nsim-raw nmesh
+NSIM_EXECS=nsim nmeshpp ncol nmagpp
+all: nsim-raw $(NSIM_EXECS)
 
-nsim: nsim.in root.inc nsim-raw
+# Rule to make executables from the corresponding .in files
+%: %.in
 	. ./root.inc && \
-	sed -e 's|\$$NMAGBINDIR\$$|'"$$NMAG_BIN"'|g' nsim.in > $@ || rm $@
-	chmod u+x nsim
+	 sed -e 's|\$$NMAGBINDIR\$$|'"$$NMAG_BIN"'|g' $< > $@ || rm $@
+	 chmod u+x $@
 
 nsim-raw: nsim-raw.in root.inc
 	. ./root.inc && \
 	sed -e 's|\$$NMAGROOTDIR\$$|'"$$NMAG_ROOT"'|g' nsim-raw.in > $@ || rm $@
 	chmod u+x $@
 
-nmesh: nmesh.in root.inc
-	. ./root.inc && \
-	 sed -e 's|\$$NMAGROOTDIR\$$|'"$$NMAG_ROOT"'|g' nmesh.in > $@ || rm $@
-	 chmod u+x $@
+nsim: nsim.in root.inc nsim-raw
+
+nmeshpp: nmeshpp.in root.inc nsim-raw
+
+ncol: ncol.in root.inc nsim-raw
+
+nmagpp: nmagpp.in root.inc nsim-raw
 
 root.inc:
 	echo "# NMAG_BIN should be set to the Nmag bin directory." > root.inc && \
@@ -29,5 +34,5 @@ build-bin:
 	$(MAKE)
 
 clean:
-	rm -f nsim nsim-raw root.inc
+	rm -f nsim-raw root.inc $(NSIM_EXECS)
 

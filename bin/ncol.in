@@ -1,4 +1,4 @@
-#!/usr/bin/env nsim-raw
+#!/bin/bash /home/mf/mumag/nsim/src/bin/nsim-raw
 
 import sys,optparse,string,os
 
