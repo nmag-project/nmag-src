@@ -1,4 +1,4 @@
-#!/bin/bash /home/mf/mumag/nsim/src/bin/nsim-raw
+#!/bin/bash $NMAGBINDIR$/nsim-raw
 
 import sys,optparse,string,os
 

@@ -2,7 +2,7 @@ SHELL=/bin/bash
 
 .PHONY: all build-bin clean
 
-NSIM_EXECS=nsim nmeshpp ncol nmagpp
+NSIM_EXECS=nsim nmeshpp ncol nmagpp nmeshimport
 all: nsim-raw $(NSIM_EXECS)
 
 # Rule to make executables from the corresponding .in files
@@ -23,6 +23,8 @@ nmeshpp: nmeshpp.in root.inc nsim-raw
 ncol: ncol.in root.inc nsim-raw
 
 nmagpp: nmagpp.in root.inc nsim-raw
+
+nmeshimport: nmeshimport.in root.inc nsim-raw
 
 root.inc:
 	echo "# NMAG_BIN should be set to the Nmag bin directory." > root.inc && \
