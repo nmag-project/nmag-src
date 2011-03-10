@@ -1579,7 +1579,7 @@ class Simulation(SimulationCore):
         Note that ``get_subfield_siv`` has the same functionality but
         takes a list of floats for the position (instead of an SI
         object) and returns (a list of) float(s) which is just the
-        `SI-value`_ of that physical entity.
+        :ref:`SI-value <SI object>` of that physical entity.
 
         If the subfield is not defined at that part of space, ``None``
         is returned.
@@ -1657,7 +1657,7 @@ class Simulation(SimulationCore):
     def probe_subfield_siv(self,subfieldname,pos,unit=None):
         """
         The same behaviour as ``get_subfield`` but the ``pos`` and return
-        data are `SI-value`_\ s (not SI objects).
+        data are :ref:`SI-value <SI object>`\ s (not SI objects).
 
         If the subfield is not defined at that part of space, ``None``
         is returned.
@@ -1891,8 +1891,9 @@ class Simulation(SimulationCore):
         To simply continue a hysteresis/relax simulation using the
         ``--restart`` option, there is no need to use this
         function. It should only be used if lower-level manipulation
-        is required (see for example `Current-driven motion of a
-        vortex in a thin film`_).
+        is required (see for example :ref:`Current-driven motion of a
+        vortex in a thin film <Current-driven motion of a
+        vortex in a thin film>`).
 
         """
         # Temporary hack to mimic an ideal world, where one needs not to care
@@ -2035,7 +2036,7 @@ class Simulation(SimulationCore):
             Optional parameter. If it is provided, then the entity is
             expressed in these units. If it is not provided, then the
             correct SI dimensions for this subfield are looked up, and
-            `SI-value`_\ s are returned.
+            :ref:`SI-value <SI object>`\ s are returned.
 
             If you would like to see simulation units in the output,
             then use ``SI(1)``.
@@ -2967,7 +2968,7 @@ def get_subfield_positions_from_h5file(filename, subfieldname):
 
     :Returns:
       numpy array
-        The positions are returned as `si-value`_\ s.
+        The positions are returned as :ref:`si-value <SI object>`\ s.
 
 
     """
@@ -2998,7 +2999,7 @@ def get_subfield_sites_from_h5file( filename, subfieldname):
 
     :Returns:
       numpy array
-        The ids are returned as `si-value`_\ s.
+        The ids are returned as :ref:`si-value <SI object>`\ s.
 
     """
 
