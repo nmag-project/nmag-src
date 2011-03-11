@@ -374,7 +374,7 @@ class Simulation(SimulationCore):
         ts.initialise(rtol=ts_rel_tol, atol=ts_abs_tol)
 
     def set_H_ext(self, values, unit=None):
-        v = Value(values) if unit == None else Value(values, unit=unit)
+        v = Value(values) if unit == None else Value(values, unit)
         self.model.quantities["H_ext"].set_value(v)
 
     def set_m(self, values, subfieldname=None):
