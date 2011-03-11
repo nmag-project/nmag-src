@@ -25,7 +25,7 @@ class Shell(InteractiveConsole):
         return InteractiveConsole.interact(self, banner=banner)
 
 def ipython(globals=None, locals=None):
-    """Interactive python prompt (see `Example: IPython`_)."""
+    """Interactive python prompt (see :ref:`Example: IPython <example IPython>`)."""
     # We use an embedded ipython session
     # (http://ipython.scipy.org/doc/manual/node9.html)
     # to inspect the current state. The calling_frame magic is necessary
