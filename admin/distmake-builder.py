@@ -31,6 +31,7 @@ plan = ChoiceList("I'm now going to ask a few questions in order to build a "
 want_doc = plan.add_choice(Choice("Do you want to include documentation?"))
 want_doc.add_alternative(Alternative("No, I'm concerned with size."))
 want_doc.add_alternative(Alternative("Yes, include documentation."))
+want_doc.add_alternative(Alternative("Yes, include and ALSO build it."))
 
 want_test = plan.add_choice(Choice("Do you want to include the test suite?"))
 want_test.add_alternative(Alternative("No, I'm concerned with size."))
