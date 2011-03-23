@@ -26,6 +26,7 @@ from nsim.model import *
 from nsim.su_units import SimulationUnits
 from nsim.si_units.si \
   import SI, bohr_magneton, positron_charge, degrees_per_ns, mu0
+import nsim.si_units.si as si
 import nfem
 import nfem.hdf5_v01 as hdf5
 import convergence
@@ -58,6 +59,14 @@ simulation_units = \
 H_unit = SI(1e6, "A/m")   # simulation_units.conversion_factor_of(SI("A/m"))
 E_unit = SI(1e6, "J/m^3") # simulation_units.conversion_factor_of(SI("J/m^3"))
 
+
+def _su_of(u):
+  """Internal: return the units for u.
+  Example: _su_of(SI("m")) typically returns SI(1e-9, "m")
+    (but the answer depends on the value given for the unit_length parameter
+    in Simulation.load_mesh)
+  """
+  return simulation_units.conversion_factor_of(u)
 
 def _default_qc(q_type, q_name, *args, **named_args):
     return q_type(q_name, *args, **named_args)
@@ -126,8 +135,9 @@ class Simulation(SimulationCore):
         if self._model != None:
             return self._model
         else:
-            raise NmagUserError("Cannot get the Model object. You first should"
-                                "load a mesh using the Simulation.load_mesh.")
+            raise NmagUserError("Cannot get the Model object. You first "
+                                "should load a mesh using the "
+                                "Simulation.load_mesh method.")
 
     model = property(get_model)
 
@@ -279,7 +289,8 @@ class Simulation(SimulationCore):
         _add_micromagnetics(model, contexts, self._quantity_creator)
         _add_exchange(model, contexts, self._quantity_creator)
         _add_demag(model, contexts, self._quantity_creator, self.do_demag)
-        _add_stt(model, contexts, self._quantity_creator)
+        _add_stt_zl(model, contexts, self._quantity_creator)
+        _add_stt_sl(model, contexts, self._quantity_creator, do_sl_stt=True)
         _add_llg(model, contexts, self._quantity_creator)
         _add_energies(model, contexts, self._quantity_creator)
 
@@ -298,10 +309,11 @@ class Simulation(SimulationCore):
         qs = self.model.quantities._by_name
 
         def set_quantity_value(name, name_in_mat):
-            v = Value()
-            for mat_name, mat in self.mat_of_mat_name.iteritems():
-                v.set(mat_name, getattr(mat, name_in_mat))
-            qs[name].set_value(v)
+            if name in qs:
+                v = Value()
+                for mat_name, mat in self.mat_of_mat_name.iteritems():
+                    v.set(mat_name, getattr(mat, name_in_mat))
+                qs[name].set_value(v)
 
         set_quantity_value("M_sat", "Ms")
         set_quantity_value("gamma_GG", "llg_gamma_G")
@@ -310,6 +322,8 @@ class Simulation(SimulationCore):
         set_quantity_value("exchange_factor", "exchange_factor")
         set_quantity_value("P", "llg_polarisation")
         set_quantity_value("xi", "llg_xi")
+        set_quantity_value("sl_P", "sl_P")
+        set_quantity_value("sl_d", "sl_d")
 
     def _add_anis(self):
         # Now we run over the materials and create the anisotropy CCode
@@ -754,7 +768,10 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
                            op_laplace_DBC, op_load_DBC, ksp_solve_laplace_DBC,
                            ksp_solve_neg_laplace_phi, bem, prog_set_H_demag])
 
-def _add_stt(model, contexts, quantity_creator=None):
+def _add_stt_zl(model, contexts, quantity_creator=None):
+    """Spin transfer torque (Zhang-Li)
+    See: S. Zhang and ...
+    """
     if "stt" in contexts:
         return
     contexts.append("stt")
@@ -793,6 +810,70 @@ def _add_stt(model, contexts, quantity_creator=None):
 
     model.add_computation([op_grad_m, eq_dm_dcurrent])
 
+def _add_stt_sl(model, contexts, quantity_creator=None, do_sl_stt=False):
+    """Spin transfer torque (Slonczewski-Berger).
+    See: J.C. Slonczewski, "Current-driven excitation of magnetic
+         multilayers", JMMM 159 (1996) L1-L7
+    See also:
+       - http://wpage.unina.it/mdaquino/PhD_thesis/main/node47.html
+       - L. Berger, "Emission of spin-waves by a magnetic multilayer
+         traversed by a current", Phys. Rev. B 54 (1996), 9353-9358
+    """
+    if "sl" in contexts:
+        return
+    contexts.append("sl")
+
+    qc = quantity_creator or _default_qc
+
+    if not do_sl_stt:
+        sl_coeff = qc(Constant, "sl_coeff", subfields=True, value=Value(0))
+        model.add_quantity(sl_coeff)
+        return
+
+    # Constants
+    hbar = qc(Constant, "hbar", value=Value(si.reduced_plank_constant),
+              unit=_su_of(si.Joule*si.second))
+    model.add_quantity(hbar)
+
+    # Required quantities
+    su_of_m = _su_of(SI("m"))
+    sl_d = qc(Constant, "sl_d", subfields=True, unit=su_of_m)
+    sl_current_density = qc(SpaceField, "sl_current_density",
+                            unit=_su_of(SI("A/m^2")))
+    sl_fix = qc(SpaceField, "sl_fix", [3], unit=SI(1))
+    sl_P = qc(SpaceField, "sl_P", subfields=True, unit=SI(1))
+    model.add_quantity([sl_P, sl_d, sl_current_density, sl_fix])
+
+    # Auxiliary quantities
+    sl_coeff = qc(SpaceField, "sl_coeff", subfields=True)
+    model.add_quantity([sl_coeff])
+
+    #eq = """
+    #sl_coeff <- gamma_GG*M_sat/(1.0 + alpha*alpha)
+    #            * sl_current_density/(mu0*M_sat*M_sat*e*sl_d/hbar)
+    #            * 4.0/(sl_Pf*sl_Pf*sl_Pf
+    #                   * (3.0 + m(0)*sl_fix(0)
+    #                          + m(1)*sl_fix(1)
+    #                          + m(2)*sl_fix(2))
+    #                   - 16.0);"""
+    #eq_sl_coeff = Equation("sl_coeff", eq)
+
+    ccode = \
+      ("double P_factor1 = sqrt($sl_P$)/(1.0 + $sl_P$),\n"
+       "       P_factor3 = 4.0*P_factor1*P_factor1*P_factor1,\n"
+       "       alpha = $alpha$, alpha2 = alpha*alpha;\n"
+       "$sl_coeff$ = \n"
+       "  $gamma_GG$/(1.0 + alpha2)\n"
+       "  * $sl_current_density$/($mu0$*$M_sat$*$e$*$sl_d$/$hbar$)\n"
+       "  * P_factor3/((3.0 + $m(0)$*$sl_fix(0)$\n"
+       "                    + $m(1)$*$sl_fix(1)$\n"
+       "                    + $m(2)$*$sl_fix(2)$)\n"
+       "               - 4.0*P_factor3);\n")
+    calc_sl_coeff = \
+      CCode("calc_sl_coeff", inputs=["m"], outputs=["sl_coeff"], auto_dep=True)
+    calc_sl_coeff.append(ccode)
+
+    model.add_computation([calc_sl_coeff])
 
 def _add_llg(model, contexts, quantity_creator=None):
     if "llg" in contexts:
@@ -831,8 +912,9 @@ def _add_llg(model, contexts, quantity_creator=None):
        "   + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q))"
        " + norm_coeff*(1.0 - m(j)*m(j))*m(i)"
        " + P*(1.0 + alpha*xi)*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*dm_dcurrent(q)"
-       " + P*(xi - alpha)*eps(i,j,k)*m(j)*dm_dcurrent(k))*pin;")
-    # Note: when P=0 the last two terms (STT) are automatically simplified!
+       " + P*(xi - alpha)*eps(i,j,k)*m(j)*dm_dcurrent(k)"
+       " + sl_coeff*(  alpha*eps(i,j,k)*m(j)*sl_fix(k)"
+       "             + eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*sl_fix(q)))*pin;")
 
     llg = Equation("llg", eq)
 

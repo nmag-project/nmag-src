@@ -11,7 +11,6 @@ candela = SI(1.0,["cd",1])   #: The candela
 mol = SI(1.0,["mol",1])      #: The mol
 
 #specific units for magnetism
-
 Newton = kilogram*meter/second**2          #: Newton
 mu0 = SI(4.0e-7*math.pi, "N/A^2")          #: vacuum permeability mu0
 Tesla = kilogram/Ampere/second**2          #: Tesla
@@ -29,3 +28,6 @@ bohr_magneton = 9.2740094980e-24*Joule/Tesla # Bohr magneton
 positron_charge = SI(1.6021765314e-19, "C")
 electron_charge =  -positron_charge
 boltzmann_constant = SI(1.3806504e-23, "J/K")
+plank_constant = 6.6260689633e-34*Joule*second
+reduced_plank_constant = plank_constant/(2*math.pi)
+

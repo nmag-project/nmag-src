@@ -196,9 +196,8 @@ def ccode_subst(src, fn):
 
     return ccode_iter(src, substitutor)
 
-def ccode_material_subst(model, ccode_name, ccode, material,
+def ccode_material_subst(model, ccode_name, ccode, mat_name,
                          safety_checks=True):
-    mat_name = material.name
     required_qs = {}
 
     def subst(name, indices):
@@ -262,16 +261,19 @@ class CCode(LAMProgram):
         all_required_qs = {}
         for orig_ccode, mats in self.ccodes:
             if mats == None:
-                pass
+                mats = model.all_material_names
+
             else:
                 if not hasattr(mats, "__iter__"):
-                    mats = [mats]
+                    mats = [mats.name]
+                else:
+                    mats = map(lambda mat: mat.name, mats)
 
-                for mat in mats:
-                    subst_ccode, required_qs = \
-                      ccode_material_subst(model, self.name, orig_ccode, mat)
-                    ccode += subst_ccode
-                    all_required_qs.update(required_qs)
+            for mat in mats:
+                subst_ccode, required_qs = \
+                  ccode_material_subst(model, self.name, orig_ccode, mat)
+                ccode += subst_ccode
+                all_required_qs.update(required_qs)
 
         self.ccode = ccode
 
