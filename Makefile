@@ -206,7 +206,7 @@ clean: config/configuration.inc
 	for subdir in $$list; do \
 	  test "$$subdir" = . || (cd $$subdir && ${MAKE} mrproper); \
 	done
-	rm -f config/configuration.inc
+	rm -f config/configuration.inc config/ac/config.log config/ac/config.status config/arch.py config/arch.pyc config/configuration.h config/nsimconf.ml config/nsimconf.py compilation.log
 
 mrproper: libuninstall clean
 
