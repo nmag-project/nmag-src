@@ -51,109 +51,109 @@ local-deps: config/configuration.inc
 	list='$(MODULES)'; \
 	for subdir in $$list; do \
 	  echo -n "Checking $$subdir... "; \
-	  test "$$subdir" = . || (cd $$subdir && make deps) >$(LOG) 2>&1 || exit 1; \
+	  test "$$subdir" = . || (cd $$subdir && ${MAKE} deps) >$(LOG) 2>&1 || exit 1; \
 	  echo "done!"; \
 	done
 
 deps.config: config/deps config/configuration.inc
-	(cd config && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd config && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.config
 
 deps.base: base/deps deps.config
-	(cd base && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd base && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.base
 
 deps.mt19937: mt19937/deps deps.base
-	(cd mt19937 && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd mt19937 && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.mt19937
 
 deps.snippets: snippets/deps deps.mt19937
-	(cd snippets && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd snippets && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.snippets
 
 deps.qhull: qhull/deps deps.snippets deps.mt19937
-	(cd qhull && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd qhull && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.qhull
 
 deps.fastfields: fastfields/deps deps.qhull deps.snippets deps.mt19937
-	(cd fastfields && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd fastfields && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.fastfields
 
 deps.pycaml: pycaml/deps deps.qhull deps.snippets deps.mt19937
-	(cd pycaml && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd pycaml && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.pycaml
 
 deps.nlog: nlog/deps deps.snippets deps.pycaml
-	(cd nlog && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd nlog && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.nlog
 
 deps.mesh: mesh/deps deps.pycaml deps.nlog deps.fastfields deps.qhull deps.snippets deps.mt19937
-	(cd mesh && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd mesh && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.mesh
 
 deps.mpi_petsc: mpi_petsc/deps deps.mesh deps.pycaml deps.fastfields deps.qhull deps.snippets deps.mt19937
-	(cd mpi_petsc && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd mpi_petsc && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.mpi_petsc
 
 deps.sundials_sp: sundials_sp/deps deps.snippets deps.mpi_petsc
-	(cd sundials_sp && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd sundials_sp && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.sundials_sp
 
 deps.nsim_grammars: nsim_grammars/deps
-	(cd nsim_grammars && make mrproper libuninstall; \
-	make $(WHAT) && umask 0002 && make hacked_libinstall deps) >$(LOG) 2>&1
+	(cd nsim_grammars && ${MAKE} mrproper libuninstall; \
+	${MAKE} $(WHAT) && umask 0002 && ${MAKE} hacked_libinstall deps) >$(LOG) 2>&1
 	touch deps.nsim_grammars
 
 deps.nsim_anisotropy: nsim_anisotropy/deps deps.snippets
-	(cd nsim_anisotropy && make mrproper libuninstall; \
-	make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd nsim_anisotropy && ${MAKE} mrproper libuninstall; \
+	${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.nsim_anisotropy
 
 
 deps.fem: fem/deps deps.snippets deps.mesh deps.mpi_petsc deps.sundials_sp deps.qhull deps.fastfields deps.nsim_grammars
-	(cd fem && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd fem && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.fem
 
 deps.bem3d: bem3d/deps deps.snippets deps.mesh deps.hlib deps.fem
-	(cd bem3d && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd bem3d && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.bem3d
 
 deps.nsim: nsim/deps deps.snippets deps.mesh deps.fem deps.bem3d deps.ccpla deps.nlog deps.sundials_sp
-	(cd nsim && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd nsim && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.nsim
 
 deps.hlib: hlib/deps
-	(cd hlib && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd hlib && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.hlib
 
 deps.ccpla: ccpla/deps deps.snippets deps.mpi_petsc
-	(cd ccpla && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd ccpla && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.ccpla
 
 deps.ddpla: ddpla/deps deps.mpi_petsc
-	(cd ddpla && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd ddpla && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.ddpla
 
 $(PYFEM): pyfem3/deps deps.mt19937 deps.snippets deps.qhull deps.fastfields deps.pycaml deps.mesh deps.fem deps.mpi_petsc deps.bem3d deps.ccpla deps.sundials_sp deps.nsim_grammars deps.nsim_anisotropy deps.nsim deps.hlib
-	(cd pyfem3 && make mrproper libuninstall; \
-	 make $(WHAT) && umask 0002 && make libinstall deps) >$(LOG) 2>&1
+	(cd pyfem3 && ${MAKE} mrproper libuninstall; \
+	 ${MAKE} $(WHAT) && umask 0002 && ${MAKE} libinstall deps) >$(LOG) 2>&1
 	touch deps.pyfem3
 
 build-bin: $(PYFEM)
@@ -161,9 +161,9 @@ build-bin: $(PYFEM)
 
 deps.pyfem3_debug: pyfem3/deps deps.mt19937 deps.snippets deps.qhull deps.fastfields deps.pycaml deps.mesh deps.fem deps.mpi_petsc deps.bem3d deps.ccpla deps.sundials_sp deps.nsim_grammars deps.nsim_anisotropy deps.nsim deps.hlib
 	(cd pyfem3 && sed -r 's/native-code$$/byte-code/g' Makefile > Makefile.debug && \
-	 make -f Makefile.debug mrproper libuninstall; \
-	 make -f Makefile.debug $(WHAT) && umask 0002 && \
-	 make -f Makefile.debug libinstall deps) >$(LOG) 2>&1
+	 ${MAKE} -f Makefile.debug mrproper libuninstall; \
+	 ${MAKE} -f Makefile.debug $(WHAT) && umask 0002 && \
+	 ${MAKE} -f Makefile.debug libinstall deps) >$(LOG) 2>&1
 	touch deps.pyfem3_debug
 
 $(NSIM_EXE1CPU): $(PYFEM)
@@ -188,7 +188,7 @@ interface/nsim/svnversion.py:
 	echo "svnversion = '"$$(svnversion -n .)"'" > interface/nsim/svnversion.py
 
 doc:
-	cd interface/nmag/manual; make
+	cd interface/nmag/manual; ${MAKE}
 
 nmesh2pp:
 	chmod u+x $(NMESHPP)
@@ -196,7 +196,7 @@ nmesh2pp:
 libuninstall: config/configuration.inc
 	list='$(MODULES)'; \
 	for subdir in $$list; do \
-	  test "$$subdir" = . || (cd $$subdir && make libuninstall); \
+	  test "$$subdir" = . || (cd $$subdir && ${MAKE} libuninstall); \
 	done
 
 clean: config/configuration.inc
@@ -204,7 +204,7 @@ clean: config/configuration.inc
 	rm -f depsrm -f $(NSIM_DEB)
 	list='$(MODULES)'; \
 	for subdir in $$list; do \
-	  test "$$subdir" = . || (cd $$subdir && make mrproper); \
+	  test "$$subdir" = . || (cd $$subdir && ${MAKE} mrproper); \
 	done
 	rm -f config/configuration.inc
 
