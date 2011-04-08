@@ -153,7 +153,14 @@ def find_file(names, prefixes, suffixes, paths):
         if full_path != None: return (full_name, full_path)
     return None
 
+def find_binary(name,path):
+    name, path = find_file([name],[''],[''],path)
+    if path != None:
+        return "%s/%s" % (path,name)
+    return None
+
 #-----------------------------------------------------------------------------
+std_bin_paths = ['/bin','/usr/bin','/usr/local/bin']
 std_lib_paths = ['/usr/lib', '/usr/local/lib']
 std_inc_paths = ['/usr/include', '/usr/local/include']
 config_file = "configuration"
@@ -452,6 +459,8 @@ configuration["GCC_FLAGS_SHLIB"] = LDSHARED
 configuration["PYCAML_CLIBS"] = this_python
 configuration["PYTHON_LIBRARY_PATH"] = py_config_files_dir
 configuration["PYTHON_INCLUDE_PATH"] = py_headers_dir
+
+configuration["BASH"] = find_binary('bash',std_bin_paths);
 
 # We have to ensure that libpmpich and libmpich are in the same path!
 try:

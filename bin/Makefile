@@ -1,4 +1,6 @@
-SHELL=/bin/bash
+include ../config/configuration.inc
+
+SHELL=${BASH}
 
 .PHONY: all build-bin clean
 
