@@ -5,7 +5,7 @@ include ../config/common.inc
 
 #LDFLAGS=$(DEBUGFLAGS)  -L/usr/X11R6/lib -lX11
 
-OCAMLMKLIB = ocamlmklib -ldopt -ldl
+OCAMLMKLIB = ocamlmklib -ldopt ${DLFLAGS}
 
 PACKS = unix bigarray
 

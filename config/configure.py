@@ -459,6 +459,10 @@ configuration["GCC_FLAGS_SHLIB"] = LDSHARED
 configuration["PYCAML_CLIBS"] = this_python
 configuration["PYTHON_LIBRARY_PATH"] = py_config_files_dir
 configuration["PYTHON_INCLUDE_PATH"] = py_headers_dir
+configuration["DLFLAGS"] = '-ldl'
+
+if os.uname()[0] == 'FreeBSD':
+	configuration["DLFLAGS"] = '-lc' # dlopen, etc are built into libc on FreeBSD
 
 configuration["BASH"] = find_binary('bash',std_bin_paths);
 
