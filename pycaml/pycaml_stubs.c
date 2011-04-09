@@ -81,6 +81,21 @@ static PyObject * wrapped_Py_CompileString(const char *s1, const char *s2,int n)
   return Py_CompileStringFlags(s1,s2,n,0);
 }
 
+static PyObject * wrapped_PyEval_CallObjectWithKeywords(PyObject *o1,
+							PyObject *o2,
+							PyObject *o3)
+{
+  return PyEval_CallObjectWithKeywords(o1,o2,o3);
+}
+
+static PyObject * wrapped_PyEval_CallObject(PyObject *o1,
+					    PyObject *o2)
+{
+  return PyEval_CallObject(o1,o2);
+}
+
+
+
 static PyObject * wrapped_PyRange_New(long n1, long n2, long n3, int n4) {
   /* PyRange_New was undocumented in Python 2.3, deprecated in Python 2.4, and
      removed in Python 2.5. We still need a sort-of wrapper here, as not having
@@ -991,9 +1006,9 @@ DL_IMPORT(int) PyImport_ImportFrozenModule(char *);
 
 /* Interface to random parts in ceval.c */
 /* 42 */
-DL_IMPORT(PyObject *) PyEval_CallObjectWithKeywords(PyObject *, PyObject *, PyObject *);
+DL_IMPORT(PyObject *) wrapped_PyEval_CallObjectWithKeywords(PyObject *, PyObject *, PyObject *);
 /* 17 */
-DL_IMPORT(PyObject *) PyEval_CallObject(PyObject *, PyObject *);
+DL_IMPORT(PyObject *) wrapped_PyEval_CallObject(PyObject *, PyObject *);
 
 /* 29 */
 DL_IMPORT(PyObject *) PyEval_GetBuiltins(void);
@@ -1497,9 +1512,9 @@ python_func_table the_python_func_table[] = {
 
 /* Interface to random parts in ceval.c */
 /* 42 */
-  { (void *)PyEval_CallObjectWithKeywords, 42,1, "PyEval_CallObjectWithKeywords" },
+  { (void *)wrapped_PyEval_CallObjectWithKeywords, 42,1, "PyEval_CallObjectWithKeywords" },
 /* 17 */
-  { (void *)PyEval_CallObject, 17,1, "PyEval_CallObject" },
+  { (void *)wrapped_PyEval_CallObject, 17,1, "PyEval_CallObject" },
 
 /* 29 */
   { (void *)PyEval_GetBuiltins, 29,0, "PyEval_GetBuiltins" }, /* T.F.: Here, had to consult Python/ceval.c - also for the functions below... */
