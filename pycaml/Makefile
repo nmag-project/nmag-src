@@ -4,7 +4,7 @@ include ../config/configuration.inc
 include ../config/common.inc
 
 OCAMLLDFLAGS=$(PYCAML_OPT_DARWIN)
-CLIBS=$(PYCAML_CLIBS) "pthread" "dl" $(UTIL_CLIBS) "m" "c"
+CLIBS=$(PYCAML_CLIBS) "pthread" ${DLLIB} $(UTIL_CLIBS) "m" "c"
 
 PACKS=unix str bigarray
 
