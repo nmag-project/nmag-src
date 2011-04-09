@@ -205,8 +205,10 @@ clean: config/configuration.inc
 	list='$(MODULES)'; \
 	for subdir in $$list; do \
 	  test "$$subdir" = . || (cd $$subdir && ${MAKE} mrproper); \
+	  test "$$subdir" = . || rm -f deps.$$subdir; \
 	done
-	rm -f config/configuration.inc config/ac/config.log config/ac/config.status config/arch.py config/arch.pyc config/configuration.h config/nsimconf.ml config/nsimconf.py compilation.log
+	rm -f config/configuration.inc config/ac/config.log config/ac/config.status config/arch.py config/arch.pyc config/configuration.h \
+		config/nsimconf.ml config/nsimconf.mli config/nsimconf.py compilation.log
 
 mrproper: libuninstall clean
 
