@@ -30,7 +30,7 @@ RESULT = sundials_sp
 
 # LDFLAGS=$(DEBUGFLAGS)  -lsundials_cvode -lsundials_nvecparallel
 
-LDFLAGS=$(DEBUGFLAGS) -ldl
+LDFLAGS=$(DEBUGFLAGS) ${DLFLAGS}
 
 # We turn on debugger support in all our modules for now.
 OCAMLBCFLAGS= $(OCAMLDEBUGFLAGS)
