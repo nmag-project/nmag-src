@@ -261,7 +261,7 @@ configs["petsc-includedir"] = (
   "PETSC_INCLUDE_PATH",
   "PETSC",
   ["petsc.h", "petscksp.h", "petscts.h", "petscvec.h", "petscmat.h", "petscsys.h"],
-  std_inc_paths + ["/usr/include/petsc"]
+  std_inc_paths + ["/usr/include/petsc", "/usr/local/petsc/include"]
 )
 
 configs["metis-libdir"] = (
