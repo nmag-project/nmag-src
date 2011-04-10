@@ -222,7 +222,8 @@ configs["qhull-libdir"] = (
 mpich_lib_path = std_lib_paths + \
   ['/usr/lib/mpich/lib',
    '/usr/lib/mpich/lib/shared',
-   '/usr/local/mpich2/1.0.3/lib']
+   '/usr/local/mpich2/1.0.3/lib',
+   '/usr/local/mpi/openmpi/lib']
 
 configs["mpi-libdir"] = (
   "Path containing the library files for MPI",
@@ -245,7 +246,7 @@ configs["mpi-includedir"] = (
   "EXTRA_INCLUDE_PATH",
   "MPICH",
   ["mpi.h"],
-  std_inc_paths+['/usr/include/mpi']
+  std_inc_paths+['/usr/include/mpi','/usr/local/mpi/openmpi/include']
 )
 
 configs["petsc-libdir"] = [
