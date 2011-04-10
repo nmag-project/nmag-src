@@ -16,9 +16,10 @@ INCDIRS = ../snippets ../mesh ../mpi_petsc ../nsim_grammars ../fastfields ../nlo
 
 CFLAGS=$(DEBUGFLAGS) $(NSIM_CFLAGS) -fPIC $(PETSC_INCFLAGS) -I$(EXTRA_INCLUDE_PATH)
 
+
 # List of the libraries used for linking
 LDFLAGS=$(DEBUGFLAGS) $(MPICH_LDFLAGS) $(PMPICH_LDFLAGS) $(PETSC_LDFLAGS) \
-        $(METIS_LDFLAGS) $(LAPACK_LDFLAGS) $(BLAS_LDFLAGS)
+        $(METIS_LDFLAGS) $(LAPACK_LDFLAGS) $(BLAS_LDFLAGS) $(MISSINGFLAGS)
 
 # LIBDIRS=$(EXTRA_LIBRARY_PATH) $(PETSC_LIBRARY_PATH)
 

@@ -17,7 +17,7 @@ CC=mpicc
 
 # CFLAGS=$(DEBUGFLAGS)  -I /usr/lib/petscdir/2.2.0/include -I 
 
-LDFLAGS=$(DEBUGFLAGS) $(MPICH_LDFLAGS) $(PMPICH_LDFLAGS) $(LAPACK_LDFLAGS) $(BLAS_LDFLAGS)
+LDFLAGS=$(DEBUGFLAGS) $(MPICH_LDFLAGS) $(PMPICH_LDFLAGS) $(LAPACK_LDFLAGS) $(BLAS_LDFLAGS) $(MISSINGFLAGS) 
 
 # -lpetscvec -lpetscmat -lpetscksp -lpetscdm -lpetsc
 

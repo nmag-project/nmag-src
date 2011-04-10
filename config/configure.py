@@ -536,6 +536,9 @@ else:
 configuration["CFLAGS_ARCH"] = CFLAGS
 configuration["NSIM_CFLAGS"] = CFLAGS
 
+if os.uname()[0] == 'FreeBSD':
+	configuration["MISSINGFLAGS"] = '-L/usr/local/petsc/lib -lpetsc -lmetis -lparmetis -L/usr/local/lib/parmetis -lumfpack -llapack -lX11 -lamd'
+
 #----------------------------------------------------------------------------
 # We finally write the configuration to file(s): we produce four files
 # one for each language used in nsim sources: ocaml, C, python and a file
