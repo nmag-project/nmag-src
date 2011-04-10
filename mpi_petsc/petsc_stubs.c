@@ -94,7 +94,7 @@
 #include "petscmat.h"
 #include "petscsys.h"
 
-#include <metis.h>
+#include <parmetis.h>
 
 #include <stdio.h>
 /* ^ This is just for debugging! */

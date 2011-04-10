@@ -270,15 +270,15 @@ configs["metis-libdir"] = (
   "METIS_LIB_PATH",
   "METIS",
   ["metis", "parmetis"],
-  std_lib_paths
+  std_lib_paths + ["/usr/local/lib/parmetis"]
 )
 
 configs["metis-includedir"] = (
   "Path containing the C-headers files for METIS",
   "METIS_INCLUDE_PATH",
   "METIS",
-  ["metis.h"],
-  std_inc_paths + ["/usr/include/metis", "/usr/local/include/metis"]
+  ["parmetis.h"],
+  std_inc_paths + ["/usr/include/parmetis", "/usr/local/include/parmetis"]
 )
 
 configs["numpy-includedir"] = (
