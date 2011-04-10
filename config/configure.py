@@ -277,7 +277,7 @@ configs["metis-includedir"] = (
   "METIS_INCLUDE_PATH",
   "METIS",
   ["metis.h"],
-  std_inc_paths + ["/usr/include/metis"]
+  std_inc_paths + ["/usr/include/metis", "/usr/local/include/metis"]
 )
 
 configs["numpy-includedir"] = (
