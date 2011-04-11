@@ -409,7 +409,7 @@ for key in configs:
         path, found = find_files(files,
                                  paths,
                                  prefixes=['lib'],
-                                 suffixes=['.so', '.dylib'])
+                                 suffixes=['.0','.1','.so', '.dylib'])
         if files:
             if use_full_lib_path and found:
                 libs += " ".join([os.path.join(path, name) for name in found])
