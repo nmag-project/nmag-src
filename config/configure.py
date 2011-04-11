@@ -261,7 +261,7 @@ configs["petsc-includedir"] = (
   "Path containing the C-headers files for petsc",
   "PETSC_INCLUDE_PATH",
   "PETSC",
-  ["petsc.h", "petscksp.h", "petscts.h", "petscvec.h", "petscmat.h", "petscsys.h"],
+  ["petsc.h"],
   std_inc_paths + ["/usr/include/petsc", "/usr/local/petsc/include"]
 )
 
@@ -462,6 +462,7 @@ configuration["PYTHON_LIBRARY_PATH"] = py_config_files_dir
 configuration["PYTHON_INCLUDE_PATH"] = py_headers_dir
 configuration["DLFLAGS"] = '-ldl'
 configuration["DLLIB"] = 'ldl'
+configuration["PETSC_INCFLAGS"] = "%s %s/usr/local/petsc/bmake/freebsd" % (configuration["PETSC_INCFLAGS"], inc_option)
 
 if os.uname()[0] == 'FreeBSD':
 	configuration["DLFLAGS"] = '-lc' # dlopen, etc are built into libc on FreeBSD
@@ -538,7 +539,7 @@ configuration["CFLAGS_ARCH"] = CFLAGS
 configuration["NSIM_CFLAGS"] = CFLAGS
 
 if os.uname()[0] == 'FreeBSD':
-	configuration["MISSINGFLAGS"] = '-L/usr/local/petsc/lib -lpetsc -lmetis -lparmetis -L/usr/local/lib/parmetis -lumfpack -llapack -lX11 -lamd'
+	configuration["MISSINGFLAGS"] = ' -L/usr/local/lib -L/usr/local/petsc/lib/freebsd -lpetsc -lpetscdm -lpetscsnes -lpetscts -lpetscksp -lpetscvec -lpetscmat -lmetis -lparmetis -L/usr/local/lib/parmetis -lumfpack -llapack -lX11 -lamd -lmpi -lmpi_f77 -L/usr/local/mpi/openmpi/lib -lblas'
 
 #----------------------------------------------------------------------------
 # We finally write the configuration to file(s): we produce four files

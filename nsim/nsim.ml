@@ -2691,9 +2691,10 @@ let nsim_timestepper_create
     ~script_compute_velocities ~mwes ~timestepper_spec
     ~jacobi_operators
     =
-  let () = logdebug (Printf.sprintf "nsim_timesteppers_create #1") in
+  let () = logdebug (Printf.sprintf "DDD nsim_timesteppers_create #1") in
   let name_ts = Printf.sprintf "%s$timestepper.%s" prefix timestepper_spec.lts_name in
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
+  let () = logdebug (Printf.sprintf "DDD nsim_timesteppers_create #2") in
   let cmds_create =
     Array.make nr_nodes
       (DCOM_opcode ((NSIM_OP_make_timestepper (name_ts,timestepper_spec)),
@@ -2701,15 +2702,20 @@ let nsim_timestepper_create
 		       [|script_compute_velocities;mwes;jacobi_operators|]
 		       vecs_fields)))
   in
+  let () = logdebug (Printf.sprintf "DDD nsim_timesteppers_create #3") in
   let () = Queue.push cmds_create !(ccpla.ccpla_queue) in
+  let () = logdebug (Printf.sprintf "DDD nsim_timesteppers_create #4") in
   let the_timestepper = DRH name_ts in
+  let () = logdebug (Printf.sprintf "DDD nsim_timesteppers_create #5") in
   let () = Gc.finalise
     (fun drh ->
        let () = Printf.printf "DDD DRES timestepper: parfinalize '%s'\n%!" name_ts in
        let () = ccpla.ccpla_pending_finalizations <- name_ts::ccpla.ccpla_pending_finalizations
        in ()) the_timestepper
   in
+  let () = logdebug (Printf.sprintf "DDD nsim_timesteppers_create #6") in
   let () = master_process_queue ccpla in
+  let () = logdebug (Printf.sprintf "DDD nsim_timesteppers_create finished") in
     the_timestepper
 ;;
 
