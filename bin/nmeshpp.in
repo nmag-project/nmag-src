@@ -28,32 +28,35 @@ def memory_report(tag):
     logging.getLogger('memory').log(15,"Memory report: T=  %f VMEM=   %d KB RSS=   %d KB %s" % (t,int(vmem),int(rss),tag))
 
 def histogram(a,bins,range=None,new=True):
-    """wrapper around numpy.histogram to deal with the different versions of numpy.histogram.
+    """wrapper around numpy.histogram to deal with the different versions of
+    numpy.histogram.
 
-    histogram.numpy returns (a,b) where a is the list of length n of the counts for each bin
-    and b is
+    histogram.numpy returns (a,b) where a is the list of length n of the
+    counts for each bin and b is
      in numpy version 1.0 and 1.1: a list of length n of the left bin edge and
-     in numpy version 1.2 and above: a list of length n+1 with all the bin edges (i.e. including the right losing edge).
+     in numpy version 1.2 and above: a list of length n+1 with all the bin
+     edges (i.e. including the right losing edge).
 
-    Starting from version 1.1, a warning about this is printed, unless we use the extra parameter 'new=True' to switch
-    to the new behaviour.
+    Starting from version 1.1, a warning about this is printed, unless we use
+    the extra parameter 'new=True' to switch to the new behaviour.
 
-    However, numpy 1.0 will not know about the 'new' parameter: for this reason we need the if-statement below.
+    However, numpy 1.0 will not know about the 'new' parameter: for this reason
+    we need the if-statement below.
 
     (fangohr 30/07/2008)
+
+    NOTE: the named argument 'new' disappeared in numpy version > 1.4.
     """
     
     import numpy
-    v1,v2,v3 = map(int,numpy.__version__.split('.'))
+    v1,v2,v3 = map(int, numpy.__version__.split('.'))
     logging.log(15,'Using numpy version %s = %s' % (numpy.__version__,[v1,v2,v3]))
-    if v1 == 1 and v2==0:
+    if v1 == 1 and (v2 == 0 or v2 >= 4):
         ret = numpy.histogram(a,bins=bins,range=range)
         return ret 
     else:
         ret = numpy.histogram(a,bins=bins,range=range,new=new)
-        return ret 
-
-    
+        return ret  
 
 def parse_command_line(argvs):
     usage="usage: %prog [options] nmeshfile [outputfile]\n\n(C)"+\
