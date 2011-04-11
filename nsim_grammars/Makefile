@@ -103,7 +103,7 @@ mrproper: clean
 	 localeqn_parser.mli localeqn_parser.ml localeqn_lexer.ml\
 	 dimensions_parser.mli dimensions_parser.ml dimensions_lexer.ml\
 	 ddiffop_example *.cmi *.cmo *.top ddiffop *.so doc deps nsim_grammars.* \
-	*.cma *.cmxa
+	*.cma *.cmxa *.a
 
 deps: META ddiffop_lexer.mll ddiffop_parser.mly ddiffop_types.mli\
       localeqn_lexer.mll localeqn_parser.mly localeqn_types.mli\
