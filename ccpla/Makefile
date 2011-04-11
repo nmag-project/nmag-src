@@ -13,7 +13,7 @@ INCDIRS = ../snippets ../mpi_petsc
 # We put those in so that they are in place right from the start.
 # Do not want to see any surprises later on.
 
-CC=mpicc
+CC= ${MPICC}
 
 # CFLAGS=$(DEBUGFLAGS)  -I /usr/lib/petscdir/2.2.0/include -I 
 

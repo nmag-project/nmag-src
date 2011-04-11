@@ -9,7 +9,7 @@ THREADS=yes
 
 INCDIRS=../snippets ../mesh ../fem ../bem3d ../ccpla ../nsim_grammars ../nlog ../mpi_petsc ../hlib ../sundials_sp ../config
 
-CC=mpicc
+CC=${MPICC}
 
 # Where to find petsc and mpich2 libraries
 # LIBDIRS=$(EXTRA_LIBRARY_PATH) $(PETSC_LIBRARY_PATH) $(MPICH2_LIBRARY_PATH)

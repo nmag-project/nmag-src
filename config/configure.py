@@ -220,10 +220,10 @@ configs["qhull-libdir"] = (
 )
 
 mpich_lib_path = std_lib_paths + \
-  ['/usr/lib/mpich/lib',
+  ['/usr/local/mpi/openmpi/lib',
+   '/usr/lib/mpich/lib',
    '/usr/lib/mpich/lib/shared',
-   '/usr/local/mpich2/1.0.3/lib',
-   '/usr/local/mpi/openmpi/lib']
+   '/usr/local/mpich2/1.0.3/lib']
 
 configs["mpi-libdir"] = (
   "Path containing the library files for MPI",
@@ -246,7 +246,7 @@ configs["mpi-includedir"] = (
   "EXTRA_INCLUDE_PATH",
   "MPICH",
   ["mpi.h"],
-  std_inc_paths+['/usr/include/mpi','/usr/local/mpi/openmpi/include']
+  std_inc_paths+['/usr/local/mpi/openmpi/include','/usr/include/mpi']
 )
 
 configs["petsc-libdir"] = [
@@ -468,6 +468,7 @@ if os.uname()[0] == 'FreeBSD':
 	configuration["DLLIB"] = 'c'
 
 configuration["BASH"] = find_binary('bash',std_bin_paths);
+configuration["MPICC"] = find_binary('mpicc',['/usr/local/mpi/openmpi/bin']+std_bin_paths);
 
 # We have to ensure that libpmpich and libmpich are in the same path!
 try:

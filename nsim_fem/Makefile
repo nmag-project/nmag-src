@@ -3,7 +3,7 @@ OCAMLMAKEFILE = ../OCamlMakefile
 include ../config/configuration.inc
 include ../config/common.inc
 
-CC = mpicc
+CC = ${MPICC}
 
 PACKS =  snippets mesh mpi_petsc unix str qhull nsim_grammars fastfields sundials_sp
 # Note that we require qhull for plotting postscript

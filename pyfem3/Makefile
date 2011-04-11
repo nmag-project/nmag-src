@@ -15,7 +15,7 @@ CFLAGS=$(DEBUGFLAGS)
 #CFLAGS= -O3 -march=i686
 
 # Note: this will modify our command line arguments in such a way that we can be started via "mpirun"!
-CC=mpicc
+CC=${MPICC}
 
 #If we use this, we need to create this directory first!
 #Postpone that problem until we decide we need to use rpath.

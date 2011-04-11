@@ -9,7 +9,7 @@ include ../config/common.inc
 
 THREADS=yes
 
-CC=mpicc
+CC=${MPICC}
 
 # CFLAGS: -fPIC: generate [P]osition [I]ndependent [C]ode (default for darwin
 #                and mac os)
