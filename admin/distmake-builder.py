@@ -109,25 +109,27 @@ script.writeln(". disttools.sh")
 script.writeln("PKGNAME=nmag-`get_version ..`")
 script.writeln("allsrc_dev_compose \"$PKGNAME\" 'trunk'")
 
-if want_doc.chosen:
+has_doc = (want_doc.chosen != 0)
+if has_doc:
     script.writeln('add_doc "$PKGNAME"')
 
-if want_test.chosen:
+has_test = (want_test.chosen != 0)
+if has_test:
     script.writeln('add_test "$PKGNAME"')
 
 if want_repo.chosen != 1:
     if want_repo.chosen == 0:
         remove_dist_hg = True
         remove_src_hg = True
-        remove_doc_hg = True
-        remove_test_hg = True
+        remove_doc_hg = has_doc
+        remove_test_hg = has_test
     else:
         remove_dist_hg = (distr.chosen == 0)
         remove_src_hg = (srcr.chosen == 0)
         remove_doc_hg = (docr.chosen == 0)
         remove_test_hg = (testr.chosen == 0)
 
-    if remove_src_hg:
+    if remove_dist_hg:
         script.writeln('remove_hg "$PKGNAME"')
 
     if remove_src_hg:
@@ -137,6 +139,7 @@ if want_repo.chosen != 1:
 
     if remove_test_hg:
         script.writeln('remove_hg "$PKGNAME/nsim/tests"')
+        script.writeln('remove_dir "$PKGNAME" nsim/tests/devtests')
 
     if remove_doc_hg:
         script.writeln('remove_hg "$PKGNAME/doc/manual"')
