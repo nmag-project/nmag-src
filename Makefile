@@ -208,7 +208,7 @@ clean: config/configuration.inc
 	  test "$$subdir" = . || rm -f deps.$$subdir; \
 	done
 	rm -f config/configuration.inc config/ac/config.log config/ac/config.status config/arch.py config/arch.pyc config/configuration.h \
-		config/nsimconf.ml config/nsimconf.mli config/nsimconf.py compilation.log
+		config/nsimconf.ml config/nsimconf.mli config/nsimconf.py compilation.log interface/nsim/*.pyc
 
 mrproper: libuninstall clean
 
