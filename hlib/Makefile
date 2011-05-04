@@ -17,7 +17,7 @@ CFLAGS=$(DEBUGFLAGS) $(NSIM_CFLAGS) $(PETSC_INCFLAGS) -I$(EXTRA_INCLUDE_PATH)
 
 THREADS=yes
 
-SOURCES = hlib_stubs.c hlib.mli hlib.ml
+SOURCES = hlib_stubs.c mgdesc.c hlib.mli hlib.ml
 
 # ml sources of the mli files to be generated with 'make reinterface'
 INTERFACE=hlib.ml
@@ -42,7 +42,7 @@ all: byte-code-library native-code-library
 mrproper: clean
 	rm -rf *~ *.cmi *.cmo *.a *.cma *.cmxa doc *.so *.top deps
 
-deps: META hlib.ml hlib.mli hlib_stubs.c
+deps: META hlib.ml hlib.mli hlib_stubs.c mgdesc.c
 	touch deps
 
 .PHONY: mrproper

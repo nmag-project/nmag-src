@@ -51,6 +51,7 @@ val bem_hmatrix :
   ?kmax:int ->
   ?geom_info:(int array * float array) array * float array *
              Mesh.coords array ->
+  ?lattice_info: float array array array*(int * float * float array) array ->
   ?field_name:string ->
   ?inside_property:string ->
   ?outside_property:string ->

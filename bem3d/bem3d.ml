@@ -556,6 +556,7 @@ let bem_hmatrix
     ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0)
     ?(eps_aca=0.00001) ?(eps=0.00001) ?(p=3) ?(kmax=50)
     ?geom_info
+    ?lattice_info
     ?(field_name="phi")
     ?(inside_property="material")
     ?(outside_property="outer")
@@ -584,7 +585,8 @@ let bem_hmatrix
 	(faas vertex_coords) (iaas triangles) (faas normals)
   in*)
   let hmx = Hlib.make_hmatrix ~algorithm ~nfdeg ~nmin ~eta ~eps_aca ~eps ~p ~kmax
-                               vertex_coords triangles normals in
+                              ?lattice_info
+                              vertex_coords triangles normals in
   let pi = 4.0*.atan 1.0 in
   let v_diagonal =
     Mpi_petsc.vector_pack

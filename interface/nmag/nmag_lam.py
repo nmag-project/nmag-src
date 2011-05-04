@@ -168,14 +168,15 @@ def nmag_lam(timestepper,
         periodic_bc = [periodic_bc]
         is_periodic = True
 
-    if(use_hlib and is_periodic):
-        raise NmagUserError, "Hlib cannot yet deal with periodic boundary conditions"
+    #if (use_hlib and is_periodic):
+    #    raise NmagUserError("Hlib cannot yet deal with periodic "
+    #                        "boundary conditions")
 
     if(mesh==None):
-        raise NmagUserError, "No mesh provided!"
+        raise NmagUserError("No mesh provided!")
 
     if(region_materials==[]):
-        raise NmagUserError, "No region_materials provided!"
+        raise NmagUserError("No region_materials provided!")
 
     elem_H_demag = ocaml.make_element("H_demag", [3], dim, 1)
     elem_scalar = ocaml.make_element("scalar", [], dim, 1)

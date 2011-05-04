@@ -3022,6 +3022,7 @@ Thomas Fischbacher, 13.05.2008
 		     Bem3d.bem_hmatrix
 		       ~algorithm ~nfdeg ~nmin ~eta ~eps_aca ~eps ~p ~kmax
 		       ~geom_info
+                       ?lattice_info:ldms.ldms_lattice_info
 		       (* ldms.ldms_inside_regions
 			  ldms.ldms_dof_name
 		       *)

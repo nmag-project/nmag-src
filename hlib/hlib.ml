@@ -1,4 +1,4 @@
-(* (C) 2007 Dr. Thomas Fischbacher 
+(* (C) 2007 Dr. Thomas Fischbacher
 
  ocamlc -i hlib.ml > hlib.mli
 *)
@@ -50,7 +50,7 @@ external write_hmatrix: string -> hmatrix -> unit = "caml_hlib_write_hmatrix";;
 external read_hmatrix: string -> hmatrix = "caml_hlib_read_hmatrix";;
 
 external apply_hmatrix:
-  hmatrix -> simple_float_bigarray -> simple_float_bigarray -> 
+  hmatrix -> simple_float_bigarray -> simple_float_bigarray ->
   unit = "caml_hlib_apply_hmatrix";;
 
 let hlib_init =
@@ -62,6 +62,17 @@ let hlib_init =
 	  hlib_init_raw path
 ;;
 
+external mgdesc_print_debug:
+  float array array array * (int * float * float array) array -> unit
+  = "caml_mgdesc_print_debug";;
+
+
+let default_lattice_info =
+  let identity_3d = [|[|1.0; 0.0; 0.0;|];
+                      [|0.0; 1.0; 0.0|];
+                      [|0.0; 0.0; 1.0|]|]
+  in ([|identity_3d|], [|(0, 1.0, [|0.0; 0.0; 0.0|])|])
+;;
 
 let make_hmatrix_from_oriented_triangles
     ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0) ?(eps_aca=0.00001) ?(eps=0.00001) ?(p=3) ?(kmax=50)
@@ -85,7 +96,7 @@ let make_hmatrix_from_oriented_triangles
   in
   let triangle_edges = Array.map process_tri triangles in
   let edges = Array.make_matrix (Hashtbl.length ht_edges) 2 0 in
-  let () = Hashtbl.iter 
+  let () = Hashtbl.iter
     (fun edge nr ->
        begin
 	 edges.(nr).(0) <- edge.(0);
@@ -99,8 +110,10 @@ let make_hmatrix_from_oriented_triangles
 ;;
 
 let make_hmatrix
-    ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0) ?(eps_aca=0.00001) ?(eps=0.00001)?(p=3) ?(kmax=50)
+    ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0) ?(eps_aca=0.00001)
+    ?(eps=0.00001)?(p=3) ?(kmax=50) ?(lattice_info=default_lattice_info)
     vertices3d triangles surface_normals =
+  let () = mgdesc_print_debug lattice_info in
   let positive_orientation nr_tri =
     let tri = triangles.(nr_tri) in
     let normal = surface_normals.(nr_tri) in
@@ -124,11 +137,11 @@ let make_hmatrix
   in
   let oriented_triangles =
     Array.mapi
-      (fun nr_tri tri -> 
+      (fun nr_tri tri ->
 	 if positive_orientation nr_tri then tri
 	 else [|tri.(0);tri.(2);tri.(1)|])
       triangles
-  in 
+  in
     make_hmatrix_from_oriented_triangles
       ~algorithm ~nfdeg ~nmin ~eta ~eps_aca ~eps ~p ~kmax
       vertices3d
@@ -176,7 +189,7 @@ let make_hmatrix
   in
   let triangle_edges = Array.map process_tri triangles in
   let edges = Array.make_matrix (Hashtbl.length ht_edges) 2 0 in
-  let () = Hashtbl.iter 
+  let () = Hashtbl.iter
   (fun edge nr ->
   begin
   edges.(nr).(0) <- edge.(0);
@@ -190,7 +203,7 @@ let make_hmatrix
      we pass on the same data as is used for the set-up
      of a non-distributed BEM. Concerning the
      "output index", things are slightly more subtle, for:
-     
+
      - we subdivide the BEM matrix into "strips"
      - this means that, geometrically, we will cut some of the
      surface triangles, due to this distribution.
@@ -198,9 +211,9 @@ let make_hmatrix
      field strength at the observer point caused by a linear
      source distribution over a source triangle, only
      information on the source triangle is needed.
-     This is not correct: while topology information is indeed 
+     This is not correct: while topology information is indeed
      not needed to work out field strengths at the observer point,
-     it is needed for the set-up of the residual hierarchical 
+     it is needed for the set-up of the residual hierarchical
      cluster structure in the matrix strip. (Note: Hierarchical
      subdivision introduces both horizontal and vertical dividing
      lines!)
@@ -232,13 +245,13 @@ let make_hmatrix
   if sa <> sc then -1
   else sa
   in
-  let vertex_offsets = 
+  let vertex_offsets =
   let a = Array.make (nr_strips+1) 0 in
   let () =
   for i=1 to nr_strips-1 do
   a.(i) <- a.(i-1) + surface_vertex_distribution.(i)
   done
-  in 
+  in
   let () = a.(nr_strips) <- Array.length surface_vertices3d in
   a
   in
@@ -251,7 +264,7 @@ let make_hmatrix
   let array_filter p arr =
   (* One problem here is that we cannot easily record filter results in a
      bit-vector, as OCaml does not provide anything like (simple-array bit ( * ) )
-     
+
      Hence, we have to do more consing than we would like to.
    *)
   let pre_result = Array.copy arr in
@@ -312,11 +325,11 @@ let make_hmatrix
   in
   let oriented_triangles =
     Array.mapi
-      (fun nr_tri tri -> 
+      (fun nr_tri tri ->
 	if positive_orientation nr_tri then tri
 	else [|tri.(0);tri.(2);tri.(1)|])
       triangles
-  in 
+  in
   make_hmatrix_strip_from_oriented_triangles
     ~surface_vertex_distribution ~nr_strip
     ~algorithm ~nfdeg ~nmin ~eta ~eps_aca ~eps ~p ~kmax

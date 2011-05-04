@@ -28,22 +28,13 @@ external apply_hmatrix :
   = "caml_hlib_apply_hmatrix"
 val hlib_init : string -> unit
 val make_hmatrix_from_oriented_triangles :
-  ?algorithm:int ->
-  ?nfdeg:int ->
-  ?nmin:int ->
-  ?eta:float ->
-  ?eps_aca:float ->
-  ?eps:float ->
-  ?p:int -> ?kmax:int -> float array array -> int array array -> hmatrix
+  ?algorithm:int -> ?nfdeg:int -> ?nmin:int -> ?eta:float ->
+  ?eps_aca:float -> ?eps:float -> ?p:int -> ?kmax:int ->
+  float array array -> int array array -> hmatrix
 val make_hmatrix :
-  ?algorithm:int ->
-  ?nfdeg:int ->
-  ?nmin:int ->
-  ?eta:float ->
-  ?eps_aca:float ->
-  ?eps:float ->
-  ?p:int ->
-  ?kmax:int ->
+  ?algorithm:int -> ?nfdeg:int -> ?nmin:int -> ?eta:float -> ?eps_aca:float ->
+  ?eps:float -> ?p:int -> ?kmax:int ->
+  ?lattice_info: float array array array * (int * float * float array) array ->
   float array array -> int array array -> float array array -> hmatrix
 (* Code: HLib parallel *)
 (*

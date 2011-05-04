@@ -43,27 +43,10 @@
 */
 
 /*
-  This code would need some adjustments to work with older versions of gcc:
-  the problem is the usage of CAMLlocalX.
-  CAMLlocalX should appear possibly after CAMLparamX, because it is a macro
-  which is replaced with declaration of variables.
-  Older versions of gcc want declarations to be all at the beginning
-  of the functions. Therefore the example:
-
-  int main(void) {
-    int a;
-    printf("Hello world!\n");
-    int b;
-    return 0;
-  }
-
-  won't work! The second declaration ('int b;') should go at the beginning
-  of the function, just after 'int a;'.
-  This is standard C as far as I know, but C99 may have introduced
-  some changes regarding this.
-  I won't update the code now, it's better to speak all together before
-  doing it.
-  mf, 20 Sept 2007
+  This code requires a C99 compiler: sometimes we are indeed using the macro
+  CAMLlocalX after the declaration section of compound statements {...}.
+  This will lead to an error for C versions < C99, as CAMLparamX is a macro
+  which expands to code which declares new variables.
  */
 
 
