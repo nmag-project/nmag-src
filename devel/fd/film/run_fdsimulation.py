@@ -12,13 +12,13 @@ s.set_params(stopping_dm_dt=1*degrees_per_ns)
 
 nm = SI(1e-9, "m")
 def rectangle(pos):
-    if (pos[0] >=10e-9 and pos[0] <= 20e-9 and 
-       pos[1] >=10e-9 and pos[1] <= 20e-9):
+#    if (pos[0] >=10e-9 and pos[0] <= 20e-9 and 
+#       pos[1] >=10e-9 and pos[1] <= 20e-9):
         return 'magnetic' 
-    else:
-        return None
+#    else:
+#        return None
 
-s.create_mesh([10, 10, 1], [2.0*nm, 2.0*nm, 3.0*nm], mat_Py,regions=rectangle)
+s.create_mesh([10, 10, 1], [5.0*nm, 5.0*nm, 3.0*nm], mat_Py,regions=rectangle)
     
 s.set_m([1, 1, 1])
 
