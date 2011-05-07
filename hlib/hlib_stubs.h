@@ -158,8 +158,9 @@ typedef void (*ty_outputsvd_supermatrix)(psupermatrix,char*);
 
 /** Used to initialise bemgrid3d objects. */
 typedef struct {
-  size_t nr_vertices;
-  bemgrid3d *gr;
+  size_t       nr_vertices;
+  pbemgrid3d   gr;
+  pclustertree ct;
 
 } gridbuilder_t;
 
@@ -167,10 +168,6 @@ typedef struct {
   gridbuilder_t *row,
                 *col;
 
-  /*int nr_vertices;
-  pbemgrid3d gr;*/
-
-  pclustertree ct;
   psurfacebemfactory sbf;
   pblockcluster bcluster;
   psupermatrix smx;

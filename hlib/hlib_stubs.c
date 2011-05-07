@@ -259,6 +259,8 @@ static void gridbuilder_finish(gridbuilder_t *gb)
 {
   if (gb->gr != NULL)
     dyn_del_bemgrid3d(gb->gr);
+  if (gb->ct != NULL)
+    dyn_del_clustertree(gb->ct);
 }
 
 /** Destroy a gridbuilder_t object. */
@@ -271,7 +273,10 @@ static void gridbuilder_destroy(gridbuilder_t *gb)
 }
 
 static gridbuilder_t *gridbuilder_create(void) {
-  return (gridbuilder_t *) safe_malloc(sizeof(gridbuilder_t));
+  gridbuilder_t *gb = safe_malloc(sizeof(gridbuilder_t));
+  gb->gr = (pbemgrid3d) NULL;
+  gb->ct = (pclustertree) NULL;
+  return gb;
 }
 
 /** Initialise a gridbuilder_t object. */
@@ -349,6 +354,17 @@ static value gridbuilder_init(gridbuilder_t *gb,
   CAMLreturn(Val_unit);
 }
 
+void gridbuilder_build_vertexcluster(gridbuilder_t *gb, int nmin) {
+  /* Compute outer normal vectors and Gram determinants */
+  DEBUGMSG("Preparing grid...\n");
+  dyn_prepare_bemgrid3d(gb->gr);
+
+  /* Build the cluster tree for the grid defined by a bemgrid3d object,
+     using piecewise linear basis functions */
+  DEBUGMSG("creating the vertexclusters...\n");
+  gb->ct = dyn_buildvertexcluster_bemgrid3d(gb->gr, HLIB_REGULAR, nmin, 0);
+}
+
 static void finalize_hmatrix(value block)
 {
   hmatrix_interna *hmatrix;
@@ -362,29 +378,17 @@ static void finalize_hmatrix(value block)
          build the supermatrix. We may or may not want to keep this.
          This de-allocator can deal with either situation.
       */
-      /*Code: HLib parallel*/
-      /*
-        if(hmatrix->gr_row) {
-        dyn_del_bemgrid3d(hmatrix->gr_row);
-        hmatrix->gr_row = NULL;
-        hmatrix->gr_col = NULL;
-        }
-        if(hmatrix->gr_row)dyn_del_bemgrid3d(hmatrix->gr_row);
-        if(hmatrix->gr_col)dyn_del_bemgrid3d(hmatrix->gr_col);
-        if(hmatrix->ct_row)dyn_del_clustertree(hmatrix->ct_row);
-        if(hmatrix->ct_col)dyn_del_clustertree(hmatrix->ct_col);
-      */
-
       if (hmatrix->col != hmatrix->row)
         gridbuilder_destroy(hmatrix->col);
       gridbuilder_destroy(hmatrix->row);
       hmatrix->col = hmatrix->row = NULL;
 
-      if(hmatrix->ct)dyn_del_clustertree(hmatrix->ct);
       if(hmatrix->sbf)dyn_del_surfacebemfactory(hmatrix->sbf);
       if(hmatrix->bcluster)
         {
-          fprintf(stderr,"DDD NOTE: deleting block cluster (Do I really have to do that, or is that a mistake?)\n");fflush(stderr);
+          fprintf(stderr,"DDD NOTE: deleting block cluster (Do I really have "
+                         "to do that, or is that a mistake?)\n");
+          fflush(stderr);
           dyn_del_blockcluster(hmatrix->bcluster);
         }
       if(hmatrix->smx)dyn_del_supermatrix(hmatrix->smx);
@@ -534,35 +538,28 @@ CAMLprim value caml_hlib_raw_make_hmatrix(value ml_vertices,
       || 0==(hmatrix->pbuffer_rhs=malloc(nr_vertices*sizeof(double))))
       aiee("malloc() failure!");
 
-  /* Create bemgrid3d object */
+  /* Create bemgrid3d object and the blockcluster */
   hmatrix->row = gridbuilder_create();
   gridbuilder_init(hmatrix->row,
                    ml_vertices, ml_triangles, ml_edges, ml_triangle_edges);
-  hmatrix->col = (gridbuilder_t *) NULL;
-
-  /* Compute outer normal vectors and Gram determinants */
-  DEBUGMSG("Preparing grid...\n");
-  dyn_prepare_bemgrid3d(hmatrix->row->gr);
-
-  /* Build the cluster tree for the grid defined by a bemgrid3d object,
-     using piecewise linear basis functions */
-  DEBUGMSG("creating the vertexclusters...\n");
-  hmatrix->ct =
-    dyn_buildvertexcluster_bemgrid3d(hmatrix->row->gr, HLIB_REGULAR, nmin, 0);
+  gridbuilder_build_vertexcluster(hmatrix->row, nmin);
+  hmatrix->col = (gridbuilder_t *) NULL; /* Matrix is square */
 
   /* Create a surfacebemfactory object for the double layer potential */
   DEBUGMSG("creating the surfacebemfactory...\n");
   hmatrix->sbf =
     dyn_new_surfacebemfactory_dlp_collocation(hmatrix->row->gr,
-                                              HLIB_LINEAR_BASIS, hmatrix->ct,
-                                              HLIB_LINEAR_BASIS, hmatrix->ct,
+                                              HLIB_LINEAR_BASIS,
+                                              hmatrix->row->ct,
+                                              HLIB_LINEAR_BASIS,
+                                              hmatrix->row->ct,
                                               nfdeg, nfdeg, p, 0.0);
 
   /* Create a block cluster tree from the roots of two cluster trees
      row and col (which are here the same, hmatrix->ct->root). */
   DEBUGMSG("creating the blockclustertree...\n")
   hmatrix->bcluster =
-    dyn_build_blockcluster(hmatrix->ct->root, hmatrix->ct->root,
+    dyn_build_blockcluster(hmatrix->row->ct->root, hmatrix->row->ct->root,
                            HLIB_MAXADMISSIBILITY, HLIB_BLOCK_INHOMOGENEOUS,
                            eta, 0);
 
@@ -645,9 +642,8 @@ CAMLprim value caml_hlib_read_hmatrix(value ml_name)
   CAMLreturn(block);
 }
 
-/*
- NOTE: this may crash if vector are of inappropriate size! */
-
+#if 0
+/* NOTE: this may crash if vector are of inappropriate size! */
 CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
 				       value ml_biga_target,
 				       value ml_biga_src)
@@ -663,335 +659,162 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
   hmx=(hmatrix_interna *)Field(ml_hmx,1);
 
   if(!hmx)
-    {
-      own_raise_with_string(*caml_named_value(err_exn_name),
-			    "hmatrix: tried to write invalid supermatrix!");
-    }
+    own_raise_with_string(*caml_named_value(err_exn_name),
+                          "hmatrix: tried to write invalid supermatrix!");
 
   data_src=Data_bigarray_val(ml_biga_src);
   data_target=Data_bigarray_val(ml_biga_target);
 
   for (j = 0; j < hmx->row->nr_vertices; j++)
-    hmx->pbuffer_rhs[hmx->ct->idx2dof[j]] = data_src[j];
+    hmx->pbuffer_rhs[hmx->row->ct->idx2dof[j]] = data_src[j];
 
   dyn_eval_supermatrix(hmx->smx,hmx->pbuffer_rhs,hmx->pbuffer_lhs);
 
   for (j = 0; j < hmx->row->nr_vertices; j++)
-    data_target[j] = hmx->pbuffer_lhs[hmx->ct->idx2dof[j]];
+    data_target[j] = hmx->pbuffer_lhs[hmx->row->ct->idx2dof[j]];
+
+  CAMLreturn(Val_unit);
+}
+#endif
+
+/* Code: HLib parallel */
+/* NOTE: this may crash if vector are of inappropriate size! */
+CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
+                                       value ml_biga_target,
+                                       value ml_biga_src)
+{
+  CAMLparam3(ml_hmx, ml_biga_target, ml_biga_src);
+
+  hmatrix_interna *hmx;
+  double *data_src, *data_target;
+  int j;
+
+  libhmatrix_checkinit();
+
+  hmx = (hmatrix_interna *) Field(ml_hmx, 1);
+  if (!hmx)
+    own_raise_with_string(*caml_named_value(err_exn_name),
+                          "hmatrix: tried to write invalid supermatrix!");
+
+  data_src = Data_bigarray_val(ml_biga_src);
+  data_target = Data_bigarray_val(ml_biga_target);
+
+  for (j = 0; j < hmx->col->nr_vertices; j++)
+    hmx->pbuffer_rhs[hmx->col->ct->idx2dof[j]] = data_src[j];
+
+  dyn_eval_supermatrix(hmx->smx, hmx->pbuffer_rhs, hmx->pbuffer_lhs);
+
+  for (j = 0; j < hmx->row->nr_vertices; j++)
+    data_target[j] = hmx->pbuffer_lhs[hmx->row->ct->idx2dof[j]];
 
   CAMLreturn(Val_unit);
 }
 
-/*Code: HLib parallel*/
- /*
+CAMLprim value caml_hlib_raw_make_hmatrix_strip(value ml_row_info,
+                                                value ml_col_info,
+                                                value ml_is_square,
+                                                value ml_args)
+{
+  CAMLparam4(ml_row_info, ml_col_info, ml_is_square, ml_args);
+  hmatrix_interna *hmatrix;
+  int    is_square = Int_val(ml_is_square);
+  int    algorithm =    Int_val(Field(ml_args, 0)),
+         nfdeg     =    Int_val(Field(ml_args, 1)),
+         nmin      =    Int_val(Field(ml_args, 2));
+  double eta       = Double_val(Field(ml_args, 3)),
+         eps_aca   = Double_val(Field(ml_args, 4)),
+         eps       = Double_val(Field(ml_args, 5));
+  int    p         =    Int_val(Field(ml_args, 6)),
+         kmax      =    Int_val(Field(ml_args, 7));
+  int    nr_vertices_rows, nr_vertices_cols;
+  double size_smx;
 
- CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
- value ml_biga_target,
- value ml_biga_src)
- {
- CAMLparam3(ml_hmx,ml_biga_target, ml_biga_src);
+  CAMLlocal4(ml_vertices_row, ml_triangles_row, ml_edges_row,
+             ml_triangle_edges_row);
+  CAMLlocal4(ml_vertices_col, ml_triangles_col, ml_edges_col,
+             ml_triangle_edges_col);
 
- hmatrix_interna *hmx;
- double *data_src, *data_target;
- int j;
+  ml_vertices_row       = Field(ml_row_info, 0);
+  ml_triangles_row      = Field(ml_row_info, 1);
+  ml_edges_row          = Field(ml_row_info, 2);
+  ml_triangle_edges_row = Field(ml_row_info, 3);
+  ml_vertices_col       = Field(ml_col_info, 0);
+  ml_triangles_col      = Field(ml_col_info, 1);
+  ml_edges_col          = Field(ml_col_info, 2);
+  ml_triangle_edges_col = Field(ml_col_info, 3);
 
- libhmatrix_checkinit();
+  nr_vertices_rows = Wosize_val(ml_vertices_row);
+  nr_vertices_cols = Wosize_val(ml_vertices_col);
 
- hmx=(hmatrix_interna *)Field(ml_hmx,1);
+  if(algorithm > 1 && algorithm != 5)
+    kmax = p*p*p;
 
- if(!hmx)
- {
- own_raise_with_string(*caml_named_value(err_exn_name),
- "hmatrix: tried to write invalid supermatrix!");
- }
+  libhmatrix_checkinit();
 
- data_src=Data_bigarray_val(ml_biga_src);
- data_target=Data_bigarray_val(ml_biga_target);
+  /* Note that we make sure that all entries initially are null pointers. */
+  if (0 == (hmatrix = calloc(1, sizeof(hmatrix_interna))))
+    aiee("malloc() failure!");
 
- for(j=0;j<hmx->nr_vertices_col;j++)
- {
- hmx->pbuffer_rhs[hmx->ct_col->idx2dof[j]] = data_src[j];
- }
+  /* Now we populate the bemgrid3d object */
+  hmatrix->pbuffer_lhs = safe_malloc(nr_vertices_rows*sizeof(double));
+  hmatrix->pbuffer_rhs = safe_malloc(nr_vertices_cols*sizeof(double));
 
- dyn_eval_supermatrix(hmx->smx,hmx->pbuffer_rhs,hmx->pbuffer_lhs);
+  /* Create bemgrid3d object and blockcluster for rows */
+  DEBUGMSG("Building bemgrid3d and blockcluster for rows...\n");
+  hmatrix->row = gridbuilder_create();
+  gridbuilder_init(hmatrix->row, ml_vertices_row, ml_triangles_row,
+                   ml_edges_row, ml_triangle_edges_row);
+  gridbuilder_build_vertexcluster(hmatrix->row, nmin);
 
- for(j=0;j<hmx->nr_vertices_row;j++)
- {
- data_target[j]=hmx->pbuffer_lhs[hmx->ct_row->idx2dof[j]];
- }
+  if (is_square) {
+    DEBUGMSG("Matrix is square: using same bemgrid3d and blockcluster...\n");
+    hmatrix->col = hmatrix->row;
 
- CAMLreturn(Val_unit);
- }
+  } else {
+    /* Create bemgrid3d object and blockcluster for cols */
+    DEBUGMSG("Building bemgrid3d and blockcluster for cols...\n");
+    hmatrix->row = gridbuilder_create();
+    gridbuilder_init(hmatrix->col, ml_vertices_col, ml_triangles_col,
+                     ml_edges_col, ml_triangle_edges_col);
+    gridbuilder_build_vertexcluster(hmatrix->row, nmin);
+  }
 
- CAMLprim value caml_hlib_raw_make_hmatrix_strip(value ml_row_info,
- value ml_col_info,
- value ml_args)
- {
+  /* Create a surfacebemfactory object for the double layer potential */
+  DEBUGMSG("creating the surfacebemfactory...\n");
+  hmatrix->sbf =
+    dyn_new_surfacebemfactory_dlp_collocation(hmatrix->row->gr,
+                                              HLIB_LINEAR_BASIS,
+                                              hmatrix->row->ct,
+                                              /*hmatrix->col->gr, ????????*/
+                                              HLIB_LINEAR_BASIS,
+                                              hmatrix->col->ct,
+                                              nfdeg, nfdeg, p, 0.0);
 
- CAMLparam3(ml_row_info,ml_col_info,ml_args);
+  /* Create a block cluster tree from the roots of two cluster trees
+     row and col (which are here the same, hmatrix->ct->root). */
+  DEBUGMSG("creating the blockclustertree...\n")
+  hmatrix->bcluster =
+    dyn_build_blockcluster(hmatrix->row->ct->root, hmatrix->row->ct->root,
+                           HLIB_MAXADMISSIBILITY, HLIB_BLOCK_INHOMOGENEOUS,
+                           eta, 0);
 
- hmatrix_interna *hmatrix;
- int number_vertices_row, number_triangles_row, number_edges_row;
- int number_triangle_edges_row;
- int number_vertices_col, number_triangles_col, number_edges_col;
- int number_triangle_edges_col;
- int algorithm;
- double eta;
- double eps_aca;
- double eps;
- int nfdeg;
- int nmin;
- int p ;
- int kmax;
- double size_smx;
- int j,k;
+  /* Compute a coarsened H-matrix approximation of an H-matrix implicitly
+     defined by the block cluster tree hmatrix->bcluster and the hybrid cross
+     approximation of the admissible leaves */
+  DEBUGMSG("Creating the supermatrix from the blockcluster...\n");
+  hmatrix->smx = dyn_coarsen_hca_from_blockcluster(hmatrix->bcluster,
+                                                   hmatrix->sbf,
+                                                   eps_aca, eps, 1, kmax);
 
- CAMLlocal4(ml_vertices_row, ml_triangles_row, ml_edges_row,
- ml_triangle_edges_row);
- CAMLlocal4(ml_vertices_col, ml_triangles_col, ml_edges_col,
- ml_triangle_edges_col);
+  DEBUGMSG("Boxing hmatrix object into OCaml value...\n");
+  CAMLlocal1(block);
+  block = alloc_final(2, finalize_hmatrix, sizeof(void*), 10*sizeof(void*));
+  Store_c_field(block, 1, hmatrix);
 
- ml_vertices_row = Field(ml_row_info,0);
- ml_triangles_row = Field(ml_row_info,1);
- ml_edges_row = Field(ml_row_info,2);
- ml_triangle_edges_row = Field(ml_row_info,3);
+  size_smx = dyn_getsize_supermatrix(hmatrix->smx)/1024.0/1024.0;
+  fprintf(stderr,"HLib: Memory footprint of hierarchical matrix: ");
+  fprintf(stderr,"%f MB.\n",size_smx);
 
- number_vertices_row = Wosize_val(ml_vertices_row);
- number_triangles_row = Wosize_val(ml_triangles_row);
- number_edges_row = Wosize_val(ml_edges_row);
- number_triangle_edges_row = Wosize_val(ml_triangle_edges_row);
-
- ml_vertices_col = Field(ml_col_info,0);
- ml_triangles_col = Field(ml_col_info,1);
- ml_edges_col = Field(ml_col_info,2);
- ml_triangle_edges_col = Field(ml_col_info,3);
-
- number_vertices_col = Wosize_val(ml_vertices_col);
- number_triangles_col = Wosize_val(ml_triangles_col);
- number_edges_col = Wosize_val(ml_edges_col);
- number_triangle_edges_col = Wosize_val(ml_triangle_edges_col);
-
- algorithm = Int_val(Field(ml_args,0));
- nfdeg = Int_val(Field(ml_args,1));
- nmin = Int_val(Field(ml_args,2));
- eta = Double_val(Field(ml_args,3));
- eps_aca = Double_val(Field(ml_args,4));
- eps = Double_val(Field(ml_args,5));
- p = Int_val(Field(ml_args,6));
- kmax = Int_val(Field(ml_args,7));
-
- if(algorithm > 1 && algorithm != 5)
- {
- kmax = p*p*p;
- }
-
- libhmatrix_checkinit();
-
- if(0==(hmatrix=calloc(1,sizeof(hmatrix_interna))))
- {
- aiee("malloc() failure!");
- }
-
- fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
- fprintf(stderr,"Creating grid object for row cluster.\n");
- fflush(stderr);
-
- hmatrix->nr_vertices_row = number_vertices_row;
- hmatrix->gr_row = dyn_new_bemgrid3d(number_vertices_row, number_edges_row,
- number_triangles_row);
-
- for(j=0;j<number_vertices_row;j++)
- {
- if(Wosize_val(Field(ml_vertices_row,j))!=3*Double_wosize)
- {
- dyn_del_bemgrid3d(hmatrix->gr_row);
- free(hmatrix);
- own_raise_with_string(*caml_named_value(err_exn_name),
- "hmatrix: wrong number of vertex coordinates!");
- }
-
- for(k=0;k<3;k++)
- {
- hmatrix->gr_row->x[j][k]=Double_field(Field(ml_vertices_row,j),k);
- }
- }
-
- for(j=0;j<number_edges_row;j++)
- {
- if(Wosize_val(Field(ml_edges_row,j))!=2)
- {
- dyn_del_bemgrid3d(hmatrix->gr_row);
- free(hmatrix);
- own_raise_with_string(*caml_named_value(err_exn_name),
- "hmatrix: wrong number of edge indices!");
- }
- for(k=0;k<2;k++)
- {
- hmatrix->gr_row->e[j][k]=Int_val(Field(Field(ml_edges_row,j),k));
- }
- }
-
- for(j=0;j<number_triangles_row;j++)
- {
- if(Wosize_val(Field(ml_triangles_row,j))!=3)
- {
- dyn_del_bemgrid3d(hmatrix->gr_row);
- free(hmatrix);
- own_raise_with_string(*caml_named_value(err_exn_name),
- "hmatrix: wrong number of triangle indices!");
- }
-
- for(k=0;k<3;k++)
- {
- hmatrix->gr_row->t[j][k]=Int_val(Field(Field(ml_triangles_row,j),k));
- }
- }
-
- for(j=0;j<number_triangle_edges_row;j++)
- {
- if(Wosize_val(Field(ml_triangle_edges_row,j))!=3)
- {
- dyn_del_bemgrid3d(hmatrix->gr_row);
- free(hmatrix);
- own_raise_with_string(*caml_named_value(err_exn_name),
- "hmatrix: wrong number triangle2edge indices!");
- }
-
- for(k=0;k<3;k++)
- {
- hmatrix->gr_row->s[j][k]=Int_val(Field(Field(ml_triangle_edges_row,j),k));
- }
- }
- dyn_prepare_bemgrid3d(hmatrix->gr_row);
-
- fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
- fprintf(stderr,"Creating grid object for column cluster.\n");
- fflush(stderr);
-
- hmatrix->nr_vertices_col = number_vertices_col;
- hmatrix->gr_col = dyn_new_bemgrid3d(number_vertices_col, number_edges_col,
- number_triangles_col);
-
- for(j=0;j<number_vertices_col;j++)
- {
- if(Wosize_val(Field(ml_vertices_col,j))!=3*Double_wosize)
- {
- dyn_del_bemgrid3d(hmatrix->gr_col);
- free(hmatrix);
- own_raise_with_string(*caml_named_value(err_exn_name),
- "hmatrix: wrong number of vertex coordinates!");
- }
-
- for(k=0;k<3;k++)
- {
- hmatrix->gr_col->x[j][k]=Double_field(Field(ml_vertices_col,j),k);
- }
- }
-
- for(j=0;j<number_edges_col;j++)
- {
- if(Wosize_val(Field(ml_edges_col,j))!=2)
- {
- dyn_del_bemgrid3d(hmatrix->gr_col);
- free(hmatrix);
- own_raise_with_string(*caml_named_value(err_exn_name),
- "hmatrix: wrong number of edge indices!");
- }
- for(k=0;k<2;k++)
- {
- hmatrix->gr_col->e[j][k]=Int_val(Field(Field(ml_edges_col,j),k));
- }
- }
-
- for(j=0;j<number_triangles_col;j++)
- {
- if(Wosize_val(Field(ml_triangles_col,j))!=3)
- {
- dyn_del_bemgrid3d(hmatrix->gr_col);
- free(hmatrix);
- own_raise_with_string(*caml_named_value(err_exn_name),
- "hmatrix: wrong number of triangle indices!");
- }
-
- for(k=0;k<3;k++)
- {
- hmatrix->gr_col->t[j][k]=Int_val(Field(Field(ml_triangles_col,j),k));
- }
- }
-
- for(j=0;j<number_triangle_edges_col;j++)
- {
- if(Wosize_val(Field(ml_triangle_edges_col,j))!=3)
- {
- dyn_del_bemgrid3d(hmatrix->gr_col);
- free(hmatrix);
- own_raise_with_string(*caml_named_value(err_exn_name),
- "hmatrix: wrong number triangle2edge indices!");
- }
-
- for(k=0;k<3;k++)
- {
- hmatrix->gr_col->s[j][k]=Int_val(Field(Field(ml_triangle_edges_col,j),k));
- }
- }
- dyn_prepare_bemgrid3d(hmatrix->gr_col);
-
- if(    0==(hmatrix->pbuffer_lhs=malloc(number_vertices_row*sizeof(double)))
- || 0==(hmatrix->pbuffer_rhs=malloc(number_vertices_col*sizeof(double))))
- {
- aiee("malloc() failure!");
- }
-
- fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
- fprintf(stderr,"building vertexclusters for rows and columns.\n");
- fflush(stderr);
- hmatrix->ct_row = dyn_buildvertexcluster_bemgrid3d(hmatrix->gr_row,
- HLIB_REGULAR,nmin,0);
- hmatrix->ct_col = dyn_buildvertexcluster_bemgrid3d(hmatrix->gr_col,
- HLIB_REGULAR,nmin,0);
-
- fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
- fprintf(stderr,"Initialise surfacebemfactory.\n");
- fflush(stderr);
- hmatrix->sbf = dyn_new_surfacebemfactory_dlp_collocation(hmatrix->gr_row,
- HLIB_LINEAR_BASIS,
- hmatrix->ct_row,
- hmatrix->gr_col,
- HLIB_LINEAR_BASIS,
- hmatrix->ct_col,
- nfdeg, nfdeg,
- p, 0.0);
-
- fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
- fprintf(stderr,"Creating the blockclustertree from row and column cluster.\n");
- fflush(stderr);
-
- hmatrix->bcluster = dyn_build_blockcluster(hmatrix->ct_row->root,
- hmatrix->ct_col->root,
- HLIB_MAXADMISSIBILITY,
- HLIB_BLOCK_INHOMOGENEOUS,
- eta, 0);
-
- fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
- fprintf(stderr,"Creating the hierarchical matrix from blockclustertree.\n");
- fflush(stderr);
- hmatrix->smx = dyn_coarsen_hca_from_blockcluster(hmatrix->bcluster,
- hmatrix->sbf,
- eps_aca,eps,1,kmax);
-
- size_smx = dyn_getsize_supermatrix(hmatrix->smx)/1024.0/1024.0;
- fprintf(stderr,"HLib: Memory footprint of hierarchical matrix: ");
- fprintf(stderr,"%f MB.\n",size_smx);
-
- CAMLlocal1(block);
- block = alloc_final(2, finalize_hmatrix, sizeof(void*), 10*sizeof(void*));
- Store_c_field(block, 1, hmatrix);
-
- fprintf(stderr,"caml_hlib_raw_make_hmatrix: Leaving function.\n");
- fflush(stderr);
-
-
- CAMLreturn(block);
- }
- */
-
+  DEBUGMSG("caml_hlib_raw_make_hmatrix: returning!\n");
+  CAMLreturn(block);
+}

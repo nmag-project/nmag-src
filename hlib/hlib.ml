@@ -31,6 +31,9 @@ external raw_make_hmatrix:
   float array array -> int array array -> int array array -> int array array
   -> (int*int*int*float*float*float*int*int) -> hmatrix = "caml_hlib_raw_make_hmatrix";;
 
+type indexinfo =
+  float array array * int array array * int array array * int array array;;
+
 (* Note: row_info and col_info are:
    (vertex_coords,triangles,edges,triangle_edges)
 
@@ -38,12 +41,9 @@ external raw_make_hmatrix:
 *)
 
 (* Code: HLib parallel *)
-(*
-  external raw_make_hmatrix_strip:
-  (float array array * int array array * int array array * int array array) (* row_info *) ->
-  (float array array * int array array * int array array * int array array) (* col_info *) ->
-  (int*int*int*float*float*float*int*int) -> hmatrix = "caml_hlib_raw_make_hmatrix_strip";;
- *)
+external raw_make_hmatrix_strip:
+  indexinfo -> indexinfo -> int -> (int*int*int*float*float*float*int*int)
+  -> hmatrix = "caml_hlib_raw_make_hmatrix_strip";;
 
 external write_hmatrix: string -> hmatrix -> unit = "caml_hlib_write_hmatrix";;
 
@@ -104,9 +104,10 @@ let make_hmatrix_from_oriented_triangles
        end)
     ht_edges
   in
-  let args=(algorithm,nfdeg,nmin,eta,eps_aca,eps,p,kmax)
+  let args = (algorithm, nfdeg, nmin, eta, eps_aca, eps, p, kmax) in
+  let row_info = (vertices3d, triangles, edges, triangle_edges)
   in
-    raw_make_hmatrix vertices3d triangles edges triangle_edges args
+    raw_make_hmatrix_strip row_info row_info 1 args
 ;;
 
 let make_hmatrix
