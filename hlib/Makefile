@@ -42,7 +42,7 @@ all: byte-code-library native-code-library
 mrproper: clean
 	rm -rf *~ *.cmi *.cmo *.a *.cma *.cmxa doc *.so *.top deps
 
-deps: META hlib.ml hlib.mli hlib_stubs.c mgdesc.c
+deps: META hlib.ml hlib.mli hlib_stubs.c hlib_stubs.h mgdesc.c mgdesc.h
 	touch deps
 
 .PHONY: mrproper

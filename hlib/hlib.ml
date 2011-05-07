@@ -111,7 +111,7 @@ let make_hmatrix_from_oriented_triangles
 
 let make_hmatrix
     ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0) ?(eps_aca=0.00001)
-    ?(eps=0.00001)?(p=3) ?(kmax=50) ?(lattice_info=default_lattice_info)
+    ?(eps=0.00001) ?(p=3) ?(kmax=50) ?(lattice_info=default_lattice_info)
     vertices3d triangles surface_normals =
   let () = mgdesc_print_debug lattice_info in
   let positive_orientation nr_tri =

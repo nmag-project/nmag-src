@@ -64,7 +64,7 @@ typedef enum {
 
 typedef struct {
   double (*x)[3];
-  int (*e)[2];  
+  int (*e)[2];
   int (*t)[3];
   int (*s)[3];
   int vertices;
@@ -103,12 +103,12 @@ typedef void (*ty_del_bemgrid3d)(pbemgrid3d);
 typedef void (*ty_prepare_bemgrid3d)(pbemgrid3d);
 typedef pclustertree (*ty_buildvertexcluster_bemgrid3d)(pbemgrid3d,ClusterStrategy,int,int);
 typedef void (*ty_del_clustertree)(pclustertree);
-typedef psurfacebemfactory (*ty_new_surfacebemfactory_dlp_collocation)(pbemgrid3d, 
+typedef psurfacebemfactory (*ty_new_surfacebemfactory_dlp_collocation)(pbemgrid3d,
 								       BEMBasis,
 								       pclustertree,
-								       BEMBasis, 
+								       BEMBasis,
 								       pclustertree,
-								       int, int, int, 
+								       int, int, int,
 								       double);
 typedef void (*ty_del_surfacebemfactory)(psurfacebemfactory);
 
@@ -142,7 +142,7 @@ typedef psupermatrix (*ty_onthefly_hca_coarsen_supermatrix)(pcluster,pcluster,
 						 double,int);
 typedef psupermatrix (*ty_coarsen_hca_from_blockcluster)(pblockcluster,
 							 psurfacebemfactory,
-							 double, double, 
+							 double, double,
 							 int, int);
 typedef ph2recompression (*ty_newrecompression_surfacebem)(psurfacebemfactory,double,double,\
 							   int,TruncationStrategy);
@@ -156,31 +156,41 @@ typedef unsigned int (*ty_getsizefull_supermatrix)(psupermatrix);
 typedef unsigned int (*ty_getsizerk_supermatrix)(psupermatrix);
 typedef void (*ty_outputsvd_supermatrix)(psupermatrix,char*);
 
+/** Used to initialise bemgrid3d objects. */
+typedef struct {
+  size_t nr_vertices;
+  bemgrid3d *gr;
+
+} gridbuilder_t;
 
 typedef struct {
-pbemgrid3d gr; 
-pclustertree ct;
-psurfacebemfactory sbf;
-pblockcluster bcluster;
-psupermatrix smx;
-int nr_vertices;
-double *pbuffer_lhs;
-double *pbuffer_rhs;
-} hmatrix_interna; 
+  gridbuilder_t *row,
+                *col;
+
+  /*int nr_vertices;
+  pbemgrid3d gr;*/
+
+  pclustertree ct;
+  psurfacebemfactory sbf;
+  pblockcluster bcluster;
+  psupermatrix smx;
+  double *pbuffer_lhs;
+  double *pbuffer_rhs;
+} hmatrix_interna;
 
 /*Code HLib parallel*/
 /*
-typedef psurfacebemfactory (*ty_new_surfacebemfactory_dlp_collocation)(pbemgrid3d, 
+typedef psurfacebemfactory (*ty_new_surfacebemfactory_dlp_collocation)(pbemgrid3d,
 BEMBasis,
 pclustertree,
 pbemgrid3d,
-BEMBasis, 
+BEMBasis,
 pclustertree,
-int, int, int, 
+int, int, int,
 double);
 
 typedef struct {
-pbemgrid3d gr_row; 
+pbemgrid3d gr_row;
 pbemgrid3d gr_col;
 pclustertree ct_row;
 pclustertree ct_col;
@@ -191,5 +201,5 @@ int nr_vertices_row;
 int nr_vertices_col;
 double *pbuffer_lhs;
 double *pbuffer_rhs;
-} hmatrix_interna; 
+} hmatrix_interna;
 */

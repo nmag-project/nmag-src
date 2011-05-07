@@ -1,42 +1,53 @@
 /* (C) 2007 Thomas Fischbacher, Hans Fangohr, SES */
 
-/* Remark: commented code which was written for a parallel execution of HLib 
+/* Remark: commented code which was written for a parallel execution of HLib
    in hlib_stubs.h and hlib_stubs.c
    These code bits can be found by searching for "Code: HLib parallel"
 */
 
-#include "hlib_stubs.h"
-
+/* System includes */
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
 #include <math.h>
+#include <float.h>
+#include <time.h>
+#include <sys/time.h>
+#include <dlfcn.h>
+#include <assert.h>
 
+/* OCaml includes */
 #include <caml/alloc.h>
 #include <caml/callback.h>
 #include <caml/fail.h>
 #include <caml/memory.h>
 #include <caml/misc.h>
 #include <caml/mlvalues.h>
-
 #include <caml/bigarray.h>
 
-#include <unistd.h>
-#include <stdio.h>
-#include <float.h>
-#include <stdlib.h>
-#include <time.h>
-#include <sys/time.h>
-
-#include <dlfcn.h>
-
+/* Other includes */
 #include "petsc.h"
 #include "petscvec.h"
 #include "petscsys.h"
 
+#include "hlib_stubs.h"
+
 /* define DEBUG to 2 to see all the debug messages */
 #define DEBUG 0
 
-#define Store_c_field(block,offset,x) (Field(block,offset)=(value)x)
+/* Variadic macros require C99, I think... */
+#if DEBUG > 1
+#  define DEBUGMSG(...) \
+     do {fprintf(stderr, __VA_ARGS__); fflush(stderr);} while(0)
+#else
+#  define DEBUGMSG(...)
+#endif
 
-static char *err_exn_name="ocaml_exn_hlib_caml_interface";
+#define Store_c_field(block, offset, x) \
+  (Field((block), (offset)) = (value) (x))
+
+/** Used for exceptions generated from the C code below */
+static char *err_exn_name = "ocaml_exn_hlib_caml_interface";
 
 static ty_new_bemgrid3d dyn_new_bemgrid3d = 0;
 static ty_oriented_bemgrid3d dyn_oriented_bemgrid3d = 0;
@@ -167,7 +178,7 @@ static int init_libhmatrix(char *path_libhmatrix)
 
   if(0==(dyn_getentry_supermatrix=dlsym(libhmatrix,"getentry_supermatrix")))
     {dlclose(libhmatrix);return -1; };
-  
+
   if(0==(dyn_getsize_supermatrix=dlsym(libhmatrix,"getsize_supermatrix")))
     {dlclose(libhmatrix);return -1; };
 
@@ -185,9 +196,6 @@ static int init_libhmatrix(char *path_libhmatrix)
   return 0;
 }
 
-
-
-
 static void libhmatrix_checkinit(void)
 {
   if(!libhmatrix_is_initialized)
@@ -197,56 +205,11 @@ static void libhmatrix_checkinit(void)
     }
 }
 
-
-static void finalize_hmatrix(value block)
-{
-  hmatrix_interna *hmatrix;
-
-  hmatrix=(hmatrix_interna *)Field(block,1);
-
-  if(hmatrix!=0)
-    {
-      /* In principle, the internal "hmatrix" data structure allows us
-	 to retain part of the scaffolding that was originally used to
-	 build the supermatrix. We may or may not want to keep this.
-	 This de-allocator can deal with either situation.
-      */
-      /*Code: HLib parallel*/
-      /*
-	if(hmatrix->gr_row) {
-	dyn_del_bemgrid3d(hmatrix->gr_row);
-	hmatrix->gr_row = NULL;
-	hmatrix->gr_col = NULL;
-	}
-	if(hmatrix->gr_row)dyn_del_bemgrid3d(hmatrix->gr_row);
-	if(hmatrix->gr_col)dyn_del_bemgrid3d(hmatrix->gr_col);
-	if(hmatrix->ct_row)dyn_del_clustertree(hmatrix->ct_row);
-	if(hmatrix->ct_col)dyn_del_clustertree(hmatrix->ct_col);
-      */
-      if(hmatrix->gr)dyn_del_bemgrid3d(hmatrix->gr);
-      if(hmatrix->ct)dyn_del_clustertree(hmatrix->ct);
-      if(hmatrix->sbf)dyn_del_surfacebemfactory(hmatrix->sbf);
-      if(hmatrix->bcluster)
-	{
-	  fprintf(stderr,"DDD NOTE: deleting block cluster (Do I really have to do that, or is that a mistake?)\n");fflush(stderr);
-	  dyn_del_blockcluster(hmatrix->bcluster);
-	}
-      if(hmatrix->smx)dyn_del_supermatrix(hmatrix->smx);
-      if(hmatrix->pbuffer_lhs)free(hmatrix->pbuffer_lhs);
-      if(hmatrix->pbuffer_rhs)free(hmatrix->pbuffer_rhs);
-      free(hmatrix);
-      Store_c_field(block,1,0);
-    }
-}
-
-
 static void aiee(char *msg)
 {
-  fprintf(stderr,"AIEE - FATAL FAILURE: %s\n",msg);
+  fprintf(stderr, "AIEE - FATAL FAILURE IN HLIB MODULE: %s\n", msg);
   exit(1);
 }
-
-
 
 CAMLprim value caml_hlib_init(value ml_hmatrix_path)
 {
@@ -278,7 +241,260 @@ CAMLprim value caml_hlib_init(value ml_hmatrix_path)
   CAMLreturn(Val_unit);
 }
 
+static void *safe_malloc(size_t size)
+{
+  void *ptr = malloc(size);
+  if (ptr != NULL)
+    return ptr;
 
+  else
+    aiee("malloc() failure!");
+    assert(0);
+    return NULL; /* Just to make some C compilers happy */
+}
+
+
+/** Finalise a gridbuilder_t object. */
+static void gridbuilder_finish(gridbuilder_t *gb)
+{
+  if (gb->gr != NULL)
+    dyn_del_bemgrid3d(gb->gr);
+}
+
+/** Destroy a gridbuilder_t object. */
+static void gridbuilder_destroy(gridbuilder_t *gb)
+{
+  if (gb != NULL) {
+    gridbuilder_finish(gb);
+    free(gb);
+  }
+}
+
+static gridbuilder_t *gridbuilder_create(void) {
+  return (gridbuilder_t *) safe_malloc(sizeof(gridbuilder_t));
+}
+
+/** Initialise a gridbuilder_t object. */
+static value gridbuilder_init(gridbuilder_t *gb,
+                              value ml_vertices,
+                              value ml_triangles,
+                              value ml_edges,
+                              value ml_triangle_edges)
+{
+  CAMLparam4(ml_vertices, ml_triangles, ml_edges, ml_triangle_edges);
+
+  size_t nr_vertices = Wosize_val(ml_vertices),
+         nr_triangles = Wosize_val(ml_triangles),
+         nr_edges = Wosize_val(ml_edges),
+         nr_triangle_edges = Wosize_val(ml_triangle_edges);
+
+  int j, k;
+
+  DEBUGMSG("Entering function populate_bemgrid3d!\n");
+
+  /* Create an empty bemgrid3d object */
+  gb->nr_vertices = nr_vertices;
+  gb->gr = dyn_new_bemgrid3d(nr_vertices, nr_edges, nr_triangles);
+
+# define MY_FAIL(msg) \
+  do {gridbuilder_finish(gb); \
+      own_raise_with_string(*caml_named_value(err_exn_name),(msg));} while (0)
+
+  if (gb->gr == NULL)
+    MY_FAIL("new_bemgrid3d returned NULL pointer.");
+
+  for (j = 0; j < nr_vertices; j++)
+    {
+      if (Wosize_val(Field(ml_vertices, j)) != 3*Double_wosize)
+        MY_FAIL("encountered wrong number of coordinates for vertex.");
+
+      for (k = 0; k < 3; k++)
+        gb->gr->x[j][k] = Double_field(Field(ml_vertices, j), k);
+
+    }
+
+  for (j = 0; j < nr_edges; j++)
+    {
+      if (Wosize_val(Field(ml_edges, j)) != 2)
+        MY_FAIL("encountered wrong number of indices for edge!");
+
+      for (k = 0; k < 2; k++)
+        gb->gr->e[j][k] = Int_val(Field(Field(ml_edges, j), k));
+    }
+
+
+  for (j = 0; j < nr_triangles; j++)
+    {
+      if (Wosize_val(Field(ml_triangles, j)) != 3)
+        MY_FAIL("encountered wrong number of indices for triangle!");
+
+      for (k = 0; k < 3; k++)
+        gb->gr->t[j][k] = Int_val(Field(Field(ml_triangles, j), k));
+    }
+
+
+  for (j = 0; j < nr_triangle_edges; j++)
+    {
+      if (Wosize_val(Field(ml_triangle_edges, j)) != 3)
+        MY_FAIL("encountered wrong number of indices for triangle edges!");
+
+      for(k = 0; k < 3; k++)
+        gb->gr->s[j][k] = Int_val(Field(Field(ml_triangle_edges, j), k));
+    }
+
+  DEBUGMSG("Exiting function populate_bemgrid3d!\n");
+
+# undef MY_FAIL
+
+  CAMLreturn(Val_unit);
+}
+
+static void finalize_hmatrix(value block)
+{
+  hmatrix_interna *hmatrix;
+
+  hmatrix=(hmatrix_interna *)Field(block,1);
+
+  if(hmatrix!=0)
+    {
+      /* In principle, the internal "hmatrix" data structure allows us
+         to retain part of the scaffolding that was originally used to
+         build the supermatrix. We may or may not want to keep this.
+         This de-allocator can deal with either situation.
+      */
+      /*Code: HLib parallel*/
+      /*
+        if(hmatrix->gr_row) {
+        dyn_del_bemgrid3d(hmatrix->gr_row);
+        hmatrix->gr_row = NULL;
+        hmatrix->gr_col = NULL;
+        }
+        if(hmatrix->gr_row)dyn_del_bemgrid3d(hmatrix->gr_row);
+        if(hmatrix->gr_col)dyn_del_bemgrid3d(hmatrix->gr_col);
+        if(hmatrix->ct_row)dyn_del_clustertree(hmatrix->ct_row);
+        if(hmatrix->ct_col)dyn_del_clustertree(hmatrix->ct_col);
+      */
+
+      if (hmatrix->col != hmatrix->row)
+        gridbuilder_destroy(hmatrix->col);
+      gridbuilder_destroy(hmatrix->row);
+      hmatrix->col = hmatrix->row = NULL;
+
+      if(hmatrix->ct)dyn_del_clustertree(hmatrix->ct);
+      if(hmatrix->sbf)dyn_del_surfacebemfactory(hmatrix->sbf);
+      if(hmatrix->bcluster)
+        {
+          fprintf(stderr,"DDD NOTE: deleting block cluster (Do I really have to do that, or is that a mistake?)\n");fflush(stderr);
+          dyn_del_blockcluster(hmatrix->bcluster);
+        }
+      if(hmatrix->smx)dyn_del_supermatrix(hmatrix->smx);
+      if(hmatrix->pbuffer_lhs)free(hmatrix->pbuffer_lhs);
+      if(hmatrix->pbuffer_rhs)free(hmatrix->pbuffer_rhs);
+      free(hmatrix);
+      Store_c_field(block,1,0);
+    }
+}
+
+typedef struct {
+  int    failure;
+  int    have_timing[2];
+  struct timeval timing[2];
+
+} timemeasurement_t;
+
+/** NOTE: Not sure whether we want really to do all this from C.
+    At least I removed this from the main make_hmatrix function, just to make
+    the body cleaner to read. */
+static void take_time_measurement(timemeasurement_t *tm, int phase)
+{
+#ifdef HAVE_GETTIMEOFDAY
+  assert(phase == 0 || phase == 1);
+
+  /*Here the first time measurement is taken for the timings.*/
+  int failure = gettimeofday(& tm->timing[phase], NULL);
+
+  tm->failure = failure;
+  tm->have_timing[phase] = !failure;
+  if (phase == 0)
+    tm->have_timing[1] = 0;
+
+#else
+  tm->failure = 1;
+  tm->have_timing[1] = tm->have_timing[0] = 0;
+#endif
+}
+
+static void fprint_time_measurement(const char *filename,
+                                    timemeasurement_t *tm)
+{
+  FILE *f = fopen(filename, "w");
+  if (f == NULL) {
+    fprintf(stderr, "Cannot fopen \"%s\".", filename);
+    return;
+  }
+
+#ifdef HAVE_GETTIMEOFDAY
+  if (tm->failure) {
+    fprintf(f, "Failure: gettimeofday failed.\n");
+
+  } else if (tm->have_timing[0] == 0 || tm->have_timing[1] == 0) {
+    fprintf(f, "Error: timings were not both taken.\n");
+
+  } else {
+    long int microsec = tm->timing[1].tv_usec - tm->timing[0].tv_usec,
+             sec = tm->timing[1].tv_sec - tm->timing[0].tv_sec;
+    double delta_t;
+
+    if (microsec < 0) {
+      microsec = 1000000 + microsec;
+      sec -= 1;
+    }
+
+    delta_t = sec + 1e-6*microsec;
+    fprintf(f, "%18.8f\n", delta_t);
+  }
+
+#else
+  fprintf(f, "Not available: gettimeofday not found.\n");
+#endif
+
+  fclose(f);
+}
+
+static void fprint_memory_info(const char *filename, hmatrix_interna *hm,
+                               FILE *extra
+) {
+  int nr_vertices = hm->row->nr_vertices;
+  double megabyte = 1024*1024,
+         size_smx = dyn_getsize_supermatrix(hm->smx)/megabyte,
+         size_rk = dyn_getsizerk_supermatrix(hm->smx)/megabyte,
+         size_full = dyn_getsizefull_supermatrix(hm->smx)/megabyte,
+         size_fullbem = 8.0*nr_vertices*nr_vertices/megabyte;
+
+  FILE *f = (filename != NULL) ? fopen(filename, "w") : NULL;
+  if (f != NULL) {
+    fprintf(f, "%38s%6d\n", "Number of surface nodes:", nr_vertices);
+    fprintf(f, "%38s%6.2f MB\n", "Size of hierarchical matrix:", size_smx);
+    fprintf(f, "%38s%6.2f MB\n",
+            "Total size of inadmissible leaves:", size_full);
+    fprintf(f, "%38s%6.2f MB\n", "Total size of admissible leaves:", size_rk);
+    fclose(f);
+
+  } else {
+    fprintf(stderr, "Cannot fopen \"%s\".", filename);
+    return;
+  }
+
+  if (extra != NULL) {
+    fprintf(extra, "HLib: Memory footprint of hierarchical matrix: %f MB.\n",
+            size_smx);
+    fprintf(extra, "HLib: Equivalent full matrix would require: %f MB.\n",
+            size_fullbem);
+    fprintf(extra, "HLib: The compression rate is %4.2f %%.\n",
+            100.0*(1.0 - size_smx/size_fullbem));
+    fflush(stderr);
+  }
+}
 
 CAMLprim value caml_hlib_raw_make_hmatrix(value ml_vertices,
 					  value ml_triangles,
@@ -286,292 +502,96 @@ CAMLprim value caml_hlib_raw_make_hmatrix(value ml_vertices,
 					  value ml_triangle_edges,
 					  value ml_args)
 {
-  CAMLparam5(ml_vertices,ml_triangles,ml_edges,ml_triangle_edges,ml_args);
-  int number_vertices, number_triangles, number_edges, number_triangle_edges,j,k;
-  hmatrix_interna *hmatrix; 
-  
-  int algorithm;
-  double eta;
-  double eps_aca;
-  double eps;
-  int nfdeg;
-  int nmin;
-  int p ;
-  int kmax;
-  double size_smx, size_rk, size_full, size_fullbem,
-         megabyte=1024*1024;
-  FILE *memory_info;
-  /*
-    FILE *bemfile;
-    double buffer;
-  */
-#if DEBUG > 0
-  fprintf(stderr,"Entering function caml_hlib_raw_make_hmatrix!\n"); fflush(stderr);
-#endif
+  CAMLparam5(ml_vertices, ml_triangles, ml_edges, ml_triangle_edges, ml_args);
+  hmatrix_interna *hmatrix;
+  timemeasurement_t tm;
+  int  algorithm =    Int_val(Field(ml_args, 0)),
+           nfdeg =    Int_val(Field(ml_args, 1)),
+            nmin =    Int_val(Field(ml_args, 2));
+  double     eta = Double_val(Field(ml_args, 3)),
+         eps_aca = Double_val(Field(ml_args, 4)),
+             eps = Double_val(Field(ml_args, 5));
+  int          p =    Int_val(Field(ml_args, 6)),
+            kmax =    Int_val(Field(ml_args, 7)),
+     nr_vertices = Wosize_val(ml_vertices);
 
-#ifdef HAVE_GETTIMEOFDAY
-  long int sec, microsec;
-  struct timeval time1, time2;
-  double delta_t;
-  FILE *timing_info;
-  
-  
-  /*Here the first time measurement is taken for the timings.*/
-  i=gettimeofday(&time1,NULL);
-  if(i!=0)
-    {
-      fprintf(stderr,"caml_hlib_raw_make_hmatrix: The second time measurement did not work. %d returned.\n",i); fflush(stderr);
-      exit(1);
-    }
-#endif
-  
-  CAMLlocal5(ml_algorithm,ml_nfdeg,ml_nmin,ml_eta,ml_eps_aca);
-  CAMLlocal3(ml_eps,ml_p,ml_kmax);
+  DEBUGMSG("caml_hlib_raw_make_hmatrix: function entered!\n");
+  DEBUGMSG("algorithm=%d, eta=%f, kmax=%d, eps_aca=%f, eps=%f.\n",
+           algorithm, eta, kmax, eps_aca, eps);
 
-  ml_algorithm=Field(ml_args,0);
-  ml_nfdeg=Field(ml_args,1);
-  ml_nmin=Field(ml_args,2);
-  ml_eta=Field(ml_args,3);
-  ml_eps_aca=Field(ml_args,4);
-  ml_eps=Field(ml_args,5);
-  ml_p=Field(ml_args,6);
-  ml_kmax=Field(ml_args,7);
-
-  algorithm=Int_val(ml_algorithm);
-  nfdeg=Int_val(ml_nfdeg);
-  nmin=Int_val(ml_nmin);
-  eta=Double_val(ml_eta);
-  eps_aca=Double_val(ml_eps_aca);
-  eps=Double_val(ml_eps);
-  p=Int_val(ml_p);
-  kmax=Int_val(ml_kmax);
-  
+  take_time_measurement(& tm, 0);
   if(algorithm > 1 && algorithm != 5)
-    {
-      kmax = p*p*p;
-    }
-
-#if DEBUG > 1
-  fprintf(stderr, "algorithm=%d, eta=%f, kmax=%d, eps_aca=%f, eps=%f.\n",
-	  algorithm, eta, kmax, eps_aca, eps);
-  fflush(stderr);
-#endif
+    kmax = p*p*p;
 
   libhmatrix_checkinit();
 
-  number_vertices = Wosize_val(ml_vertices);
-  number_triangles = Wosize_val(ml_triangles);
-  number_edges = Wosize_val(ml_edges);
-  number_triangle_edges = Wosize_val(ml_triangle_edges);
+  /* Note that we make sure that all entries initially are null pointers. */
+  if (0 == (hmatrix = calloc(1, sizeof(hmatrix_interna))))
+    aiee("malloc() failure!");
 
-  if(0==(hmatrix=calloc(1,sizeof(hmatrix_interna))))
-    /* Note that we make sure that all entries initially are null pointers. */
-    {
+  /* Now we populate the bemgrid3d object */
+  if(    0==(hmatrix->pbuffer_lhs=malloc(nr_vertices*sizeof(double)))
+      || 0==(hmatrix->pbuffer_rhs=malloc(nr_vertices*sizeof(double))))
       aiee("malloc() failure!");
-    }
 
-  hmatrix->nr_vertices = number_vertices;
-  hmatrix->gr = dyn_new_bemgrid3d(number_vertices,number_edges,number_triangles);
+  /* Create bemgrid3d object */
+  hmatrix->row = gridbuilder_create();
+  gridbuilder_init(hmatrix->row,
+                   ml_vertices, ml_triangles, ml_edges, ml_triangle_edges);
+  hmatrix->col = (gridbuilder_t *) NULL;
 
-#if DEBUG > 1
-  fprintf(stderr,"caml_hlib_raw_make_hmatrix: 2 after new_bemgrid3d\n"); fflush(stderr);
-#endif
+  /* Compute outer normal vectors and Gram determinants */
+  DEBUGMSG("Preparing grid...\n");
+  dyn_prepare_bemgrid3d(hmatrix->row->gr);
 
-  if(    0==(hmatrix->pbuffer_lhs=malloc(number_vertices*sizeof(double)))
-      || 0==(hmatrix->pbuffer_rhs=malloc(number_vertices*sizeof(double))))
-    {
-      aiee("malloc() failure!");
-    }
+  /* Build the cluster tree for the grid defined by a bemgrid3d object,
+     using piecewise linear basis functions */
+  DEBUGMSG("creating the vertexclusters...\n");
+  hmatrix->ct =
+    dyn_buildvertexcluster_bemgrid3d(hmatrix->row->gr, HLIB_REGULAR, nmin, 0);
 
-  for(j=0;j<number_vertices;j++)
-    {
-      if(Wosize_val(Field(ml_vertices,j))!=3*Double_wosize)
-	{
-	  dyn_del_bemgrid3d(hmatrix->gr);
-	  free(hmatrix);
-	  own_raise_with_string(*caml_named_value(err_exn_name),
-				"hmatrix: encountered wrong number of coordinates for vertex!");
-	}
+  /* Create a surfacebemfactory object for the double layer potential */
+  DEBUGMSG("creating the surfacebemfactory...\n");
+  hmatrix->sbf =
+    dyn_new_surfacebemfactory_dlp_collocation(hmatrix->row->gr,
+                                              HLIB_LINEAR_BASIS, hmatrix->ct,
+                                              HLIB_LINEAR_BASIS, hmatrix->ct,
+                                              nfdeg, nfdeg, p, 0.0);
 
-      for(k=0;k<3;k++)
-	{
-	  hmatrix->gr->x[j][k]=Double_field(Field(ml_vertices,j),k);
-	}
-    }
+  /* Create a block cluster tree from the roots of two cluster trees
+     row and col (which are here the same, hmatrix->ct->root). */
+  DEBUGMSG("creating the blockclustertree...\n")
+  hmatrix->bcluster =
+    dyn_build_blockcluster(hmatrix->ct->root, hmatrix->ct->root,
+                           HLIB_MAXADMISSIBILITY, HLIB_BLOCK_INHOMOGENEOUS,
+                           eta, 0);
 
-  for(j=0;j<number_edges;j++)
-    {
-      if(Wosize_val(Field(ml_edges,j))!=2)
-	{
-	  dyn_del_bemgrid3d(hmatrix->gr);
-	  free(hmatrix);
-	  own_raise_with_string(*caml_named_value(err_exn_name),
-				"hmatrix: encountered wrong number of indices for edge!");
-	}
-
-      for(k=0;k<2;k++)
-	{
-	  hmatrix->gr->e[j][k]=Int_val(Field(Field(ml_edges,j),k));
-	}
-    }
-
-
-  for(j=0;j<number_triangles;j++)
-    {
-      if(Wosize_val(Field(ml_triangles,j))!=3)
-	{
-	  dyn_del_bemgrid3d(hmatrix->gr);
-	  free(hmatrix);
-	  own_raise_with_string(*caml_named_value(err_exn_name),
-				"hmatrix: encountered wrong number of indices for triangle!");
-	}
-
-      for(k=0;k<3;k++)
-	{
-	  hmatrix->gr->t[j][k]=Int_val(Field(Field(ml_triangles,j),k));
-	}
-    }
-
-
-  for(j=0;j<number_triangle_edges;j++)
-    {
-      if(Wosize_val(Field(ml_triangle_edges,j))!=3)
-	{
-	  dyn_del_bemgrid3d(hmatrix->gr);
-	  free(hmatrix);
-	  own_raise_with_string(*caml_named_value(err_exn_name),
-				"hmatrix: encountered wrong number of indices for triangle edges!");
-	}
-
-      for(k=0;k<3;k++)
-	{
-	  hmatrix->gr->s[j][k]=Int_val(Field(Field(ml_triangle_edges,j),k));
-	}
-    }
-  
-  dyn_prepare_bemgrid3d(hmatrix->gr);
-
-#if DEBUG > 1
-  fprintf(stderr,"caml_hlib_raw_make_hmatrix: Created grid.\n"); 
-  fflush(stderr);
-#endif
-  hmatrix->ct = dyn_buildvertexcluster_bemgrid3d(hmatrix->gr,HLIB_REGULAR,nmin,0);
-#if DEBUG > 1
-  fprintf(stderr,"caml_hlib_raw_make_hmatrix: after creating the vertexclusters.\n"); 
-  fflush(stderr);
-#endif
-
-  hmatrix->sbf = dyn_new_surfacebemfactory_dlp_collocation(hmatrix->gr,
-							   HLIB_LINEAR_BASIS, 
-							   hmatrix->ct,
-							   HLIB_LINEAR_BASIS, 
-							   hmatrix->ct,
-							   nfdeg, nfdeg, 
-							   p, 0.0);
-#if DEBUG > 1
-  fprintf(stderr,"After creating the surfacebemfactory...\n");
-  fflush(stderr);
-  /*
-    XXX NOTE: I would like to do that, but for this to work, I would
-    have to put the MONSTROUS surfacebemfactory definition into
-    hlib_stubs.h, and I am not very confident this will not see major
-    changes in the future.
-  */
-  
-
-  fprintf(stderr,"Now creating the blockclustertree.\n"); fflush(stderr);					      
-#endif
-
-  hmatrix->bcluster = dyn_build_blockcluster(hmatrix->ct->root, 
-					     hmatrix->ct->root,
-					     HLIB_MAXADMISSIBILITY,
-					     HLIB_BLOCK_INHOMOGENEOUS,
-					     eta, 0);
-
-#if DEBUG > 1
-  fprintf(stderr,"Creating the supermatrix from the blockcluster.\n");
-#endif
+  /* Compute a coarsened H-matrix approximation of an H-matrix implicitly
+     defined by the block cluster tree hmatrix->bcluster and the hybrid cross
+     approximation of the admissible leaves */
+  DEBUGMSG("Creating the supermatrix from the blockcluster...\n");
   hmatrix->smx = dyn_coarsen_hca_from_blockcluster(hmatrix->bcluster,
-						   hmatrix->sbf,
-						   eps_aca,eps,1,kmax);
+                                                   hmatrix->sbf,
+                                                   eps_aca, eps, 1, kmax);
 
-#if DEBUG > 1
-  fprintf(stderr,"After building the supermatrix.\n"); fflush(stderr);
-#endif
-  size_smx = dyn_getsize_supermatrix(hmatrix->smx) / megabyte;
-  size_rk = dyn_getsizerk_supermatrix(hmatrix->smx) / megabyte;
-  size_full = dyn_getsizefull_supermatrix(hmatrix->smx) / megabyte;
-  size_fullbem = 8.0 * number_vertices * number_vertices / megabyte;
-
-  memory_info = fopen("memory_info.dat", "w");
-  fprintf(memory_info,"Number of surface nodes:              %6d\n",
-          number_vertices);
-  fprintf(memory_info,"Size of hierarchical matrix:       %6.2f MB\n",
-          size_smx);
-  fprintf(memory_info,"Total size of inadmissible leaves: %6.2f MB\n",
-          size_full);
-  fprintf(memory_info,"Total size of admissible leaves:   %6.2f MB\n",
-          size_rk);
-  fclose(memory_info);
-
-  fprintf(stderr,"HLib: Memory footprint of hierarchical matrix: %f MB.\n",
-	  size_smx);
-  fflush(stderr);
-  fprintf(stderr,"HLib: Equivalent full matrix would require: %f MB.\n",
-          size_fullbem);
-  fflush(stderr);
-  fprintf(stderr,"HLib: The compression rate is %4.2f %%.\n",
-          100.0*(1.0-size_smx/size_fullbem));
-  fflush(stderr);
-
+  DEBUGMSG("Boxing hmatrix object into OCaml value...\n");
   CAMLlocal1(block);
-
   block = alloc_final(2, finalize_hmatrix, sizeof(void*), 10*sizeof(void*));
-
-#if DEBUG > 1
-  fprintf(stderr,"caml_hlib_raw_make_hmatrix: 12 somewhere\n"); fflush(stderr);
-#endif
-
   Store_c_field(block, 1, hmatrix);
 
-#if DEBUG > 1
-  fprintf(stderr,"Leaving caml_hlib_raw_make_hmatrix\n"); fflush(stderr);
-#endif
-  
-#ifdef HAVE_GETTIMEOFDAY
-  i=gettimeofday(&time2,NULL);
-  if(i!=0)
-    {
-      fprintf(stderr,"caml_hlib_raw_make_hmatrix: The second time measurement did not work. %d returned.\n",i); fflush(stderr);
-      exit(1);
-    }
+  DEBUGMSG("Writing out statistics...\n"); /* XXX NOTE: All this should go  */
+  take_time_measurement(& tm, 1);          /* somewhere else at some point! */
+  fprint_time_measurement("timing.dat", & tm);
+  fprint_memory_info("memory_info.dat", hmatrix, stderr);
 
-  microsec = time2.tv_usec - time1.tv_usec;
-  if(microsec < 0)
-    {
-      microsec = 1000000 + microsec;
-      sec = time2.tv_sec - time1.tv_sec-1;
-    }
-  else
-    {
-      sec = time2.tv_sec - time1.tv_sec;
-    }
-  
-  delta_t = 1.0*sec + 1e-6*microsec;
-
-  timing_info = fopen("timing.dat","w");
-  fprintf(timing_info,"%18.8f\n",delta_t);
-  fclose(timing_info);
-#endif
-
+  DEBUGMSG("caml_hlib_raw_make_hmatrix: returning!\n");
   CAMLreturn(block);
 }
 
 
-CAMLprim value caml_hlib_write_hmatrix(value ml_name,
-				       value ml_hmx)
+CAMLprim value caml_hlib_write_hmatrix(value ml_name, value ml_hmx)
 {
-  CAMLparam2(ml_name,ml_hmx);
+  CAMLparam2(ml_name, ml_hmx);
 
   hmatrix_interna *hmx;
 
@@ -584,7 +604,7 @@ CAMLprim value caml_hlib_write_hmatrix(value ml_name,
       own_raise_with_string(*caml_named_value(err_exn_name),
 			    "hmatrix: tried to write invalid supermatrix!");
     }
-  
+
   dyn_write_supermatrix(String_val(ml_name),hmx->smx);
 
   CAMLreturn(Val_unit);
@@ -601,7 +621,7 @@ CAMLprim value caml_hlib_read_hmatrix(value ml_name)
   libhmatrix_checkinit();
 
   smx=dyn_read_supermatrix(String_val(ml_name));
-  
+
   if(!smx)
     {
       own_raise_with_string(*caml_named_value(err_exn_name),
@@ -613,15 +633,15 @@ CAMLprim value caml_hlib_read_hmatrix(value ml_name)
     {
       aiee("malloc() failure!");
     }
-  
+
   hmatrix->smx=smx;
-  
+
   CAMLlocal1(block);
-  
+
   block = alloc_final(2, finalize_hmatrix, sizeof(void*), 10*sizeof(void*));
-  
+
   Store_c_field(block, 1, hmatrix);
-  
+
   CAMLreturn(block);
 }
 
@@ -633,7 +653,7 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
 				       value ml_biga_src)
 {
   CAMLparam3(ml_hmx,ml_biga_target, ml_biga_src);
-  
+
   hmatrix_interna *hmx;
   double *data_src, *data_target;
   int j;
@@ -641,28 +661,24 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
   libhmatrix_checkinit();
 
   hmx=(hmatrix_interna *)Field(ml_hmx,1);
-  
+
   if(!hmx)
     {
       own_raise_with_string(*caml_named_value(err_exn_name),
 			    "hmatrix: tried to write invalid supermatrix!");
     }
-  
+
   data_src=Data_bigarray_val(ml_biga_src);
   data_target=Data_bigarray_val(ml_biga_target);
-  
-  for(j=0;j<hmx->nr_vertices;j++)
-    {
-      hmx->pbuffer_rhs[hmx->ct->idx2dof[j]] = data_src[j];
-    }
-  
+
+  for (j = 0; j < hmx->row->nr_vertices; j++)
+    hmx->pbuffer_rhs[hmx->ct->idx2dof[j]] = data_src[j];
+
   dyn_eval_supermatrix(hmx->smx,hmx->pbuffer_rhs,hmx->pbuffer_lhs);
-  
-  for(j=0;j<hmx->nr_vertices;j++)
-    {
-      data_target[j]=hmx->pbuffer_lhs[hmx->ct->idx2dof[j]];
-    }
-  
+
+  for (j = 0; j < hmx->row->nr_vertices; j++)
+    data_target[j] = hmx->pbuffer_lhs[hmx->ct->idx2dof[j]];
+
   CAMLreturn(Val_unit);
 }
 
@@ -674,48 +690,48 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  value ml_biga_src)
  {
  CAMLparam3(ml_hmx,ml_biga_target, ml_biga_src);
- 
+
  hmatrix_interna *hmx;
  double *data_src, *data_target;
  int j;
- 
+
  libhmatrix_checkinit();
- 
+
  hmx=(hmatrix_interna *)Field(ml_hmx,1);
- 
+
  if(!hmx)
  {
  own_raise_with_string(*caml_named_value(err_exn_name),
  "hmatrix: tried to write invalid supermatrix!");
  }
- 
+
  data_src=Data_bigarray_val(ml_biga_src);
  data_target=Data_bigarray_val(ml_biga_target);
- 
+
  for(j=0;j<hmx->nr_vertices_col;j++)
  {
  hmx->pbuffer_rhs[hmx->ct_col->idx2dof[j]] = data_src[j];
  }
- 
+
  dyn_eval_supermatrix(hmx->smx,hmx->pbuffer_rhs,hmx->pbuffer_lhs);
- 
+
  for(j=0;j<hmx->nr_vertices_row;j++)
  {
  data_target[j]=hmx->pbuffer_lhs[hmx->ct_row->idx2dof[j]];
  }
- 
+
  CAMLreturn(Val_unit);
  }
- 
+
  CAMLprim value caml_hlib_raw_make_hmatrix_strip(value ml_row_info,
  value ml_col_info,
  value ml_args)
  {
- 
+
  CAMLparam3(ml_row_info,ml_col_info,ml_args);
- 
- hmatrix_interna *hmatrix; 
- int number_vertices_row, number_triangles_row, number_edges_row; 
+
+ hmatrix_interna *hmatrix;
+ int number_vertices_row, number_triangles_row, number_edges_row;
  int number_triangle_edges_row;
  int number_vertices_col, number_triangles_col, number_edges_col;
  int number_triangle_edges_col;
@@ -729,32 +745,32 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  int kmax;
  double size_smx;
  int j,k;
- 
+
  CAMLlocal4(ml_vertices_row, ml_triangles_row, ml_edges_row,
  ml_triangle_edges_row);
- CAMLlocal4(ml_vertices_col, ml_triangles_col, ml_edges_col, 
+ CAMLlocal4(ml_vertices_col, ml_triangles_col, ml_edges_col,
  ml_triangle_edges_col);
- 
+
  ml_vertices_row = Field(ml_row_info,0);
  ml_triangles_row = Field(ml_row_info,1);
  ml_edges_row = Field(ml_row_info,2);
  ml_triangle_edges_row = Field(ml_row_info,3);
- 
+
  number_vertices_row = Wosize_val(ml_vertices_row);
  number_triangles_row = Wosize_val(ml_triangles_row);
  number_edges_row = Wosize_val(ml_edges_row);
  number_triangle_edges_row = Wosize_val(ml_triangle_edges_row);
- 
+
  ml_vertices_col = Field(ml_col_info,0);
  ml_triangles_col = Field(ml_col_info,1);
  ml_edges_col = Field(ml_col_info,2);
  ml_triangle_edges_col = Field(ml_col_info,3);
- 
+
  number_vertices_col = Wosize_val(ml_vertices_col);
  number_triangles_col = Wosize_val(ml_triangles_col);
  number_edges_col = Wosize_val(ml_edges_col);
  number_triangle_edges_col = Wosize_val(ml_triangle_edges_col);
- 
+
  algorithm = Int_val(Field(ml_args,0));
  nfdeg = Int_val(Field(ml_args,1));
  nmin = Int_val(Field(ml_args,2));
@@ -763,27 +779,27 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  eps = Double_val(Field(ml_args,5));
  p = Int_val(Field(ml_args,6));
  kmax = Int_val(Field(ml_args,7));
- 
+
  if(algorithm > 1 && algorithm != 5)
  {
  kmax = p*p*p;
  }
- 
+
  libhmatrix_checkinit();
- 
+
  if(0==(hmatrix=calloc(1,sizeof(hmatrix_interna))))
  {
  aiee("malloc() failure!");
  }
- 
+
  fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
  fprintf(stderr,"Creating grid object for row cluster.\n");
  fflush(stderr);
- 
+
  hmatrix->nr_vertices_row = number_vertices_row;
- hmatrix->gr_row = dyn_new_bemgrid3d(number_vertices_row, number_edges_row, 
+ hmatrix->gr_row = dyn_new_bemgrid3d(number_vertices_row, number_edges_row,
  number_triangles_row);
- 
+
  for(j=0;j<number_vertices_row;j++)
  {
  if(Wosize_val(Field(ml_vertices_row,j))!=3*Double_wosize)
@@ -793,13 +809,13 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  own_raise_with_string(*caml_named_value(err_exn_name),
  "hmatrix: wrong number of vertex coordinates!");
  }
- 
+
  for(k=0;k<3;k++)
  {
  hmatrix->gr_row->x[j][k]=Double_field(Field(ml_vertices_row,j),k);
  }
  }
- 
+
  for(j=0;j<number_edges_row;j++)
  {
  if(Wosize_val(Field(ml_edges_row,j))!=2)
@@ -814,7 +830,7 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  hmatrix->gr_row->e[j][k]=Int_val(Field(Field(ml_edges_row,j),k));
  }
  }
- 
+
  for(j=0;j<number_triangles_row;j++)
  {
  if(Wosize_val(Field(ml_triangles_row,j))!=3)
@@ -824,13 +840,13 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  own_raise_with_string(*caml_named_value(err_exn_name),
  "hmatrix: wrong number of triangle indices!");
  }
-   
+
  for(k=0;k<3;k++)
  {
  hmatrix->gr_row->t[j][k]=Int_val(Field(Field(ml_triangles_row,j),k));
  }
  }
- 
+
  for(j=0;j<number_triangle_edges_row;j++)
  {
  if(Wosize_val(Field(ml_triangle_edges_row,j))!=3)
@@ -840,22 +856,22 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  own_raise_with_string(*caml_named_value(err_exn_name),
  "hmatrix: wrong number triangle2edge indices!");
  }
- 
+
  for(k=0;k<3;k++)
  {
  hmatrix->gr_row->s[j][k]=Int_val(Field(Field(ml_triangle_edges_row,j),k));
  }
  }
  dyn_prepare_bemgrid3d(hmatrix->gr_row);
- 
+
  fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
  fprintf(stderr,"Creating grid object for column cluster.\n");
  fflush(stderr);
- 
+
  hmatrix->nr_vertices_col = number_vertices_col;
- hmatrix->gr_col = dyn_new_bemgrid3d(number_vertices_col, number_edges_col, 
+ hmatrix->gr_col = dyn_new_bemgrid3d(number_vertices_col, number_edges_col,
  number_triangles_col);
- 
+
  for(j=0;j<number_vertices_col;j++)
  {
  if(Wosize_val(Field(ml_vertices_col,j))!=3*Double_wosize)
@@ -865,13 +881,13 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  own_raise_with_string(*caml_named_value(err_exn_name),
  "hmatrix: wrong number of vertex coordinates!");
  }
- 
+
  for(k=0;k<3;k++)
  {
  hmatrix->gr_col->x[j][k]=Double_field(Field(ml_vertices_col,j),k);
  }
  }
-   
+
  for(j=0;j<number_edges_col;j++)
  {
  if(Wosize_val(Field(ml_edges_col,j))!=2)
@@ -886,7 +902,7 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  hmatrix->gr_col->e[j][k]=Int_val(Field(Field(ml_edges_col,j),k));
  }
  }
- 
+
  for(j=0;j<number_triangles_col;j++)
  {
  if(Wosize_val(Field(ml_triangles_col,j))!=3)
@@ -896,13 +912,13 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  own_raise_with_string(*caml_named_value(err_exn_name),
  "hmatrix: wrong number of triangle indices!");
  }
- 
+
  for(k=0;k<3;k++)
  {
  hmatrix->gr_col->t[j][k]=Int_val(Field(Field(ml_triangles_col,j),k));
  }
  }
-   
+
  for(j=0;j<number_triangle_edges_col;j++)
  {
  if(Wosize_val(Field(ml_triangle_edges_col,j))!=3)
@@ -912,20 +928,20 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  own_raise_with_string(*caml_named_value(err_exn_name),
  "hmatrix: wrong number triangle2edge indices!");
  }
- 
+
  for(k=0;k<3;k++)
  {
  hmatrix->gr_col->s[j][k]=Int_val(Field(Field(ml_triangle_edges_col,j),k));
  }
  }
  dyn_prepare_bemgrid3d(hmatrix->gr_col);
- 
+
  if(    0==(hmatrix->pbuffer_lhs=malloc(number_vertices_row*sizeof(double)))
  || 0==(hmatrix->pbuffer_rhs=malloc(number_vertices_col*sizeof(double))))
  {
  aiee("malloc() failure!");
  }
- 
+
  fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
  fprintf(stderr,"building vertexclusters for rows and columns.\n");
  fflush(stderr);
@@ -933,48 +949,48 @@ CAMLprim value caml_hlib_apply_hmatrix(value ml_hmx,
  HLIB_REGULAR,nmin,0);
  hmatrix->ct_col = dyn_buildvertexcluster_bemgrid3d(hmatrix->gr_col,
  HLIB_REGULAR,nmin,0);
- 
+
  fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
  fprintf(stderr,"Initialise surfacebemfactory.\n");
  fflush(stderr);
  hmatrix->sbf = dyn_new_surfacebemfactory_dlp_collocation(hmatrix->gr_row,
- HLIB_LINEAR_BASIS, 
+ HLIB_LINEAR_BASIS,
  hmatrix->ct_row,
  hmatrix->gr_col,
- HLIB_LINEAR_BASIS, 
+ HLIB_LINEAR_BASIS,
  hmatrix->ct_col,
  nfdeg, nfdeg,
  p, 0.0);
- 
+
  fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
- fprintf(stderr,"Creating the blockclustertree from row and column cluster.\n"); 
- fflush(stderr);					      
- 
- hmatrix->bcluster = dyn_build_blockcluster(hmatrix->ct_row->root, 
+ fprintf(stderr,"Creating the blockclustertree from row and column cluster.\n");
+ fflush(stderr);
+
+ hmatrix->bcluster = dyn_build_blockcluster(hmatrix->ct_row->root,
  hmatrix->ct_col->root,
  HLIB_MAXADMISSIBILITY,
  HLIB_BLOCK_INHOMOGENEOUS,
  eta, 0);
- 
+
  fprintf(stderr,"caml_hlib_raw_make_hmatrix_strip: ");
- fprintf(stderr,"Creating the hierarchical matrix from blockclustertree.\n"); 
+ fprintf(stderr,"Creating the hierarchical matrix from blockclustertree.\n");
  fflush(stderr);
  hmatrix->smx = dyn_coarsen_hca_from_blockcluster(hmatrix->bcluster,
  hmatrix->sbf,
  eps_aca,eps,1,kmax);
- 
+
  size_smx = dyn_getsize_supermatrix(hmatrix->smx)/1024.0/1024.0;
- fprintf(stderr,"HLib: Memory footprint of hierarchical matrix: "); 
+ fprintf(stderr,"HLib: Memory footprint of hierarchical matrix: ");
  fprintf(stderr,"%f MB.\n",size_smx);
- 
+
  CAMLlocal1(block);
  block = alloc_final(2, finalize_hmatrix, sizeof(void*), 10*sizeof(void*));
  Store_c_field(block, 1, hmatrix);
- 
- fprintf(stderr,"caml_hlib_raw_make_hmatrix: Leaving function.\n"); 
+
+ fprintf(stderr,"caml_hlib_raw_make_hmatrix: Leaving function.\n");
  fflush(stderr);
- 
- 
+
+
  CAMLreturn(block);
  }
  */
