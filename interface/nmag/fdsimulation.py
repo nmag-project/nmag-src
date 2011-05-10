@@ -46,7 +46,7 @@ timer1 = nsim.timings.Timer('nmag-fd')
 log = logging.getLogger('nmag')
 
 class FDSimulation(SimulationCore):
-    def __init__(self, name=None, do_demag=True):
+    def __init__(self, name=None, do_demag=True,model=BasicMicromagneticModel):
         SimulationCore.__init__(self, name=name, do_demag=do_demag,
                                 id="FD Simulation class")
         self.initialised = False
@@ -71,6 +71,7 @@ class FDSimulation(SimulationCore):
         self.ts_tstep0 = 1e-15
         self.integrator = None
         self.M = None
+        self.model_cls = model
 
         self.stopping_dm_dt = self.units.of(1.0*degrees_per_ns)
 
@@ -126,7 +127,7 @@ class FDSimulation(SimulationCore):
         timer1.stop('demag init')
 
         self.fd_model = \
-          BasicMicromagneticModel(self.fd_mesh, self.field_array,
+          self.model_cls(self.fd_mesh, self.field_array,
                                   Ms, gamma, alpha,
                                   precession_enabled=mat.do_precession)
 
