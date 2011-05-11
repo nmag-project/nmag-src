@@ -46,7 +46,7 @@ timer1 = nsim.timings.Timer('nmag-fd')
 log = logging.getLogger('nmag')
 
 class FDSimulation(SimulationCore):
-    def __init__(self, name=None, do_demag=True,model=BasicMicromagneticModel):
+    def __init__(self, name=None, do_demag=True,model="basic"):
         SimulationCore.__init__(self, name=name, do_demag=do_demag,
                                 id="FD Simulation class")
         self.initialised = False
@@ -71,7 +71,10 @@ class FDSimulation(SimulationCore):
         self.ts_tstep0 = 1e-15
         self.integrator = None
         self.dof = None
-        self.model_cls = model
+        if model == "basic":
+            self.model_cls = BasicMicromagneticModel
+        else:
+            raise RuntimeError("unknown finite difference model type '%s'" % model)
 
         self.stopping_dm_dt = self.units.of(1.0*degrees_per_ns)
 
@@ -215,6 +218,9 @@ class FDSimulation(SimulationCore):
 
     create_mesh.__doc__ = SimulationCore.create_mesh.__doc__
 
+    def is_integration_converged(self):
+        return self.fd_model.get_max_dmdt() < self.stopping_dm_dt
+
     def advance_time(self, target_time, max_it=-1):
         if not self.initialised:
             self._setup(doing="calling advance_time")
@@ -222,8 +228,7 @@ class FDSimulation(SimulationCore):
         time_su = self.units.of(target_time, compatible_with=SI('s'))
         num_steps_0 = self.integrator.used_steps
         time_0 = self.integrator.t
-        self.integrator.integrate(time_su, max_it,
-                                  end_dmdt=self.stopping_dm_dt)
+        self.integrator.integrate(time_su, max_it, stop_test=self.is_integration_converged)
         delta_steps = self.integrator.used_steps - num_steps_0
         delta_time = self.integrator.t - time_0
 
@@ -319,5 +324,5 @@ class FDSimulation(SimulationCore):
     save_data.__doc__ = SimulationCore.save_data.__doc__
 
     def get_M_values(self):
-        return self.integrator.M
+        return self.integrator.X
 
