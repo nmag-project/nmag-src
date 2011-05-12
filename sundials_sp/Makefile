@@ -30,7 +30,8 @@ RESULT = sundials_sp
 
 # LDFLAGS=$(DEBUGFLAGS)  -lsundials_cvode -lsundials_nvecparallel
 
-LDFLAGS=$(DEBUGFLAGS) ${DLFLAGS}
+LDFLAGS=$(DEBUGFLAGS) ${DLFLAGS} -L/usr/local/petsc/lib/freebsd -lmpi -L/usr/local/mpi/openmpi/lib -lX11 -L/usr/local/lib -lblas -L/usr/local/lib/ocaml/ -lbigarray \
+	-L../mpi_petsc -lmpi_petsc_stubs ${MISSINGFLAGS}
 
 # We turn on debugger support in all our modules for now.
 OCAMLBCFLAGS= $(OCAMLDEBUGFLAGS)

@@ -112,14 +112,20 @@ static char *init_sundials(char *path_nvecserial,
   SundialsFnTable *symbol_item;
   if(sundials_sp_is_initialized) return (char *) 0;
 
-  /* fprintf(stderr,"DDD SUNDIALS-SP Init: '%s' '%s' '%s'\n",path_nvecserial,path_nvecparallel,path_cvode);fflush(stderr); / * DDD */
+#if 0
+  fprintf(stderr,"DDD SUNDIALS-SP Init: '%s' '%s' '%s'\n",path_nvecserial,path_nvecparallel,path_cvode);fflush(stderr); /* DDD */
+#endif
 
 
   libsundials_nvec_serial = dlopen(path_nvecserial, RTLD_NOW);
-  if(libsundials_nvec_serial == (void *) 0)
+  
+  if(libsundials_nvec_serial == (void *) 0) {
     return "cannot dlopen() libsundials_nvecserial!";
+  }
+
 
   libsundials_nvec_parallel = dlopen(path_nvecparallel, RTLD_NOW);
+
   if(libsundials_nvec_parallel == (void *) 0)
     {
       (void) dlclose(libsundials_nvec_serial);
@@ -127,6 +133,7 @@ static char *init_sundials(char *path_nvecserial,
     }
 
   libsundials_cvode = dlopen(path_cvode, RTLD_NOW);
+
   if(libsundials_cvode == (void *) 0) {
 
     (void) dlclose(libsundials_nvec_parallel);
@@ -136,6 +143,8 @@ static char *init_sundials(char *path_nvecserial,
   for(symbol_item = &symbols_table[0];
       symbol_item->target != (void **) 0;
       symbol_item++) {
+
+
     *symbol_item->target = dlsym(*symbol_item->library, symbol_item->sym_name);
     if (*symbol_item->target == (void *) 0) {
       dlclose(libsundials_cvode);
@@ -143,11 +152,15 @@ static char *init_sundials(char *path_nvecserial,
       dlclose(libsundials_nvec_parallel);
       return symbol_item->sym_name;
     }
+
+
   }
 
   sundials_sp_is_initialized=1;
 
-  /* fprintf(stderr,"DDD SUNDIALS-SP sundials_sp_is_initialized=%d\n",sundials_sp_is_initialized); / * DDD */
+#if 0
+  fprintf(stderr,"DDD SUNDIALS-SP sundials_sp_is_initialized=%d\n",sundials_sp_is_initialized); /* DDD */
+#endif
 
   return (char *) 0;
 }
