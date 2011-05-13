@@ -74,80 +74,168 @@ let default_lattice_info =
   in ([|identity_3d|], [|(0, 1.0, [|0.0; 0.0; 0.0|])|])
 ;;
 
-let make_hmatrix_from_oriented_triangles
-    ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0) ?(eps_aca=0.00001) ?(eps=0.00001) ?(p=3) ?(kmax=50)
-    vertices3d triangles =
+(** Given a sufrace triangulation (array of positive oriented triangles)
+  return (edge, triangle_edge) where 'dege' is an int array array where
+  edges.(i) is the i-th edge (i.e. an array of two integers denoting the
+  indices of the first and of the last vertex of the edge), and
+  triangle_edges.(i) is a list of edge indices for the i-th triangle (edge
+  indices refer to an element in the previous array). *)
+let edges_of_surface_triangulation st =
   let ht_edges = Hashtbl.create 17 in
   let add_edge p q =
-    let edge = [|min p q;max p q|] in
-      try
-	let n = Hashtbl.find ht_edges edge in
-	  n
-      with | Not_found ->
-	let nr_edge = Hashtbl.length ht_edges in
-	let () = Hashtbl.add ht_edges edge nr_edge in
-	  nr_edge
+    let edge = [|min p q; max p q|] in
+      try Hashtbl.find ht_edges edge
+      with Not_found ->
+        let nr_edge = Hashtbl.length ht_edges in
+        let () = Hashtbl.add ht_edges edge nr_edge in
+          nr_edge
   in
   let process_tri pqr =
     let e1 = add_edge pqr.(0) pqr.(1) in
     let e2 = add_edge pqr.(0) pqr.(2) in
     let e3 = add_edge pqr.(1) pqr.(2) in
-      [|e1;e2;e3|]
+      [|e1; e2; e3|]
   in
-  let triangle_edges = Array.map process_tri triangles in
+  let triangle_edges = Array.map process_tri st in
   let edges = Array.make_matrix (Hashtbl.length ht_edges) 2 0 in
   let () = Hashtbl.iter
     (fun edge nr ->
        begin
-	 edges.(nr).(0) <- edge.(0);
-	 edges.(nr).(1) <- edge.(1);
+         edges.(nr).(0) <- edge.(0);
+         edges.(nr).(1) <- edge.(1);
        end)
     ht_edges
+  in (edges, triangle_edges)
+;;
+
+let positive_surface_triangulation points triangles normals =
+  let positive_orientation nr_tri =
+    let tri = triangles.(nr_tri) in
+    let normal = normals.(nr_tri) in
+    let ps = Array.map (fun n -> points.(n)) tri in
+    let p10 = [|ps.(1).(0) -. ps.(0).(0);
+                ps.(1).(1) -. ps.(0).(1);
+                ps.(1).(2) -. ps.(0).(2);|]
+    and p20 = [|ps.(2).(0) -. ps.(0).(0);
+                ps.(2).(1) -. ps.(0).(1);
+                ps.(2).(2) -. ps.(0).(2);|]
+    in
+    let v1_x_v2 = [|p10.(1)*.p20.(2)-.p10.(2)*.p20.(1);
+                    p10.(2)*.p20.(0)-.p10.(0)*.p20.(2);
+                    p10.(0)*.p20.(1)-.p10.(1)*.p20.(0);|]
+    in
+    let sprod =    v1_x_v2.(0)*.normal.(0)
+                +. v1_x_v2.(1)*.normal.(1)
+                +. v1_x_v2.(2)*.normal.(2)
+    in (sprod > 0.0)
   in
+    Array.mapi
+      (fun nr_tri tri ->
+         if positive_orientation nr_tri
+         then tri
+         else [|tri.(0); tri.(2); tri.(1)|])
+      triangles
+;;
+
+let make_hmatrix_from_oriented_triangles
+    ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0) ?(eps_aca=0.00001) ?(eps=0.00001) ?(p=3) ?(kmax=50)
+    vertices3d triangles =
+  let edges, triangle_edges = edges_of_surface_triangulation triangles in
   let args = (algorithm, nfdeg, nmin, eta, eps_aca, eps, p, kmax) in
   let row_info = (vertices3d, triangles, edges, triangle_edges)
   in
     raw_make_hmatrix_strip row_info row_info 1 args
 ;;
 
-let make_hmatrix
+let make_hmatrix_old
     ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0) ?(eps_aca=0.00001)
     ?(eps=0.00001) ?(p=3) ?(kmax=50) ?(lattice_info=default_lattice_info)
     vertices3d triangles surface_normals =
   let () = mgdesc_print_debug lattice_info in
-  let positive_orientation nr_tri =
-    let tri = triangles.(nr_tri) in
-    let normal = surface_normals.(nr_tri) in
-    let points = Array.map (fun n -> vertices3d.(n)) tri in
-    let p10 = [|points.(1).(0)-.points.(0).(0);
-		points.(1).(1)-.points.(0).(1);
-		points.(1).(2)-.points.(0).(2);
-	      |]
-    and p20 = [|points.(2).(0)-.points.(0).(0);
-		points.(2).(1)-.points.(0).(1);
-		points.(2).(2)-.points.(0).(2);
-	      |]
-    in
-    let v1_x_v2 = [|p10.(1)*.p20.(2)-.p10.(2)*.p20.(1);
-		    p10.(2)*.p20.(0)-.p10.(0)*.p20.(2);
-		    p10.(0)*.p20.(1)-.p10.(1)*.p20.(0);
-		  |]
-    in
-    let sprod = v1_x_v2.(0)*.normal.(0)+.v1_x_v2.(1)*.normal.(1)+.v1_x_v2.(2)*.normal.(2) in
-      sprod>0.0
-  in
   let oriented_triangles =
-    Array.mapi
-      (fun nr_tri tri ->
-	 if positive_orientation nr_tri then tri
-	 else [|tri.(0);tri.(2);tri.(1)|])
-      triangles
+    positive_surface_triangulation vertices3d triangles surface_normals
   in
     make_hmatrix_from_oriented_triangles
       ~algorithm ~nfdeg ~nmin ~eta ~eps_aca ~eps ~p ~kmax
       vertices3d
       oriented_triangles
 ;;
+
+
+
+(*let default_lattice_info =
+  let identity_3d = [|[|1.0; 0.0; 0.0;|];
+                      [|0.0; 1.0; 0.0|];
+                      [|0.0; 0.0; 1.0|]|]
+  in ([|identity_3d|], [|(0, 1.0, [|0.0; 0.0; 0.0|])|])
+;;*)
+
+let apply_transformation transformation translation p =
+  Array.init 3
+    (fun i ->
+       let row = transformation.(i)
+       in (row.(0)*.p.(0) +.
+           row.(1)*.p.(1) +.
+           row.(2)*.p.(2) +.
+           translation.(i)))
+;;
+
+let build_col_surface rpoints rtriangles lattice_info =
+  let transformations, copies = lattice_info in
+  let nr_copies = Array.length copies in
+  let nr_rpoints = Array.length rpoints in
+  let cpoints = Array.make (nr_copies*nr_rpoints) [||] in
+  (* Build new vertices list *)
+  let () =
+    Array.iteri
+      (fun nr_copy copy_info ->
+         let transformation_idx, greyfactor, translation_vec = copy_info in
+         let transformation = transformations.(transformation_idx) in
+           Array.iteri
+             (fun rp_idx rp ->
+                let cp =
+                  apply_transformation transformation translation_vec rp in
+                let cp_idx = nr_rpoints*nr_copy + rp_idx
+                in cpoints.(cp_idx) <- cp)
+             rpoints)
+      copies
+  in
+  (* Build triangle list *)
+  let nr_rtriangles = Array.length rtriangles in
+  let ctriangles = Array.make (nr_copies*nr_rtriangles) [||] in
+  let () =
+    for nr_copy = 0 to nr_copies - 1 do
+       for nr_triangle = 0 to nr_rtriangles - 1 do
+         ctriangles.(nr_triangle + nr_copy*nr_rtriangles) <-
+           Array.map
+             (fun p_idx -> p_idx + nr_copy*nr_rpoints)
+             rtriangles.(nr_triangle)
+       done
+    done
+  in
+    (cpoints, ctriangles)
+;;
+
+let make_hmatrix_new
+    ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0) ?(eps_aca=0.00001)
+    ?(eps=0.00001) ?(p=3) ?(kmax=50) ?(lattice_info=default_lattice_info)
+    vertices3d triangles surface_normals =
+  let () = mgdesc_print_debug lattice_info in
+  let rtriangles =
+    positive_surface_triangulation vertices3d triangles surface_normals in
+  let redges, rtriangle_edges =
+    edges_of_surface_triangulation rtriangles in
+  let args = (algorithm, nfdeg, nmin, eta, eps_aca, eps, p, kmax) in
+  let cpoints, ctriangles =
+    build_col_surface vertices3d rtriangles lattice_info in
+  let cedges, ctriangle_edges = edges_of_surface_triangulation ctriangles in
+  let row_info = (vertices3d, rtriangles, redges, rtriangle_edges) in
+  let col_info = (cpoints, ctriangles, cedges, ctriangle_edges)
+  in
+    raw_make_hmatrix_strip row_info col_info 0 args
+;;
+
+let make_hmatrix = make_hmatrix_new;;
 
 (* === Versions for parallel hmatrix set-up
        (eventually to completely supersede the above code!)

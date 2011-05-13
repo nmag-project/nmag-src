@@ -106,6 +106,7 @@ typedef void (*ty_del_clustertree)(pclustertree);
 typedef psurfacebemfactory (*ty_new_surfacebemfactory_dlp_collocation)(pbemgrid3d,
 								       BEMBasis,
 								       pclustertree,
+                                                                       pbemgrid3d,
 								       BEMBasis,
 								       pclustertree,
 								       int, int, int,
