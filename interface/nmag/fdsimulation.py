@@ -46,7 +46,7 @@ timer1 = nsim.timings.Timer('nmag-fd')
 log = logging.getLogger('nmag')
 
 class FDSimulation(SimulationCore):
-    def __init__(self, name=None, do_demag=True):
+    def __init__(self, name=None, do_demag=True,model="basic"):
         SimulationCore.__init__(self, name=name, do_demag=do_demag,
                                 id="FD Simulation class")
         self.initialised = False
@@ -70,7 +70,10 @@ class FDSimulation(SimulationCore):
         self.ts_abs_tol = 1e-0
         self.ts_tstep0 = 1e-15
         self.integrator = None
-        self.M = None
+        if model == "basic":
+            self.model_cls = BasicMicromagneticModel
+        else:
+            raise RuntimeError("unknown finite difference model type '%s'" % model)
 
         self.stopping_dm_dt = self.units.of(1.0*degrees_per_ns)
 
@@ -126,7 +129,7 @@ class FDSimulation(SimulationCore):
         timer1.stop('demag init')
 
         self.fd_model = \
-          BasicMicromagneticModel(self.fd_mesh, self.field_array,
+          self.model_cls(self.fd_mesh, self.field_array,
                                   Ms, gamma, alpha,
                                   precession_enabled=mat.do_precession)
 
@@ -177,12 +180,11 @@ class FDSimulation(SimulationCore):
             except:
                 pass
 
-        M = self.fd_mesh.create_vectorfield(values,'magnetic')
-        M.shape = self.fd_mesh.get_vectorfield_flat_shape()
-        norm_to(self.fd_mesh, M, factor)
-        M = M.reshape(-1)
-        self.M = M
-        self.integrator.set_initial_values(M, 0.0)
+        M0 = self.fd_mesh.create_vectorfield(values,'magnetic')
+        M0.shape = self.fd_mesh.get_vectorfield_flat_shape()
+        norm_to(self.fd_mesh, M0, factor)
+        M0 = M0.reshape(-1)
+        self.integrator.set_initial_values(self.fd_model.create_dof_field_M0(M0), 0.0)
 
     def set_H_ext(self, values, unit=None):
         v, u = nsim.map_terminals.SI_vector(values)
@@ -214,6 +216,9 @@ class FDSimulation(SimulationCore):
 
     create_mesh.__doc__ = SimulationCore.create_mesh.__doc__
 
+    def is_integration_converged(self):
+        return self.fd_model.get_max_dmdt() < self.stopping_dm_dt
+
     def advance_time(self, target_time, max_it=-1):
         if not self.initialised:
             self._setup(doing="calling advance_time")
@@ -221,8 +226,7 @@ class FDSimulation(SimulationCore):
         time_su = self.units.of(target_time, compatible_with=SI('s'))
         num_steps_0 = self.integrator.used_steps
         time_0 = self.integrator.t
-        self.integrator.integrate(time_su, max_it,
-                                  end_dmdt=self.stopping_dm_dt)
+        self.integrator.integrate(time_su, max_it, stop_test=self.is_integration_converged)
         delta_steps = self.integrator.used_steps - num_steps_0
         delta_time = self.integrator.t - time_0
 
@@ -243,15 +247,15 @@ class FDSimulation(SimulationCore):
 
         if field_name == 'm':
             Ms = self.units.of(material.Ms)
-            return list(average(self.integrator.M)/Ms)
+            return list(average(self.get_M_field_flat())/Ms)
 
         elif field_name == 'M':
-            return list(average(self.integrator.M)*SI('A/m'))
+            return list(average((self.get_M_field_flat()))*SI('A/m'))
 
         elif field_name in ['H_ext', 'H_exch', 'H_demag']:
             try:
                 H, E, H_avg = \
-                  self.field_array.calculate_field(self.M, 0.0, field_name,
+                  self.field_array.calculate_field(self.get_M_field_flat(), 0.0, field_name,
                                                    True, True)
                 return list(H_avg*SI('A/m'))
             except:
@@ -278,7 +282,7 @@ class FDSimulation(SimulationCore):
         self.set_m(data)
 
     def save_m_to_file(self, filename, format=None):
-        print "FIXME: save_m_to_file: Add a LOG!!!"
+#        print "FIXME: save_m_to_file: Add a LOG!!!"
         if format == None:
             extension = filename.split(os.extsep)[-1].lower()
             format = extension
@@ -303,7 +307,7 @@ class FDSimulation(SimulationCore):
         omf.add_header_data(header_dict,
                             [('Segment', 0), ('Header', 0)],
                             data_to_set)
-        omf.write_omf(filename, self.integrator.M, header_dict=header_dict)
+        omf.write_omf(filename, self.get_M_field_flat(), header_dict=header_dict)
 
     save_m_to_file.__doc__ = SimulationCore.save_m_to_file.__doc__
 
@@ -316,4 +320,7 @@ class FDSimulation(SimulationCore):
                 self.save_m_to_file(filename)
 
     save_data.__doc__ = SimulationCore.save_data.__doc__
+
+    def get_M_field_flat(self):
+        return self.integrator.dof.M_field_flat
 

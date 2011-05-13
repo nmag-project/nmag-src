@@ -18,7 +18,7 @@ CFLAGS=$(DEBUGFLAGS) $(NSIM_CFLAGS) -fPIC $(PETSC_INCFLAGS) -I$(EXTRA_INCLUDE_PA
 
 # List of the libraries used for linking
 # LDFLAGS=$(DEBUGFLAGS)  -lpetscvec -lpetscmat -lpetscksp -lpetscts -lpetscsnes -lpetscdm -lpetsc
-LDFLAGS=$(DEBUGFLAGS) $(MPICH_LDFLAGS) $(PETSC_LDFLAGS) $(METIS_LDFLAGS)
+LDFLAGS=$(DEBUGFLAGS) $(MPICH_LDFLAGS) $(PETSC_LDFLAGS) $(METIS_LDFLAGS) ${MISSINGFLAGS}
 
 # Where to find petsc and mpich2 libraries
 LIBDIRS=$(EXTRA_LIBRARY_PATH) $(PETSC_LIBRARY_PATH) $(MPICH2_LIBRARY_PATH)
