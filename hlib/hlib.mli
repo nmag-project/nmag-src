@@ -23,6 +23,9 @@ external raw_make_hmatrix :
 external write_hmatrix : string -> hmatrix -> unit
   = "caml_hlib_write_hmatrix"
 external read_hmatrix : string -> hmatrix = "caml_hlib_read_hmatrix"
+external get_hmatrix_stats: hmatrix -> float array
+  = "caml_hlib_get_matrix_stats"
+val get_hmatrix_stats_verbose: hmatrix -> (float*string*string) array
 external apply_hmatrix :
   hmatrix -> simple_float_bigarray -> simple_float_bigarray -> unit
   = "caml_hlib_apply_hmatrix"

@@ -61,6 +61,8 @@ val bem_hmatrix :
 val apply_bem_hmatrix :
   Hlib.hmatrix * Mpi_petsc.vector * Mpi_petsc.vector ->
   Mpi_petsc.vector -> Mpi_petsc.vector -> unit
+val get_bem_hmatrix_stat_string:
+  Hlib.hmatrix * Mpi_petsc.vector * Mpi_petsc.vector -> string;;
 val global_shape_approximating_lattice_points_and_greyfactors :
   oversampling_steps:int array ->
   fun_global_shape:(float array -> float) ->

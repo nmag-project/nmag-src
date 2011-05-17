@@ -3034,6 +3034,8 @@ Thomas Fischbacher, 13.05.2008
 		       *)
 		       ldms.ldms_dof_name
 			  mwe
+                   in
+                   let () = loginfo (Bem3d.get_bem_hmatrix_stat_string hmx)
 		   in BEM_HLib hmx
 		 else
 		   let mx_abs_name = Printf.sprintf "%s$bem.%s" prefix ldms.ldms_name in

@@ -33,7 +33,7 @@
 #include "hlib_stubs.h"
 
 /* define DEBUG to 2 to see all the debug messages */
-#define DEBUG 2
+#define DEBUG 0
 
 /* Variadic macros require C99, I think... */
 #if DEBUG > 1
@@ -487,8 +487,7 @@ static void fprint_time_measurement(const char *filename,
 }
 
 static void fprint_memory_info(const char *filename, hmatrix_interna *hm,
-                               FILE *extra
-) {
+                               FILE *extra) {
   int nr_vertices = hm->row->nr_vertices;
   double megabyte = 1024*1024,
          size_smx = dyn_getsize_supermatrix(hm->smx)/megabyte,
@@ -797,10 +796,47 @@ CAMLprim value caml_hlib_raw_make_hmatrix_strip(value ml_row_info,
   block = alloc_final(2, finalize_hmatrix, sizeof(void*), 10*sizeof(void*));
   Store_c_field(block, 1, hmatrix);
 
-  size_smx = dyn_getsize_supermatrix(hmatrix->smx)/1024.0/1024.0;
-  fprintf(stderr,"HLib: Memory footprint of hierarchical matrix: ");
-  fprintf(stderr,"%f MB.\n",size_smx);
-
   DEBUGMSG("caml_hlib_raw_make_hmatrix: returning!\n");
   CAMLreturn(block);
+}
+
+CAMLprim value caml_hlib_get_matrix_stats(value ml_hmx)
+{
+  CAMLparam1(ml_hmx);
+  CAMLlocal1(result);
+  const size_t size_of_return_arr = 4;
+  hmatrix_interna *hmx;
+
+  result = alloc(Double_wosize*size_of_return_arr, Double_array_tag);
+
+#define SET_RETURN_ARR(idx, val) \
+  do {assert((idx) >= 0 && (idx) < size_of_return_arr); \
+      Store_double_field((result), (idx), (val));} while(0)
+
+  libhmatrix_checkinit();
+  hmx = (hmatrix_interna *) Field(ml_hmx, 1);
+
+  if (!hmx) {
+    own_raise_with_string(*caml_named_value(err_exn_name),
+                          "caml_hlib_get_matrix_stats: invalid supermatrix.");
+    abort(); /* To avoid compiler complaints */
+
+  } else {
+    size_t nr_vertices_rows = hmx->row->nr_vertices,
+           nr_vertices_cols = hmx->col->nr_vertices;
+    double megabyte = 1024*1024,
+           size_smx = dyn_getsize_supermatrix(hmx->smx)/megabyte,
+           size_rk = dyn_getsizerk_supermatrix(hmx->smx)/megabyte,
+           size_full = dyn_getsizefull_supermatrix(hmx->smx)/megabyte,
+           size_fullbem = 8.0*nr_vertices_cols*nr_vertices_rows/megabyte;
+
+    SET_RETURN_ARR(0, size_smx);
+    SET_RETURN_ARR(1, size_rk);
+    SET_RETURN_ARR(2, size_full);
+    SET_RETURN_ARR(3, size_fullbem);
+
+    CAMLreturn(result);
+  }
+
+#undef SET_RETURN_ARR
 }

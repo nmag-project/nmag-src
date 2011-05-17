@@ -616,6 +616,23 @@ let apply_bem_hmatrix (hmx,v_diagonal,v_buffer) v_target v_src =
   end
 ;;
 
+(* Return an array of tuples (val, desc) where val is a float in representing
+   a size in units of megabytes, while desc is a string descibing what val is.
+ *)
+let get_bem_hmatrix_stats (hmx, _, _) = Hlib.get_hmatrix_stats_verbose hmx;;
+
+(* Get a string with a description of the given bem hmatrix
+   (used for logging details about created hmatrices). *)
+let get_bem_hmatrix_stat_string bem_hmx =
+  let lines =
+    Array.map
+     (fun (size, units, desc) ->
+        Printf.sprintf "%50s: %10.2f %s" desc size units)
+     (get_bem_hmatrix_stats bem_hmx)
+  in
+  let str = String.concat "\n" (Array.to_list lines)
+  in "HLib matrix statistics:\n" ^ str
+;;
 
 (* === PERIODIC BOUNDARY CONDITIONS, PERIODIC-LINDHOLM === *)
 

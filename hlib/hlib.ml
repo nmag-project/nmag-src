@@ -49,6 +49,27 @@ external write_hmatrix: string -> hmatrix -> unit = "caml_hlib_write_hmatrix";;
 
 external read_hmatrix: string -> hmatrix = "caml_hlib_read_hmatrix";;
 
+(* Return an array [|size_smx; size_adm; size_inadm; size_reg|] made of
+   four floats which are the size (in megabytes) of:
+    - the hierarchical matrix (size_smx),
+    - total size of the admissible leaves (size_adm)
+    - total size of the inadmissible leaves (size_inadm)
+    - size that a regular dense matrix would require (size_reg) *)
+external get_hmatrix_stats: hmatrix -> float array
+  = "caml_hlib_get_matrix_stats";;
+
+let get_hmatrix_stats_verbose hmx =
+  match (get_hmatrix_stats hmx) with
+  | [|size_smx; size_adm; size_inadm; size_reg|] ->
+    let compression = 100.0*.(1.0 -. size_smx/.size_reg) in
+      [|(size_smx, "MB", "size of the hierarchical matrix");
+        (size_adm, "MB", "total size of the admissible leaves");
+        (size_inadm, "MB", "total size of the inadmissible leaves");
+        (size_reg, "MB", "size that a regular dense matrix would require");
+        (compression, "%", "compression rate")|]
+  | _ -> failwith "Unexpected return value from get_hmatrix_stats"
+;;
+
 external apply_hmatrix:
   hmatrix -> simple_float_bigarray -> simple_float_bigarray ->
   unit = "caml_hlib_apply_hmatrix";;
