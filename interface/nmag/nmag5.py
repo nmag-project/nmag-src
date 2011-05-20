@@ -91,9 +91,12 @@ class MemoryReport(object):
 
 
 class Simulation(SimulationCore):
-    def __init__(self, name=None, do_demag=True):
+    def __init__(self, name=None, do_demag=True, do_sl_stt=False):
         SimulationCore.__init__(self, name=name, do_demag=do_demag,
                                 id="FE Simulation class")
+
+        # General settings
+        self.do_sl_stt = do_sl_stt      # Compute Slonczewski STT
 
         # Mesh stuff...
         self.mesh = None                # The mesh object
@@ -129,7 +132,9 @@ class Simulation(SimulationCore):
           {"H_ext": SpaceField,
            "P": Constant,
            "xi": Constant,
-           "alpha": Constant}
+           "alpha": Constant,
+           "M_sat": Constant,
+           "exchange_factor": Constant}
 
     def get_model(self):
         if self._model != None:
@@ -141,7 +146,7 @@ class Simulation(SimulationCore):
 
     model = property(get_model)
 
-    def declare(self, attrs, objs):
+    def declare(self, attrs, *objs):
         """Provide some attributes for the given objects. 'attrs' is a list
         of the attributes (a list of strings) to associate to the objects
         'objs' (a list of strings). Example:
@@ -162,20 +167,29 @@ class Simulation(SimulationCore):
                          "is a list of attributes (strings) to associate to "
                          "the objects whose names are in objs (a list of "
                          "strings).")
-        qt = []
+
+        # NOTE: str has not iter attribute: if user gives a string then we
+        #   interpret it as [string].
+        attrs = (attrs if hasattr(attrs, "__iter__") else [attrs])
+
         for obj_name in objs:
             if obj_name in dos:
                 assert type(obj_name) == str, declare_usage
+                qt = []
                 for attr in attrs:
                     assert type(attr) == str, declare_usage
                     fmt_attr = attr.lower().replace(" ", "")
-                    if fmt_attr in qts:
+                    if fmt_attr in aqts:
                         qt.append(fmt_attr)
-                        self.quantities_types[obj_name] = qt[fmt_attr]
+                        self.quantities_types[obj_name] = aqts[fmt_attr]
 
                     else:
                         msg = "Unrecognized attribute '%s'" % attr
                         raise NmagUserError(msg)
+
+            else:
+                msg = "Cannot declare '%s'" % obj_name
+                raise NmagUserError(msg)
 
         if len(qt) > 1:
             msg = "Conflicting attributes %s." % (", ".join(qt))
@@ -248,7 +262,8 @@ class Simulation(SimulationCore):
         mats_of_region_name = {}
         mat_of_mat_name = {}
         for name, mag_mat in region_names_and_mag_mats:
-            lg.info("Adding region '%s' to '%s' simulation object" % (name, self.name))
+            lg.info("Adding region '%s' to '%s' simulation object"
+                    % (name, self.name))
             if type(mag_mat) == list:
                 mats = mag_mat
             else:
@@ -290,7 +305,8 @@ class Simulation(SimulationCore):
         _add_exchange(model, contexts, self._quantity_creator)
         _add_demag(model, contexts, self._quantity_creator, self.do_demag)
         _add_stt_zl(model, contexts, self._quantity_creator)
-        _add_stt_sl(model, contexts, self._quantity_creator, do_sl_stt=True)
+        _add_stt_sl(model, contexts, self._quantity_creator,
+                    do_sl_stt=self.do_sl_stt)
         _add_llg(model, contexts, self._quantity_creator)
         _add_energies(model, contexts, self._quantity_creator)
 
@@ -359,8 +375,8 @@ class Simulation(SimulationCore):
         if has_anisotropy:
             H_anis = SpaceField("H_anis", [3], subfields=True, unit=H_unit)
             E_anis = SpaceField("E_anis", [], subfields=True, unit=E_unit)
-            self.model.add_quantity([H_anis, E_anis])
-            self.model.add_computation([set_H_anis, set_E_anis])
+            self.model.add_quantity(H_anis, E_anis)
+            self.model.add_computation(set_H_anis, set_E_anis)
 
         else:
             # We add anyway the H_anis field, since the computation of H_total
@@ -370,7 +386,7 @@ class Simulation(SimulationCore):
                         value=Value([0, 0, 0]), unit=H_unit)
             E_anis = qc(SpaceField, "E_anis", [], subfields=True,
                         value=Value(0), unit=E_unit)
-            self.model.add_quantity([H_anis, E_anis])
+            self.model.add_quantity(H_anis, E_anis)
 
     def get_subfield_average(self, field_name, mat_name):
         f = self.model.quantities._by_name.get(field_name, None)
@@ -670,7 +686,7 @@ def _add_micromagnetics(model, contexts, quantity_creator=None):
     m = qc(SpaceField, "m", [3], subfields=True, unit=SI(1))
     M_sat = qc(Constant, "M_sat", subfields=True, unit=SI(1e6, "A/m"))
     mu0_const = Constant("mu0", value=Value(mu0), unit=SI(1e-6, "N/A^2"))
-    model.add_quantity([m, M_sat, mu0_const])
+    model.add_quantity(m, M_sat, mu0_const)
 
 def _add_exchange(model, contexts, quantity_creator=None):
     if "exch" in contexts:
@@ -688,7 +704,7 @@ def _add_exchange(model, contexts, quantity_creator=None):
     op_str = "exchange_factor*<d/dxj H_exch(k)||d/dxj m(k)>, j:3,  k:3"
     op_exch = Operator("exch", op_str, cofield_to_field=True)
 
-    model.add_quantity([exchange_factor, H_exch])
+    model.add_quantity(exchange_factor, H_exch)
     model.add_computation(op_exch)
 
 def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
@@ -711,7 +727,7 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
     phis = [qc(SpaceField, n, [], unit=SI("A"))
             for n in ["phi", "phi1", "phi2"]]
     rhos = [qc(SpaceField, n, [], unit=SI("A/m^2")) for n in ["rho", "rho_s"]]
-    model.add_quantity([H_demag, phi1b, phi2b] + phis + rhos)
+    model.add_quantity(H_demag, phi1b, phi2b, *(phis + rhos))
 
     # Operators for the demag
     op_div_m = Operator("div_m", "  M_sat*<rho||d/dxj m(j)>"
@@ -764,9 +780,9 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
       LAMProgram("set_H_demag", commands,
                  inputs=["m"], outputs=["rho", "phi", "H_demag"])
 
-    model.add_computation([op_div_m, op_neg_laplace_phi, op_grad_phi,
-                           op_laplace_DBC, op_load_DBC, ksp_solve_laplace_DBC,
-                           ksp_solve_neg_laplace_phi, bem, prog_set_H_demag])
+    model.add_computation(op_div_m, op_neg_laplace_phi, op_grad_phi,
+                          op_laplace_DBC, op_load_DBC, ksp_solve_laplace_DBC,
+                          ksp_solve_neg_laplace_phi, bem, prog_set_H_demag)
 
 def _add_stt_zl(model, contexts, quantity_creator=None):
     """Spin transfer torque (Zhang-Li)
@@ -783,7 +799,7 @@ def _add_stt_zl(model, contexts, quantity_creator=None):
     mu_B = qc(Constant, "mu_B", value=Value(bohr_magneton),
               unit=SI(1e-21, "m^2 A"))
     e = qc(Constant, "e", value=Value(positron_charge), unit=SI(1e-15, "A s"))
-    model.add_quantity([mu_B, e])
+    model.add_quantity(mu_B, e)
 
     # Fields
     P = qc(Constant, "P", subfields=True, unit=SI(1))
@@ -794,7 +810,7 @@ def _add_stt_zl(model, contexts, quantity_creator=None):
                 unit=SI(1e9, "1/m"))
     dm_dcurrent = qc(SpaceField, "dm_dcurrent", [3], subfields=True,
                      unit=SI(1e12, "1/s"))
-    model.add_quantity([P, xi, current_density, grad_m, dm_dcurrent])
+    model.add_quantity(P, xi, current_density, grad_m, dm_dcurrent)
 
     # Define new computations
     # Gradient of m
@@ -808,7 +824,7 @@ def _add_stt_zl(model, contexts, quantity_creator=None):
           "  * grad_m(i, j)*current_density(j);")
     eq_dm_dcurrent = Equation("dm_dcurrent", eq)
 
-    model.add_computation([op_grad_m, eq_dm_dcurrent])
+    model.add_computation(op_grad_m, eq_dm_dcurrent)
 
 def _add_stt_sl(model, contexts, quantity_creator=None, do_sl_stt=False):
     """Spin transfer torque (Slonczewski-Berger).
@@ -842,11 +858,11 @@ def _add_stt_sl(model, contexts, quantity_creator=None, do_sl_stt=False):
                             unit=_su_of(SI("A/m^2")))
     sl_fix = qc(SpaceField, "sl_fix", [3], unit=SI(1))
     sl_P = qc(SpaceField, "sl_P", subfields=True, unit=SI(1))
-    model.add_quantity([sl_P, sl_d, sl_current_density, sl_fix])
+    model.add_quantity(sl_P, sl_d, sl_current_density, sl_fix)
 
     # Auxiliary quantities
     sl_coeff = qc(SpaceField, "sl_coeff", subfields=True)
-    model.add_quantity([sl_coeff])
+    model.add_quantity(sl_coeff)
 
     #eq = """
     #sl_coeff <- gamma_GG*M_sat/(1.0 + alpha*alpha)
@@ -873,7 +889,7 @@ def _add_stt_sl(model, contexts, quantity_creator=None, do_sl_stt=False):
       CCode("calc_sl_coeff", inputs=["m"], outputs=["sl_coeff"], auto_dep=True)
     calc_sl_coeff.append(ccode)
 
-    model.add_computation([calc_sl_coeff])
+    model.add_computation(calc_sl_coeff)
 
 def _add_llg(model, contexts, quantity_creator=None):
     if "llg" in contexts:
@@ -890,14 +906,14 @@ def _add_llg(model, contexts, quantity_creator=None):
     gamma_GG = qc(Constant, "gamma_GG", subfields=True, unit=SI(1e6, "m/A s"))
     alpha = qc(Constant, "alpha", subfields=True, unit=one)
     norm_coeff = qc(Constant, "norm_coeff", subfields=True, unit=invt_unit)
-    model.add_quantity([gamma_GG, alpha, norm_coeff])
+    model.add_quantity(gamma_GG, alpha, norm_coeff)
 
     # Create some fields required for the dynamics
     dmdt = qc(SpaceField, "dmdt", [3], subfields=True, unit=invt_unit)
     H_total = qc(SpaceField, "H_total", [3], subfields=True, unit=H_unit)
     H_ext = qc(SpaceField, "H_ext", [3], unit=H_unit)
     pin = qc(SpaceField, "pin", [], value=Value(1), unit=one)
-    model.add_quantity([dmdt, H_total, H_ext, pin])
+    model.add_quantity(dmdt, H_total, H_ext, pin)
 
     # Equation for the effective field H_total
     eq = "%range i:3; H_total(i) <- H_ext(i) + H_exch(i) + H_demag(i) + H_anis(i);"
@@ -928,7 +944,7 @@ def _add_llg(model, contexts, quantity_creator=None):
 
     # llg_jacobi doesn't need to be added as it is only used by the
     # timestepper to compute the jacobian
-    model.add_computation([llg, eq_H_total])
+    model.add_computation(llg, eq_H_total)
 
     # Timestepper
     op_exch = model.computations._by_name.get("exch", None)
@@ -950,7 +966,7 @@ def _add_energies(model, contexts, quantity_creator=None):
     E_ext = qc(SpaceField, "E_ext", subfields=True, unit=E_unit)
     # E_anis defined in _add_anis
     E_total = qc(SpaceField, "E_total", subfields=True, unit=E_unit)
-    model.add_quantity([E_demag, E_exch, E_ext, E_total])
+    model.add_quantity(E_demag, E_exch, E_ext, E_total)
 
     eq = "%range i:3; E_demag <- -0.5*mu0*M_sat*m(i)*H_demag(i);"
     en_demag = Equation("en_demag", eq)
@@ -964,4 +980,4 @@ def _add_energies(model, contexts, quantity_creator=None):
     eq = "%range i:3; E_total <- E_demag + E_exch + E_ext + E_anis;"
     en_total = Equation("en_total", eq)
 
-    model.add_computation([en_demag, en_exch, en_ext, en_total])
+    model.add_computation(en_demag, en_exch, en_ext, en_total)
