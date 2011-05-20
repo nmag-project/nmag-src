@@ -1090,7 +1090,8 @@ class Simulation(SimulationCore):
         log.info('Simulation(name=%s).set_params():%s'
                  % (self.name, msg))
 
-    def load_mesh(self, filename, region_names_and_mag_mats, unit_length, do_reorder=False,manual_distribution=None):
+    def load_mesh(self, filename, region_names_and_mag_mats, unit_length,
+                  do_reorder=False, manual_distribution=None):
         """
         :Parameters:
 
@@ -1247,6 +1248,39 @@ class Simulation(SimulationCore):
         self.mesh.save( filename )
 
     def set_local_magnetic_coupling(self, mat1, mat2, coupling):
+        """Add a coupling between the magnetisations of two materials...
+        """
+        if self.ts_in_lam.is_initialised:
+            raise NmagUserError("Too late to specify the local magnetic "
+                                "coupling: the timestepper has already been "
+                                "created!")
+        name1 = mat1.name
+        name2 = mat2.name
+        lc1 = self.local_couplings.setdefault(name1, {})
+        lc2 = self.local_couplings.setdefault(name2, {})
+
+        if name2 in lc1 or name1 in lc2:
+            raise NmagUserError("A coupling %s-%s has been "
+                                "already specified!" % (name1, name2))
+
+        # If coupling is a double, c1 and c2 will be both equal to coupling
+        # translated in simulation units. If coupling is a tuple of doubles
+        # then interpret it as different couplings for m1 and m2.
+        # Note that the user should know what to do if he uses two different
+        # couplings. Normally, this should not be done, but it may be useful
+        # to play some tricks.
+        c1, c2 = map(lambda x: float(x/si.mu0),
+                     (coupling if hasattr(coupling, "__iter__")
+                               else (coupling, coupling)))
+
+        en_dens = simulation_units.of(0.5*si.mu0*mat1.Ms*mat2.Ms,
+                                      compatible_with=SI("J/m^3"))
+        Ms1 = simulation_units.of(mat1.Ms, compatible_with=SI("A/m"))
+        Ms2 = simulation_units.of(mat2.Ms, compatible_with=SI("A/m"))
+        lc1[name2] = (c1*Ms2, en_dens*c1)
+        lc2[name1] = (c2*Ms1, en_dens*c2)
+
+    def set_local_magnetic_coupling_old(self, mat1, mat2, coupling):
         """Add a coupling between the magnetisations of two materials...
         """
         if self.ts_in_lam.is_initialised:
