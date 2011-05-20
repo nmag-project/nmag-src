@@ -1,5 +1,5 @@
 # Nmag micromagnetic simulator
-# Copyright (C) 2010 University of Southampton
+# Copyright (C) 2010, 2011 University of Southampton
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
 #
 # WEB:     http://nmag.soton.ac.uk
@@ -20,15 +20,34 @@ __all__ = ['LocalEqnNode', 'LocalAndRangeDefsNode',
 from tree import *
 import epsilon
 
-class EqSimplifyContext:
+
+class EqSimplifyContext(object):
     def __init__(self, quantities=None, material=None):
         self.quantities = quantities
         self.material = material
+        self.indices_ranges = None
         self.simplify_tensors = True
         self.simplify_parentheses = True
         self.simplify_sums = True
         self.simplify_products = True
         self.expand_indices = False
+        self.var_index = {}
+
+    def iter_indices(self, indexranges, fn, pos=0):
+        if pos >= len(indexranges):
+            fn(self)
+
+        else:
+            idx_name, idx_range = indexranges[pos]
+            assert idx_name not in self.var_index, \
+              ("Index already in contex index dictionary. Are you using "
+               "EqSimplifyContext.iter_indices twice on the same index?")
+
+            for i in range(idx_range):
+                self.var_index[idx_name] = i
+                self.iter_indices(indexranges, fn, pos=pos+1)
+
+            self.var_index.pop(idx_name)
 
 
 default_simplify_context = EqSimplifyContext()
@@ -133,6 +152,21 @@ class LocalEqnNode(Node):
     fmt = ListFormatter("", "", "\n")
     node_type = "LocalEqn"
 
+    def simplify(self, context=None):
+        # Retrieve index range information and store it in the context:
+        # this may be useful later in the simplification process.
+        localandrangedefs = self.children[0]
+        if localandrangedefs != None:
+            assert isinstance(localandrangedefs, LocalAndRangeDefsNode)
+            indices_ranges = localandrangedefs.get_indices_ranges()
+        else:
+            indices_ranges = None
+
+        if context != None:
+            context.indices_ranges = indices_ranges
+
+        return Node.simplify(self, context=context)
+
 
 class LocalAndRangeDefsNode(Node):
     node_type = "LocalAndRangeDefs"
@@ -160,6 +194,15 @@ class LocalAndRangeDefsNode(Node):
             s += "%%range %s; " % r
         return s
 
+    def get_indices_ranges(self):
+        """Return a list (index, range) for as defined by all the %range
+        commands given by the user."""
+        ls, rs = self.children
+        range_specs = []
+        for child in rs.children:
+            range_specs.extend(child.data)
+        return range_specs if len(range_specs) > 0 else None
+
     def get_ccode(self):
         # XXX NOTE: need to create macros for %local (local variables)
         return ""
@@ -178,9 +221,11 @@ class NumTensorsNode(Node):
     node_type = "NumTensors"
     fmt = plain_list_formatter
 
+
 class IntsNode(Node):
     node_type = "Ints"
     fmt = plain_list_formatter
+
 
 class IxRangeNode(Node):
     node_type = "IxRange"
@@ -211,6 +256,7 @@ class AssignmentsNode(Node):
         # This node is responsible for expanding the equation for all the
         # materials: transforming one equation in 'm' into many equations in
         # 'm_material1', 'm_material2', etc.
+        # We also expand indices if required.
         if context != None and context.material != None:
             material = context.material
             if isinstance(material, str):
@@ -219,20 +265,60 @@ class AssignmentsNode(Node):
                 material_list = material
 
             eqs = self.children
-            expanded_assignments = AssignmentsNode()
+            assignments = AssignmentsNode()
             for material_name in material_list:
                 context.material = material_name
                 for eq in eqs:
-                    expanded_assignments.add(eq.simplify(context=context))
+                    exp_eqs = self._expand_indices(eq, context)
+                    for exp_eq in exp_eqs:
+                        assignments.add(exp_eq)
 
             context.material = material
-            return expanded_assignments
+            return assignments
 
         else:
             return Node.simplify(self, context=context)
 
+    def _expand_indices(self, eq, context):
+        # Expand an equation for all the tensor indices
+        if (   context == None
+            or context.expand_indices == False
+            or context.indices_ranges == None
+            or len(context.indices_ranges) == 0):
+            return [eq.simplify(context=context)]
+
+        # First we need to find out whether the indices are used in the LHS:
+        # this will determine at which level we expand the equation.
+        # If the index is in the LHS then we have to expand the whole equation
+        # otherwise we expand only the RHS.
+
+        # We parse the equation tree and collect all the LHS and RHS indices
+        collection_bag = {}
+        self._collect_quantities(collection_bag, parsing='root')
+        lhs_index_set = collection_bag.get("outputs_idx", [])
+        rhs_index_set = collection_bag.get("inputs_idx", [])
+
+        # Remove from RHS indices the LHS ones
+        rhs_index_set.difference_update(lhs_index_set)
+
+        # Create the LHS and RHS index_name, index_range tuple lists
+        rhs_indexranges  = filter(lambda (n, r): n in rhs_index_set,
+                                  context.indices_ranges)
+        lhs_indexranges  = filter(lambda (n, r): n in lhs_index_set,
+                                  context.indices_ranges)
+
+        # Expand on the LHS side
+        eqs = []
+        def expand_equation(context):
+            eqs.append(eq.simplify(context=context))
+        context.iter_indices(lhs_indexranges, expand_equation)
+
+        return eqs
+
+
 class NumIndexNode(UnaryNode):
     node_type = "NumIndex"
+
 
 class VarIndexNode(UnaryNode):
     node_type = "VarIndex"
@@ -243,13 +329,41 @@ class IndicesNode(Node):
     fmt = plain_list_formatter
 
     def are_numerical(self):
+        """Return whether all the indices are integer numbers (boolean)."""
         for idx in self.children:
             if isinstance(idx, VarIndexNode):
                 return False
         return True
 
     def as_numbers(self):
+        """Return the indices as a tuple of integers. This method will fail
+        if IndicesNode.are_numerical() would return False."""
         return tuple(int(idx.data) for idx in self.children)
+
+    def get_var_indices(self):
+        """Return a tuple with the names of the non numerical incices."""
+        return tuple(idx.data
+                     for idx in self.children
+                     if isinstance(idx, VarIndexNode))
+
+    def simplify(self, context=None):
+        if   (    context != None
+              and context.expand_indices != False
+              and context.indices_ranges != None
+              and len(context.indices_ranges) > 0):
+
+            expanded_indices = IndicesNode()
+            for idx in self.children:
+                if isinstance(idx, VarIndexNode):
+                    expansion = context.var_index.get(idx.data, None)
+                    expanded_indices.add(idx if expansion == None
+                                         else NumIndexNode(expansion))
+                else:
+                    expanded_indices.add(idx)
+
+            return expanded_indices
+
+        return Node.simplify(self, context=context)
 
 
 class TensorSumNode(AssocOpNode):
@@ -473,9 +587,14 @@ class TensorNode(UnaryNode):
 
     def _collect_quantities(self, collections, parsing):
         name = self.data[1]
+        indices = self.children[0]
+        if indices != None:
+            indices_set = collections.setdefault("%s_idx" % parsing, set())
+            indices_set.update(indices.get_var_indices())
+
         if name in self.special_tensors:
             return
-        collections[parsing][name] = True
+        collections.setdefault(parsing, {})[name] = True
 
 
 class FunctionNode(UnaryNode):

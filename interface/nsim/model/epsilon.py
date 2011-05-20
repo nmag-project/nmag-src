@@ -1,5 +1,5 @@
 # Nmag micromagnetic simulator
-# Copyright (C) 2010 University of Southampton
+# Copyright (C) 2011 University of Southampton
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
 #
 # WEB:     http://nmag.soton.ac.uk
