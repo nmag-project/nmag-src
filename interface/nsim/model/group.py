@@ -18,7 +18,7 @@ class Group(object):
         self._all = []
         self._by_type = {}
         self._by_name = {}
-        self.add(objs)
+        self.add(*objs)
 
     def __getitem__(self, name):
         return self._by_name[name]
@@ -27,16 +27,19 @@ class Group(object):
         return self._by_name.__contains__(item)
         # ^^^ or should we rather define Group(dict)?
 
-    def add(self, obj, name=None):
+    def add(self, *objs, **named_args):
         """Add the given object 'obj' to the current instance.
         If 'obj' is a list, then add all the elements of the list."""
-        if isinstance(obj, collections.Sequence):
-            assert name == None, \
-              ("The optional argument name is supposed to be used only "
-               "when adding one quantity at a time.")
-            objs = obj
-        else:
-            objs = [obj]
+
+        args = named_args.keys()
+        assert args in ([], ["name"]), \
+          ('Group.add accepts only one optional argument: name. '
+           'Example: group.add(q1, name="q1")')
+        name = named_args.get("name", None)
+
+        assert name == None or len(objs) == 1, \
+          ("The optional argument name is supposed to be used only "
+           "when adding one quantity at a time.")
 
         for obj in objs:
             self._all.append(obj)
@@ -46,8 +49,8 @@ class Group(object):
             except KeyError:
                 self._by_type[obj.type_str] = [obj]
 
-            n = name if name != None else obj.name
-            if self._by_name.has_key(n):
+            n = name or obj.name
+            if n in self._by_name:
                 msg = ("Collection.add: found duplicate %s with name '%s' "
                        "(a %s). Make sure that all the objects you define "
                        "have a different name!"

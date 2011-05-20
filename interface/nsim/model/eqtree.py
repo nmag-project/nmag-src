@@ -18,6 +18,7 @@ __all__ = ['LocalEqnNode', 'LocalAndRangeDefsNode',
            'FloatNode', 'ParenthesisNode', 'TensorNode', 'FunctionNode']
 
 from tree import *
+import epsilon
 
 class EqSimplifyContext:
     def __init__(self, quantities=None, material=None):
@@ -27,8 +28,11 @@ class EqSimplifyContext:
         self.simplify_parentheses = True
         self.simplify_sums = True
         self.simplify_products = True
+        self.expand_indices = False
+
 
 default_simplify_context = EqSimplifyContext()
+
 
 def _sc(context):
     """If a simplify-context is None, then the default context should be used.
@@ -46,8 +50,15 @@ def _sc(context):
     """
     return (context if context != None else default_simplify_context)
 
+def get_ccode(node):
+  return node.get_ccode() if node != None else str(None)
+
+
 class Node(GenericNode):
-    pass
+    def get_ccode(self):
+        fmt = (self.fmt_ccode if hasattr(self, "fmt_ccode") else self.fmt)
+        return fmt.stringify(self.children, stringificator=get_ccode)
+
 
 class UnaryNode(Node):
     node_type = "UnaryNode"
@@ -61,6 +72,7 @@ class UnaryNode(Node):
 
     def get_inner_item(self):
         return self
+
 
 class ListNode(Node):
     node_type = "ListNode"
@@ -95,6 +107,7 @@ class ListNode(Node):
             return c.is_one(context=context)
         return Node.is_one(self, context=context)
 
+
 class AssocOpNode(ListNode):
     node_type = "AssocOpNode"
     ops = {}
@@ -105,15 +118,21 @@ class AssocOpNode(ListNode):
             s += "%s%s" % (self.ops[op], term)
         return s
 
+    get_ccode = __str__
+
     def get_inner_item(self):
         if len(self.data) == 1 and self.data[0] == None:
             return self.children[0].get_inner_item()
         else:
             return None
 
+
 class LocalEqnNode(Node):
+    """This is the **TOP NODE** in a LocalEqn parse tree."""
+
     fmt = ListFormatter("", "", "\n")
     node_type = "LocalEqn"
+
 
 class LocalAndRangeDefsNode(Node):
     node_type = "LocalAndRangeDefs"
@@ -141,11 +160,19 @@ class LocalAndRangeDefsNode(Node):
             s += "%%range %s; " % r
         return s
 
+    def get_ccode(self):
+        # XXX NOTE: need to create macros for %local (local variables)
+        return ""
+
+
 class NumTensorNode(Node):
     node_type = "NumTensor"
 
     def __str__(self):
         return "%s(%s)" % (self.data, self.children[0])
+
+    get_ccode = __str__
+
 
 class NumTensorsNode(Node):
     node_type = "NumTensors"
@@ -163,15 +190,18 @@ class IxRangeNode(Node):
         return self.fmt.stringify(["%s:%s" % ir
                                    for ir in self.data])
 
+
 class AssignmentNode(Node):
     node_type = "Assignment"
     fmt = ListFormatter("", ";", " <- ")
+    fmt_ccode = ListFormatter("", ";", " = ")
 
     def _collect_quantities(self, collections, parsing):
         assert parsing == 'root'
         assert len(self.children) == 2
         self.children[0]._collect_quantities(collections, 'outputs')
         self.children[1]._collect_quantities(collections, 'inputs')
+
 
 class AssignmentsNode(Node):
     node_type = "Assignments"
@@ -207,9 +237,20 @@ class NumIndexNode(UnaryNode):
 class VarIndexNode(UnaryNode):
     node_type = "VarIndex"
 
+
 class IndicesNode(Node):
     node_type = "Indices"
     fmt = plain_list_formatter
+
+    def are_numerical(self):
+        for idx in self.children:
+            if isinstance(idx, VarIndexNode):
+                return False
+        return True
+
+    def as_numbers(self):
+        return tuple(int(idx.data) for idx in self.children)
+
 
 class TensorSumNode(AssocOpNode):
     node_type = "TensorSum"
@@ -327,6 +368,8 @@ class SignedTensorAtomNode(Node):
             assert self.data == -1.0
             return "-%s" % self.children[0]
 
+    get_ccode = __str__
+
     def get_inner_item(self):
         if self.data == 1.0:
             return self.children[0].get_inner_item()
@@ -346,6 +389,7 @@ class SignedTensorAtomNode(Node):
         return (self.data == 1.0
                 and self.children[0].is_one(context=context))
 
+
 class FloatNode(UnaryNode):
     node_type = "Number"
 
@@ -364,6 +408,7 @@ class FloatNode(UnaryNode):
     def as_float(self, context=None):
         return self.data
 
+
 class ParenthesisNode(ListNode):
     node_type = "Parenthesis"
     fmt = default_list_formatter
@@ -377,9 +422,10 @@ class ParenthesisNode(ListNode):
             return inner_item
         return simplified
 
+
 class TensorNode(UnaryNode):
     node_type = "Tensor"
-    special_tensors = {"eps":None}
+    special_tensors = {"eps": epsilon.epsilon}
 
     def __init__(self, name="?", arg=None):
         Node.__init__(self, arg, data=(name, name))
@@ -390,11 +436,21 @@ class TensorNode(UnaryNode):
         else:
             return "%s(%s)" % (self.data[0], self.children[0])
 
+    get_ccode = __str__
+
     def simplify(self, context=None):
         # First, let's check whether this is a special tensor. If that is the
         # case, then we should just treat it specially.
         if self.data[0] in self.special_tensors:
-            return Node.simplify(self, context=context)
+            indices = self.children[0]
+            if indices.are_numerical():
+                tensor_eval_fn = self.special_tensors[self.data[0]]
+                numerical_indices = indices.as_numbers()
+                return FloatNode(tensor_eval_fn(*numerical_indices))
+
+            else:
+                # Cannot really do anything as some indices are unknown
+                return Node.simplify(self, context=context)
 
         # We should go through the quantities, find this one and - if it is
         # constant - just simplify the tensor with such constant.
@@ -421,6 +477,7 @@ class TensorNode(UnaryNode):
             return
         collections[parsing][name] = True
 
+
 class FunctionNode(UnaryNode):
     node_type = "Function"
 
@@ -432,3 +489,7 @@ class FunctionNode(UnaryNode):
             return self.data[0]
         else:
             return "%s[%s]" % (self.data[0], self.children[0])
+
+    get_ccode = __str__
+
+

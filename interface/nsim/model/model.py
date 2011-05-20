@@ -185,15 +185,15 @@ class Model(object):
     def _was_built(self, name):
         return (name in self._built)
 
-    def add_quantity(self, quant):
+    def add_quantity(self, *quant):
         """Add the given quantity 'quant' to the current physical model.
         If 'quant' is a list, then add all the elements of the list, assuming
         they all are Quantity objects."""
-        return self.quantities.add(quant)
+        return self.quantities.add(*quant)
 
-    def add_computation(self, c):
+    def add_computation(self, *c):
         """Add the computation (Computation object) to the model."""
-        return self.computations.add(c)
+        return self.computations.add(*c)
 
     def add_timestepper(self, ts):
         """Add the timestepper (Timestepper object) to the model."""

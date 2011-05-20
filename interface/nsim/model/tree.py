@@ -26,11 +26,11 @@ class ListFormatter:
         self.close_str = close_str
         self.separator = separator
 
-    def stringify(self, l):
+    def stringify(self, l, stringificator=str):
         if l == None:
             return ""
         return (self.open_str
-                + self.separator.join([str(item) for item in l])
+                + self.separator.join([stringificator(item) for item in l])
                 + self.close_str)
 
 default_list_formatter = ListFormatter("(", ")", ", ")
