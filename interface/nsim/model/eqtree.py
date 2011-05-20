@@ -30,8 +30,16 @@ class EqSimplifyContext(object):
         self.simplify_parentheses = True
         self.simplify_sums = True
         self.simplify_products = True
+        self.rhs_indexranges = None
         self.expand_indices = False
         self.var_index = {}
+
+    def should_expand_indices(self):
+        """Whether indices expansion should occur at this point in the parse
+        tree."""
+        return (    self.expand_indices != False
+                and self.indices_ranges != None
+                and len(self.indices_ranges) > 0)
 
     def iter_indices(self, indexranges, fn, pos=0):
         if pos >= len(indexranges):
@@ -247,6 +255,31 @@ class AssignmentNode(Node):
         self.children[0]._collect_quantities(collections, 'outputs')
         self.children[1]._collect_quantities(collections, 'inputs')
 
+    def simplify(self, context=None):
+        # The main thing we have to do here is expand the indices in the RHS
+        if context != None and context.should_expand_indices():
+            rhs_indexranges = context.rhs_indexranges
+            if rhs_indexranges != None:
+                assert len(self.children) == 2
+                lhs, rhs = self.children
+
+                # Simplify the LHS
+                new_lhs = lhs.simplify(context=context)
+
+                # Expand and simplify the RHS
+                tensor_sum = TensorSumNode()
+                def add_expanded_rhs(context):
+                    tensor_sum.add2(rhs.simplify(context=context), 1.0)
+                context.iter_indices(rhs_indexranges, add_expanded_rhs)
+
+                # Further simplify the RHS
+                new_rhs = tensor_sum.simplify(context=context)
+
+                # Reasseble the equation
+                return AssignmentNode([new_lhs, new_rhs])
+
+        return Node.simplify(self, context=context)
+
 
 class AssignmentsNode(Node):
     node_type = "Assignments"
@@ -281,10 +314,7 @@ class AssignmentsNode(Node):
 
     def _expand_indices(self, eq, context):
         # Expand an equation for all the tensor indices
-        if (   context == None
-            or context.expand_indices == False
-            or context.indices_ranges == None
-            or len(context.indices_ranges) == 0):
+        if context == None or not context.should_expand_indices():
             return [eq.simplify(context=context)]
 
         # First we need to find out whether the indices are used in the LHS:
@@ -307,11 +337,18 @@ class AssignmentsNode(Node):
         lhs_indexranges  = filter(lambda (n, r): n in lhs_index_set,
                                   context.indices_ranges)
 
+        # Mark for expansion of RHS
+        prev_rhs_indexranges = context.rhs_indexranges
+        context.rhs_indexranges = rhs_indexranges
+
         # Expand on the LHS side
         eqs = []
-        def expand_equation(context):
+        def add_expanded_equation(context):
             eqs.append(eq.simplify(context=context))
-        context.iter_indices(lhs_indexranges, expand_equation)
+        context.iter_indices(lhs_indexranges, add_expanded_equation)
+
+        # Restore context as it was when entering
+        context.rhs_indexranges = prev_rhs_indexranges
 
         return eqs
 
@@ -347,11 +384,7 @@ class IndicesNode(Node):
                      if isinstance(idx, VarIndexNode))
 
     def simplify(self, context=None):
-        if   (    context != None
-              and context.expand_indices != False
-              and context.indices_ranges != None
-              and len(context.indices_ranges) > 0):
-
+        if context != None and context.should_expand_indices():
             expanded_indices = IndicesNode()
             for idx in self.children:
                 if isinstance(idx, VarIndexNode):
