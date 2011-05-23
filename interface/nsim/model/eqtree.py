@@ -598,8 +598,11 @@ class TensorNode(UnaryNode):
                 if (context.material != None
                     and q.is_defined_on_material(context.material)):
                     tensor_node = Node.simplify(self, context=context)
-                    tensor_node.data[0] = \
-                      "%s_%s" % (tensor_node.data[1], context.material)
+                    if False:
+                        tensor_node.data[0] = \
+                          "%s_%s" % (tensor_node.data[1], context.material)
+                    else:
+                        tensor_node.data[0] += "_%s" % context.material
                     return tensor_node
 
         return Node.simplify(self, context=context)

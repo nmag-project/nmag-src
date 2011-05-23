@@ -93,6 +93,7 @@ class ParsedComputation(LAMProgram):
         self.tree = computation_tree
         self.simplified_tree = None
         self.final_text = None
+        self.final_ccode = None
 
     def get_prog_name(self):
         return "%s_%s" % (self.prog_name, self.name)
@@ -104,6 +105,14 @@ class ParsedComputation(LAMProgram):
         if self.final_text == None:
             self.final_text = str(self.simplified_tree)
         return self.final_text
+
+    def get_ccode(self, context=None):
+        """Get the final (processed) C code for the equation."""
+        if self.simplified_tree == None:
+            self.simplified_tree = self.tree.simplify(context=context)
+        if self.final_ccode == None:
+            self.final_ccode = self.simplified_tree.get_ccode()
+        return self.final_ccode
 
     def get_inputs_and_outputs(self, context=None):
         """Get the input and output quantities involved in the computation.
@@ -134,24 +143,30 @@ class Equation(ParsedComputation):
         self.ocaml_to_parse = ocaml_to_parse
 
     def _build_lam_object(self, model, context=None):
-        mwes_for_eq = self.get_inouts()
-        eq_full_name = self.get_full_name()
+
         intensive_params = [] # For now...
 
         if self.ocaml_to_parse:
             eq_text = self.get_text(context=context)
+            mwes_for_eq = self.get_inouts()
+            print eq_text
+            raw_input()
             return \
-              nlam.lam_local(eq_full_name,
+              nlam.lam_local(self.get_full_name(),
                              aux_args=intensive_params,
                              field_mwes=mwes_for_eq,
                              equation=eq_text)
         else:
-            eq_text = self.get_ccode(context=context)
+            ccode = self.get_ccode(context=context)
+            mwes_for_eq = self.get_inouts()
+            print ccode
+            raw_input()
+
             return \
-              nlam.lam_local(eq_full_name,
+              nlam.lam_local(self.get_full_name(),
                              aux_args=intensive_params,
                              field_mwes=mwes_for_eq,
-                             c_code=eq_text)
+                             c_code=ccode)
 
 
 class Operator(ParsedComputation):

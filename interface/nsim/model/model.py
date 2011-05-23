@@ -385,9 +385,6 @@ class Model(object):
 
     def _build_ccodes(self):
         ccodes = self.computations._by_type.get('CCode', [])
-        #simplify_context = \
-        #  EqSimplifyContext(quantities=self.quantities,
-        #                    material=self.all_material_names)
         ccode_dict = {}
         for ccode in ccodes:
             logger.info("Building ccode %s" % ccode.name)
