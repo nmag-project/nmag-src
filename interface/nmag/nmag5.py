@@ -818,10 +818,9 @@ def _add_stt_zl(model, contexts, quantity_creator=None):
     op_grad_m = Operator("grad_m", op_str, cofield_to_field=True)
 
     # Derivative of m with respect to direction of the current (mul by factor)
-    eq = ("%range i:3, j:3;"
-          "dm_dcurrent(i) <-"
-          "  (-mu_B/(e*M_sat*(1.0 + xi*xi)*(1.0 + alpha*alpha)))"
-          "  * grad_m(i, j)*current_density(j);")
+    eq = ("(dm_dcurrent(i) <-"
+          "   (-mu_B/(e*M_sat*(1.0 + xi*xi)*(1.0 + alpha*alpha)))"
+          "   * (grad_m(i, j)*current_density(j))_(j:3))_(i:3);")
     eq_dm_dcurrent = Equation("dm_dcurrent", eq)
 
     model.add_computation(op_grad_m, eq_dm_dcurrent)
@@ -916,21 +915,23 @@ def _add_llg(model, contexts, quantity_creator=None):
     model.add_quantity(dmdt, H_total, H_ext, pin)
 
     # Equation for the effective field H_total
-    eq = "%range i:3; H_total(i) <- H_ext(i) + H_exch(i) + H_demag(i) + H_anis(i);"
+    eq = "(H_total(i) <- H_ext(i) + H_exch(i) + H_demag(i) + H_anis(i))_(i:3);"
     eq_H_total = Equation("H_total", eq)
 
     # Equation of motion
-    eq = \
-      ("%range i:3, j:3, k:3, p:3, q:3;"
-       "dmdt(i) <- "
-       "((-gamma_GG/(1 + alpha*alpha))"
-       " *(eps(i,j,k)*m(j)*H_total(k)"
-       "   + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q))"
-       " + norm_coeff*(1.0 - m(j)*m(j))*m(i)"
-       " + P*(1.0 + alpha*xi)*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*dm_dcurrent(q)"
-       " + P*(xi - alpha)*eps(i,j,k)*m(j)*dm_dcurrent(k)"
-       " + sl_coeff*(  alpha*eps(i,j,k)*m(j)*sl_fix(k)"
-       "             + eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*sl_fix(q)))*pin;")
+    eq = """
+    (dmdt(i) <-
+    ((-gamma_GG/(1 + alpha*alpha))
+     *((eps(i,j,k)*m(j)*H_total(k))_(j:3, k:3)
+        +alpha*(eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q))_(j:3,k:3,p:3,q:3))
+     + norm_coeff*(1.0 - (m(j)*m(j))_(j:3))*m(i)
+     + P*(1.0 + alpha*xi)
+       *(eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*dm_dcurrent(q))_(j:3,k:3,p:3,q:3)
+     + P*(xi - alpha)*(eps(i,j,k)*m(j)*dm_dcurrent(k))_(j:3,k:3)
+     + sl_coeff
+       *(  alpha*(eps(i,j,k)*m(j)*sl_fix(k))_(j:3,k:3)
+         + (eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*sl_fix(q))_(j:3,k:3,p:3,q:3))
+    )*pin)_(i:3);"""
 
     llg = Equation("llg", eq)
 
@@ -939,7 +940,7 @@ def _add_llg(model, contexts, quantity_creator=None):
           "dmdt(i) <- "
           "(  (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_total(k)"
           " + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q)))*pin;")
-    llg_jacobi = Equation("llg-jacobi", eq)
+    llg_jacobi = Equation("llg-jacobi", eq, ocaml_to_parse=True)
 
 
     # llg_jacobi doesn't need to be added as it is only used by the
@@ -968,16 +969,16 @@ def _add_energies(model, contexts, quantity_creator=None):
     E_total = qc(SpaceField, "E_total", subfields=True, unit=E_unit)
     model.add_quantity(E_demag, E_exch, E_ext, E_total)
 
-    eq = "%range i:3; E_demag <- -0.5*mu0*M_sat*m(i)*H_demag(i);"
+    eq = "E_demag <- -0.5*mu0*M_sat*(m(i)*H_demag(i))_(i:3);"
     en_demag = Equation("en_demag", eq)
 
-    eq = "%range i:3; E_exch <- -0.5*mu0*M_sat*m(i)*H_exch(i);"
+    eq = "E_exch <- -0.5*mu0*M_sat*(m(i)*H_exch(i))_(i:3);"
     en_exch = Equation("en_exch", eq)
 
-    eq = "%range i:3; E_ext <- -mu0*M_sat*m(i)*H_ext(i);"
+    eq = "E_ext <- -mu0*M_sat*(m(i)*H_ext(i))_(i:3);"
     en_ext = Equation("en_ext", eq)
 
-    eq = "%range i:3; E_total <- E_demag + E_exch + E_ext + E_anis;"
+    eq = "E_total <- E_demag + E_exch + E_ext + E_anis;"
     en_total = Equation("en_total", eq)
 
     model.add_computation(en_demag, en_exch, en_ext, en_total)

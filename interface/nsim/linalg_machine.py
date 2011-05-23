@@ -84,21 +84,14 @@ def lam_ksp(name,matrix_name,precond_name=None,
     return [name,matrix_name,precond_name,ksp_type,pc_type,initial_guess_nonzero,
             rtol,atol,dtol,maxits,nullspace_subfields]
 
-def lam_local(name,field_mwes=[],cofield_mwes=[],equation=None,c_code=None,aux_args=[]):
-    code=None
-    must_parse=False
-
-    if(c_code<>None):
-        code=c_code
-
-    if(equation<>None):
-        if(code<>None):
-            error("Cannot both provide equation and C code specification!")
-        else:
-            code=equation
-            must_parse=True
-
-    return [name,code,aux_args,field_mwes,cofield_mwes,must_parse]
+def lam_local(name, field_mwes=[], cofield_mwes=[],
+              equation=None, c_code=None, aux_args=[]):
+    is_equation = (equation != None)
+    is_ccode = (c_code != None)
+    assert is_equation != is_ccode, \
+      "You must provide either an equation or a C code fragment (not both)"
+    code = equation if is_equation else c_code
+    return [name, code, aux_args, field_mwes, cofield_mwes, is_equation]
 
 def lam_program(name,args_fields=[],args_cofields=[],commands=[]):
     return [name,args_fields,args_cofields,commands]
@@ -125,7 +118,7 @@ def lam_timestepper(name,
                                                           #       buffer to slaves, does the calculation, and gathers the data
                                                           #       back to the master.)
                     nr_primary_fields=1,                  # For primary fields ['m','T'] this would be 2.
-                    name_jacobian=None,                   
+                    name_jacobian=None,
                     jacobi_prealloc_diagonal=60,          # number of the expected matrix entries where this node is
                                                           # responsible for the corresponding part of the input vector.
                                                           # the node is responsible.
