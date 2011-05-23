@@ -24,13 +24,16 @@ def test_llg():
     quantities = Quantities([C1, C2, C3, C4, C5, m, dmdt, dm_dcurrent, pin,
                              H_total])
 
-    eq_rhs = \
-      """%range i:3, j:3, k:3, p:3, q:3;
-      dmdt(i) <- C1 * eps(i,j,k) * m(j) * H_total(k) * pin
-               + C2 * eps(i,j,k) * m(j) * eps(k,p,q) * m(p) * H_total(q) * pin
-               + C3 * (1.0 - m(j)*m(j)) * m(i) * pin
-               + C4 * eps(i,j,k) * m(j) * eps(k,p,q) * m(p) * dm_dcurrent(q) * pin
-               + C5 * eps(i,j,k) * m(j) * dm_dcurrent(k) * pin;"""
+    eq_rhs = """
+      %range i:3;
+      (dmdt(i) <-
+         (  C1 * (eps(i,j,k) * m(j) * H_total(k))_(j:3,k:3)
+          + C2 * (  eps(i,j,k) * m(j)
+                  * eps(k,p,q) * m(p) * H_total(q))_(j:3,k:3,p:3,q:3)
+          + C3 * (1.0 - (m(j)*m(j))_(j:3)) * m(i)
+          + C4 * (  eps(i,j,k) * m(j)
+                  * eps(k,p,q) * m(p) * dm_dcurrent(q))_(j:3,k:3,p:3,q:3)
+          + C5 * (eps(i,j,k) * m(j) * dm_dcurrent(k))_(j:3,k:3))*pin)_(i:3);"""
 
     eq_ccode = """
  if(have_dmdt_a){

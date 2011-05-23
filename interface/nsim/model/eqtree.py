@@ -15,7 +15,8 @@ __all__ = ['LocalEqnNode', 'LocalAndRangeDefsNode',
            'NumIndexNode', 'VarIndexNode', 'IndicesNode',
            'TensorSumNode', 'TensorProductNode',
            'SignedTensorAtomNode',
-           'FloatNode', 'ParenthesisNode', 'TensorNode', 'FunctionNode']
+           'FloatNode', 'ParenthesisNode', 'TensorNode', 'FunctionNode',
+           'IdxTensorSumNode', "IdxAssignmentsNode"]
 
 from tree import *
 import epsilon
@@ -157,8 +158,8 @@ class AssocOpNode(ListNode):
 class LocalEqnNode(Node):
     """This is the **TOP NODE** in a LocalEqn parse tree."""
 
-    fmt = ListFormatter("", "", "\n")
     node_type = "LocalEqn"
+    fmt = ListFormatter("", ";", "\n")
 
     def simplify(self, context=None):
         # Retrieve index range information and store it in the context:
@@ -246,8 +247,8 @@ class IxRangeNode(Node):
 
 class AssignmentNode(Node):
     node_type = "Assignment"
-    fmt = ListFormatter("", ";", " <- ")
-    fmt_ccode = ListFormatter("", ";", " = ")
+    fmt = ListFormatter("", "", " <- ")
+    fmt_ccode = ListFormatter("", "", " = ")
 
     def _collect_quantities(self, collections, parsing):
         assert parsing == 'root'
@@ -256,7 +257,7 @@ class AssignmentNode(Node):
         self.children[1]._collect_quantities(collections, 'inputs')
 
     def simplify(self, context=None):
-        # The main thing we have to do here is expand the indices in the RHS
+        # The main thing we have to do here is expand the indices in the LHS
         if context != None and context.should_expand_indices():
             rhs_indexranges = context.rhs_indexranges
             if rhs_indexranges != None:
@@ -281,9 +282,13 @@ class AssignmentNode(Node):
         return Node.simplify(self, context=context)
 
 
+# NOTE: The children of AssignmentsNode can be:
+# - AssignmentNode objects,
+# - IdxAssignmentsNode objects,
+# - other AssignmentsNode objects.
 class AssignmentsNode(Node):
     node_type = "Assignments"
-    fmt = minimal_list_formatter
+    fmt = ListFormatter("", "", ";")
 
     def simplify(self, context=None):
         # This node is responsible for expanding the equation for all the
@@ -298,16 +303,17 @@ class AssignmentsNode(Node):
                 material_list = material
 
             eqs = self.children
-            assignments = AssignmentsNode()
+            expanded_assignments = AssignmentsNode()
             for material_name in material_list:
                 context.material = material_name
                 for eq in eqs:
-                    exp_eqs = self._expand_indices(eq, context)
-                    for exp_eq in exp_eqs:
-                        assignments.add(exp_eq)
+                    expanded_assignments.add(eq.simplify(context=context))
+                    #exp_eqs = self._expand_indices(eq, context)
+                    #for exp_eq in exp_eqs:
+                    #    assignments.add(exp_eq)
 
             context.material = material
-            return assignments
+            return expanded_assignments
 
         else:
             return Node.simplify(self, context=context)
@@ -351,6 +357,39 @@ class AssignmentsNode(Node):
         context.rhs_indexranges = prev_rhs_indexranges
 
         return eqs
+
+
+class IdxAssignmentsNode(Node):
+    node_type = "IdxAssignments"
+
+    def __str__(self):
+        c = self.children
+        lc = len(c)
+        return (str(c[0]) if lc == 1
+                else "(%s)_(%s)" % tuple(c))
+
+    get_ccode = __str__
+
+    def simplify(self, context=None):
+        # NOTE: this function can transform the IdxAssignmentsNode object into
+        #  a single assignment (AssignmentNode) or even into a group of
+        #  assignments (AssignmentsNode). We are then implicitely assuming
+        #  that AssignmentsNode is able to cope with such a zoo of children.
+        if len(self.children) == 1 and False:
+            return self.children[0].simplify(context=context)
+
+        if context != None and context.should_expand_indices():
+            assignment, ixranges = self.children
+
+            # Expand and simplify the assignment
+            assignments = AssignmentsNode()
+            def add_expanded_assignment(context):
+                assignments.add(assignment.simplify(context=context))
+            context.iter_indices(ixranges.data, add_expanded_assignment)
+
+            return assignments.simplify(context=context)
+
+        return Node.simplify(self, context=context)
 
 
 class NumIndexNode(UnaryNode):
@@ -644,4 +683,28 @@ class FunctionNode(UnaryNode):
 
     get_ccode = __str__
 
+
+class IdxTensorSumNode(Node):
+    node_type = "IdxTensorSum"
+
+    def __str__(self):
+        return "(%s)_(%s)" % (self.children[0], self.children[1])
+
+    def get_ccode(self):
+        raise NotImplementedError("Cannot convert an indexed sum to C-code "
+                                  "directly. Please do simplify first!")
+
+    def simplify(self, context=None):
+        if context != None and context.should_expand_indices():
+            summand, ixranges = self.children
+
+            # Expand and simplify the summand
+            total_sum = TensorSumNode()
+            def add_expanded_summand(context):
+                total_sum.add2(summand.simplify(context=context), 1.0)
+            context.iter_indices(ixranges.data, add_expanded_summand)
+
+            return ParenthesisNode(total_sum.simplify(context=context))
+
+        return Node.simplify(self, context=context)
 

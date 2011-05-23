@@ -20,7 +20,7 @@ __all__ = ["ListFormatter", "default_list_formatter", "plain_list_formatter",
            "GenericSym",
            "GenericNode", "AssocNode"]
 
-class ListFormatter:
+class ListFormatter(object):
     def __init__(self, open_str="[", close_str="]", separator=", "):
         self.open_str = open_str
         self.close_str = close_str

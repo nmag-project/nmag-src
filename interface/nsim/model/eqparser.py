@@ -24,10 +24,10 @@ tokens = ('INT', 'FLOAT', 'STRING',
           'ASSIGN', 'LOCAL', 'RANGE',
           'LPAREN', 'RPAREN', 'LBRACKET','RBRACKET',
           'PLUS', 'MINUS', 'TIMES', 'DIVIDE',
-          'COLON','COMMA', 'SEMICOLON' )
+          'COLON','COMMA', 'SEMICOLON', 'UNDERSCORE')
 
 # Tokens
-t_STRING = r'[a-zA-Z_][a-zA-Z0-9_]*'
+t_STRING = r'[a-zA-Z][a-zA-Z0-9_]*'
 t_ASSIGN = r'<-'
 t_LOCAL = r'%local'
 t_RANGE = r'%range'
@@ -42,6 +42,7 @@ t_RBRACKET = r'\]'
 t_COMMA = r','
 t_COLON = r':'
 t_SEMICOLON = r';'
+t_UNDERSCORE = r'_'
 
 def t_FLOAT(t):
     r'\d*[.]\d+([eE]-?\d+)?|\d+[eE]-?\d+'
@@ -130,8 +131,7 @@ def p_int_indices(t):
         t[0] = t[1].add(t[3])
 
 def p_ix_ranges(t):
-    """ix_ranges :
-                 | STRING COLON INT
+    """ix_ranges : STRING COLON INT
                  | ix_ranges COMMA STRING COLON INT"""
     lt = len(t)
     if lt == 1:
@@ -144,13 +144,23 @@ def p_ix_ranges(t):
 
 def p_assignments(t):
     """assignments :
-                   | assignments lvalue ASSIGN tensor_sum SEMICOLON"""
+                   | assignments idx_assignments SEMICOLON"""
     lt = len(t)
     if lt == 1:
         t[0] = AssignmentsNode()
     else:
-        assert lt == 6
-        t[0] = t[1].add(AssignmentNode([t[2], t[4]]))
+        assert lt == 4
+        t[0] = t[1].add(t[2])
+
+def p_idx_assignments(t):
+    """idx_assignments : lvalue ASSIGN tensor_sum
+                       | LPAREN lvalue ASSIGN tensor_sum RPAREN \
+                         UNDERSCORE LPAREN ix_ranges RPAREN"""
+    lt = len(t)
+    if lt == 4:
+        t[0] = IdxAssignmentsNode(AssignmentNode([t[1], t[3]]))
+    else:
+        t[0] = IdxAssignmentsNode([AssignmentNode([t[2], t[4]]), t[8]])
 
 def p_lvalue(t):
     """lvalue : tensor"""
@@ -235,7 +245,9 @@ def p_tensor_atom(t):
                    | STRING
                    | STRING LPAREN indices RPAREN
                    | STRING LBRACKET tensor_sum RBRACKET
-                   | LPAREN tensor_sum RPAREN"""
+                   | LPAREN tensor_sum RPAREN
+                   | LPAREN tensor_sum RPAREN \
+                     UNDERSCORE LPAREN ix_ranges RPAREN"""
     lt = len(t)
     if lt == 2:
         if isinstance(t[1], (int, float)):
@@ -249,6 +261,8 @@ def p_tensor_atom(t):
             t[0] = TensorNode(name=t[1], arg=t[3])
         else:
             t[0] = FunctionNode(name=t[1], arg=t[3])
+    elif lt == 8:
+        t[0] = IdxTensorSumNode([t[2], t[6]])
 
 def p_error(t):
     if hasattr(t, 'value'):
@@ -266,7 +280,7 @@ except:
     tabmodule = "localeqn_parsetab"
 
 parser = yacc.yacc(tabmodule=tabmodule,
-                   #debugfile='localeqn_parser.out',
+                   debugfile='localeqn_parser.out',
                    outputdir=split(realpath(__file__))[0])
 
 def parse(s):
