@@ -124,12 +124,34 @@ class Equation(ParsedComputation):
     type_str = "Equation"
 
     def __init__(self, name, equation_string,
-                 inputs=None, outputs=None, auto_dep=None):
+                 inputs=None, outputs=None, auto_dep=None,
+                 ocaml_to_parse=False):
         equation_tree = eqparser.parse(equation_string)
         ParsedComputation.__init__(self, name, "EqProg",
                                    equation_tree, equation_string,
                                    inputs=inputs, outputs=outputs,
                                    auto_dep=auto_dep)
+        self.ocaml_to_parse = ocaml_to_parse
+
+    def _build_lam_object(self, model, context=None):
+        mwes_for_eq = self.get_inouts()
+        eq_full_name = self.get_full_name()
+        intensive_params = [] # For now...
+
+        if self.ocaml_to_parse:
+            eq_text = self.get_text(context=context)
+            return \
+              nlam.lam_local(eq_full_name,
+                             aux_args=intensive_params,
+                             field_mwes=mwes_for_eq,
+                             equation=eq_text)
+        else:
+            eq_text = self.get_ccode(context=context)
+            return \
+              nlam.lam_local(eq_full_name,
+                             aux_args=intensive_params,
+                             field_mwes=mwes_for_eq,
+                             c_code=eq_text)
 
 
 class Operator(ParsedComputation):

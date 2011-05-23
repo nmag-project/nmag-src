@@ -35,6 +35,8 @@ def test_llg():
                   * eps(k,p,q) * m(p) * dm_dcurrent(q))_(j:3,k:3,p:3,q:3)
           + C5 * (eps(i,j,k) * m(j) * dm_dcurrent(k))_(j:3,k:3))*pin)_(i:3);"""
 
+    #eq_rhs = """dmdt(0) <- (-m(i))_(i:3);"""
+
     eq_ccode = """
  if(have_dmdt_a){
    dmdt_a(0) = (0.1)*m_a(0)*pin

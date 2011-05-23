@@ -371,14 +371,9 @@ class Model(object):
         equation_dict = {}
         for eq in eqs:
             logger.info("Building equation %s" % eq.name)
-            eq_text = eq.get_text(context=simplify_context)
-            mwes_for_eq = eq.get_inouts()
             eq_full_name = eq.get_full_name()
             equation_dict[eq_full_name] = \
-              nlam.lam_local(eq_full_name,
-                             aux_args=self.intensive_params,
-                             field_mwes=mwes_for_eq,
-                             equation=eq_text)
+              eq._build_lam_object(self, context=simplify_context)
 
             # We should now register a VM call to compute the equation
             logger.info("Creating equation program for %s" % eq.name)
