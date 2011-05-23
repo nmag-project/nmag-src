@@ -178,14 +178,6 @@ class LocalEqnNode(Node):
 
         return Node.simplify(self, context=context)
 
-    def get_ccode(self, guard_all=False):
-        inputs, outputs = self.get_inputs_and_outputs()
-        guard = inputs + outputs if guard_all else outputs
-        conditions = " && ".join(["have_%s" % name for name in guard])
-        ccode = Node.get_ccode(self)
-        guarded_ccode = "if (%s) {%s}" % (conditions, ccode)
-        return guarded_ccode.replace("\n", "\n  ") + "\n"
-
 
 class LocalAndRangeDefsNode(Node):
     node_type = "LocalAndRangeDefs"
@@ -263,8 +255,26 @@ class AssignmentNode(Node):
     def _collect_quantities(self, collections, parsing):
         assert parsing == 'root'
         assert len(self.children) == 2
-        self.children[0]._collect_quantities(collections, 'outputs')
-        self.children[1]._collect_quantities(collections, 'inputs')
+        lhs, rhs = self.children
+        lhs._collect_quantities(collections, 'outputs')
+        rhs._collect_quantities(collections, 'inputs')
+
+    def get_ccode(self):
+        assert len(self.children) == 2
+        lhs, rhs = self.children
+        collection_bag = {}
+        lhs._collect_quantities(collection_bag, 'outputs')
+
+        outputs = collection_bag['outputs']
+        guard = []
+        for full_output_names in outputs.itervalues():
+            guard.extend(full_output_names)
+
+        conditions = " && ".join(["have_%s" % name for name in guard])
+
+        ccode = Node.get_ccode(self)
+        guarded_ccode = "if (%s) {\n  %s;\n}" % (conditions, ccode)
+        return guarded_ccode
 
 
 # NOTE: The children of AssignmentsNode can be:
@@ -315,7 +325,7 @@ class IdxAssignmentsNode(Node):
     def simplify(self, context=None):
         # NOTE: this function can transform the IdxAssignmentsNode object into
         #  a single assignment (AssignmentNode) or even into a group of
-        #  assignments (AssignmentsNode). We are then implicitely assuming
+        #  assignments (AssignmentsNode). We are then implicitly assuming
         #  that AssignmentsNode is able to cope with such a zoo of children.
         if len(self.children) == 1:
             return self.children[0].simplify(context=context)
@@ -598,20 +608,18 @@ class TensorNode(UnaryNode):
                 if (context.material != None
                     and q.is_defined_on_material(context.material)):
                     tensor_node = Node.simplify(self, context=context)
-                    if False:
-                        tensor_node.data[0] = \
-                          "%s_%s" % (tensor_node.data[1], context.material)
-                    else:
-                        tensor_node.data[0] += "_%s" % context.material
+                    tensor_node.data[0] = \
+                      "%s_%s" % (tensor_node.data[1], context.material)
                     return tensor_node
 
         return Node.simplify(self, context=context)
 
     def _collect_quantities(self, collections, parsing):
-        name = self.data[1]
-        if name in self.special_tensors:
+        full_name, generic_name = self.data
+        if generic_name in self.special_tensors:
             return
-        collections.setdefault(parsing, {})[name] = True
+        collection_bag = collections.setdefault(parsing, {})
+        collection_bag.setdefault(generic_name, []).append(full_name)
 
 
 class FunctionNode(UnaryNode):
