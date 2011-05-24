@@ -136,6 +136,11 @@ class Simulation(SimulationCore):
            "M_sat": Constant,
            "exchange_factor": Constant}
 
+        # Used by _set_qs_from_materials to set the Constant quantities to
+        # their initial value, as set on a per-material basis in the given
+        # MagMaterial objects.
+        self._qs_from_material_setters = {}
+
     def get_model(self):
         if self._model != None:
             return self._model
@@ -307,7 +312,7 @@ class Simulation(SimulationCore):
         _add_stt_zl(model, contexts, self._quantity_creator)
         _add_stt_sl(model, contexts, self._quantity_creator,
                     do_sl_stt=self.do_sl_stt)
-        _add_llg(model, contexts, self._quantity_creator)
+        _add_llg(model, contexts, self._quantity_creator, sim=self)
         _add_energies(model, contexts, self._quantity_creator)
 
         # Set the values of the constants in the micromagnetic model
@@ -324,22 +329,38 @@ class Simulation(SimulationCore):
         # alpha, M_sat, etc.
         qs = self.model.quantities._by_name
 
-        def set_quantity_value(name, name_in_mat):
+        def set_quantity_value(name, name_in_mat=None):
+            name_in_mat = name_in_mat or name
             if name in qs:
                 v = Value()
+                v_was_set = False
                 for mat_name, mat in self.mat_of_mat_name.iteritems():
-                    v.set(mat_name, getattr(mat, name_in_mat))
-                qs[name].set_value(v)
+                    if hasattr(mat, name_in_mat):
+                        v_for_mat = getattr(mat, name_in_mat)
+
+                    elif name_in_mat in self._qs_from_material_setters:
+                        setter = self._qs_from_material_setters[name_in_mat]
+                        v_for_mat = setter(mat)
+
+                    else:
+                        continue
+
+                    v.set(mat_name, v_for_mat)
+                    v_was_set = True
+
+                if v_was_set:
+                    qs[name].set_value(v)
 
         set_quantity_value("M_sat", "Ms")
         set_quantity_value("gamma_GG", "llg_gamma_G")
         set_quantity_value("alpha", "llg_damping")
         set_quantity_value("norm_coeff", "llg_normalisationfactor")
-        set_quantity_value("exchange_factor", "exchange_factor")
+        set_quantity_value("exchange_factor")
         set_quantity_value("P", "llg_polarisation")
         set_quantity_value("xi", "llg_xi")
-        set_quantity_value("sl_P", "sl_P")
-        set_quantity_value("sl_d", "sl_d")
+        set_quantity_value("sl_P")
+        set_quantity_value("sl_d")
+        set_quantity_value("inv_alpha2")
 
     def _add_anis(self):
         # Now we run over the materials and create the anisotropy CCode
@@ -890,7 +911,7 @@ def _add_stt_sl(model, contexts, quantity_creator=None, do_sl_stt=False):
 
     model.add_computation(calc_sl_coeff)
 
-def _add_llg(model, contexts, quantity_creator=None):
+def _add_llg(model, contexts, quantity_creator=None, sim=None):
     if "llg" in contexts:
         return
     contexts.append("llg")
@@ -914,6 +935,31 @@ def _add_llg(model, contexts, quantity_creator=None):
     pin = qc(SpaceField, "pin", [], value=Value(1), unit=one)
     model.add_quantity(dmdt, H_total, H_ext, pin)
 
+    # We get this out from the LLG as the OCaml parser cannot deal with
+    # divisions (which becomes a problem when alpha is declared as a
+    # SpaceField). For now this is the easiest thing to do...
+    inv_alpha2 = qc(type(alpha), "inv_alpha2", subfields=True, unit=one)
+    model.add_quantity(inv_alpha2)
+
+    # If alpha is a constant, then we have to specify a function to set
+    # inv_alpha2 (which will also be a constant). If alpha is a SpaceField
+    # then we have to provide an equation to compute it.
+    # NOTE: In the end, we would like nsim.model to find out which quantities
+    #  the user did not define and whether they can be implicitly defined from
+    #  the equations he provided. These quantities should then be defined
+    #  automatically, choosing their type coherently with the RHS of the
+    #  defining equations. For now we do all this manually (this is not a lot
+    #  of work here, actually).
+    if isinstance(alpha, Constant):
+        def setter(mat):
+            return float(1.0/(1.0 + mat.llg_damping**2))
+        sim._qs_from_material_setters["inv_alpha2"] = setter
+
+    else:
+        eq_inv_alpha2 = \
+          Equation("eq_inv_alpha2", "inv_alpha2 <- 1/(1 + alpha*alpha);")
+        model.add_computation(eq_inv_alpha2)
+
     # Equation for the effective field H_total
     eq = "(H_total(i) <- H_ext(i) + H_exch(i) + H_demag(i) + H_anis(i))_(i:3);"
     eq_H_total = Equation("H_total", eq)
@@ -921,7 +967,7 @@ def _add_llg(model, contexts, quantity_creator=None):
     # Equation of motion
     eq = """
     (dmdt(i) <-
-    ((-gamma_GG/(1 + alpha*alpha))
+    ((-gamma_GG*inv_alpha2)
      *((eps(i,j,k)*m(j)*H_total(k))_(j:3, k:3)
         +alpha*(eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q))_(j:3,k:3,p:3,q:3))
      + norm_coeff*(1.0 - (m(j)*m(j))_(j:3))*m(i)
@@ -936,10 +982,11 @@ def _add_llg(model, contexts, quantity_creator=None):
     llg = Equation("llg", eq)
 
     # Equation for the Jacobian: we omit the third term on the RHS
-    eq = ("%range i:3, j:3, k:3, p:3, q:3; "
-          "dmdt(i) <- "
-          "(  (-gamma_GG/(1 + alpha*alpha))*(eps(i,j,k)*m(j)*H_total(k)"
-          " + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q)))*pin;")
+    eq = """%range i:3, j:3, k:3, p:3, q:3;
+      dmdt(i) <-
+        ((-gamma_GG*inv_alpha2)
+         *(  eps(i,j,k)*m(j)*H_total(k)
+           + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q)))*pin;"""
     llg_jacobi = Equation("llg-jacobi", eq, ocaml_to_parse=True)
 
 

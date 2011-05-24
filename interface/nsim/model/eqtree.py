@@ -550,6 +550,9 @@ class FloatNode(UnaryNode):
     def as_float(self, context=None):
         return self.data
 
+    def __str__(self):
+        return repr(self.data)
+
 
 class ParenthesisNode(ListNode):
     node_type = "Parenthesis"

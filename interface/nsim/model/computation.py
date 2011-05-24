@@ -160,7 +160,6 @@ class Equation(ParsedComputation):
             ccode = self.get_ccode(context=context)
             mwes_for_eq = self.get_inouts()
             print ccode
-            raw_input()
 
             return \
               nlam.lam_local(self.get_full_name(),
