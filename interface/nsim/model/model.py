@@ -489,6 +489,15 @@ class Model(object):
             c, i = ds[o]
             out.write("%s ==(%s)==> %s\n" % (i, c.name, o))
 
+    def write_debug_info(self, out=sys.stdout):
+        def write_section(s):
+            out.write("\n%s\n%s\n\n" % (s, len(s)*"-"))
+        write_section("Dependency tree:")
+        self.write_dependency_tree(out)
+        write_section("Equations:")
+        for computation in self.computations._all:
+            out.write("%s\n\n" % computation.get_desc())
+
     def _build_target_maker(self, target, primaries={}, targets_to_make=[]):
         assert self._was_built("DepTree"), \
           "The target-maker builder can be used only after building the " \

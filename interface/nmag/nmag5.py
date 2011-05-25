@@ -133,7 +133,7 @@ class Simulation(SimulationCore):
            "P": Constant,
            "xi": Constant,
            "alpha": Constant,
-           "M_sat": Constant,
+           "Ms": Constant,
            "exchange_factor": Constant}
 
         # Used by _set_qs_from_materials to set the Constant quantities to
@@ -204,6 +204,10 @@ class Simulation(SimulationCore):
                   do_reorder=False, manual_distribution=None):
         lg.info("Reading mesh from %s, unit_length is %s. "
                 % (filename, unit_length))
+
+        assert unit_length == SI(1e-9, "m"), \
+          ("Error in Simulation.load_mesh: Nmag5 only supports unit_length="
+          "SI(1e-9, \"m\") for now.")
 
         if self.mesh != None:
             raise NmagUserError("Mesh is already present!")
@@ -325,8 +329,8 @@ class Simulation(SimulationCore):
 
     def _set_qs_from_materials(self):
         # We now go through all the materials and build the initial values for
-        # the quantities corresponding to the various parameters, gamma_GG,
-        # alpha, M_sat, etc.
+        # the quantities corresponding to the various parameters, gamma_G,
+        # alpha, Ms, etc.
         qs = self.model.quantities._by_name
 
         def set_quantity_value(name, name_in_mat=None):
@@ -351,8 +355,8 @@ class Simulation(SimulationCore):
                 if v_was_set:
                     qs[name].set_value(v)
 
-        set_quantity_value("M_sat", "Ms")
-        set_quantity_value("gamma_GG", "llg_gamma_G")
+        set_quantity_value("Ms")
+        set_quantity_value("gamma_G", "llg_gamma_G")
         set_quantity_value("alpha", "llg_damping")
         set_quantity_value("norm_coeff", "llg_normalisationfactor")
         set_quantity_value("exchange_factor")
@@ -420,7 +424,12 @@ class Simulation(SimulationCore):
 
     def set_params(self, stopping_dm_dt=None,
                    ts_rel_tol=None, ts_abs_tol=None):
-        print "set_params NOT FULLY IMPLEMENTED, YET"
+        if stopping_dm_dt != None:
+            if not SI("1/s").is_compatible_with(stopping_dm_dt):
+                raise ValueError("The value given for stopping_dm_dt must "
+                                 "have units of SI(\"1/s\")!")
+            self.stopping_dm_dt = stopping_dm_dt
+
         ts = self.model.timesteppers["ts_llg"]
         ts.initialise(rtol=ts_rel_tol, atol=ts_abs_tol)
 
@@ -705,9 +714,9 @@ def _add_micromagnetics(model, contexts, quantity_creator=None):
 
     qc = quantity_creator or _default_qc
     m = qc(SpaceField, "m", [3], subfields=True, unit=SI(1))
-    M_sat = qc(Constant, "M_sat", subfields=True, unit=SI(1e6, "A/m"))
+    Ms = qc(Constant, "Ms", subfields=True, unit=SI(1e6, "A/m"))
     mu0_const = Constant("mu0", value=Value(mu0), unit=SI(1e-6, "N/A^2"))
-    model.add_quantity(m, M_sat, mu0_const)
+    model.add_quantity(m, Ms, mu0_const)
 
 def _add_exchange(model, contexts, quantity_creator=None):
     if "exch" in contexts:
@@ -720,13 +729,33 @@ def _add_exchange(model, contexts, quantity_creator=None):
     exchange_factor = qc(Constant, "exchange_factor", subfields=True,
                          unit=SI(1e-12, "m A"))
     H_exch = qc(SpaceField, "H_exch", [3], subfields=True, unit=H_unit)
+    model.add_quantity(exchange_factor, H_exch)
 
     # The exchange operator
-    op_str = "exchange_factor*<d/dxj H_exch(k)||d/dxj m(k)>, j:3,  k:3"
-    op_exch = Operator("exch", op_str, cofield_to_field=True)
+    if isinstance(exchange_factor, Constant):
+        # If exchange_factor is a constant, we can include it in the operator
+        # directly.
+        op_str = "exchange_factor*<d/dxj H_exch(k)||d/dxj m(k)>, j:3,  k:3"
+        op_exch = Operator("exch", op_str, cofield_to_field=True)
+        model.add_computation(op_exch)
 
-    model.add_quantity(exchange_factor, H_exch)
-    model.add_computation(op_exch)
+    else:
+        # If not we have to create an intermediate equation...
+        # NOTE: this is again something we would like nsim.model to do
+        #   automatically (cover OCaml's deficiencies) but for now it is
+        #   rather easy to do it this way.
+        raise NotImplementedError("Exchange factor can only be a constant "
+                                  "for now...")
+        H_exch_tmp = qc(SpaceField, "H_exch_tmp", [3], subfields=True,
+                        unit=H_unit)
+        op_str = "<d/dxj H_exch_tmp(k)||d/dxj m(k)>, j:3,  k:3"
+        op_exch = Operator("exch", op_str, cofield_to_field=True)
+        eq_exch_tmp = \
+          Equation("H_exch",
+                   "(H_exch(i) <- exchange_factor*H_exch_tmp(i))_(i:3);")
+        model.add_quantity(H_exch_tmp)
+        model.add_computation(op_exch, eq_exch_tmp)
+
 
 def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
     qc = quantity_creator or _default_qc
@@ -751,8 +780,22 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
     model.add_quantity(H_demag, phi1b, phi2b, *(phis + rhos))
 
     # Operators for the demag
-    op_div_m = Operator("div_m", "  M_sat*<rho||d/dxj m(j)>"
-                                 "+ M_sat*<rho||D/Dxj m(j)>, j:3")
+    Ms = model.quantities["Ms"]
+    if isinstance(Ms, Constant):
+        op_div_m = Operator("div_m", "  Ms*<rho||d/dxj m(j)>"
+                                     "+ Ms*<rho||D/Dxj m(j)>, j:3")
+    else:
+        #raise NotImplementedError("Ms can only be a constant for now...")
+        assert isinstance(Ms, SpaceField), \
+          "Ms can be either a Constant or a SpaceField for now!"
+        rho_tmp = qc(SpaceField, "rho_tmp", [], subfields=True,
+                     unit=SI("A/m^2"))
+        op_div_m = Operator("div_m", "  <rho_tmp||d/dxj m(j)>"
+                                     "+ <rho_tmp||D/Dxj m(j)>, j:3")
+        eq_rho = Equation("eq_rho", "rho <- Ms*rho_tmp;")
+        model.add_quantity(rho_tmp)
+        model.add_computation(eq_rho)
+
     op_neg_laplace_phi = \
       Operator("neg_laplace_phi", "<d/dxj rho || d/dxj phi>, j:3",
                mat_opts=["MAT_SYMMETRIC", "MAT_SYMMETRY_ETERNAL"])
@@ -785,7 +828,8 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
     bem = BEM("BEM", mwe_name="phi", dof_name="phi")
 
     # The LAM program for the demag
-    commands=[["SM*V", op_div_m, "v_m", "v_rho"],
+    commands=[["SM*V", op_div_m, "v_m", "v_rho_tmp"],
+              ["GOSUB", eq_rho.get_prog_name()],
               ["SCALE", "v_rho", -1.0],
               ["SOLVE", ksp_solve_neg_laplace_phi, "v_rho", "v_phi1"],
               ["PULL-FEM", "phi", "phi[outer]", "v_phi1", "v_phi1b"],
@@ -840,7 +884,7 @@ def _add_stt_zl(model, contexts, quantity_creator=None):
 
     # Derivative of m with respect to direction of the current (mul by factor)
     eq = ("(dm_dcurrent(i) <-"
-          "   (-mu_B/(e*M_sat*(1.0 + xi*xi)*(1.0 + alpha*alpha)))"
+          "   (-mu_B/(e*Ms*(1.0 + xi*xi)*(1.0 + alpha*alpha)))"
           "   * (grad_m(i, j)*current_density(j))_(j:3))_(i:3);")
     eq_dm_dcurrent = Equation("dm_dcurrent", eq)
 
@@ -885,8 +929,8 @@ def _add_stt_sl(model, contexts, quantity_creator=None, do_sl_stt=False):
     model.add_quantity(sl_coeff)
 
     #eq = """
-    #sl_coeff <- gamma_GG*M_sat/(1.0 + alpha*alpha)
-    #            * sl_current_density/(mu0*M_sat*M_sat*e*sl_d/hbar)
+    #sl_coeff <- gamma_G*Ms/(1.0 + alpha*alpha)
+    #            * sl_current_density/(mu0*Ms*Ms*e*sl_d/hbar)
     #            * 4.0/(sl_Pf*sl_Pf*sl_Pf
     #                   * (3.0 + m(0)*sl_fix(0)
     #                          + m(1)*sl_fix(1)
@@ -899,8 +943,8 @@ def _add_stt_sl(model, contexts, quantity_creator=None, do_sl_stt=False):
        "       P_factor3 = 4.0*P_factor1*P_factor1*P_factor1,\n"
        "       alpha = $alpha$, alpha2 = alpha*alpha;\n"
        "$sl_coeff$ = \n"
-       "  $gamma_GG$/(1.0 + alpha2)\n"
-       "  * $sl_current_density$/($mu0$*$M_sat$*$e$*$sl_d$/$hbar$)\n"
+       "  $gamma_G$/(1.0 + alpha2)\n"
+       "  * $sl_current_density$/($mu0$*$Ms$*$e$*$sl_d$/$hbar$)\n"
        "  * P_factor3/((3.0 + $m(0)$*$sl_fix(0)$\n"
        "                    + $m(1)$*$sl_fix(1)$\n"
        "                    + $m(2)$*$sl_fix(2)$)\n"
@@ -923,10 +967,10 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
     invt_unit = 1/t_unit
 
     # Create the LLG constants
-    gamma_GG = qc(Constant, "gamma_GG", subfields=True, unit=SI(1e6, "m/A s"))
+    gamma_G = qc(Constant, "gamma_G", subfields=True, unit=SI(1e6, "m/A s"))
     alpha = qc(Constant, "alpha", subfields=True, unit=one)
     norm_coeff = qc(Constant, "norm_coeff", subfields=True, unit=invt_unit)
-    model.add_quantity(gamma_GG, alpha, norm_coeff)
+    model.add_quantity(gamma_G, alpha, norm_coeff)
 
     # Create some fields required for the dynamics
     dmdt = qc(SpaceField, "dmdt", [3], subfields=True, unit=invt_unit)
@@ -956,6 +1000,8 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
         sim._qs_from_material_setters["inv_alpha2"] = setter
 
     else:
+        assert isinstance(alpha, SpaceField), \
+          "alpha can either be a Constant or a SpaceField"
         eq_inv_alpha2 = \
           Equation("eq_inv_alpha2", "inv_alpha2 <- 1/(1 + alpha*alpha);")
         model.add_computation(eq_inv_alpha2)
@@ -967,7 +1013,7 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
     # Equation of motion
     eq = """
     (dmdt(i) <-
-    ((-gamma_GG*inv_alpha2)
+    ((-gamma_G*inv_alpha2)
      *((eps(i,j,k)*m(j)*H_total(k))_(j:3, k:3)
         +alpha*(eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q))_(j:3,k:3,p:3,q:3))
      + norm_coeff*(1.0 - (m(j)*m(j))_(j:3))*m(i)
@@ -984,7 +1030,7 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
     # Equation for the Jacobian: we omit the third term on the RHS
     eq = """%range i:3, j:3, k:3, p:3, q:3;
       dmdt(i) <-
-        ((-gamma_GG*inv_alpha2)
+        ((-gamma_G*inv_alpha2)
          *(  eps(i,j,k)*m(j)*H_total(k)
            + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q)))*pin;"""
     llg_jacobi = Equation("llg-jacobi", eq, ocaml_to_parse=True)
@@ -1016,13 +1062,13 @@ def _add_energies(model, contexts, quantity_creator=None):
     E_total = qc(SpaceField, "E_total", subfields=True, unit=E_unit)
     model.add_quantity(E_demag, E_exch, E_ext, E_total)
 
-    eq = "E_demag <- -0.5*mu0*M_sat*(m(i)*H_demag(i))_(i:3);"
+    eq = "E_demag <- -0.5*mu0*Ms*(m(i)*H_demag(i))_(i:3);"
     en_demag = Equation("en_demag", eq)
 
-    eq = "E_exch <- -0.5*mu0*M_sat*(m(i)*H_exch(i))_(i:3);"
+    eq = "E_exch <- -0.5*mu0*Ms*(m(i)*H_exch(i))_(i:3);"
     en_exch = Equation("en_exch", eq)
 
-    eq = "E_ext <- -mu0*M_sat*(m(i)*H_ext(i))_(i:3);"
+    eq = "E_ext <- -mu0*Ms*(m(i)*H_ext(i))_(i:3);"
     en_ext = Equation("en_ext", eq)
 
     eq = "E_total <- E_demag + E_exch + E_ext + E_anis;"

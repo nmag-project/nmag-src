@@ -52,6 +52,9 @@ class Computation(ModelObj):
         ins, outs = self.get_inputs_and_outputs(context=context)
         return ins + outs
 
+    def get_desc(self):
+        return "%s(%s):" % (self.type_str, self.name)
+
 
 def _expand_commands(cmds):
     def _expand_arg(arg):
@@ -80,6 +83,11 @@ class LAMProgram(Computation):
         """Execute the LAMProgram."""
         ocaml.lam_execute(self.get_lam(), self.get_prog_name(),
                           fields, cofields)
+
+    def get_desc(self):
+        program_desc = "\n  ".join(map(str, self.commands))
+        return "%s\nLAM program:\n  %s" \
+          % (Computation.get_desc(self), program_desc)
 
 
 class ParsedComputation(LAMProgram):
@@ -113,6 +121,13 @@ class ParsedComputation(LAMProgram):
         if self.final_ccode == None:
             self.final_ccode = self.simplified_tree.get_ccode()
         return self.final_ccode
+
+    def get_desc(self):
+        """Mostly used for debugging."""
+        return LAMProgram.get_desc(self) + "\n" + \
+          ("C-Code: '%s'" % self.final_ccode if self.final_ccode != None else
+           "Expanded: '%s'" % self.final_text if self.final_text != None
+           else "Not evaluated")
 
     def get_inputs_and_outputs(self, context=None):
         """Get the input and output quantities involved in the computation.
