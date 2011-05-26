@@ -134,6 +134,7 @@ class Simulation(SimulationCore):
            "xi": Constant,
            "alpha": Constant,
            "Ms": Constant,
+           "gamma_G": Constant,
            "exchange_factor": Constant}
 
         # Used by _set_qs_from_materials to set the Constant quantities to
@@ -744,8 +745,8 @@ def _add_exchange(model, contexts, quantity_creator=None):
         # NOTE: this is again something we would like nsim.model to do
         #   automatically (cover OCaml's deficiencies) but for now it is
         #   rather easy to do it this way.
-        raise NotImplementedError("Exchange factor can only be a constant "
-                                  "for now...")
+        #raise NotImplementedError("Exchange factor can only be a constant "
+        #                          "for now...")
         H_exch_tmp = qc(SpaceField, "H_exch_tmp", [3], subfields=True,
                         unit=H_unit)
         op_str = "<d/dxj H_exch_tmp(k)||d/dxj m(k)>, j:3,  k:3"
@@ -780,10 +781,15 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
     model.add_quantity(H_demag, phi1b, phi2b, *(phis + rhos))
 
     # Operators for the demag
+    # NOTE: this is again a temporary hack to deliver the exchange extension
+    #   in time to the collaborators.
     Ms = model.quantities["Ms"]
     if isinstance(Ms, Constant):
         op_div_m = Operator("div_m", "  Ms*<rho||d/dxj m(j)>"
                                      "+ Ms*<rho||D/Dxj m(j)>, j:3")
+        command_adjust_rho = ["SCALE", "v_rho", -1.0]
+        op_div_m_dest = "v_rho"
+
     else:
         #raise NotImplementedError("Ms can only be a constant for now...")
         assert isinstance(Ms, SpaceField), \
@@ -792,9 +798,11 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
                      unit=SI("A/m^2"))
         op_div_m = Operator("div_m", "  <rho_tmp||d/dxj m(j)>"
                                      "+ <rho_tmp||D/Dxj m(j)>, j:3")
-        eq_rho = Equation("eq_rho", "rho <- Ms*rho_tmp;")
+        eq_rho = Equation("eq_rho", "rho <- -Ms*rho_tmp;")
         model.add_quantity(rho_tmp)
         model.add_computation(eq_rho)
+        command_adjust_rho = ["GOSUB", eq_rho.get_prog_name()]
+        op_div_m_dest = "v_rho_tmp"
 
     op_neg_laplace_phi = \
       Operator("neg_laplace_phi", "<d/dxj rho || d/dxj phi>, j:3",
@@ -828,9 +836,8 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
     bem = BEM("BEM", mwe_name="phi", dof_name="phi")
 
     # The LAM program for the demag
-    commands=[["SM*V", op_div_m, "v_m", "v_rho_tmp"],
-              ["GOSUB", eq_rho.get_prog_name()],
-              ["SCALE", "v_rho", -1.0],
+    commands=[["SM*V", op_div_m, "v_m", op_div_m_dest],
+              command_adjust_rho,
               ["SOLVE", ksp_solve_neg_laplace_phi, "v_rho", "v_phi1"],
               ["PULL-FEM", "phi", "phi[outer]", "v_phi1", "v_phi1b"],
               ["DM*V", bem, "v_phi1b", "v_phi2b"],
@@ -1007,8 +1014,22 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
         model.add_computation(eq_inv_alpha2)
 
     # Equation for the effective field H_total
-    eq = "(H_total(i) <- H_ext(i) + H_exch(i) + H_demag(i) + H_anis(i))_(i:3);"
-    eq_H_total = Equation("H_total", eq)
+    split_exch = not isinstance(model.quantities["exchange_factor"], Constant)
+    if split_exch:
+        # Again some dirt...
+        H_rest = qc(SpaceField, "H_rest", [3], subfields=True, unit=H_unit)
+        eq = "(H_rest(i) <- H_ext(i) + H_demag(i) + H_anis(i))_(i:3);"
+        eq_H_rest = Equation("H_rest", eq)
+        eq = "(H_total(i) <- H_rest(i) + H_exch(i))_(i:3);"
+        eq_H_total = Equation("H_total", eq)
+        model.add_computation(eq_H_total, eq_H_rest)
+        model.add_quantity(H_rest)
+
+    else:
+        eq = ("(H_total(i) <- "
+              " H_ext(i) + H_exch(i) + H_demag(i) + H_anis(i))_(i:3);")
+        eq_H_total = Equation("H_total", eq)
+        model.add_computation(eq_H_total)
 
     # Equation of motion
     eq = """
@@ -1024,25 +1045,42 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
        *(  alpha*(eps(i,j,k)*m(j)*sl_fix(k))_(j:3,k:3)
          + (eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*sl_fix(q))_(j:3,k:3,p:3,q:3))
     )*pin)_(i:3);"""
-
     llg = Equation("llg", eq)
+    model.add_computation(llg)
 
-    # Equation for the Jacobian: we omit the third term on the RHS
-    eq = """%range i:3, j:3, k:3, p:3, q:3;
-      dmdt(i) <-
-        ((-gamma_G*inv_alpha2)
-         *(  eps(i,j,k)*m(j)*H_total(k)
-           + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q)))*pin;"""
-    llg_jacobi = Equation("llg-jacobi", eq, ocaml_to_parse=True)
-
-
-    # llg_jacobi doesn't need to be added as it is only used by the
-    # timestepper to compute the jacobian
-    model.add_computation(llg, eq_H_total)
 
     # Timestepper
+
+    # Define the equation for the Jacobian. This is still done using the old
+    # OCaml parser. XXX NOTE: We have to do some acrobacies and bend around
+    # the limitations of the OCaml framework. We'll later compute the Jacobian
+    # from Python, and will be able to remove some portions of ugly code
+    # NOTE: we omit the third term on the RHS, the STT and others. Should get
+    #   back and see whether including the other is possible/advisable.
     op_exch = model.computations._by_name.get("exch", None)
-    derivatives = [(H_total, op_exch)] if op_exch != None else None
+    if split_exch:
+        eq = """%range i:3, j:3, k:3, p:3, q:3;
+          dmdt(i) <-
+            (-gamma_G*inv_alpha2)
+            *(  eps(i,j,k)*m(j)*(H_rest(k) + exchange_factor*H_exch_tmp(k))
+              + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)
+                *(H_rest(q) + exchange_factor*H_exch_tmp(q)))*pin;"""
+        llg_jacobi = Equation("llg-jacobi", eq, ocaml_to_parse=True)
+        H_exch_tmp = model.quantities["H_exch_tmp"]
+        derivatives = [(H_exch_tmp, op_exch)] if op_exch != None else None
+
+    else:
+        eq = """%range i:3, j:3, k:3, p:3, q:3;
+          dmdt(i) <-
+            (-gamma_G*inv_alpha2)
+            *(  eps(i,j,k)*m(j)*H_total(k)
+              + alpha*eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*H_total(q))*pin;"""
+        llg_jacobi = Equation("llg-jacobi", eq, ocaml_to_parse=True)
+        derivatives = [(H_total, op_exch)] if op_exch != None else None
+
+    # ^^^ llg_jacobi doesn't need to be added as it is only used by the
+    # timestepper to compute the jacobian
+
     ts = Timestepper("ts_llg", x="m", dxdt="dmdt",
                      eq_for_jacobian=llg_jacobi,
                      derivatives=derivatives,
