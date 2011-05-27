@@ -372,7 +372,7 @@ class UniaxialAnisotropy(Anisotropy):
           ("double a0 = $axis(0)$, a1 = $axis(1)$, a2 = $axis(2)$,\n"
            "       cs = $m(0)$*a0 + $m(1)$*a1 + $m(2)$*a2,\n"
            "       cs3 = cs*cs*cs,\n"
-           "       factor = (2*$K1$*cs + 4*$K2$*cs3)/($mu0$*$M_sat$);\n"
+           "       factor = (2*$K1$*cs + 4*$K2$*cs3)/($mu0$*$Ms$);\n"
            "$H_anis(0)$ $OP$ factor*a0;\n"
            "$H_anis(1)$ $OP$ factor*a1;\n"
            "$H_anis(2)$ $OP$ factor*a2;\n")
@@ -413,7 +413,7 @@ class CubicAnisotropy(Anisotropy):
           ("double a10 = $axis(0)$, a11 = $axis(1)$, a12 = $axis(2)$,\n"
            "       cs = $m(0)$*a0 + $m(1)$*a1 + $m(2)$*a2,\n"
            "       cs3 = cs*cs*cs,\n"
-           "       factor = (2*$K1$*cs + 4*$K2$*cs3)/($mu0$*$M_sat$);\n"
+           "       factor = (2*$K1$*cs + 4*$K2$*cs3)/($mu0$*$Ms$);\n"
            "$H_anis(0)$ $OP$ factor*a0;\n"
            "$H_anis(1)$ $OP$ factor*a1;\n"
            "$H_anis(2)$ $OP$ factor*a2;\n")

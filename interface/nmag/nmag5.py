@@ -1,5 +1,5 @@
 # Nmag micromagnetic simulator
-# Copyright (C) 2010 University of Southampton
+# Copyright (C) 2010, 2011 University of Southampton
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
 #
 # WEB:     http://nmag.soton.ac.uk
@@ -389,7 +389,7 @@ class Simulation(SimulationCore):
                        "Anisotropy._define_quantities from your custom "
                        "_define_quantities method?")
 
-                self.model.add_quantity(a.quantities._all)
+                self.model.add_quantity(*a.quantities._all)
 
                 # Now we add the anisotropy C code to the CCode object
                 set_H_anis.append(a.get_H_equation(), materials=mat)

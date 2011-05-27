@@ -164,8 +164,6 @@ class Equation(ParsedComputation):
         if self.ocaml_to_parse:
             eq_text = self.get_text(context=context)
             mwes_for_eq = self.get_inouts()
-            print eq_text
-            raw_input()
             return \
               nlam.lam_local(self.get_full_name(),
                              aux_args=intensive_params,
@@ -174,8 +172,6 @@ class Equation(ParsedComputation):
         else:
             ccode = self.get_ccode(context=context)
             mwes_for_eq = self.get_inouts()
-            print ccode
-
             return \
               nlam.lam_local(self.get_full_name(),
                              aux_args=intensive_params,
