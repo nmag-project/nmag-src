@@ -1277,7 +1277,8 @@ let ccpla_ksp_create
 	      let mns_name = Printf.sprintf "%s_nullspace" name in
 		(* NOTE: vecs will be ignored for now! *)
 		begin
-		  push_parallel (DCOM_matnullspace_create (mns_name,has_constant,vecs));
+                  push_parallel (DCOM_matnullspace_create (mns_name, has_constant, vecs));
+                  push_parallel (DCOM_ksp_set_matnullspace (the_ksp, (DRH mns_name)));
 		  let the_mns = DRH mns_name in
 		  let () = Gc.finalise
 		    (fun drh ->
