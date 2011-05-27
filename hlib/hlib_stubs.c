@@ -528,7 +528,6 @@ CAMLprim value caml_hlib_raw_make_hmatrix(value ml_vertices,
 {
   CAMLparam5(ml_vertices, ml_triangles, ml_edges, ml_triangle_edges, ml_args);
   hmatrix_interna *hmatrix;
-  timemeasurement_t tm;
   int  algorithm =    Int_val(Field(ml_args, 0)),
            nfdeg =    Int_val(Field(ml_args, 1)),
             nmin =    Int_val(Field(ml_args, 2));
@@ -543,7 +542,6 @@ CAMLprim value caml_hlib_raw_make_hmatrix(value ml_vertices,
   DEBUGMSG("algorithm=%d, eta=%f, kmax=%d, eps_aca=%f, eps=%f.\n",
            algorithm, eta, kmax, eps_aca, eps);
 
-  take_time_measurement(& tm, 0);
   if(algorithm > 1 && algorithm != 5)
     kmax = p*p*p;
 
@@ -596,11 +594,6 @@ CAMLprim value caml_hlib_raw_make_hmatrix(value ml_vertices,
   CAMLlocal1(block);
   block = alloc_final(2, finalize_hmatrix, sizeof(void*), 10*sizeof(void*));
   Store_c_field(block, 1, hmatrix);
-
-  DEBUGMSG("Writing out statistics...\n"); /* XXX NOTE: All this should go  */
-  take_time_measurement(& tm, 1);          /* somewhere else at some point! */
-  fprint_time_measurement("timing.dat", & tm);
-  fprint_memory_info("memory_info.dat", hmatrix, stderr);
 
   DEBUGMSG("caml_hlib_raw_make_hmatrix: returning!\n");
   CAMLreturn(block);
