@@ -53,8 +53,8 @@ def test_simplify():
                ("a <- 1*(0.5 + b - (5 - 4)/2);", "a <- b;"),
                ("a <- -1*-1;", "a <- 1.0;"),
                ("a <- --1;", "a <- 1.0;"),
-               ("a <- +b/(2*5);", "a <- 0.1*b;"),
-               ("a <- -b/(2*5);", "a <- -0.1*b;")] # need to fix this
+               ("a <- +b/(2*4);", "a <- 0.125*b;"),
+               ("a <- -b/(2*4);", "a <- -0.125*b;")] # need to fix this
     for string, result in strings:
         my_result = str(parse(string).simplify()).replace("\n", "")
         assert my_result == result, ("Simplified of '%s' is '%s', but '%s' "
@@ -85,9 +85,9 @@ def test_simplify_quantities():
 def test_llg():
     print "Testing LLG single material"
     from quantity import Constant, SpaceField, Quantities
-    C1 = Constant("C1", subfields=False, value=Value(-0.17688))
-    C2 = Constant("C2", subfields=False, value=Value(-0.08844))
-    C3 = Constant("C3", subfields=False, value=Value(0.1))
+    C1 = Constant("C1", subfields=False, value=Value(-0.125))
+    C2 = Constant("C2", subfields=False, value=Value(-0.0625))
+    C3 = Constant("C3", subfields=False, value=Value(0.25))
     C4 = Constant("C4", subfields=False, value=Value(0.0))
     C5 = Constant("C5", subfields=False, value=Value(0.0))
     m = SpaceField("m", [3], subfields=True)
@@ -107,10 +107,10 @@ def test_llg():
                + C5 * eps(i,j,k) * m(j) * dm_dcurrent(k) * pin;"""
 
     result = ("%range i:3, j:3, k:3, p:3, q:3;"
-              "dmdt_Py(i) <- -0.17688 * eps(i,j,k) * m_Py(j) * H_total_Py(k) * pin "
-              "+ -0.08844 * eps(i,j,k) * m_Py(j) * eps(k,p,q) * m_Py(p) "
+              "dmdt_Py(i) <- -0.125 * eps(i,j,k) * m_Py(j) * H_total_Py(k) * pin "
+              "+ -0.0625 * eps(i,j,k) * m_Py(j) * eps(k,p,q) * m_Py(p) "
               "  * H_total_Py(q) * pin "
-              "+ 0.1 * (1.0 - m_Py(j)*m_Py(j)) * m_Py(i) * pin;")
+              "+ 0.25 * (1.0 - m_Py(j)*m_Py(j)) * m_Py(i) * pin;")
 
     context = EqSimplifyContext(quantities=quantities, material='Py')
     parse_tree = parse(eq_rhs).simplify(context=context)
@@ -123,9 +123,9 @@ def test_llg():
 def test_llg_multimaterial():
     print "Testing LLG multi-material"
     from quantity import Constant, SpaceField, Quantities
-    C1 = Constant("C1", subfields=False, value=Value(-0.17681384))
-    C2 = Constant("C2", subfields=False, value=Value(-0.08840692))
-    C3 = Constant("C3", subfields=False, value=Value(0.1))
+    C1 = Constant("C1", subfields=False, value=Value(-0.125))
+    C2 = Constant("C2", subfields=False, value=Value(-0.0625))
+    C3 = Constant("C3", subfields=False, value=Value(0.25))
     C4 = Constant("C4", subfields=False, value=Value(0.0))
     C5 = Constant("C5", subfields=False, value=Value(0.0))
     m = SpaceField("m", [3], subfields=True)
@@ -145,14 +145,14 @@ def test_llg_multimaterial():
 
     result = condensed_string("""%range i:3, j:3, k:3, p:3, q:3;
       dmdt_Py(i) <-
-          -0.17681384*eps(i,j,k)*m_Py(j)*H_total_Py(k)*pin
-        + -0.08840692*eps(i,j,k)*m_Py(j)*eps(k,p,q)*m_Py(p)*H_total_Py(q)*pin
-        + 0.1*(1.0 - m_Py(j)*m_Py(j))*m_Py(i)*pin;
+          -0.125*eps(i,j,k)*m_Py(j)*H_total_Py(k)*pin
+        + -0.0625*eps(i,j,k)*m_Py(j)*eps(k,p,q)*m_Py(p)*H_total_Py(q)*pin
+        + 0.25*(1.0 - m_Py(j)*m_Py(j))*m_Py(i)*pin;
 
       dmdt_Co(i) <-
-          -0.17681384*eps(i,j,k)*m_Co(j)*H_total_Co(k)*pin
-        + -0.08840692*eps(i,j,k)*m_Co(j)*eps(k,p,q)*m_Co(p)*H_total_Co(q)*pin
-        + 0.1*(1.0 - m_Co(j)*m_Co(j))*m_Co(i)*pin;""")
+          -0.125*eps(i,j,k)*m_Co(j)*H_total_Co(k)*pin
+        + -0.0625*eps(i,j,k)*m_Co(j)*eps(k,p,q)*m_Co(p)*H_total_Co(q)*pin
+        + 0.25*(1.0 - m_Co(j)*m_Co(j))*m_Co(i)*pin;""")
 
     context = EqSimplifyContext(quantities=quantities, material=['Py', 'Co'])
     parse_tree = parse(eq_rhs).simplify(context=context)

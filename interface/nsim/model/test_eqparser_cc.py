@@ -11,9 +11,9 @@ def compare_strings(s1, s2):
 def test_llg():
     print "Testing LLG single material"
     from quantity import Constant, SpaceField, Quantities
-    C1 = Constant("C1", subfields=False, value=Value(-0.17688))
-    C2 = Constant("C2", subfields=False, value=Value(-0.08844))
-    C3 = Constant("C3", subfields=False, value=Value(0.1))
+    C1 = Constant("C1", subfields=False, value=Value(-0.125))
+    C2 = Constant("C2", subfields=False, value=Value(-0.0625))
+    C3 = Constant("C3", subfields=False, value=Value(0.25))
     C4 = Constant("C4", subfields=False, value=Value(0.0))
     C5 = Constant("C5", subfields=False, value=Value(0.0))
     m = SpaceField("m", [3], subfields=True)
@@ -38,41 +38,15 @@ def test_llg():
     #eq_rhs = """dmdt(0) <- (-m(i))_(i:3);"""
 
     eq_ccode = """
- if(have_dmdt_a){
-   dmdt_a(0) = (0.1)*m_a(0)*pin
-            +(-0.176814)*H_total_a(2)*m_a(1)*pin
-            +(0.176814)*H_total_a(1)*m_a(2)*pin
-            +(-0.1)*m_a(0)*m_a(0)*m_a(0)*pin
-            +(-0.1)*m_a(0)*m_a(1)*m_a(1)*pin
-            +(-0.1)*m_a(0)*m_a(2)*m_a(2)*pin
-            +(-0.0884069)*H_total_a(1)*m_a(0)*m_a(1)*pin
-            +(-0.0884069)*H_total_a(2)*m_a(0)*m_a(2)*pin
-            +(0.0884069)*H_total_a(0)*m_a(1)*m_a(1)*pin
-            +(0.0884069)*H_total_a(0)*m_a(2)*m_a(2)*pin+0.0;
-   dmdt_a(1) = (0.1)*m_a(1)*pin
-            +(-0.176814)*H_total_a(0)*m_a(2)*pin
-            +(0.176814)*H_total_a(2)*m_a(0)*pin
-            +(-0.1)*m_a(0)*m_a(0)*m_a(1)*pin
-            +(-0.1)*m_a(1)*m_a(1)*m_a(1)*pin
-            +(-0.1)*m_a(1)*m_a(2)*m_a(2)*pin
-            +(-0.0884069)*H_total_a(0)*m_a(0)*m_a(1)*pin
-            +(-0.0884069)*H_total_a(2)*m_a(1)*m_a(2)*pin
-            +(0.0884069)*H_total_a(1)*m_a(0)*m_a(0)*pin
-            +(0.0884069)*H_total_a(1)*m_a(2)*m_a(2)*pin+0.0;
-   dmdt_a(2) = (0.1)*m_a(2)*pin
-            +(-0.176814)*H_total_a(1)*m_a(0)*pin
-            +(0.176814)*H_total_a(0)*m_a(1)*pin
-            +(-0.1)*m_a(0)*m_a(0)*m_a(2)*pin
-            +(-0.1)*m_a(1)*m_a(1)*m_a(2)*pin
-            +(-0.1)*m_a(2)*m_a(2)*m_a(2)*pin
-            +(-0.0884069)*H_total_a(0)*m_a(0)*m_a(2)*pin
-            +(-0.0884069)*H_total_a(1)*m_a(1)*m_a(2)*pin
-            +(0.0884069)*H_total_a(2)*m_a(0)*m_a(0)*pin
-            +(0.0884069)*H_total_a(2)*m_a(1)*m_a(1)*pin+0.0;
- }
-"""
-
-    eq_ccode = ("")
+    if (have_dmdt_a) {
+      dmdt_a(0) = (-0.125*(m_a(1)*H_total_a(2) + -1.0*m_a(2)*H_total_a(1)) + -0.0625*(m_a(1)*m_a(0)*H_total_a(1) + -1.0*m_a(1)*m_a(1)*H_total_a(0) + m_a(2)*m_a(0)*H_total_a(2) + -1.0*m_a(2)*m_a(2)*H_total_a(0)) + 0.25*(1.0 - (m_a(0)*m_a(0) + m_a(1)*m_a(1) + m_a(2)*m_a(2)))*m_a(0))*pin;
+    };
+    if (have_dmdt_a) {
+      dmdt_a(1) = (-0.125*(-1.0*m_a(0)*H_total_a(2) + m_a(2)*H_total_a(0)) + -0.0625*(-1.0*m_a(0)*m_a(0)*H_total_a(1) + m_a(0)*m_a(1)*H_total_a(0) + m_a(2)*m_a(1)*H_total_a(2) + -1.0*m_a(2)*m_a(2)*H_total_a(1)) + 0.25*(1.0 - (m_a(0)*m_a(0) + m_a(1)*m_a(1) + m_a(2)*m_a(2)))*m_a(1))*pin;
+    };
+    if (have_dmdt_a) {
+      dmdt_a(2) = (-0.125*(m_a(0)*H_total_a(1) + -1.0*m_a(1)*H_total_a(0)) + -0.0625*(-1.0*m_a(0)*m_a(0)*H_total_a(2) + m_a(0)*m_a(2)*H_total_a(0) + -1.0*m_a(1)*m_a(1)*H_total_a(2) + m_a(1)*m_a(2)*H_total_a(1)) + 0.25*(1.0 - (m_a(0)*m_a(0) + m_a(1)*m_a(1) + m_a(2)*m_a(2)))*m_a(2))*pin;
+    };"""
 
     context = EqSimplifyContext(quantities=quantities, material='a')
     context.expand_indices = True
