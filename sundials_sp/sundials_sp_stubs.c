@@ -118,7 +118,7 @@ static char *init_sundials(char *path_nvecserial,
 
 
   libsundials_nvec_serial = dlopen(path_nvecserial, RTLD_NOW);
-  
+
   if(libsundials_nvec_serial == (void *) 0) {
     return "cannot dlopen() libsundials_nvecserial!";
   }

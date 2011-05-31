@@ -539,7 +539,16 @@ configuration["CFLAGS_ARCH"] = CFLAGS
 configuration["NSIM_CFLAGS"] = CFLAGS
 
 if os.uname()[0] == 'FreeBSD':
-	configuration["MISSINGFLAGS"] = ' -L/usr/local/lib -L/usr/local/petsc/lib/freebsd -lpetsc -lpetscdm -lpetscsnes -lpetscts -lpetscksp -lpetscvec -lpetscmat -lmetis -lparmetis -L/usr/local/lib/parmetis -lumfpack -llapack -lX11 -lamd -lmpi -lmpi_f77 -L/usr/local/mpi/openmpi/lib -lblas'
+    configuration["MISSINGFLAGS"] = \
+      (' -L/usr/local/petsc/lib/freebsd -lmpi '
+       '-L/usr/local/mpi/openmpi/lib -lX11 -L/usr/local/lib -lblas '
+       '-L/usr/local/lib/ocaml/ -L/usr/lib/ocaml -lbigarray '
+       '-L../mpi_petsc -lmpi_petsc_stubs '
+       '-L/usr/local/lib -L/usr/local/petsc/lib/freebsd '
+       '-lpetsc -lpetscdm -lpetscsnes -lpetscts -lpetscksp -lpetscvec '
+       '-lpetscmat -lmetis -lparmetis -L/usr/local/lib/parmetis '
+       '-lumfpack -llapack -lX11 -lamd -lmpi -lmpi_f77 '
+       '-L/usr/local/mpi/openmpi/lib -lblas ')
 
 #----------------------------------------------------------------------------
 # We finally write the configuration to file(s): we produce four files
