@@ -528,7 +528,8 @@ class Simulation(SimulationCore):
         # XXX NOTE NOTE NOTE:
         # Temporary fix for the dependency deficiencies of Nmag5
         # (to be solved in a better way)
-        for en in ["en_demag", "en_exch", "en_ext", "set_E_anis", "en_total"]:
+        for en in ["en_demag", "en_exch", "en_ext", "set_E_anis", "en_total",
+                   "eq_M"]:
             if en in self.model.computations:
                 self.model.computations[en].execute()
         return SimulationCore._save_averages(self, *args, **named_args)
@@ -715,9 +716,13 @@ def _add_micromagnetics(model, contexts, quantity_creator=None):
 
     qc = quantity_creator or _default_qc
     m = qc(SpaceField, "m", [3], subfields=True, unit=SI(1))
+    M = qc(SpaceField, "M", [3], subfields=True, unit=H_unit)
     Ms = qc(Constant, "Ms", subfields=True, unit=SI(1e6, "A/m"))
     mu0_const = Constant("mu0", value=Value(mu0), unit=SI(1e-6, "N/A^2"))
-    model.add_quantity(m, Ms, mu0_const)
+    model.add_quantity(m, M, Ms, mu0_const)
+
+    eq = Equation("eq_M", "(M(i) <- Ms*m(i))_(i:3);")
+    model.add_computation(eq)
 
 def _add_exchange(model, contexts, quantity_creator=None):
     if "exch" in contexts:
@@ -799,6 +804,8 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
         op_div_m = Operator("div_m", "  <rho_tmp||d/dxj m(j)>"
                                      "+ <rho_tmp||D/Dxj m(j)>, j:3")
         eq_rho = Equation("eq_rho", "rho <- -Ms*rho_tmp;")
+        # ^^^ NOTE XXX: the line above works only with one material!!!
+        #     FIXME! (need explicit material sums)
         model.add_quantity(rho_tmp)
         model.add_computation(eq_rho)
         command_adjust_rho = ["GOSUB", eq_rho.get_prog_name()]
