@@ -444,15 +444,9 @@ if not pyconfig.get("Py_ENABLE_SHARED"):
            "compiled with support for shared libraries. Exiting...")
 
 pycaml_ldflags = ["-L%s/lib" % sys.exec_prefix]
-
-pycaml_libpl = pyconfig.get("LIBPL")
-if pycaml_libpl and not pyconfig.get('Py_ENABLE_SHARED'):
-    pycaml_ldflags.append("-L" + pycaml_libpl)
-
 pycaml_ldflags += pyconfig.get("LIBS", "").split()
 pycaml_ldflags += pyconfig.get("SYSLIBS", "").split()
 pycaml_ldflags.append("-l" + pynamever)
-
 configuration["PYCAML_LDFLAGS"] = " ".join(pycaml_ldflags)
 
 #----------------------------------------------------------------------------

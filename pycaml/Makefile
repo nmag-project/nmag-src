@@ -4,7 +4,7 @@ include ../config/configuration.inc
 include ../config/common.inc
 
 OCAMLLDFLAGS=$(PYCAML_OPT_DARWIN)
-CLIBS=$(PYCAML_CLIBS) "pthread" ${DLLIB} $(UTIL_CLIBS) "m" "c"
+#CLIBS=$(PYCAML_CLIBS) "pthread" ${DLLIB} $(UTIL_CLIBS) "m" "c"
 
 PACKS=unix str bigarray
 
@@ -12,7 +12,7 @@ SOURCES=pycaml.ml pycaml.mli pycaml_stubs.c
 RESULT=pycaml
 THREADS=yes
 #NO_CUSTOM=NO_CUSTOM
-LDFLAGS=$(DEBUGFLAGS) -l$(PYCAML_CLIBS)
+LDFLAGS=$(DEBUGFLAGS) $(PYCAML_LDFLAGS)
 CFLAGS=$(DEBUGFLAGS) $(NSIM_CFLAGS) -I../config $(NUMPY_INCFLAGS) -fPIC
 
 #EXTLIBDIRS=\ $(LIBDIRS)
