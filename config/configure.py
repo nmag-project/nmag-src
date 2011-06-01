@@ -11,26 +11,36 @@ import os, sys
 #----------------------------------------------------------------------------
 # We detect the python version and obtain the path where libpython is.
 
-this_version = sys.version[:3]
-this_python = "python" + this_version
-# These paths are reconstructed following indications from main python
-# documentation for module sys (http://docs.python.org/lib/module-sys.html)
-py_config_files_dir = sys.exec_prefix + '/lib/%s/config' % this_python
-py_cmodules_dir = sys.exec_prefix + '/lib/%s/lib-dynload' % this_python
-py_modules_dir = sys.exec_prefix + '/lib/%s' % this_python
-py_headers_dir = sys.exec_prefix + '/include/%s' % this_python
+def myexit(msg, exit_status=1):
+    """Print a message and exit."""
+    sys.stderr.write(msg)
+    sys.exit(exit_status)
+
 
 # We gather other configuration infos from the distutils python module.
 try:
     import distutils.sysconfig
     pyconfig = distutils.sysconfig.get_config_vars()
+
 except:
     pyconfig = {}
+
+# Python version and name
+pyversion = pyconfig.get("VERSION", sys.version[:3])
+pynamever = "python" + pyversion
+
+# These paths are reconstructed following indications from main python
+# documentation for module sys (http://docs.python.org/lib/module-sys.html)
+py_config_files_dir = sys.exec_prefix + '/lib/%s/config' % pynamever
+py_cmodules_dir = sys.exec_prefix + '/lib/%s/lib-dynload' % pynamever
+py_modules_dir = sys.exec_prefix + '/lib/%s' % pynamever
+py_headers_dir = sys.exec_prefix + '/include/%s' % pynamever
 
 # We gather further info on NumPy include directories from NumPy itself
 try:
     from numpy.distutils.misc_util import get_numpy_include_dirs
     numpy_include_dirs = get_numpy_include_dirs()
+
 except:
     numpy_include_dirs = []
 
@@ -38,25 +48,16 @@ except:
 # Some ugly architecture-dependent choices
 
 # We just check if this machine has Mac OS X library flags (sort of :-/)
-is_macos = False
+is_macos = "bundle" in pyconfig.get('LDSHARED', []) 
 
-if pyconfig.has_key('LDSHARED'):
-    sh_cmnd = pyconfig['LDSHARED']
-    if "bundle" in sh_cmnd:
-        is_macos = True # Mac OS X
-
-if is_macos:
-    # To build dynamic loadable modules (used by fastfield)
-    LDSHARED = "-fno-common -bundle"
-else:
-    # Linux & co
-    LDSHARED = "-fPIC -shared"
+# To build dynamic loadable modules (used by fastfield)
+LDSHARED = ("-fno-common -bundle" if is_macos else "-fPIC -shared")
 
 #----------------------------------------------------------------------------
 # Here we define some functions for configuration of external libraries
 # (finding directories and files)
 
-class Msg:
+class Msg(object):
     def __init__(self, show_debug=False):
         self.immediate = {}
         self.buffers = {}
@@ -64,9 +65,9 @@ class Msg:
             self.immediate["debug"] = sys.stdout
 
     def prn(self, msg, log="msg"):
-        if self.immediate.has_key(log):
+        if log in self.immediate:
             self.immediate[log].write(msg)
-        elif self.buffers.has_key(log):
+        elif log in self.buffers:
             self.buffers[log] += msg
         else:
             self.buffers[log] = msg
@@ -82,7 +83,7 @@ class Msg:
         self.prnln(msg, log="summary")
 
     def show(self, log, title):
-        if not self.buffers.has_key(log):
+        if log not in self.buffers:
             return
         b = self.buffers[log]
         if len(b) > 0:
@@ -91,11 +92,8 @@ class Msg:
 
 msg = Msg()
 
-def bool_to_yesno(b):
-    if b:
-        return "Yes"
-    else:
-        return "No"
+def bool_to_yesno(yes):
+    return ("Yes" if yes else "No")
 
 def possible_names(names, prefixes=[''], suffixes=['']):
     '''Given sets of names, prefixes and suffixes return the list
@@ -340,8 +338,7 @@ processed_opts = {}
 
 # Show help message if requested
 if '-h' in recognized_opts or '--help' in recognized_opts:
-    print help_msg(),
-    sys.exit(0)
+    myexit(help_msg() + "\n", 0)
 
 # Use the full name of the libraries (including path, prefix and suffix)
 # when linking. Example: '/usr/lib/libmetis.so' instead of '-L/usr/lib -lmetis'
@@ -360,7 +357,7 @@ user_CFLAGS=None
 for opt, arg in recognized:
     if len(opt)>2 and opt[0:2] == "--":
         key = opt[2:]
-        if configs.has_key(key):
+        if key in configs:
             config = configs[key]
             config[4].insert(0, arg)
             continue
@@ -383,7 +380,7 @@ for opt, arg in recognized:
         user_CFLAGS = arg
         processed_opts[opt] = None
 
-    if not processed_opts.has_key(opt):
+    if opt not in processed_opts:
         msg.prnln("Warning: ignored option '%s'" % opt, "warning")
 
 #----------------------------------------------------------------------------
@@ -440,11 +437,23 @@ for key in configs:
         msg.prnln("Warning: configuration failed for '%s'" % key, "warning")
 
 #----------------------------------------------------------------------------
+# Retrieve PyCaml specific flags (taken from 'python-config', option --libs)
 
-if configuration_extra["UTIL"][1] != None:
-    configuration["UTIL_CLIBS"] = "util"
-else:
-    configuration["UTIL_CLIBS"] = ""
+if not pyconfig.get("Py_ENABLE_SHARED"):
+    myexit("The Python executable you are trying to use has not been "
+           "compiled with support for shared libraries. Exiting...")
+
+pycaml_ldflags = ["-L%s/lib" % sys.exec_prefix]
+
+pycaml_libpl = pyconfig.get("LIBPL")
+if pycaml_libpl and not pyconfig.get('Py_ENABLE_SHARED'):
+    pycaml_ldflags.append("-L" + pycaml_libpl)
+
+pycaml_ldflags += pyconfig.get("LIBS", "").split()
+pycaml_ldflags += pyconfig.get("SYSLIBS", "").split()
+pycaml_ldflags.append("-l" + pynamever)
+
+configuration["PYCAML_LDFLAGS"] = " ".join(pycaml_ldflags)
 
 #----------------------------------------------------------------------------
 # Other configurations
@@ -457,7 +466,7 @@ configuration["DEBUGFLAGS"] = "" # I should check that this is supported
 configuration["PYCAML_OPT_DARWIN"] = "" # Remove?
 configuration["EXTRA_LIBRARY_PATH"] = "" # Remove?
 configuration["GCC_FLAGS_SHLIB"] = LDSHARED
-configuration["PYCAML_CLIBS"] = this_python
+configuration["PYCAML_CLIBS"] = pynamever
 configuration["PYTHON_LIBRARY_PATH"] = py_config_files_dir
 configuration["PYTHON_INCLUDE_PATH"] = py_headers_dir
 configuration["DLFLAGS"] = '-ldl'
@@ -506,10 +515,13 @@ except:
 # We may want to change it in the future, fully opting for autoconf.
 
 print "Invoking autoconf configure script to fine-tune the system..."
+
 import os
 exit_status = os.system("cd ac; ./configure")
 print "Exited from ./ac/configure script with status %d" % exit_status
-if exit_status !=  0: sys.exit(1)
+
+if exit_status !=  0:
+    sys.exit(1)
 
 if user_CFLAGS != None:
     CFLAGS = user_CFLAGS
@@ -527,6 +539,7 @@ else:
         opt_CFLAGS = arch.cflags
         arch_CFLAGS = arch.arch_cflags
         sizeof_int = int(arch.sizeof_int)
+        pylibs = arch.pylibs
 
     except:
         msg.prnln("WARNING: Cannot import arch. Optimisation flags disabled!")
@@ -555,7 +568,7 @@ if os.uname()[0] == 'FreeBSD':
 # one for each language used in nsim sources: ocaml, C, python and a file
 # which can be included by Makefile-s
 
-class ConfigFile:
+class ConfigFile(object):
     def __init__(self):
         self.content = []
         makefile = {}
@@ -644,7 +657,8 @@ let c_int_bigarray1_create size =
 extra = extra.replace("$$", bigarray_c_int)
 cf.add_extra('ocaml', extra)
 
-for var in configuration: cf.add_value(var, configuration[var])
+for var in configuration:
+    cf.add_value(var, configuration[var])
 
 # Write the same configuration in different languages
 cf.save('configuration.inc', language='makefile')
