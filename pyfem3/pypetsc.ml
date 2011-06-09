@@ -62,6 +62,11 @@ module CONV_M_F_U = CONV_FUN2 (CONV_M) (CONV_F) (CONV_U)
 module CONV_M_S_U = CONV_FUN2 (CONV_M) (CONV_S) (CONV_U)
 module CONV_S_M = CONV_FUN1 (CONV_S) (CONV_M)
 module CONV_M_I_I_F_U = CONV_FUN4 (CONV_M) (CONV_I) (CONV_I) (CONV_F) (CONV_U)
+module CONV_S_S_I_I_M = CONV_FUN4 (CONV_S) (CONV_S) (CONV_I) (CONV_I) (CONV_M)
+
+let my_matrix_create mname mtype rows cols =
+  let comm = Mpi_petsc.petsc_get_comm_self () in
+    Mpi_petsc.matrix_create_raw comm mtype mname (rows, cols, -1, -1);;
 
 let register_bindings () =
   register_pre_functions_for_python
@@ -78,6 +83,7 @@ let register_bindings () =
       ("VecAXPBY", CONV_F_F_V_V_U.to_py Mpi_petsc.vector_AXPBY);
       ("VecPointwiseMult", CONV_V_V_V_U.to_py Mpi_petsc.vector_pointwise_mult);
       ("VecPointwiseDivide", CONV_V_V_V_U.to_py Mpi_petsc.vector_pointwise_divide);
+      ("MatCreate", CONV_S_S_I_I_M.to_py my_matrix_create);
       ("MatDuplicate", CONV_B_M_M.to_py Mpi_petsc.matrix_duplicate);
       ("MatCopy", CONV_B_M_M_U.to_py Mpi_petsc.matrix_copy);
       ("MatSetValue", CONV_M_I_I_F_U.to_py Mpi_petsc.matrix_set);
@@ -89,8 +95,7 @@ let register_bindings () =
       ("MatZeroEntries", CONV_M_U.to_py Mpi_petsc.matrix_zero_entries);
       ("MatMult", CONV_M_V_V_U.to_py Mpi_petsc.matrix_times_vector);
       ("MatMultAdd", CONV_M_V_V_V_U.to_py Mpi_petsc.matrix_mult_add);
-      ("MatMultTranspose",
-         CONV_M_V_V_U.to_py Mpi_petsc.matrix_transpose_times_vector);
+      ("MatMultTranspose", CONV_M_V_V_U.to_py Mpi_petsc.matrix_transpose_times_vector);
       ("MatScale", CONV_M_F_U.to_py Mpi_petsc.matrix_scale);
       ("MatAddIdentity", CONV_M_F_U.to_py Mpi_petsc.matrix_add_identity);
       ("MatSaveToFile", CONV_M_S_U.to_py Mpi_petsc.matrix_write_on_file);
@@ -100,11 +105,6 @@ let register_bindings () =
       |]
 ;;
 
-(*
-
-external matrix_duplicate: bool -> matrix -> matrix = "caml_petsc_mat_duplicate";;
-external matrix_copy: bool -> matrix -> matrix -> unit = "caml_petsc_mat_copy";;
-*)
 (*external vector_extract: vector -> float array = "caml_petsc_vec_extract";;
 
 external vector_get_own_range: vector -> int * int = "caml_petsc_vec_get_own_range";;
@@ -135,8 +135,6 @@ external matrix_set_prealloc: matrix -> int -> int -> unit =  "caml_petsc_mat_se
 external matrix_set_timing_dummy1: matrix -> int -> int -> float -> unit = "caml_petsc_mat_set_timing_dummy1"
 
 
-external matrix_set_fast_no_safety_belt: matrix -> int -> int -> float -> unit = "caml_petsc_mat_set_fast"
-external matrix_inc_fast_no_safety_belt: matrix -> int -> int -> float -> unit = "caml_petsc_mat_inc_fast"
 
 
 *)
