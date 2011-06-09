@@ -4672,6 +4672,7 @@ let _ =
     |]
 ;;
 
+let () = Pypetsc.register_bindings ();;
 
 (* If given a file to run, we run that. Otherwise,
    we treat argv[0] as magical: if we are called as "pyfem", we

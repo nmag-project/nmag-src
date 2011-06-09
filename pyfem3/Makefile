@@ -34,7 +34,7 @@ OCAMLLIBPATH=
 
 RESULT = pyfem3
 
-SOURCES = pyfem3.mli pyfem3.ml
+SOURCES = bindings.ml pypetsc.ml pyfem3.mli pyfem3.ml 
 
 # Note: we only build native code!
 # For some archs, we may prefer bytecode though...
