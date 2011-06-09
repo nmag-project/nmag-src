@@ -56,6 +56,7 @@ module CONV_M_U = CONV_FUN1 (CONV_M) (CONV_U)
 module CONV_B_M_M = CONV_FUN2 (CONV_B) (CONV_M) (CONV_M)
 module CONV_B_M_M_U = CONV_FUN3 (CONV_B) (CONV_M) (CONV_M) (CONV_U)
 module CONV_M_B_U = CONV_FUN2 (CONV_M) (CONV_B) (CONV_U)
+module CONV_M_I_I_U = CONV_FUN3 (CONV_M) (CONV_I) (CONV_I) (CONV_U)
 module CONV_M_V_V_U = CONV_FUN3 (CONV_M) (CONV_V) (CONV_V) (CONV_U)
 module CONV_M_V_V_V_U = CONV_FUN4 (CONV_M) (CONV_V) (CONV_V) (CONV_V) (CONV_U)
 module CONV_M_F_U = CONV_FUN2 (CONV_M) (CONV_F) (CONV_U)
@@ -84,6 +85,7 @@ let register_bindings () =
       ("VecPointwiseMult", CONV_V_V_V_U.to_py Mpi_petsc.vector_pointwise_mult);
       ("VecPointwiseDivide", CONV_V_V_V_U.to_py Mpi_petsc.vector_pointwise_divide);
       ("MatCreate", CONV_S_S_I_I_M.to_py my_matrix_create);
+      ("MatSetPreallocation", CONV_M_I_I_U.to_py Mpi_petsc.matrix_set_prealloc);
       ("MatDuplicate", CONV_B_M_M.to_py Mpi_petsc.matrix_duplicate);
       ("MatCopy", CONV_B_M_M_U.to_py Mpi_petsc.matrix_copy);
       ("MatSetValue", CONV_M_I_I_F_U.to_py Mpi_petsc.matrix_set);
@@ -104,37 +106,3 @@ let register_bindings () =
 
       |]
 ;;
-
-(*external vector_extract: vector -> float array = "caml_petsc_vec_extract";;
-
-external vector_get_own_range: vector -> int * int = "caml_petsc_vec_get_own_range";;
-
-
-(* The following are internal only: *)
-external _vector_as_bigarray_open_raw: vector -> (float, float64_elt, c_layout) Array1.t
-    = "caml_petsc_vec_as_bigarray_open_raw";;
-
-external _vector_as_bigarray_close_raw: vector -> (float, float64_elt, c_layout) Array1.t -> unit
-    = "caml_petsc_vec_as_bigarray_close_raw";;
-
-external _bigarray_as_vector_open_raw: (float, float64_elt, c_layout) Array1.t -> vector
-    = "caml_petsc_bigarray_as_vec_open_raw";;
-
-external _bigarray_as_vector_close_raw: vector -> unit
-  = "caml_petsc_bigarray_as_vec_close_raw";;
-
-external matrix_create_raw: communicator -> string -> string -> (int*int*int*int) -> matrix = "caml_petsc_mat_create_raw";;
-
-external matrix_info_raw: matrix -> int -> float array = "caml_petsc_matinfo_raw";;
-
-external matrix_get_row_raw: matrix -> int -> ((int array) * (float array)) = "caml_petsc_mat_get_row_raw";;
-
-external matrix_set_prealloc: matrix -> int -> int -> unit =  "caml_petsc_mat_set_prealloc";;
-
-
-external matrix_set_timing_dummy1: matrix -> int -> int -> float -> unit = "caml_petsc_mat_set_timing_dummy1"
-
-
-
-
-*)

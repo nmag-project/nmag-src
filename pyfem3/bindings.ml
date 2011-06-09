@@ -80,12 +80,18 @@ module CONV_T2 (ITEM1:CONVERTER) (ITEM2:CONVERTER) = struct
   let to_py (arg1, arg2) = pytuple2 ((ITEM1.to_py arg1), (ITEM2.to_py arg2))
 end
 
-(*module CONV_BA (ELT:CONVERTER) = struct
+(*module CONV_A (ELT:CONVERTER) = struct
   type caml_type = ELT.caml_type array
-  let pycaml_pyobject_type = ListType
-  let from_py pylist = Array.map Elt.from_py (pylist_toarray pylist)
+  let pycaml_pyobject_type = OtherType
+  let from_py pylist = Array.map ELT.from_py (pylist_toarray pylist)
   let to_py camllist = pylist_fromarray (Array.map Elt.to_py camllist)
-end*)
+end
+
+  let pyt = pytensor_of_pyobject double_items args.(2) in
+  let ba = pytensor_to_ba_unsafe pyt in
+
+*)
+
 
 module CONV_FUN1 (ARG1: CONVERTER) (RES: CONVERTER) = struct
   type caml_type = ARG1.caml_type -> RES.caml_type
