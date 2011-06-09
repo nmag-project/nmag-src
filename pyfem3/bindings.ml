@@ -32,6 +32,13 @@ module CONV_U = struct
   let to_py = pynone
 end
 
+module CONV_B = struct
+  type caml_type = bool
+  let pycaml_pyobject_type = BoolType
+  let from_py = pybool_asbool
+  let to_py = pybool_frombool
+end
+
 module CONV_I = struct
   type caml_type = int
   let pycaml_pyobject_type = IntType
@@ -73,10 +80,20 @@ module CONV_T2 (ITEM1:CONVERTER) (ITEM2:CONVERTER) = struct
   let to_py (arg1, arg2) = pytuple2 ((ITEM1.to_py arg1), (ITEM2.to_py arg2))
 end
 
+(*module CONV_BA (ELT:CONVERTER) = struct
+  type caml_type = ELT.caml_type array
+  let pycaml_pyobject_type = ListType
+  let from_py pylist = Array.map Elt.from_py (pylist_toarray pylist)
+  let to_py camllist = pylist_fromarray (Array.map Elt.to_py camllist)
+end*)
+
 module CONV_FUN1 (ARG1: CONVERTER) (RES: CONVERTER) = struct
   type caml_type = ARG1.caml_type -> RES.caml_type
   let pycaml_pyobject_type = CallableType
-  let from_py pyfunc = failwith "Not implemented yet."
+  let from_py pyfunc =
+    (fun mlarg ->
+       RES.from_py
+         (pyeval_callobject(pyfunc, pytuple_fromarray [|ARG1.to_py mlarg|])))
   let to_py camlfun = 
     python_pre_interfaced_function [|ARG1.pycaml_pyobject_type|]
       (fun pyargs -> RES.to_py (camlfun (ARG1.from_py pyargs.(0))))

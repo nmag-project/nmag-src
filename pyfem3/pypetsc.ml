@@ -45,28 +45,98 @@ module CONV_M = struct
 end
 
 module CONV_V_U = CONV_FUN1 (CONV_V) (CONV_U)
+module CONV_V_I_F_U = CONV_FUN3 (CONV_V) (CONV_I) (CONV_F) (CONV_U)
 module CONV_V_F_U = CONV_FUN2 (CONV_V) (CONV_F) (CONV_U)
-module CONV_M_U = CONV_FUN1 (CONV_M) (CONV_U)
-module CONV_M_V_V_U = CONV_FUN3 (CONV_M) (CONV_V) (CONV_V) (CONV_U)
 module CONV_I_S_V = CONV_FUN2 (CONV_I) (CONV_S) (CONV_V)
+module CONV_V_V = CONV_FUN1 (CONV_V) (CONV_V)
+module CONV_V_V_U = CONV_FUN2 (CONV_V) (CONV_V) (CONV_U)
+module CONV_V_V_V_U = CONV_FUN3 (CONV_V) (CONV_V) (CONV_V) (CONV_U)
+module CONV_F_F_V_V_U = CONV_FUN4 (CONV_F) (CONV_F) (CONV_V) (CONV_V) (CONV_U)
+module CONV_M_U = CONV_FUN1 (CONV_M) (CONV_U)
+module CONV_B_M_M = CONV_FUN2 (CONV_B) (CONV_M) (CONV_M)
+module CONV_B_M_M_U = CONV_FUN3 (CONV_B) (CONV_M) (CONV_M) (CONV_U)
+module CONV_M_B_U = CONV_FUN2 (CONV_M) (CONV_B) (CONV_U)
+module CONV_M_V_V_U = CONV_FUN3 (CONV_M) (CONV_V) (CONV_V) (CONV_U)
+module CONV_M_V_V_V_U = CONV_FUN4 (CONV_M) (CONV_V) (CONV_V) (CONV_V) (CONV_U)
+module CONV_M_F_U = CONV_FUN2 (CONV_M) (CONV_F) (CONV_U)
+module CONV_M_S_U = CONV_FUN2 (CONV_M) (CONV_S) (CONV_U)
+module CONV_S_M = CONV_FUN1 (CONV_S) (CONV_M)
+module CONV_M_I_I_F_U = CONV_FUN4 (CONV_M) (CONV_I) (CONV_I) (CONV_F) (CONV_U)
 
 let register_bindings () =
   register_pre_functions_for_python
-    [|("mat_zero_entries", CONV_M_U.to_py Mpi_petsc.matrix_zero_entries);
-      ("mat_mult", CONV_M_V_V_U.to_py Mpi_petsc.matrix_times_vector);
-      ("vec_create", CONV_I_S_V.to_py Mpi_petsc.vector_create);
-      ("vec_zero", CONV_V_U.to_py Mpi_petsc.vector_zero);
-      ("vec_scale", CONV_V_F_U.to_py Mpi_petsc.vector_scale);
-      ("vec_assemble", CONV_V_U.to_py Mpi_petsc.vector_assemble);
-      ("vec_assembly_begin", CONV_V_U.to_py Mpi_petsc.vector_assembly_begin);
-      ("vec_assembly_end", CONV_V_U.to_py Mpi_petsc.vector_assembly_end);|]
+    [|("VecCreate", CONV_I_S_V.to_py Mpi_petsc.vector_create);
+      ("VecSetValue", CONV_V_I_F_U.to_py Mpi_petsc.vector_set);
+      ("VecAddValue", CONV_V_I_F_U.to_py Mpi_petsc.vector_inc);
+      ("VecAssemble", CONV_V_U.to_py Mpi_petsc.vector_assemble);
+      ("VecAssemblyBegin", CONV_V_U.to_py Mpi_petsc.vector_assembly_begin);
+      ("VecAssemblyEnd", CONV_V_U.to_py Mpi_petsc.vector_assembly_end);
+      ("VecZero", CONV_V_U.to_py Mpi_petsc.vector_zero);
+      ("VecScale", CONV_V_F_U.to_py Mpi_petsc.vector_scale);
+      ("VecDuplicate", CONV_V_V.to_py Mpi_petsc.vector_duplicate);
+      ("VecCopy", CONV_V_V_U.to_py Mpi_petsc.vector_copy);
+      ("VecAXPBY", CONV_F_F_V_V_U.to_py Mpi_petsc.vector_AXPBY);
+      ("VecPointwiseMult", CONV_V_V_V_U.to_py Mpi_petsc.vector_pointwise_mult);
+      ("VecPointwiseDivide", CONV_V_V_V_U.to_py Mpi_petsc.vector_pointwise_divide);
+      ("MatDuplicate", CONV_B_M_M.to_py Mpi_petsc.matrix_duplicate);
+      ("MatCopy", CONV_B_M_M_U.to_py Mpi_petsc.matrix_copy);
+      ("MatSetValue", CONV_M_I_I_F_U.to_py Mpi_petsc.matrix_set);
+      ("MatAddValue", CONV_M_I_I_F_U.to_py Mpi_petsc.matrix_inc);
+      ("MatAssemble", CONV_M_B_U.to_py Mpi_petsc.matrix_assemble);
+      ("MatAssemblyBegin", CONV_M_B_U.to_py Mpi_petsc.matrix_assembly_begin);
+      ("MatAssemblyEnd", CONV_M_B_U.to_py Mpi_petsc.matrix_assembly_end);
+      ("MatReincarnate", CONV_M_U.to_py Mpi_petsc.matrix_reincarnate);
+      ("MatZeroEntries", CONV_M_U.to_py Mpi_petsc.matrix_zero_entries);
+      ("MatMult", CONV_M_V_V_U.to_py Mpi_petsc.matrix_times_vector);
+      ("MatMultAdd", CONV_M_V_V_V_U.to_py Mpi_petsc.matrix_mult_add);
+      ("MatMultTranspose",
+         CONV_M_V_V_U.to_py Mpi_petsc.matrix_transpose_times_vector);
+      ("MatScale", CONV_M_F_U.to_py Mpi_petsc.matrix_scale);
+      ("MatAddIdentity", CONV_M_F_U.to_py Mpi_petsc.matrix_add_identity);
+      ("MatSaveToFile", CONV_M_S_U.to_py Mpi_petsc.matrix_write_on_file);
+      ("MatReadFromFile", CONV_S_M.to_py Mpi_petsc.matrix_read_from_file);
+
+
+      |]
 ;;
 
-(*external vector_zero: vector -> unit = "caml_petsc_vec_zero";;
-external vector_scale: vector -> float -> unit = "caml_petsc_vec_scale";;
+(*
+
+external matrix_duplicate: bool -> matrix -> matrix = "caml_petsc_mat_duplicate";;
+external matrix_copy: bool -> matrix -> matrix -> unit = "caml_petsc_mat_copy";;
+*)
+(*external vector_extract: vector -> float array = "caml_petsc_vec_extract";;
+
+external vector_get_own_range: vector -> int * int = "caml_petsc_vec_get_own_range";;
 
 
-external vector_assemble: vector -> unit = "caml_petsc_vec_assemble";;
-external vector_assembly_begin: vector -> unit = "caml_petsc_vec_assembly_begin";;
-external vector_assembly_end: vector -> unit = "caml_petsc_vec_assembly_end";;
+(* The following are internal only: *)
+external _vector_as_bigarray_open_raw: vector -> (float, float64_elt, c_layout) Array1.t
+    = "caml_petsc_vec_as_bigarray_open_raw";;
+
+external _vector_as_bigarray_close_raw: vector -> (float, float64_elt, c_layout) Array1.t -> unit
+    = "caml_petsc_vec_as_bigarray_close_raw";;
+
+external _bigarray_as_vector_open_raw: (float, float64_elt, c_layout) Array1.t -> vector
+    = "caml_petsc_bigarray_as_vec_open_raw";;
+
+external _bigarray_as_vector_close_raw: vector -> unit
+  = "caml_petsc_bigarray_as_vec_close_raw";;
+
+external matrix_create_raw: communicator -> string -> string -> (int*int*int*int) -> matrix = "caml_petsc_mat_create_raw";;
+
+external matrix_info_raw: matrix -> int -> float array = "caml_petsc_matinfo_raw";;
+
+external matrix_get_row_raw: matrix -> int -> ((int array) * (float array)) = "caml_petsc_mat_get_row_raw";;
+
+external matrix_set_prealloc: matrix -> int -> int -> unit =  "caml_petsc_mat_set_prealloc";;
+
+
+external matrix_set_timing_dummy1: matrix -> int -> int -> float -> unit = "caml_petsc_mat_set_timing_dummy1"
+
+
+external matrix_set_fast_no_safety_belt: matrix -> int -> int -> float -> unit = "caml_petsc_mat_set_fast"
+external matrix_inc_fast_no_safety_belt: matrix -> int -> int -> float -> unit = "caml_petsc_mat_inc_fast"
+
+
 *)
