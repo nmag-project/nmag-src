@@ -16,11 +16,6 @@
 open Pycaml;;
 open Bindings;;
 
-let register_pyobj desc_str dummy =
-  let () = register_ocamlpill_types [|desc_str|]
-  in make_ocamlpill_wrapper_unwrapper desc_str dummy
-;;
-
 (* Create wrapper/unwrapper for PETSc vector *)
 let (pyobj_from_petsc_vec, pyobj_to_petsc_vec) =
        register_pyobj "PETSc vector" (Mpi_petsc.vector_dummy ());;

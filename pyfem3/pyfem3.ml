@@ -16,6 +16,7 @@ open Mesh;;
 open Fem;;
 open Nsim;;
 open Ccpla;;
+open Pyfem;;
 
 exception Py_Exn of string;;
 
@@ -243,8 +244,6 @@ and pysym_mgo_int = "Mesh Generator Engine Output (with state of type int)" (* X
 and pysym_meshed_physics = "Meshed Differential Operator" (* XXX OBSOLETE! *)
 and pysym_fem_body = "FEM Body"
 and pysym_element = "FEM Element"
-and pysym_field = "FEM Field"
-and pysym_cofield = "FEM Co-Field"
 and pysym_operator = "FEM Operator"
 and pysym_solver = "FEM Linear Solver"
 and pysym_ksp = "PETSC KSP"
@@ -264,8 +263,6 @@ let () = register_ocamlpill_types
       pysym_meshed_physics;
       pysym_fem_body;
       pysym_element;
-      pysym_field;
-      pysym_cofield;
       pysym_operator;
       pysym_solver;
       pysym_ksp;
@@ -336,11 +333,11 @@ let (ocamlpill_from_fem_body, fem_body_from_ocamlpill) =
 let (ocamlpill_from_element, element_from_ocamlpill) =
   make_ocamlpill_wrapper_unwrapper pysym_element _sample_element;;
 
-let (ocamlpill_from_field, field_from_ocamlpill) =
-  make_ocamlpill_wrapper_unwrapper pysym_field _sample_field;;
-
-let (ocamlpill_from_cofield, cofield_from_ocamlpill) =
-  make_ocamlpill_wrapper_unwrapper pysym_cofield _sample_cofield;;
+(* Defined in a separate file now *)
+let ocamlpill_from_field = pyobj_from_fem_field;;
+let field_from_ocamlpill = pyobj_to_fem_field;;
+let ocamlpill_from_cofield = pyobj_from_fem_cofield;;
+let cofield_from_ocamlpill = pyobj_to_fem_cofield;;
 
 let (ocamlpill_from_ksp, ksp_from_ocamlpill) =
   make_ocamlpill_wrapper_unwrapper pysym_ksp _sample_ksp;;
@@ -4673,6 +4670,7 @@ let _ =
 ;;
 
 let () = Pypetsc.register_bindings ();;
+let () = Pyfem.register_bindings ();;
 
 (* If given a file to run, we run that. Otherwise,
    we treat argv[0] as magical: if we are called as "pyfem", we

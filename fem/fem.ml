@@ -2886,12 +2886,12 @@ let debug_make_mwe
 	     (Printf.sprintf "resolving DOF periodicity failed for dof %s, site=%s"
 		(dof_name_to_string master_dof_name) (int_array_to_string master_site)))
     in
-    let ddd =
+    (*let ddd =
       (if Array.fold_left (fun sf x -> max sf (Array.length x)) 0 p_i >0
        then
 	 Printf.printf "=== MWE '%s' DOF periodic images ===\n%s\n%!" name (string_array_to_string (Array.map int_array_to_string p_i))
        else ())
-    in
+    in*)
       p_i
   in
   let mwe_mb =
@@ -3353,7 +3353,63 @@ let probe_field (FEM_field (mwe,_,v_field) as field) ?dof_stem pos =
     with | Not_found -> [||]
 ;;
 
-
+let build_probe_matrix
+      fun_matrix_create
+      fun_matrix_add_entry
+      field dof_stem positions =
+  let FEM_field (mwe, _, v_field) = field in
+  let () = ensure_field_is_unrestricted field in
+  let nr_components, index_from_indices, _ =
+    let (_, max_indices) =
+      array_find (fun (n, _) -> n = dof_stem) mwe.mwe_subfields
+    in multi_dim_array_handlers max_indices
+  in
+  let nr_positions = Array.length positions in
+  let nr_rows = nr_components*nr_positions in
+  (* nr_rows is the size of the out vector: number of probe points by number
+     of components of the tensor *)
+  let nr_cols = Array.length mwe.mwe_dofs in
+  let matrix = fun_matrix_create nr_rows nr_cols in
+  let mesh = mwe.mwe_mesh in
+  let get_inv_point_matrix =
+    Simplex.get_inv_point_matrix mesh.mm_simplex_data in
+  let simplices = mesh.mm_simplices in
+  let probe_at_position position_index =
+    let (simplex, coords_L) =
+      mesh_locate_point mwe.mwe_mesh positions.(position_index) in
+    (* Note: this raises Not_found if the point could not be located! *)
+    let sx_id = simplex.ms_id in
+    let inv_ext_point_coords = get_inv_point_matrix sx_id in
+    let elem = mwe.mwe_elements.(mwe.mwe_nel_by_simplex_index.(sx_id)) in
+    let dofs =
+      Array.map
+        (fun n -> mwe.mwe_dofs.(n))
+        mwe.mwe_dof_nrs_by_simplex_index.(sx_id)
+    in
+      Array.iter
+        (fun dof ->
+            let dof_name = the_dof_name mwe dof in
+            let stem, indices = dof_name in
+            if stem = dof_stem
+            then
+              let idx = index_from_indices indices in
+              let nr_row = position_index*nr_components + idx in
+              let (_, nr_elem, ix) =
+                dof_sx_nel_ix_find simplices dof (fun s _ _ -> s == simplex)
+              in
+              let dof_femfun = elem.el_dof_funs.(ix) in
+              let entry = femfun_eval inv_ext_point_coords dof_femfun coords_L
+              in
+                fun_matrix_add_entry matrix nr_row dof.dof_nr entry
+            else ())
+          dofs
+  in
+  let () =
+    for position_index = 0 to nr_positions - 1; do
+      probe_at_position position_index
+    done
+  in matrix
+;;
 
 (* XXX NOTE: quite some of the plotting functions have been obsoleted by now.
    Rationale: they could not handle higher-order elements properly.
