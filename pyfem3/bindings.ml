@@ -14,7 +14,6 @@
  *
  *)
 
-
 open Pycaml
 
 (**************** shared **********************************************)
@@ -80,18 +79,22 @@ module CONV_T2 (ITEM1:CONVERTER) (ITEM2:CONVERTER) = struct
   let to_py (arg1, arg2) = pytuple2 ((ITEM1.to_py arg1), (ITEM2.to_py arg2))
 end
 
-(*module CONV_A (ELT:CONVERTER) = struct
-  type caml_type = ELT.caml_type array
+(* For now we map Python(NumPy)<-->OCaml(Bigarray) by making copies, and not
+   passing the original data *)
+module CONV_FA = struct
+  type caml_type =
+    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Genarray.t
   let pycaml_pyobject_type = OtherType
-  let from_py pylist = Array.map ELT.from_py (pylist_toarray pylist)
-  let to_py camllist = pylist_fromarray (Array.map Elt.to_py camllist)
+  let from_py pyobj =
+    let pyt = pytensor_of_pyobject double_items pyobj in
+    let ba = pytensor_to_ba_unsafe pyt in
+      Bigarray.Genarray.create
+        Bigarray.float64 Bigarray.c_layout (Bigarray.Genarray.dims ba)
+  let to_py ba =
+    pytensor_to_pyobject
+      (pytensor_init double_items (Bigarray.Genarray.dims ba)
+         (fun indices -> Bigarray.Genarray.get ba indices))
 end
-
-  let pyt = pytensor_of_pyobject double_items args.(2) in
-  let ba = pytensor_to_ba_unsafe pyt in
-
-*)
-
 
 module CONV_FUN1 (ARG1: CONVERTER) (RES: CONVERTER) = struct
   type caml_type = ARG1.caml_type -> RES.caml_type
@@ -150,108 +153,11 @@ module CONV_FUN4
                             (ARG3.from_py pyargs.(2)) (ARG4.from_py pyargs.(3))))
 end
 
-(**********************************************************************)
+module CONV_FL = CONV_L (CONV_F)
 
+module CONV_FLL = CONV_L (CONV_FL)
 
-(*
-(* ********** Start of original pyfem3.ml ********** *)
-
-
-(* open Pycaml;; *)
-
-(* Specify a pill type: integer array *)
-
-let array_pill_name = "ocaml array";;
-
-
-let () = register_ocamlpill_types
-    [| array_pill_name;
-    |]
+let register_pyobj desc_str dummy =
+  let () = register_ocamlpill_types [|desc_str|]
+  in make_ocamlpill_wrapper_unwrapper desc_str dummy
 ;;
-
-let _sample_array_pill = [| 1 |];;
-
-
-let (ocamlpill_from_array, array_from_ocamlpill) =
-  make_ocamlpill_wrapper_unwrapper array_pill_name _sample_array_pill;;
-
-(* End of specification of integer array pill type *)
-
-(* Generic utilities for creating Python extension modules. Should be
-   moved to Pycaml *)
-
-let my_register_for_python mod_dict stuff =
-  Array.iter
-    (fun (python_name, value) ->
-       ignore(pydict_setitemstring (mod_dict, python_name, value)))
-    stuff;;
-
-let my_register_pre_functions_for_python mod_dict stuff =
-  Array.iter
-    (fun (python_name, pre_fun) ->
-       ignore(pydict_setitemstring (mod_dict, python_name, pre_fun python_name)))
-    stuff;;
-
-(* End of generic utilities *)
-
-(* Wrappers for functionality provided in ML *)
-
-(* This is being replaced by our more automatic wrapping utilities
-let _py_square =
-  python_pre_interfaced_function [|FloatType|]
-    (fun py_args ->
-       let ml_arg = pyfloat_asdouble py_args.(0) in
-       let ml_result = Functionality.square ml_arg in
-       let py_result = pyfloat_fromdouble ml_result
-       in
-         py_result)
-;;
-*)
-
-let _py_make_consecutive_integers = 
-  python_pre_interfaced_function [| IntType |]
-    (fun py_args ->
-       let ml_arg = pyint_asint py_args.(0) in
-       let ml_result = Functionality.make_consecutive_integers ml_arg in
-       let py_result = ocamlpill_from_array ml_result
-       in
-         py_result)
-;;
-
-let _py_add_up =
-  python_pre_interfaced_function [| CamlpillType |]
-    (fun py_args ->
-      let ml_arg = array_from_ocamlpill py_args.(0) in
-      let ml_result = Functionality.add_up ml_arg in
-      let py_result = pyint_fromint ml_result in
-      py_result)
-;;
-
-module FF = Convertable_fun1 (Converter_float) (Converter_float)
-module IL = Converter_list(Converter_int)
-module IL_IL = Convertable_fun1
-  (IL)
-  (Converter_list(Converter_int))
-
-let create_nsimcore_module () = 
-  (*
-  let _ =
-    register_for_python
-      [|("mesher_defaults",ocamlpill_from_mesher_defaults_int !opt_mesher_defaults);
-	("mesher_default_gendriver",ocamlpill_from_mg_gendriver default_gendriver);
-	("empty_element",_py_empty_element);
-      |]
-in
-*)
-  let _py_mod_ocaml = ourpy_initemptymodule "functionality" in
-  let _py_mod_ocaml_dict = pymodule_getdict _py_mod_ocaml in
-    my_register_for_python _py_mod_ocaml_dict
-      [|("square", FF.to_py Functionality.square);
-	("reverse", IL_IL.to_py Functionality.reverse);
-       (* ("make_consecutive_integers", _py_make_consecutive_integers);
-        ("add_up", _py_add_up);*)|];;
-
-let _ = Callback.register "create_nsimcore_module" create_nsimcore_module;;
-
-
-*)

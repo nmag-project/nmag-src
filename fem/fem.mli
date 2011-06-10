@@ -273,6 +273,10 @@ val integrate_field :
 val probe_field :
   float fem_field ->
   ?dof_stem:string -> Mesh.coords -> (dof_name * float) array
+val build_probe_matrix :
+  (int -> int -> 'a) ->
+  ('a -> int -> int -> float -> unit) ->
+  float fem_field -> string -> float array array -> 'a;;
 val _plot_scalar_field_ps_header : string
 val mesh2d_plot_scalar_field :
   ?scale:(Mesh.coords -> float array) ->

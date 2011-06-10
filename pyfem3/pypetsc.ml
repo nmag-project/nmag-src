@@ -16,11 +16,6 @@
 open Pycaml;;
 open Bindings;;
 
-let register_pyobj desc_str dummy =
-  let () = register_ocamlpill_types [|desc_str|]
-  in make_ocamlpill_wrapper_unwrapper desc_str dummy
-;;
-
 (* Create wrapper/unwrapper for PETSc vector *)
 let (pyobj_from_petsc_vec, pyobj_to_petsc_vec) =
        register_pyobj "PETSc vector" (Mpi_petsc.vector_dummy ());;
@@ -67,7 +62,23 @@ module CONV_S_S_I_I_M = CONV_FUN4 (CONV_S) (CONV_S) (CONV_I) (CONV_I) (CONV_M)
 
 let my_matrix_create mname mtype rows cols =
   let comm = Mpi_petsc.petsc_get_comm_self () in
-    Mpi_petsc.matrix_create_raw comm mtype mname (rows, cols, -1, -1);;
+    Mpi_petsc.matrix_create_raw comm mtype mname (rows, cols, -1, -1)
+;;
+
+let my_vector_as_numpy_array =
+  python_pre_interfaced_function
+    [|CamlpillType|]
+    (fun pyargs ->
+       let vec = CONV_V.from_py pyargs.(0) in
+       let ret_ba = ref None in
+       let () =
+         Mpi_petsc.with_petsc_vector_as_bigarray vec
+           (fun ba -> ret_ba := Some (CONV_FA.to_py (Bigarray.genarray_of_array1 ba)))
+       in
+         match !ret_ba with
+           None -> failwith "pypetsc.ml, my_vector_as_numpy_array: shouldn't happen"
+         | Some x -> x)
+;;
 
 let register_bindings () =
   register_pre_functions_for_python
@@ -84,6 +95,7 @@ let register_bindings () =
       ("VecAXPBY", CONV_F_F_V_V_U.to_py Mpi_petsc.vector_AXPBY);
       ("VecPointwiseMult", CONV_V_V_V_U.to_py Mpi_petsc.vector_pointwise_mult);
       ("VecPointwiseDivide", CONV_V_V_V_U.to_py Mpi_petsc.vector_pointwise_divide);
+      ("VecAsNumpyArray", my_vector_as_numpy_array);
       ("MatCreate", CONV_S_S_I_I_M.to_py my_matrix_create);
       ("MatSetPreallocation", CONV_M_I_I_U.to_py Mpi_petsc.matrix_set_prealloc);
       ("MatDuplicate", CONV_B_M_M.to_py Mpi_petsc.matrix_duplicate);
@@ -102,7 +114,7 @@ let register_bindings () =
       ("MatAddIdentity", CONV_M_F_U.to_py Mpi_petsc.matrix_add_identity);
       ("MatSaveToFile", CONV_M_S_U.to_py Mpi_petsc.matrix_write_on_file);
       ("MatReadFromFile", CONV_S_M.to_py Mpi_petsc.matrix_read_from_file);
-
+      
 
       |]
 ;;
