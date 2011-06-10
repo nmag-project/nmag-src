@@ -80,18 +80,22 @@ module CONV_T2 (ITEM1:CONVERTER) (ITEM2:CONVERTER) = struct
   let to_py (arg1, arg2) = pytuple2 ((ITEM1.to_py arg1), (ITEM2.to_py arg2))
 end
 
-(*module CONV_A (ELT:CONVERTER) = struct
-  type caml_type = ELT.caml_type array
+(* For now we map Python(NumPy)<-->OCaml(Bigarray) by making copies, and not
+   passing the original data *)
+module CONV_FA = struct
+  type caml_type =
+    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Genarray.t
   let pycaml_pyobject_type = OtherType
-  let from_py pylist = Array.map ELT.from_py (pylist_toarray pylist)
-  let to_py camllist = pylist_fromarray (Array.map Elt.to_py camllist)
+  let from_py pyobj =
+    let pyt = pytensor_of_pyobject double_items pyobj in
+    let ba = pytensor_to_ba_unsafe pyt in
+      Bigarray.Genarray.create
+        Bigarray.float64 Bigarray.c_layout (Bigarray.Genarray.dims ba)
+  let to_py ba =
+    pytensor_to_pyobject
+      (pytensor_init double_items (Bigarray.Genarray.dims ba)
+         (fun indices -> Bigarray.Genarray.get ba indices))
 end
-
-  let pyt = pytensor_of_pyobject double_items args.(2) in
-  let ba = pytensor_to_ba_unsafe pyt in
-
-*)
-
 
 module CONV_FUN1 (ARG1: CONVERTER) (RES: CONVERTER) = struct
   type caml_type = ARG1.caml_type -> RES.caml_type
