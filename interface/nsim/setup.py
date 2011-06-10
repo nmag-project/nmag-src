@@ -113,11 +113,11 @@ def generate_cmdline_parser():
     parser.add_option('--loglevel',  '-l', help=help,
                       type='string', metavar='LEVEL')
 
-    help = 'Force logging even in interactive mode'
+    help = 'force logging even in interactive mode'
     parser.add_option('--log', help=help,
                       dest='forcelog', action='store_true')
 
-    help = 'Deactivate logging'
+    help = 'deactivate logging'
     parser.add_option('--nolog', help=help,
                       dest='forcelog', action='store_false')
 
@@ -129,7 +129,7 @@ def generate_cmdline_parser():
     parser.add_option('--clean', help=help,
                       dest='clean', action='store_true')
 
-    help = 'Continue hysteris loop calculation from last snapshot'
+    help = 'continue hysteris loop calculation from last snapshot'
     parser.add_option('--restart', help=help,
                       dest='restart', action='store_true')
 
