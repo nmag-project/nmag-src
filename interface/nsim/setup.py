@@ -353,7 +353,7 @@ def setup(argv=None, do_features=True, do_logging=True,
     # it is required in order to construct correctly the pyfeature object.
     savedir = '.'
     runid = get_nmag_runid(arguments)
-    logfilename = options.logfilename or (runid + '_log.log')
+    logfilename = (options and options.logfilename) or (runid + '_log.log')
     logfilepath = os.path.join(savedir, logfilename)
 
     # We now find out where we should read the configuration for logging
