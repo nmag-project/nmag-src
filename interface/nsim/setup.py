@@ -121,7 +121,7 @@ def generate_cmdline_parser():
     parser.add_option('--nolog', help=help,
                       dest='forcelog', action='store_false')
 
-    help = 'name of the log file'
+    help = 'set name for the log file (implies --log)'
     parser.add_option('--logfile', help=help, type='string',
                       dest='logfilename', metavar='FILE')
 
@@ -353,7 +353,11 @@ def setup(argv=None, do_features=True, do_logging=True,
     # it is required in order to construct correctly the pyfeature object.
     savedir = '.'
     runid = get_nmag_runid(arguments)
-    logfilename = (options and options.logfilename) or (runid + '_log.log')
+    if options and options.logfilename:
+        logfilename = options.logfilename
+        log_to_console_only = False
+    else:
+        logfilename = runid + '_log.log'
     logfilepath = os.path.join(savedir, logfilename)
 
     # We now find out where we should read the configuration for logging
