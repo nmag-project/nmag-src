@@ -1490,7 +1490,7 @@ let local_equations_to_c_code eom =
 let time_in_rhs = ref 0.0;;
 
 let nsim_opcode_interpreter ccpla op v_distributed_resources =
-(*  let () = Printf.printf
+  (*let () = Printf.printf
              "nsim_opcode_interpreter: executing %s\n%!"
              (nsim_opcode_to_string op) in*)
   let comm = ccpla.ccpla_comm in

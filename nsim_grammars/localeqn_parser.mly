@@ -79,7 +79,10 @@ let new_tensor_product ?(extra_sign=1.0) sign_list_pair =
 %%
 
 parse_localeqn:
-    local_and_range_definitions assignments {let (ld,rd) = $1 in (Array.of_list ld,Array.of_list rd,Array.of_list $2)}
+    local_and_range_definitions assignments {let (ld, rd) = $1
+                                             in (Array.of_list ld,
+                                                 Array.of_list rd,
+                                                 Array.of_list $2)}
 
 local_and_range_definitions:
                                          {([],[])}
