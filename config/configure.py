@@ -148,19 +148,46 @@ def find_path_of_file(name, paths):
 def find_file(names, prefixes, suffixes, paths):
     for full_name in possible_names(names, prefixes, suffixes):
         full_path = find_path_of_file(full_name, paths)
-        if full_path != None: return (full_name, full_path)
+        if full_path != None:
+          return (full_name, full_path)
     return None
 
-def find_binary(name,path):
-    name, path = find_file([name],[''],[''],path)
-    if path != None:
-        return "%s/%s" % (path,name)
-    return None
+def get_std_paths(additional_paths=[], env=None, sep=":"):
+  paths = []
+  if env != None:
+    iterable = hasattr(env, "__iter__")
+    assert not (iterable and type(env) == str)
+    # ^^^ as far as I know str doesn't have __iter__
+    envvars = env if iterable else [env]
+    for envvar in envvars:
+      envvar_content = os.getenv(envvar)
+      if envvar_content:
+        paths.extend(envvar_content.split(sep))
+
+  for additional_path in additional_paths:
+    if additional_path not in paths:
+      paths.append(additional_path)
+  return paths
+
+std_bin_paths = \
+  get_std_paths(['/bin', '/usr/bin', '/usr/local/bin'], "PATH")
+std_lib_paths = \
+  get_std_paths(['/usr/lib', '/usr/local/lib'], "LD_LIBRARY_PATH")
+std_inc_paths = \
+  get_std_paths(['/usr/include', '/usr/local/include'],
+                ["CPATH", "C_INCLUDE_PATH"])
+
+def find_binary(name, additional_paths=[], use_env=True):
+  paths = std_bin_paths + additional_paths
+  name_and_path = find_file([name], [''], [''], paths)
+  if name_and_path == None:
+    msg.prnln("Warning: cannot locate binary '%s'" % name, "warning")
+    return name
+  name, path = name_and_path
+  return os.path.join(path, name)
 
 #-----------------------------------------------------------------------------
-std_bin_paths = ['/bin','/usr/bin','/usr/local/bin']
-std_lib_paths = ['/usr/lib', '/usr/local/lib']
-std_inc_paths = ['/usr/include', '/usr/local/include']
+
 config_file = "configuration"
 lib_option = "-l"
 libpath_option = "-L"
@@ -384,6 +411,12 @@ for opt, arg in recognized:
         msg.prnln("Warning: ignored option '%s'" % opt, "warning")
 
 #----------------------------------------------------------------------------
+# Print out some preliminary info
+print "Searching for binaries in:  " + ", ".join(std_bin_paths)
+print "Searching for libraries in: " + ", ".join(std_lib_paths)
+print "Searching for headers in:   " + ", ".join(std_inc_paths)
+
+#----------------------------------------------------------------------------
 # Now we find all the libraries nsim needs
 
 # Now we search for libraries
@@ -439,9 +472,9 @@ for key in configs:
 #----------------------------------------------------------------------------
 # Retrieve PyCaml specific flags (taken from 'python-config', option --libs)
 
-if not pyconfig.get("Py_ENABLE_SHARED"):
-    myexit("The Python executable you are trying to use has not been "
-           "compiled with support for shared libraries. Exiting...")
+#if not pyconfig.get("Py_ENABLE_SHARED"):
+#    myexit("The Python executable you are trying to use has not been "
+#           "compiled with support for shared libraries. Exiting...")
 
 pycaml_ldflags = ["-L%s/lib" % sys.exec_prefix]
 pycaml_ldflags += pyconfig.get("LIBS", "").split()
@@ -471,8 +504,8 @@ if os.uname()[0] == 'FreeBSD':
 	configuration["DLFLAGS"] = '-lc' # dlopen, etc are built into libc on FreeBSD
 	configuration["DLLIB"] = 'c'
 
-configuration["BASH"] = find_binary('bash',std_bin_paths);
-configuration["MPICC"] = find_binary('mpicc',['/usr/local/mpi/openmpi/bin']+std_bin_paths);
+configuration["BASH"] = find_binary('bash')
+configuration["MPICC"] = find_binary('mpicc', ['/usr/local/mpi/openmpi/bin'])
 
 # We have to ensure that libpmpich and libmpich are in the same path!
 try:
@@ -661,6 +694,8 @@ cf.save('nsimconf.py', language='python')
 cf.save('nsimconf.ml', language='ocaml')
 
 # Recap configuration settings on the screen
+msg.summary("bash shell binary path", configuration["BASH"])
+msg.summary("mpicc binary path", configuration["MPICC"])
 msg.summary("NumPy array support",
             bool_to_yesno(cf.have("NUMPY_INCLUDE_PATH")))
 msg.summary("CFLAGS", CFLAGS)
