@@ -167,6 +167,11 @@ class Quantity(ModelObj):
             subfield_name, value = integrals[0]
             return Value(value, self.unit/self.volumes[subfield_name])
 
+    def probe(self, position, material=None):
+        raise NotImplementedError("Method probe is not implemented for "
+                                  "Quantity of type %s" % self.type_str)
+
+
 class Constant(Quantity):
     type_str = "Constant"
 
@@ -236,6 +241,11 @@ class SpaceField(Quantity):
             return field
 
     master = property(get_master)
+
+    def get_updated_master(self):
+        master = self.master
+        ocaml.lam_get_field(self.lam, master, "v_" + self.name)
+        return master
 
     def set_value(self, value):
         if not self.vivified:

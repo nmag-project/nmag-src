@@ -18,6 +18,9 @@ import os
 import math
 import logging
 
+# Other imports
+import numpy
+
 # Nmag imports (modules nmag.*)
 from nmag_exceptions import *
 import nmesh
@@ -71,6 +74,12 @@ def _su_of(u):
 def _default_qc(q_type, q_name, *args, **named_args):
     return q_type(q_name, *args, **named_args)
 
+def canonical_subfieldname(fieldname, subfieldname):
+    prefix = fieldname + "_"
+    return (subfieldname[len(prefix):]
+            if subfieldname.startswith(prefix)
+            else subfieldname)
+
 
 # Move this somewhere else, and implement it
 class MemoryReport(object):
@@ -83,11 +92,6 @@ class MemoryReport(object):
 
     def finish(self):
         pass
-
-
-
-
-
 
 
 class Simulation(SimulationCore):
@@ -440,8 +444,7 @@ class Simulation(SimulationCore):
 
     def set_m(self, values, subfieldname=None):
         if subfieldname != None:
-             sfn = (subfieldname[2:] if subfieldname.startswith("m_")
-                    else subfieldname)
+             sfn = canonical_subfieldname("m", subfieldname)
              v = Value(sfn, values)
         else:
              v = Value(values)
@@ -707,6 +710,113 @@ class Simulation(SimulationCore):
 
     def save_m_to_file(self, file_name):
         self._save_fields(file_name, fieldnames=["m"])
+
+    def _probe_subfield(self, fieldname, pos, subfieldname, pos_units,
+                        si_units):
+        """XXX NOTE: temp hack, made to deliver a semi-working code to
+        collaborators."""
+        q = self.model.quantities.get(fieldname)
+        if q == None:
+            raise ValueError("Unknown field name '%s'" % fieldname)
+
+        field = q.get_updated_master()
+        factor = simulation_units.of(pos_units, compatible_with=SI("m"))
+        su_pos = map(factor.__mul__, pos)
+        su_data = ocaml.probe_field(field, subfieldname, su_pos)
+
+        #if we get su_data == [], then there are two possible reasons
+        # 1. the subfield is not defined at this position
+        # 2. the subfield does generally not exist. We need to catch
+        #    this point somewhere else and let the user know.
+        if len(su_data) > 1:
+            raise NmagInternalError("Didn't expect this: su_data=%s has more "
+                                    "than one entry (tensor of rank2 or "
+                                    "higher?)" % str(su_data))
+        elif len(su_data) == 0:
+            return None
+
+        name, su_data = su_data[0]
+        factor = 1.0/simulation_units.of(si_units)
+
+        # If data is vector, multiply all components with factor
+        if type(su_data) == list:
+            return map(factor.__mul__, su_data)
+
+        elif type(su_data) == float:
+            return factor*su_data
+
+        else:
+            raise NmagInternalError("Didn't expect this type: %s"
+                                    % type(su_data))
+
+    def split_subfieldname(self, subfieldname):
+        """XXX NOTE: temp hack, made to deliver a semi-working code to
+        collaborators."""
+        if subfieldname in self.known_quantities_by_name:
+            return (subfieldname, None)
+
+        else:
+            fieldname, materialname = subfieldname.rsplit("_", 1)
+            # ^^^ XXX NOTE: this is a hack at the moment
+            if fieldname in self.known_quantities_by_name:
+                return (fieldname, materialname)
+
+            else:
+                raise NmagUserError("Cannot find '%s'" % subfieldname)
+
+    def probe_subfield_siv(self, subfieldname, pos, unit=None):
+        """XXX NOTE: temp hack, made to deliver a semi-working code to
+        collaborators."""
+        fieldname, _ = self.split_subfieldname(subfieldname)
+        q = self.known_quantities_by_name.get(fieldname, None)
+        if q != None:
+            return self._probe_subfield(fieldname, pos, subfieldname,
+                                        SI("m"), q.units)
+
+        else:  
+            msg = "Couldn't find field for subfield '%s'" % subfieldname
+            raise NmagUserError(msg)
+
+    def _get_subfield(self, fieldname, subfieldname, si_units):
+        """XXX NOTE: temp hack, made to deliver a semi-working code to
+        collaborators."""
+        field = self.model.quantities[fieldname].get_updated_master()
+        factor = 1.0/simulation_units.of(si_units)
+        return factor*numpy.array(ocaml.mwe_subfield_data(field, subfieldname))
+
+    def get_subfield(self, subfieldname, units=None):
+        """XXX NOTE: temp hack, made to deliver a semi-working code to
+        collaborators."""
+        fieldname, _ = self.split_subfieldname(subfieldname)
+        q = self.known_quantities_by_name.get(fieldname, None)
+        if units == None:
+            units = q.units
+        return self._get_subfield(fieldname, subfieldname, units)
+
+    def fetch(self, fieldname):
+        """XXX NOTE: temp hack, made to deliver a semi-working code to
+        collaborators."""
+        if fieldname == "H_demag":
+            self.model.computations["set_H_demag"].execute()
+        elif fieldname == "H_exch":
+            if "H_exch" in self.model.computations:
+                self.model.computations["H_exch"].execute()
+            else:
+                self.model.computations["exch"].execute()
+        elif fieldname == "H_anis":
+            if "H_anis" in self.model.computations:
+                self.model.computations["H_anis"].execute()
+        elif fieldname == "H_total":
+            self.fetch("H_demag")
+            self.fetch("H_exch")
+            self.fetch("H_anis")
+            self.model.computations["H_total"].execute()
+        else:
+            avail_fields = ["H_exch", "H_demag", "H_total"]
+            avail_fields = ", ".join(map(lambda s: "'%s'" % s, avail_fields))
+            raise ValueError("Don't know how to fetch '%s'. Available fields "
+                             "are: %s." % (fieldname, avail_fields))
+
 
 
 def _add_micromagnetics(model, contexts, quantity_creator=None):

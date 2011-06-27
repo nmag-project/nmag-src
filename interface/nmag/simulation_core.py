@@ -555,3 +555,115 @@ class SimulationCore(object):
         for more information.'''
         self._raise_not_implemented("load_m_from_file")
 
+    def probe_subfield(self,subfieldname,pos,unit=None):
+        """for a given subfield name and position (SI object), return data (as SI object).
+
+        Note that ``get_subfield_siv`` has the same functionality but
+        takes a list of floats for the position (instead of an SI
+        object) and returns (a list of) float(s) which is just the
+        :ref:`SI-value <SI object>` of that physical entity.
+
+        If the subfield is not defined at that part of space, ``None``
+        is returned.
+
+        If the subfield does generally not exist, then a ``KeyError`` exception
+        is thrown.
+
+        :Parameters:
+          `subfieldname` : string
+            The name of the subfield
+
+          `pos` : SI object
+            The position for which the data should be returned
+
+          `unit` : SI object
+            If you request the value for a subfield of a field that is
+            part of |nmag| (i.e. fields M, m, H_demag, etc), then you do
+            not need to provide this object.
+
+            If you request data of any other (multi-physics) fields,
+            then this function needs to know the SI dimensions of that
+            field (for the correct conversion from simulation units to
+            SI units).
+
+            If incorrect dimensions are provided, the returned data is
+            likely to be wrongly scaled.
+
+        :Returns:
+          `data` : [list [of list[ of ...]]] SI objects
+            The returned object is an SI object for scalar subfields,
+            a list of SI objects for vector fields, a list of list of
+            SI objects for (rank 2) tensor fields, etc.
+
+        """
+        self._raise_not_implemented("probe_subfield")
+
+    def probe_subfield_siv(self, subfieldname, pos, unit=None):
+        """
+        The same behaviour as ``get_subfield`` but the ``pos`` and return
+        data are :ref:`SI-value <SI object>`\ s (not SI objects).
+
+        If the subfield is not defined at that part of space, ``None``
+        is returned.
+
+        If the subfield does generally not exist, then a ``KeyError``
+        exception is thrown.
+
+        The input (position) and returned data is expressed in SI
+        units but of type float.
+
+        :Parameters:
+          `subfieldname` : string
+            The name of the subfield
+
+          `pos` : list of floats
+            The position for which the data should be returned (in meters)
+
+          `unit` : SI object
+            If you request the value for a subfield of a field that is part of nmag (i.e.
+            fields M, m, H_demag, etc), then you do not need to provide this object.
+
+            If you request data of any other (multi-physics) fields,
+            then this function needs to know the SI dimensions of that
+            field (for the correct conversion from simulation units to
+            SI units).
+
+            If incorrect dimensions are provided, the returned data is
+            likely to be wrongly scaled.
+
+        :Returns:
+          `data` : [list [of list[ of ...]]] float
+            The returned object is a float for scalar subfields,
+            a list of floats for vector fields, a list of list of
+            floats for (rank 2) tensor fields, etc.
+
+        """
+        self._raise_not_implemented("probe_subfield_siv")
+
+    def get_subfield(self, subfieldname, units=None):
+        """
+        Given a subfieldname, this will return a numpy-array
+        containing all the data (one element for each site).
+
+        :Parameters:
+          `subfieldname` : string
+            The name of the subfield, for example ``m_Py`` or ``H_demag``.
+
+          `units` : SI object
+
+            Optional parameter. If it is provided, then the entity is
+            expressed in these units. If it is not provided, then the
+            correct SI dimensions for this subfield are looked up, and
+            :ref:`SI-value <SI object>`\ s are returned.
+
+            If you would like to see simulation units in the output,
+            then use ``SI(1)``.
+
+            In short: if you omit the second parameter, you will
+            obtain SI values.
+
+        :Returns:
+          `data` : numpy-array
+
+        """
+        self._raise_not_implemented("get_subfield")

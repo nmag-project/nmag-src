@@ -18,10 +18,8 @@ from computation import Equation
 from nsim.snippets import remove_unit
 
 def optarg_to_ocaml(a):
-    if a == None:
-        return []
-    else:
-        return [a]
+    return [] if a == None else [a]
+
 
 class Timestepper(ModelObj):
     type_str = "SundialsCVode"
