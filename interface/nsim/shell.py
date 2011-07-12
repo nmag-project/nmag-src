@@ -5,7 +5,7 @@
 # WEB:     http://nmag.soton.ac.uk
 # CONTACT: nmag@soton.ac.uk
 #
-# AUTHOR(S) OF THIS FILE: XXX
+# AUTHOR(S) OF THIS FILE: Matteo Franchin
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
@@ -73,7 +73,11 @@ def main(args, locals=None, globals=None, use_ipython=True):
         try:
             script_path = os.path.realpath(os.path.split(arguments[0])[0])
             sys.path.insert(0, script_path)
+            old__file__ = locals.get("__file__", None)
+            locals["__file__"] = arguments[0]
             execfile(arguments[0], globals, locals)
+            if old__file__:
+              locals["__file__"] = old__file__
 
         except SystemExit, exit_status:
             import logging
