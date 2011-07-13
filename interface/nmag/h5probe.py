@@ -288,7 +288,7 @@ class ProbeStore(object):
                     filter=None):
         filler = self.generate_filler(filter=filter)
         probe_field_from_file(file_name, self.times, self.lattice, field_name,
-                              subfield_name, out=filler)
+                              subfield_name, filler)
 
     def define_reference_field(self, file_name, field_name, subfield_name,
                                time, filter=None):
@@ -424,11 +424,6 @@ class ProbeStore(object):
         else:
             raise NmagUserError("Unrecognised output format '%s'." % out_fmt)
 
-    def filter(self, fn):
-        pass
-
-    def sum(self, axes):
-        pass
 
 def probe_field_on_lattice(lattice, field, subfield, out):
     def do(idx, position):
@@ -748,10 +743,7 @@ class Fields(object):
         return self.set_field_data(field_name, subfield_name, linear_comb)
 
 def probe_field_from_file(file_name, times, lattice, field_name, subfield,
-                          out=None):
-    def myout(t, pos, val):
-        print " ".join([str(s) for s in [t] + pos + val])
-
+                          out):
     if out == None:
         out = myout
 
@@ -773,6 +765,53 @@ def probe_field_from_file(file_name, times, lattice, field_name, subfield,
 
     times.foreach(do_for_time)
 
+    f.close_handler()
+
+
+
+
+num_probematrices = 0
+
+def build_prober(field, subfield, positions):
+  global num_probematrices
+  num_probematrices += 1
+  name_probematrix = "probematrix%d" % num_probematrices
+  name_probevector = "probevector%d" % num_probematrices
+  probematrix = ocaml.FemBuildProbeMatrix(name_probematrix, field, subfield,
+                                          positions)
+  output_vec = ocaml.VecCreate(len(positions)*3, name_probevector)
+  ocaml.VecAssemble(output_vec)
+
+  def probe(field):
+    ocaml.MatMult(probematrix, ocaml.FieldGetVec(field), output_vec)
+    return ocaml.VecAsNumpyArray(output_vec)
+
+  return probe
+
+def probe_field_from_file(file_name, times, lattice, field_name, subfield,
+                          out):
+    #def myout(t, pos, val):
+    #    print " ".join([str(s) for s in [t] + pos + val])
+    if out == None:
+        out = myout
+
+    full_field_name = build_full_field_name(field_name, subfield)
+    first_time = times.get_pos_from_idx([0])[0]
+    f = Fields(file_name)
+    field = f.set_field_data_at_time(field_name, subfield, first_time)
+
+    positions = lattice.get_positions(flat=True).tolist()
+    num_points = len(positions)
+    prober = build_prober(field, full_field_name, positions)
+    
+    def do_for_time(idx, t):
+        this_time = t[0]
+        probed_field = prober(field)
+        probed_field.shape = (num_points, -1)
+        for i, probed_value in enumerate(probed_field):
+            out(this_time, positions[i], probed_value)
+
+    times.foreach(do_for_time)
     f.close_handler()
 
 def probe_and_fft_field_from_file(file_name, times, lattice, field_name,
@@ -1127,16 +1166,6 @@ def main(prog, args):
         print
 
     out_fd = open(out_filename, 'w')
-
-    #previous_time = [None]
-    #def out(t, pos, val):
-    #    if t != previous_time[0]:
-    #        out_fd.write("\n")
-    #    previous_time[0] = t
-    #    out_fd.write(" ".join([str(s) for s in [t] + pos + val]) + "\n")
-
-    #probe_field_from_file(args['filename'], ts, l, args['field'],
-    #                      args['subfield'], out=out)
 
     probe_and_fft_field_from_file(input_filename, ts, l, fieldname,
                                   subfieldname, axes=ft_axes,

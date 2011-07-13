@@ -3374,10 +3374,7 @@ let build_probe_matrix
   let get_inv_point_matrix =
     Simplex.get_inv_point_matrix mesh.mm_simplex_data in
   let simplices = mesh.mm_simplices in
-  let probe_at_position position_index =
-    let (simplex, coords_L) =
-      mesh_locate_point mwe.mwe_mesh positions.(position_index) in
-    (* Note: this raises Not_found if the point could not be located! *)
+  let probe_at_simplex_coords position_index simplex coords_L =
     let sx_id = simplex.ms_id in
     let inv_ext_point_coords = get_inv_point_matrix sx_id in
     let elem = mwe.mwe_elements.(mwe.mwe_nel_by_simplex_index.(sx_id)) in
@@ -3403,6 +3400,16 @@ let build_probe_matrix
                 fun_matrix_add_entry matrix nr_row dof.dof_nr entry
             else ())
           dofs
+  in
+  let probe_at_position position_index =
+    let some_simplex_and_coords_L =
+      try Some (mesh_locate_point mwe.mwe_mesh positions.(position_index))
+      with Not_found -> None
+    in
+      match some_simplex_and_coords_L with
+        None -> ()
+      | Some (simplex, coords_L) ->
+        probe_at_simplex_coords position_index simplex coords_L
   in
   let () =
     for position_index = 0 to nr_positions - 1; do

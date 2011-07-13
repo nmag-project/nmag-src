@@ -118,6 +118,16 @@ class Lattice(object):
 
     nodes = property(get_shape)
 
+    def get_positions(self, flat=False):
+        slices = []
+        for xstart, xend, num_xs in self.min_max_num_list:
+            dx = (xend - xstart)/float(num_xs - 1)
+            slices.append(slice(xstart, xend + 0.5*dx, dx))
+        ps = numpy.lib.index_tricks.mgrid.__getitem__(slices)
+        if flat:
+          ps.shape = (ps.shape[0], -1)
+        return ps.swapaxes(0, -1)
+
     def _get_stepsizes(self, scale=1.0):
         return [(scale*(mx - mn)/(ns - 1) if ns > 1 else (mx - mn))
                 for mn, mx, ns in self.min_max_num_list]

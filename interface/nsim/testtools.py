@@ -27,7 +27,7 @@ def run_make(file_in_dir, make=None):
   makefile_dir = os.path.split(file_in_dir)[0] or "."
   exit_status = run_in_dir(makefile_dir, make_exec)
   if exit_status != 0:
-    raise ValueError("%s failed with exit status %d" % (make, exit_status))
+    raise ValueError("%s failed with exit status %d" % (make_exec, exit_status))
 
 def run_in_dir(directory, command):
   """Run (using os.system) the command given in 'command' inside the directory
