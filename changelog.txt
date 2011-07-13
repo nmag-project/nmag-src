@@ -36,7 +36,8 @@ Bugfixes/Improvements
 * Native compilation on Ubuntu XX.XX should now be possibe
   and relatively straightforward.
 
-
+* Added support for Numpy array to pass data to the core simulation engine
+  (makes it faster to set and retrieve fields)
 
 Release 0.1 beta (6481) 22 December 2009
 ========================================

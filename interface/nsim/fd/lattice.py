@@ -121,8 +121,12 @@ class Lattice(object):
     def get_positions(self, flat=False):
         slices = []
         for xstart, xend, num_xs in self.min_max_num_list:
-            dx = (xend - xstart)/float(num_xs - 1)
-            slices.append(slice(xstart, xend + 0.5*dx, dx))
+            if num_xs > 1:
+                dx = (xend - xstart)/float(num_xs - 1)
+                s = slice(xstart, xend + 0.5*dx, dx)
+            else:
+                s = slice(xstart, xend + 1.0, xstart + 0.5)
+            slices.append(s)
         ps = numpy.lib.index_tricks.mgrid.__getitem__(slices)
         if flat:
           ps.shape = (ps.shape[0], -1)

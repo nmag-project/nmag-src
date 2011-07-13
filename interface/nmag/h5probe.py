@@ -437,6 +437,34 @@ def probe_field_on_lattice(lattice, field, subfield, out):
                   "Unexpected output from probing function: %s" % str(probed)
     lattice.foreach(do)
 
+the_matrix = None
+the_output = None
+
+def probe_field_on_lattice_new(lattice, field, subfield, out):
+    global the_matrix
+
+    positions = []
+    def do(idx, position):
+        positions.append(position)
+
+    if the_matrix == None:
+        lattice.foreach(do)
+
+
+        the_matrix = \
+          ocaml.FemBuildProbeMatrix("probematrix", field, subfield, positions)
+        the_output = ocaml.VecCreate(len(positions)*3, "the_vector")
+        ocaml.VecAssemble(the_output)
+        ocaml.MatMult(the_matrix, ocaml.FieldGetVec(field), the_output)
+
+        out = ocaml.VecAsNumpyArray(the_output)
+        for i, p in enumerate(positions):
+          print p, out[i], ocaml.probe_field(field, subfield, p)
+          raw_input()
+        
+
+        
+
 class Fields(object):
     """Class which can be used to load the fields stored inside an Nmag h5
     file. The fields are reconstructed so that they can be manipulated."""
@@ -487,23 +515,22 @@ class Fields(object):
         include buffering (for speedup)."""
         full_field_name = build_full_field_name(field_name, subfield_name)
         f = self.open_handler()
-        tuple = hdf5.get_dof_row_data(f, field_name, full_field_name, row)
-        return tuple
+        result = hdf5.get_dof_row_data(f, field_name, full_field_name, row)
+        return result
 
         row_data_id = (full_field_name, row)
-        if self.read_cache.has_key(row_data_id):
+        if row_data_id in self.read_cache:
             print "%s found in cache" % str(row_data_id)
             return self.read_cache[row_data_id]
 
         else:
             # we read more rows, so that we can fill the cache
             # NOTE: this is much more efficient that doing separate reads
-            tuple = hdf5.get_dof_data_rows(f, field_name, full_field_name,
-                                           row, row+cache_size)
-            ps, vss, sites = tuple
+            result = hdf5.get_dof_data_rows(f, field_name, full_field_name,
+                                            row, row+cache_size)
+            ps, vss, sites = result
             for i, cached_vs in enumerate(vss):
                 cached_row_data_id = (full_field_name, row + i)
-                print "caching %s" % str(cached_row_data_id)
                 self.read_cache[cached_row_data_id] = (ps, cached_vs, sites)
 
             return (ps, vss[0], sites)
@@ -806,6 +833,7 @@ def probe_field_from_file(file_name, times, lattice, field_name, subfield,
     
     def do_for_time(idx, t):
         this_time = t[0]
+        field = f.set_field_data_at_time(field_name, subfield, this_time)
         probed_field = prober(field)
         probed_field.shape = (num_points, -1)
         for i, probed_value in enumerate(probed_field):
