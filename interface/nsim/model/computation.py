@@ -55,6 +55,10 @@ class Computation(ModelObj):
     def get_desc(self):
         return "%s(%s):" % (self.type_str, self.name)
 
+    def _build_lam_object(self, model):
+        """Build the LAM object corresponding to this computation."""
+        raise NotImplementedError("_build_lam_object not implemented.")
+
 
 def _expand_commands(cmds):
     def _expand_arg(arg):
@@ -368,13 +372,24 @@ class KSP(Computation):
         self.nullspace_subfields = nullspace_subfields
         self.nullspace_has_constant = nullspace_has_constant
 
+    def _build_lam_object(self, model):
+        return \
+          nlam.lam_ksp(self.get_full_name(), self.operator.get_full_name(),
+                       precond_name=self.precond_name,
+                       ksp_type=self.ksp_type, pc_type=self.pc_type,
+                       initial_guess_nonzero=self.initial_guess_nonzero,
+                       rtol=self.rtol, atol=self.atol, dtol=self.dtol,
+                       maxits=self.maxits,
+                       nullspace_subfields=self.nullspace_subfields,
+                       nullspace_has_constant=self.nullspace_has_constant)
+
 
 class BEM(Computation):
     type_str = "BEM"
 
     def __init__(self, name, mwe_name, dof_name,
                  hlib_params=None, boundary_spec="outer and material",
-                 lattice_info=[], matoptions=[],
+                 lattice_info=None, matoptions=[],
                  inputs=None, outputs=None, auto_dep=None):
         Computation.__init__(self, name, inputs=inputs, outputs=outputs,
                              auto_dep=auto_dep)
@@ -383,8 +398,17 @@ class BEM(Computation):
         self.is_hlib = (hlib_params != None)
         self.hlib_params = hlib_params
         self.boundary_spec = boundary_spec
-        self.lattice_info = lattice_info
+        self.lattice_info = lattice_info or []
         self.matoptions = matoptions
+
+    def _build_lam_object(self, model):
+        return \
+          nlam.lam_bem(self.get_full_name(), is_hlib=self.is_hlib,
+                       mwe_name=self.mwe_name, dof_name=self.dof_name,
+                       boundary_spec=self.boundary_spec,
+                       lattice_info=self.lattice_info,
+                       matoptions=self.matoptions,
+                       hlib_params=self.hlib_params)
 
 
 class Computations(Group):

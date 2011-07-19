@@ -1,12 +1,21 @@
-""" University of Southampton
- A class managing parameters for constructing hierarchical matrices
- with the programme library HLib.
- (C) 2009-05-21 Andreas Knittel
-"""
+# Nmag micromagnetic simulator
+# Copyright (C) 2009-2011 University of Southampton
+# Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
+#
+# WEB:     http://nmag.soton.ac.uk
+# CONTACT: nmag@soton.ac.uk
+#
+# AUTHOR(S) OF THIS FILE: Andreas Knittel
+# LICENSE: GNU General Public License 2.0
+#          (see <http://www.gnu.org/licenses/>)
+
+"""Module providing the HMatrixSetup class to manage parameters for
+constructing hierarchical matrices with the programme library HLib."""
+
 import sys
 from nmag_exceptions import *
 
-class HMatrixSetup:
+class HMatrixSetup(object):
     """A class collecting the parameters needed in order to set up an HMatrix
     with HLib within Nmag.
 

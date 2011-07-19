@@ -437,34 +437,6 @@ def probe_field_on_lattice(lattice, field, subfield, out):
                   "Unexpected output from probing function: %s" % str(probed)
     lattice.foreach(do)
 
-the_matrix = None
-the_output = None
-
-def probe_field_on_lattice_new(lattice, field, subfield, out):
-    global the_matrix
-
-    positions = []
-    def do(idx, position):
-        positions.append(position)
-
-    if the_matrix == None:
-        lattice.foreach(do)
-
-
-        the_matrix = \
-          ocaml.FemBuildProbeMatrix("probematrix", field, subfield, positions)
-        the_output = ocaml.VecCreate(len(positions)*3, "the_vector")
-        ocaml.VecAssemble(the_output)
-        ocaml.MatMult(the_matrix, ocaml.FieldGetVec(field), the_output)
-
-        out = ocaml.VecAsNumpyArray(the_output)
-        for i, p in enumerate(positions):
-          print p, out[i], ocaml.probe_field(field, subfield, p)
-          raw_input()
-        
-
-        
-
 class Fields(object):
     """Class which can be used to load the fields stored inside an Nmag h5
     file. The fields are reconstructed so that they can be manipulated."""

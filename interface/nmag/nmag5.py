@@ -35,6 +35,8 @@ import nfem.hdf5_v01 as hdf5
 import convergence
 import anisotropy5
 from anisotropy5 import Anisotropy
+from hlib import default_hmatrix_setup, HMatrixSetup
+import hlib
 
 import ocaml
 
@@ -95,12 +97,27 @@ class MemoryReport(object):
 
 
 class Simulation(SimulationCore):
-    def __init__(self, name=None, do_demag=True, do_sl_stt=False):
+    def __init__(self, name=None, phi_BEM=None, periodic_bc=None,
+                 do_demag=True, do_sl_stt=False):
         SimulationCore.__init__(self, name=name, do_demag=do_demag,
                                 id="FE Simulation class")
 
+        # Get parameters for building the BEM matrix with HLib
+        self.hlib_params = None
+        if phi_BEM != None:
+            if not isinstance(phi_BEM, HMatrixSetup):
+                raise ValueError("the argument phi_BEM of the Simulation "
+                                 "class must be an instance of the "
+                                 "HMatrixSetup class")
+            lg.info("Using HLib to compress the BEM matrix. "
+                    "HMatrix setup parameters are: %s" % str(phi_BEM))
+            if not hlib.initialize_library(logmsg=lg.debug):
+                raise NmagUserError("Cannot initialise HLib!")
+            self.hlib_params = phi_BEM.get_hlib_parameters_internal()
+
         # General settings
         self.do_sl_stt = do_sl_stt      # Compute Slonczewski STT
+        self.periodic_bc = periodic_bc  # Lattice for PBC
 
         # Mesh stuff...
         self.mesh = None                # The mesh object
@@ -212,7 +229,7 @@ class Simulation(SimulationCore):
 
         assert unit_length == SI(1e-9, "m"), \
           ("Error in Simulation.load_mesh: Nmag5 only supports unit_length="
-          "SI(1e-9, \"m\") for now.")
+           "SI(1e-9, \"m\") for now.")
 
         if self.mesh != None:
             raise NmagUserError("Mesh is already present!")
@@ -317,7 +334,9 @@ class Simulation(SimulationCore):
         contexts = []
         _add_micromagnetics(model, contexts, self._quantity_creator)
         _add_exchange(model, contexts, self._quantity_creator)
-        _add_demag(model, contexts, self._quantity_creator, self.do_demag)
+        _add_demag(model, contexts, self._quantity_creator, self.do_demag,
+                   lattice_info=self.periodic_bc,
+                   hlib_params=self.hlib_params)
         _add_stt_zl(model, contexts, self._quantity_creator)
         _add_stt_sl(model, contexts, self._quantity_creator,
                     do_sl_stt=self.do_sl_stt)
@@ -873,7 +892,8 @@ def _add_exchange(model, contexts, quantity_creator=None):
         model.add_computation(op_exch, eq_exch_tmp)
 
 
-def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
+def _add_demag(model, contexts, quantity_creator=None, do_demag=True,
+               lattice_info=None, hlib_params=None):
     qc = quantity_creator or _default_qc
 
     if do_demag == False or "demag" in contexts:
@@ -950,7 +970,8 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True):
                                 rtol=1e-5, atol=1e-5, maxits=1000000)
 
     # The BEM matrix
-    bem = BEM("BEM", mwe_name="phi", dof_name="phi")
+    bem = BEM("BEM", mwe_name="phi", dof_name="phi",
+              lattice_info=lattice_info, hlib_params=hlib_params)
 
     # The LAM program for the demag
     commands=[["SM*V", op_div_m, "v_m", op_div_m_dest],

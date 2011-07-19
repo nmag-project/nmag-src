@@ -485,7 +485,7 @@ class SimulationCore(object):
 
     def create_mesh(self, cell_nums, cell_sizes, materials,
                     regions=None, origin=(0.0, 0.0, 0.0),):
-        '''Specify the FD mesh to use.
+        """Specify the FD mesh to use.
 
         - ``cell_nums`` if a list containing the number of cells per each
           dimension.
@@ -507,7 +507,7 @@ class SimulationCore(object):
         - ``origin`` is the coordinate of the first cell, all the other cells
           occupy the cubic region of space whose corners are ``origin`` itself
           and ``origin[i] + cell_size[i]*cell_nums[i]`` for running index i.
-        '''
+        """
         self._raise_not_implemented("create_mesh")
 
     def set_params(self, stopping_dm_dt=None,

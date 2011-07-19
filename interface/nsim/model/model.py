@@ -330,37 +330,19 @@ class Model(object):
 
     def _build_ksps(self):
         ksps = self.computations._by_type.get('KSP', [])
-
         ksp_dict = {}
         for ksp in ksps:
             ksp_full_name = ksp.get_full_name()
-            ksp_dict[ksp_full_name] = \
-              nlam.lam_ksp(ksp_full_name, ksp.operator.get_full_name(),
-                           precond_name=ksp.precond_name,
-                           ksp_type=ksp.ksp_type, pc_type=ksp.pc_type,
-                           initial_guess_nonzero=ksp.initial_guess_nonzero,
-                           rtol=ksp.rtol, atol=ksp.atol, dtol=ksp.dtol,
-                           maxits=ksp.maxits,
-                           nullspace_subfields=ksp.nullspace_subfields,
-                           nullspace_has_constant=ksp.nullspace_has_constant)
-
+            ksp_dict[ksp_full_name] = ksp._build_lam_object(self)
         self._built["KSP"] = True
         return ksp_dict
 
     def _build_bems(self):
         bems = self.computations._by_type.get('BEM', [])
-
         bem_dict = {}
         for bem in bems:
             bem_full_name = bem.get_full_name()
-            bem_dict[bem_full_name] = \
-              nlam.lam_bem(bem_full_name, is_hlib=bem.is_hlib,
-                           mwe_name=bem.mwe_name, dof_name=bem.dof_name,
-                           boundary_spec=bem.boundary_spec,
-                           lattice_info=bem.lattice_info,
-                           matoptions=bem.matoptions,
-                           hlib_params=bem.hlib_params)
-
+            bem_dict[bem_full_name] = bem._build_lam_object(self)
         return bem_dict
 
     def _build_equations(self):
