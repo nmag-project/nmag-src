@@ -11,6 +11,9 @@
 
 import collections
 
+from obj import ModelObj
+
+
 class Group(object):
     type_str = "GroupItem"
 
@@ -42,13 +45,6 @@ class Group(object):
            "when adding one quantity at a time.")
 
         for obj in objs:
-            self._all.append(obj)
-
-            try:
-                self._by_type[obj.type_str].append(obj)
-            except KeyError:
-                self._by_type[obj.type_str] = [obj]
-
             n = name or obj.name
             if n in self._by_name:
                 msg = ("Collection.add: found duplicate %s with name '%s' "
@@ -56,7 +52,10 @@ class Group(object):
                        "have a different name!"
                        % (self.type_str, n, obj.type_str))
                 raise ValueError(msg)
+
             self._by_name[n] = obj
+            self._all.append(obj)
+            self._by_type.setdefault(obj.type_str, []).append(obj)
 
     def get(self, name):
         """Return the quantity with the given name."""
@@ -65,3 +64,17 @@ class Group(object):
         except KeyError:
             raise KeyError("Cannot find %s object with name %s."
                            % (self.type_str, name))
+
+    def pop(self, item):
+        """Remove an item from the group."""
+        name = (item.name if isinstance(item, ModelObj) else item)
+        item = self._by_name.pop(name)
+        full_name = item.get_full_name()
+        
+        full_names = map(ModelObj.get_full_name, self._all)
+        self._all.pop(full_names.index(full_name))
+        
+        by_type = self._by_type[item.type_str]
+        full_names = map(ModelObj.get_full_name, by_type)
+        by_type.pop(full_names.index(full_name))
+        return item

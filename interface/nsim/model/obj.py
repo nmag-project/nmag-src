@@ -21,25 +21,32 @@ class ModelObj(object):
 
     def __init__(self, name):
         assert self.type_str != None, \
-          "ModelObj is not meant to be used directly. Use rather one of " \
-          "its derived classes."
+          ("ModelObj is not meant to be used directly. Use rather one of "
+           "its derived classes.")
         self.name = name
         self.lam = None
+        self.model = None
 
     def _is_vivified(self):
         return self.lam != None
 
     vivified = property(_is_vivified)
 
+    def get_name(self):
+        return self.name
+
     def get_full_name(self):
         return "%s_%s" % (self.type_str, self.name)
 
     def get_lam(self):
         assert self.lam != None, \
-          "The %s object (name=%s) has not been vivified, yet. You need to " \
-          "add it to a model and to build the model." \
-          % (self.type_str, self.name)
+          ("The %s object (name=%s) has not been vivified, yet. You need to "
+           "add it to a model and to build the model."
+           % (self.type_str, self.name))
         return self.lam
+
+    def set_model(self, model):
+        self.model = model
 
     def vivify(self, model):
         """This function is not meant to be called directly by the user.

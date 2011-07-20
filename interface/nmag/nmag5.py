@@ -346,6 +346,7 @@ class Simulation(SimulationCore):
         # Set the values of the constants in the micromagnetic model
         self._set_qs_from_materials()
 
+        # Add anisotropies
         self._add_anis()
 
         # Now build the model
@@ -852,6 +853,7 @@ def _add_micromagnetics(model, contexts, quantity_creator=None):
 
     eq = Equation("eq_M", "(M(i) <- Ms*m(i))_(i:3);")
     model.add_computation(eq)
+    model.declare_target(eq)
 
 def _add_exchange(model, contexts, quantity_creator=None):
     if "exch" in contexts:
@@ -988,7 +990,9 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True,
               ["CFBOX", "H_demag", "v_H_demag"]]
     prog_set_H_demag = \
       LAMProgram("set_H_demag", commands,
-                 inputs=["m"], outputs=["rho", "phi", "H_demag"])
+                 inputs=["m"],
+                 outputs=["rho", "phi", "H_demag"],
+                 internals=["rho_s", "phi1", "phi2", "phi1b", "phi2b"])
 
     model.add_computation(op_div_m, op_neg_laplace_phi, op_grad_phi,
                           op_laplace_DBC, op_load_DBC, ksp_solve_laplace_DBC,
@@ -1224,6 +1228,7 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
                      derivatives=derivatives,
                      time_unit=t_unit)
     model.add_timestepper(ts)
+    model.declare_target(ts)
 
 def _add_energies(model, contexts, quantity_creator=None):
     if "mumag_energies" in contexts:
@@ -1251,3 +1256,4 @@ def _add_energies(model, contexts, quantity_creator=None):
     en_total = Equation("en_total", eq)
 
     model.add_computation(en_demag, en_exch, en_ext, en_total)
+    model.declare_target(E_total)

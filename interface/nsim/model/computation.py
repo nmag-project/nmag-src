@@ -33,10 +33,12 @@ class Computation(ModelObj):
 
     type_str = "Computation"
 
-    def __init__(self, name, inputs=None, outputs=None, auto_dep=None):
+    def __init__(self, name, inputs=None, outputs=None, internals=None,
+                 auto_dep=None):
         ModelObj.__init__(self, name)
         self.inputs = inputs
         self.outputs = outputs
+        self.internals = internals
         self.auto_dep = auto_dep if auto_dep != None else True
 
     def get_inputs_and_outputs(self, context=None):
@@ -45,12 +47,21 @@ class Computation(ModelObj):
         o = self.outputs
         return (i if i != None else [], o if o != None else [])
 
-    def get_inouts(self, context=None):
+    def get_required_computations(self):
+        """Return the computations (directly) required by this program."""
+        return []
+
+    def get_internals(self, context=None):
+        """Get fields required internally by the computation."""
+        return self.internals or []
+
+    def get_all_quantities(self, context=None):
         """Get all the quantities involved in the computation.
         If the optional argument is not specified, then return the last
         computed value, if possible."""
         ins, outs = self.get_inputs_and_outputs(context=context)
-        return ins + outs
+        internals = self.get_internals(context=context)
+        return ins + outs + internals
 
     def get_desc(self):
         return "%s(%s):" % (self.type_str, self.name)
@@ -70,10 +81,11 @@ class LAMProgram(Computation):
     type_str = "LAMProgram"
 
     def __init__(self, name, commands=None,
-                 inputs=None, outputs=None, auto_dep=None):
+                 inputs=None, outputs=None, internals=None,
+                 auto_dep=None):
         Computation.__init__(self, name, inputs=inputs, outputs=outputs,
-                             auto_dep=auto_dep)
-        self.commands = _expand_commands(commands) if commands else []
+                             internals=internals, auto_dep=auto_dep)
+        self.commands = commands or []
 
     def add_commands(self, commands):
         if type(commands[0]) == str:
@@ -82,6 +94,16 @@ class LAMProgram(Computation):
 
     def get_prog_name(self):
         return self.get_full_name()
+
+    def get_required_computations(self):
+        required_computations = {}
+        for cmd in self.commands:
+            for arg in cmd[1:]:
+                if isinstance(arg, Computation):
+                    required_computations[arg.get_full_name()] = arg
+        return required_computations.values()
+    get_required_computations.__doc__ = \
+      Computation.get_required_computations.__doc__
 
     def execute(self, fields=[], cofields=[]):
         """Execute the LAMProgram."""
@@ -92,6 +114,11 @@ class LAMProgram(Computation):
         program_desc = "\n  ".join(map(str, self.commands))
         return "%s\nLAM program:\n  %s" \
           % (Computation.get_desc(self), program_desc)
+
+    def _build_lam_program(self):
+        commands = _expand_commands(self.commands)
+        return nlam.lam_program(self.get_prog_name(),
+                                commands=commands)
 
 
 class ParsedComputation(LAMProgram):
@@ -110,18 +137,22 @@ class ParsedComputation(LAMProgram):
     def get_prog_name(self):
         return "%s_%s" % (self.prog_name, self.name)
 
-    def get_text(self, context=None):
-        """Get the final (processed) text of the equation."""
+    def simplify(self, context=None):
+        """Simplify the computation using the provided simplification context.
+        """
         if self.simplified_tree == None:
             self.simplified_tree = self.tree.simplify(context=context)
+        
+    def get_text(self, context=None):
+        """Get the final (processed) text of the equation."""
+        self.simplify(context=context)
         if self.final_text == None:
             self.final_text = str(self.simplified_tree)
         return self.final_text
 
     def get_ccode(self, context=None):
         """Get the final (processed) C code for the equation."""
-        if self.simplified_tree == None:
-            self.simplified_tree = self.tree.simplify(context=context)
+        self.simplify(context=context)
         if self.final_ccode == None:
             self.final_ccode = self.simplified_tree.get_ccode()
         return self.final_ccode
@@ -167,7 +198,7 @@ class Equation(ParsedComputation):
 
         if self.ocaml_to_parse:
             eq_text = self.get_text(context=context)
-            mwes_for_eq = self.get_inouts()
+            mwes_for_eq = self.get_all_quantities()
             return \
               nlam.lam_local(self.get_full_name(),
                              aux_args=intensive_params,
@@ -175,7 +206,7 @@ class Equation(ParsedComputation):
                              equation=eq_text)
         else:
             ccode = self.get_ccode(context=context)
-            mwes_for_eq = self.get_inouts()
+            mwes_for_eq = self.get_all_quantities()
             return \
               nlam.lam_local(self.get_full_name(),
                              aux_args=intensive_params,
@@ -341,7 +372,7 @@ class CCode(LAMProgram):
         if self.ccode == None:
             self._build_ccode(model)
 
-        required_quantities = self.get_inouts()
+        required_quantities = self.get_all_quantities()
         return \
           nlam.lam_local(self.get_full_name(),
                          aux_args=self.intensive_params,
@@ -371,6 +402,11 @@ class KSP(Computation):
         self.maxits = maxits
         self.nullspace_subfields = nullspace_subfields
         self.nullspace_has_constant = nullspace_has_constant
+
+    def get_required_computations(self):
+        return [self.operator]
+    get_required_computations.__doc__ = \
+      Computation.get_required_computations.__doc__
 
     def _build_lam_object(self, model):
         return \

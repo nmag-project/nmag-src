@@ -76,11 +76,12 @@ import ocaml
 import nmag
 from nsim import linalg_machine as nlam
 
-from computation import Computations, EqSimplifyContext, OpSimplifyContext, \
-                        LAMProgram, Operator
-from quantity import Quantities
-from timestepper import Timesteppers
+from computation import Computation, Computations, EqSimplifyContext, \
+                        OpSimplifyContext, LAMProgram, Operator, Equation
+from quantity import Quantity, Quantities, Constant
+from timestepper import Timestepper, Timesteppers
 from nsim.snippets import contains_all
+from obj import ModelObj
 
 __all__ = ['Model', 'NsimModelError']
 
@@ -90,6 +91,10 @@ class NsimModelError(Exception):
     pass
 
 #-----------------------------------------------------------------------------
+
+def _set_model(objs, model):
+    for obj in objs:
+        obj.set_model(model)
 
 def enumerated_list(z):
     return zip(range(len(z)),z)
@@ -168,6 +173,7 @@ class Model(object):
         self.quantities.primary = None
         self.quantities.derived = None
         self.quantities.dependencies = None
+        self.targets = []
 
         self.intensive_params = []
 
@@ -189,15 +195,18 @@ class Model(object):
         """Add the given quantity 'quant' to the current physical model.
         If 'quant' is a list, then add all the elements of the list, assuming
         they all are Quantity objects."""
-        return self.quantities.add(*quant)
+        self.quantities.add(*quant)
+        _set_model(quant, self)
 
     def add_computation(self, *c):
         """Add the computation (Computation object) to the model."""
-        return self.computations.add(*c)
+        self.computations.add(*c)
+        _set_model(c, self)
 
-    def add_timestepper(self, ts):
+    def add_timestepper(self, *ts):
         """Add the timestepper (Timestepper object) to the model."""
-        return self.timesteppers.add(ts)
+        self.timesteppers.add(*ts)
+        _set_model(ts, self)
 
     def _build_elems_on_material(self, name, shape):
         # Build the 'all_materials' dictionary which maps a material name to
@@ -299,15 +308,28 @@ class Model(object):
         self.mwes[name] = mwe
         return mwe
 
-    def _build_operators(self):
+    def _simplify_operators(self):
+        """Simplify the operators before building them."""
         ops = self.computations._by_type.get('Operator', [])
+        op_names = ", ".join(map(Operator.get_name, ops))
+        logger.info("Simplifying operators: %s." % op_names)
+        
         simplify_context = \
           OpSimplifyContext(quantities=self.quantities,
                             material=self.all_material_names)
+        for op in ops:
+            logger.debug("Simplifying operator %s" % op.name)
+            op.simplify(context=simplify_context)
+      
+    def _build_operators(self):
+        ops = self.computations._by_type.get('Operator', [])
+        op_names = ", ".join(map(Operator.get_name, ops))
+        logger.info("Building operators: %s." % op_names)
+
         operator_dict = {}
         for op in ops:
-            logger.info("Building operator %s" % op.name)
-            op_text = op.get_text(context=simplify_context)
+            logger.debug("Building operator %s" % op.name)
+            op_text = op.get_text()
             mwe_in, mwe_out = op.get_inputs_and_outputs()
             op_full_name = op.get_full_name()
             assert len(mwe_in) == 1 and len(mwe_out) == 1, \
@@ -319,7 +341,7 @@ class Model(object):
               nlam.lam_operator(op_full_name, mwe_out[0], mwe_in[0], op_text)
 
             # We should now register a VM call to compute the equation
-            logger.info("Creating operator program for %s" % op.name)
+            logger.debug("Creating operator program for %s" % op.name)
             v_in, v_out = ["v_%s" % name for name in mwe_in + mwe_out]
             op.add_commands(["SM*V", op_full_name, v_in, v_out])
             if op.cofield_to_field:
@@ -345,21 +367,33 @@ class Model(object):
             bem_dict[bem_full_name] = bem._build_lam_object(self)
         return bem_dict
 
-    def _build_equations(self):
+    def _simplify_equations(self):
+        """Simplify the operators before building them."""
         eqs = self.computations._by_type.get('Equation', [])
+        eq_names = ", ".join(map(Equation.get_name, eqs))
+        logger.info("Simplifying equations: %s." % eq_names)
+
         simplify_context = \
           EqSimplifyContext(quantities=self.quantities,
                             material=self.all_material_names)
+        for eq in eqs:
+            logger.debug("Simplifying equation %s" % eq.name)
+            eq.simplify(context=simplify_context)
+
+    def _build_equations(self):
+        eqs = self.computations._by_type.get('Equation', [])
+        eq_names = ", ".join(map(Equation.get_name, eqs))
+        logger.info("Building equations: %s." % eq_names)
+
         equation_dict = {}
         for eq in eqs:
-            logger.info("Building equation %s" % eq.name)
+            logger.debug("Building equation %s" % eq.name)
             eq_full_name = eq.get_full_name()
-            equation_dict[eq_full_name] = \
-              eq._build_lam_object(self, context=simplify_context)
+            equation_dict[eq_full_name] = eq._build_lam_object(self)
 
             # We should now register a VM call to compute the equation
-            logger.info("Creating equation program for %s" % eq.name)
-            fields = ["v_%s" % name for name in eq.get_inouts()]
+            logger.debug("Creating equation program for %s" % eq.name)
+            fields = ["v_%s" % name for name in eq.get_all_quantities()]
             eq.add_commands(["SITE-WISE-IPARAMS", eq_full_name, fields, []])
 
         self._built["Equations"] = True
@@ -375,7 +409,7 @@ class Model(object):
 
             # We should now register a VM call to launch the CCode
             logger.info("Creating ccode program for %s" % ccode.name)
-            fields = ["v_%s" % name for name in ccode.get_inouts()]
+            fields = ["v_%s" % name for name in ccode.get_all_quantities()]
             ccode.add_commands(["SITE-WISE-IPARAMS", ccode_full_name, fields, []])
 
         self._built["CCode"] = True
@@ -386,12 +420,14 @@ class Model(object):
                  + self.computations._by_type.get('CCode', [])
                  + self.computations._by_type.get('Equation', [])
                  + self.computations._by_type.get('Operator', []))
+        prog_names = ", ".join(map(LAMProgram.get_prog_name, progs))
+        logger.info("Building programs: %s." % prog_names)
+
         prog_dict = {}
         for prog in progs:
             prog_name = prog.get_prog_name()
-            logger.info("Building program %s" % prog_name)
-            prog_dict[prog_name] = \
-              nlam.lam_program(prog_name, commands=prog.commands)
+            logger.debug("Building program %s" % prog_name)
+            prog_dict[prog_name] = prog._build_lam_program()
 
         self._built["LAMPrograms"] = True
         return prog_dict
@@ -458,6 +494,89 @@ class Model(object):
                                      % (derived_q, dep_path))
 
         self._built["DepTree"] = True
+
+    def _check_model_obj(self, obj):
+        if not isinstance(obj, ModelObj):
+            raise ValueError("The object you provided is not a ModelObj")
+
+        if obj.model != self:
+            raise ValueError("The object you provided has does not belong "
+                             "to this Model.")
+
+    def declare_target(self, *targets):
+        """Declare the targets of the model, or - in other words - what
+        objects the user wants to use. This will help the system to find out
+        which parts of the model are unnecessary and can be removed.
+        The system will examine the provided targets and find out which
+        quantities and computations are needed in order to compute them.
+        It will then remove the remanining objects in the model.
+        If this method is not used, then all the model object are kept."""
+        for target in targets:
+            self._check_model_obj(target)
+        self.targets.extend(targets)
+
+    def collect_required_objects(self, targets, bag={}):
+        """Collect the Model objects required by the given model objects
+        (provided in targets)."""
+        for target in targets:
+            target_full_name = target.get_full_name()
+            if target_full_name in bag:
+                continue
+
+            bag[target_full_name] = target
+            if isinstance(target, Computation):
+                all_q_names = target.get_all_quantities()
+                all_qs = map(self.quantities.__getitem__, all_q_names)
+                self.collect_required_objects(all_qs, bag=bag)
+                sub_comps = target.get_required_computations()
+                self.collect_required_objects(sub_comps, bag=bag)
+
+            elif isinstance(target, Quantity):
+                computation_and_inputs = \
+                  self.quantities.dependencies.get(target.name, None)
+                if computation_and_inputs != None:
+                    computation = computation_and_inputs[0]
+                    self.collect_required_objects([computation], bag=bag)
+
+            elif isinstance(target, Timestepper):
+                qs = map(self.quantities.__getitem__, target.x + target.dxdt)
+                self.collect_required_objects(qs, bag=bag)
+
+            else:
+                raise NsimModelError("Unknown model object (%s)"
+                                     % type(target))
+        return bag
+      
+    def _remove_unused(self, targets):
+        required_objects = self.collect_required_objects(targets)
+
+        # Removed unused computations
+        removed_computations = []
+        for computation in self.computations._all:
+            fn = computation.get_full_name()
+            if fn not in required_objects:
+                removed_computations.append(computation)
+                self.computations.pop(computation)
+
+        if removed_computations:
+            c_names = \
+              ", ".join(map(Computation.get_name, removed_computations))
+            logger.info("Removed unused computations: %s." % c_names)
+
+        # Remove quantities (except Constant quantities)
+        removed_quantities = []
+        for quantity in self.quantities._all:
+            if not isinstance(quantity, Constant):
+                fn = quantity.get_full_name()
+                #if fn not in required_objects:
+                #    removed_quantities.append(quantity)
+                #    self.quantities.pop(quantity)
+
+        if removed_quantities:
+            q_names = ", ".join(map(Quantity.get_name, removed_quantities))
+            logger.info("Removed unused quantities: %s." % q_names)
+            
+        raw_input()
 
     def write_dependency_tree(self, out=sys.stdout):
         """Write to the provided stream (sys.stdout, if not provided)
@@ -590,7 +709,43 @@ class Model(object):
         self._built["TSs"] = True
         return nlam_tss
 
-    def _build_lam(self):
+    def _build_lam(self, remove_unused=True):
+        # First build all the elements
+        field_quants = self.quantities._by_type.get('SpaceField', [])
+        field_quants += self.quantities._by_type.get('SpaceTimeField', [])
+        param_quants = self.quantities._by_type.get('TimeField', [])
+        for field_quant in field_quants:
+            self._build_elems(field_quant.name,
+                              field_quant.shape,
+                              on_material=field_quant.def_on_mat)
+
+        # Now build all the MWEs
+        for field_quant in field_quants:
+            self._build_mwe(field_quant.name)
+
+        # Carry out equation and operator simplifications
+        self._simplify_operators()
+        self._simplify_equations()
+
+        # Build the dependency tree
+        self._build_dependency_tree()
+
+        # Remove unused objects, if required
+        if remove_unused:
+            self._remove_unused(self.targets)
+
+        # Build the simplified operators
+        operators = self._build_operators()
+        equations = self._build_equations()
+
+        bems = self._build_bems()
+        ksps = self._build_ksps()        
+        ccodes = self._build_ccodes()
+        jacobi = {} # Not used (should clean this)
+        timesteppers = self._build_timesteppers()
+        programs = self._build_programs()
+        debugfile = None
+
         # Build LAM vector dictionary
         vectors = {}
         for mwe_name in self.mwes:
@@ -601,17 +756,6 @@ class Model(object):
             vectors[vec_name] = \
               nlam.lam_vector(name=vec_name, mwe_name=mwe_name,
                               restriction=quantity.restrictions)
-
-        operators = self._build_operators()
-        bems = self._build_bems()
-        ksps = self._build_ksps()
-        equations = self._build_equations()
-        ccodes = self._build_ccodes()
-        jacobi = {} # Not used (should clean this)
-        self._build_dependency_tree()
-        timesteppers = self._build_timesteppers()
-        programs = self._build_programs()
-        debugfile = None
 
         lam = nlam.make_lam(self.name,
                             intensive_params=self.intensive_params,
@@ -645,32 +789,13 @@ class Model(object):
             eq.vivify(self)
 
     def build(self):
-        # I'm keeping the same order of execution that we were using in the
-        # old nmag_lam.py source
-        field_quants = self.quantities._by_type.get('SpaceField', [])
-        field_quants += self.quantities._by_type.get('SpaceTimeField', [])
-        param_quants = self.quantities._by_type.get('TimeField', [])
-
         # Extended properties by region
         self.ext_pbr = \
           _extended_properties_by_region(self.region_materials,
                                          self.min_region,
                                          self.properties_by_region)
-
-        # First build all the elements
-        for field_quant in field_quants:
-            self._build_elems(field_quant.name,
-                              field_quant.shape,
-                              on_material=field_quant.def_on_mat)
-
-        # Now build all the MWEs
-        for field_quant in field_quants:
-            self._build_mwe(field_quant.name)
-
         self._build_lam()
-
         self._vivify_objs(self.lam)
-
         self._built["LAM"] = True
 
 
