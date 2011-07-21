@@ -343,7 +343,7 @@ class CCode(LAMProgram):
         all_required_qs = {}
         for orig_ccode, mats in self.ccodes:
             if mats == None:
-                mats = model.all_material_names
+                mats = model.regions.all_entity_names
 
             else:
                 if not hasattr(mats, "__iter__"):

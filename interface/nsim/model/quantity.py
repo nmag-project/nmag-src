@@ -91,7 +91,7 @@ class Quantity(ModelObj):
 
         else:
             if self.subfields == True:
-                self.subfields = model.all_material_names
+                self.subfields = model.regions.all_entity_names
 
             # Calculate the volume per subfield as the sum of the volumes
             # where the subfield is defined
@@ -99,7 +99,7 @@ class Quantity(ModelObj):
             for subfield in self.subfields:
                 volumes["%s_%s" % (self.name, subfield)] = \
                   reduce(lambda v, region_idx: v + vols[region_idx],
-                         model.regions_of_subfield[subfield], 0.0)
+                         model.regions.regions_by_entity[subfield], 0.0)
 
     def is_defined_on_material(self, material):
         """Return True if the quantity is defined on the specified material,
@@ -228,7 +228,7 @@ class SpaceField(Quantity):
         self.mesh_unit = model.mesh_unit
         self.volume_unit = self.mesh_unit**self.mesh.dim
         self.mwe = mwe = model.mwes[self.name]
-        self.material_names = model.all_material_names
+        self.material_names = model.regions.all_entity_names
         self.set_value(self.value)
 
     def get_master(self):

@@ -96,52 +96,78 @@ def _set_model(objs, model):
     for obj in objs:
         obj.set_model(model)
 
-def enumerated_list(z):
-    return zip(range(len(z)),z)
+class MeshRegions(object):
+    def __init__(self, entities_in_regions, min_region=-1):
+        self.min_region = min_region
+        self.entities_by_region = entities_in_regions
+        self.regions_by_entity = None
+        self.properties_by_region = None
+        self.all_entity_names = None
 
-def _extended_properties_by_region(region_materials, min_region=-1,
-                                   extra_pbr=[]):
-    """Internal: Generate properties_by_region"""
-    pbr = {}
+        self._build_all_entity_names()
+        self._build_regions_by_entity()
+        self._build_properties_by_region()
 
-    def add_prop(region,prop):
-        if region in pbr:
-            pbr[region][prop] = True
-        else:
-            pbr[region] = {prop: True}
+    def _build_all_entity_names(self):
+        all_entity_names = set()
+        for entity_names in self.entities_by_region:
+            for entity_name in entity_names:
+                all_entity_names.add(entity_name)
+        self.all_entity_names = sorted(list(all_entity_names))
 
-    # Ensure all the outer regions have the property "outer":
-    for vac in range(min_region,0):
-        add_prop(vac, "outer")
+    def _build_regions_by_entity(self):
+        # Fill a map associating subfield name to region indices where
+        # the subfield is defined.
+        regions_by_entity = {}
+        for region_idx, entity_names in enumerate(self.entities_by_region):
+            for entity_name in entity_names:
+                region_idxs = regions_by_entity.setdefault(entity_name, [])
+                region_idxs.append(region_idx)
+        self.regions_by_entity = regions_by_entity
 
-    for nr_region in range(len(region_materials)):
-        add_prop(nr_region,str(nr_region))
-        materials = region_materials[nr_region]
-        for mat_name in materials:
-            add_prop(nr_region, mat_name)
-            add_prop(nr_region, "magnetic")
-            add_prop(nr_region, "material")
-            #for p in m.properties:
-                #add_prop(nr_region,p)
+    def _build_properties_by_region(self):
+        """Internal: Generate properties_by_region"""
+        pbr = {}
+        def add_prop(region, prop):
+            region_properties = pbr.setdefault(region, {})
+            region_properties[prop] = True
 
-    # Now that we initialized these hashes, map them back to lists:
+        # Ensure all the outer regions have the property "outer":
+        for vac in range(self.min_region, 0):
+            add_prop(vac, "outer")
 
-    def sorted_keys(h):
-        k=h.keys()
-        k.sort()
-        return k
+        for nr_region, entity_names in enumerate(self.entities_by_region):
+            add_prop(nr_region, str(nr_region))
+            for entity_name in entity_names:
+                add_prop(nr_region, entity_name)
+                add_prop(nr_region, "magnetic")
+                add_prop(nr_region, "material")
 
-    srk = sorted_keys(pbr)
+        # Now that we initialized these hashes, map them back to lists:
+        result = [(k, sorted(pbr[k].keys()))
+                  for k in sorted(pbr.keys())]
+        logger.info("properties_by_region: %s" % repr(result))
+        self.properties_by_region = result
 
-    result = [(k, sorted_keys(pbr[k])) for k in srk]
-    logger.info("properties_by_region: %s" % repr(result))
-    return result
 
 #-----------------------------------------------------------------------------
 
 class Model(object):
-    def __init__(self, name, mesh, mesh_unit, region_materials, min_region=-1,
-                 properties_by_region=[]):
+    def __init__(self, name, mesh, mesh_unit, region_materials,
+                 min_region=-1):
+        """
+        :Parameters:
+          `region_materials` : list of list of string
+
+            region_materials[region_nr] is a list of names (strings) of field
+            components (like "mat1", "mat2") available in the mesh region
+            with number 'region_nr'. For example, for a mesh with three
+            regions and region_materials=[["one", "two"], ["one", "three"],
+            ["one"]], a field 'f' defined 'per-material' will have three
+            sub-fields 'f_one', 'f_two' and 'f_three' with: 'f_one' defined
+            everywhere, 'f_two' defined in region 0 and 'f_three' defined in
+            region 1.
+        """
         # Just save the relevant stuff
         self.name = name
         self.mesh = mesh
@@ -150,19 +176,8 @@ class Model(object):
         self.region_materials = region_materials
         self.min_region = min_region
 
-        # Fill a map associating subfield name to region indices where
-        # the subfield is defined.
-        regions_of_subfield = {}
-        for region_idx, subfield_names in enumerate(region_materials):
-            for subfield_name in subfield_names:
-                if subfield_name in regions_of_subfield:
-                    region_idxs = regions_of_subfield[subfield_name]
-                else:
-                    regions_of_subfield[subfield_name] = region_idxs = []
-                region_idxs.append(region_idx)
-                # ^^^ we subtract one because we start from vacuum whose
-                #     associated index is -1
-        self.regions_of_subfield = regions_of_subfield
+        self.regions = \
+          MeshRegions(region_materials, min_region=min_region)
 
         # Things that get constructed when the object is "used"
         self.computations = Computations()
@@ -177,13 +192,10 @@ class Model(object):
 
         self.intensive_params = []
 
-        self.all_material_names = [] # All different names of the materials
-
         self.elems_by_field = {}     # For each field: list of elems ordered
                                      # per region
         self.prototype_elems = []    # List of the prototype elements
         self.sibling_elems = {}
-        self.properties_by_region = properties_by_region
         self.mwes = {}               # All the MWEs
         self.lam = None
         self._built = {}
@@ -209,31 +221,23 @@ class Model(object):
         _set_model(ts, self)
 
     def _build_elems_on_material(self, name, shape):
-        # Build the 'all_materials' dictionary which maps a material name to
+        # Build the 'elements' dictionary which maps an entity name to
         # a corresponding element
-        all_materials = {}
-        for region in self.region_materials:
-            for mat_name in region:
-                logger.info("Processing material '%s'" % name)
-
-                if not mat_name in all_materials:
-                    elem_name = "%s_%s" % (name, mat_name)
-                    elem = ocaml.make_element(elem_name, shape, self.dim, 1)
-                    all_materials[mat_name] = (mat_name, elem)
-
-        # Build a list of all the different names of the involved materials
-        self.all_material_names = [all_materials[mn][0]
-                                   for mn in all_materials]
+        elements = {}
+        for entity_name in self.regions.all_entity_names:
+            logger.info("Processing material '%s'" % entity_name)
+            elem_name = "%s_%s" % (name, entity_name)
+            elem = ocaml.make_element(elem_name, shape, self.dim, 1)
+            elements[entity_name] = elem
 
         # Obtain a list fused_elem_by_region such that
         # fused_elem_by_region[idx] is the element obtained by fusing all the
         # elements corresponding to the materials defined in region idx.
         # fused_elem_by_region[idx] is then the right element for that region
         fused_elem_by_region = []
-        for region in self.region_materials:
+        for entities_in_region in self.regions.entities_by_region:
             # Build a list of the elements in the region
-            elems_in_region = \
-              map(lambda mat_name: all_materials[mat_name][1], region)
+            elems_in_region = map(elements.__getitem__, entities_in_region)
             # Fuse all these elements
             fused_elem = reduce(ocaml.fuse_elements, elems_in_region,
                                 ocaml.empty_element)
@@ -257,15 +261,11 @@ class Model(object):
                 self.sibling_elems[name] = p_name
                 return p_elems
 
-        if on_material:
-            where = "on material"
-        else:
-            where = "everywhere"
+        where = ("on material" if on_material else "everywhere")
         logger.info("Building element %s %s" % (name, where))
 
         if on_material:
             elems = self._build_elems_on_material(name, shape)
-
         else:
             elems = self._build_elems_everywhere(name, shape)
 
@@ -289,11 +289,11 @@ class Model(object):
             rename_prefix = "%s/%s" % (name, p_name)
             q = self.quantities._by_name[name]
             if q.def_on_mat:
-                all_material_names = self.all_material_names
+                all_entity_names = self.regions.all_entity_names
                 relabelling = \
                   map(lambda mn: ("%s_%s" % (p_name, mn),
                                   "%s_%s" % (name, mn)),
-                      all_material_names)
+                      all_entity_names)
             else:
                 relabelling = [(p_name, name)]
 
@@ -304,7 +304,8 @@ class Model(object):
         logger.info("Building MWE %s" % name)
         elems = self.elems_by_field[name]
         mwe = ocaml.make_mwe(name, self.mesh.raw_mesh,
-                             enumerated_list(elems), [], self.ext_pbr)
+                             list(enumerate(elems)), [],
+                             self.regions.properties_by_region)
         self.mwes[name] = mwe
         return mwe
 
@@ -316,7 +317,7 @@ class Model(object):
         
         simplify_context = \
           OpSimplifyContext(quantities=self.quantities,
-                            material=self.all_material_names)
+                            material=self.regions.all_entity_names)
         for op in ops:
             logger.debug("Simplifying operator %s" % op.name)
             op.simplify(context=simplify_context)
@@ -375,7 +376,7 @@ class Model(object):
 
         simplify_context = \
           EqSimplifyContext(quantities=self.quantities,
-                            material=self.all_material_names)
+                            material=self.regions.all_entity_names)
         for eq in eqs:
             logger.debug("Simplifying equation %s" % eq.name)
             eq.simplify(context=simplify_context)
@@ -515,32 +516,35 @@ class Model(object):
             self._check_model_obj(target)
         self.targets.extend(targets)
 
-    def collect_required_objects(self, targets, bag={}):
+    def collect_required_objects(self, targets, bag={}, req_by="?"):
         """Collect the Model objects required by the given model objects
         (provided in targets)."""
         for target in targets:
-            target_full_name = target.get_full_name()
-            if target_full_name in bag:
+            tfn = target.get_full_name()
+            if tfn in bag:
                 continue
 
-            bag[target_full_name] = target
+            logger.debug("collect_required_objects: %s required by %s"
+                         % (tfn, req_by))
+            bag[tfn] = target
             if isinstance(target, Computation):
                 all_q_names = target.get_all_quantities()
                 all_qs = map(self.quantities.__getitem__, all_q_names)
-                self.collect_required_objects(all_qs, bag=bag)
+                self.collect_required_objects(all_qs, bag=bag, req_by=tfn)
                 sub_comps = target.get_required_computations()
-                self.collect_required_objects(sub_comps, bag=bag)
+                self.collect_required_objects(sub_comps, bag=bag, req_by=tfn)
 
             elif isinstance(target, Quantity):
                 computation_and_inputs = \
                   self.quantities.dependencies.get(target.name, None)
                 if computation_and_inputs != None:
                     computation = computation_and_inputs[0]
-                    self.collect_required_objects([computation], bag=bag)
+                    self.collect_required_objects([computation], bag=bag,
+                                                  req_by=tfn)
 
             elif isinstance(target, Timestepper):
                 qs = map(self.quantities.__getitem__, target.x + target.dxdt)
-                self.collect_required_objects(qs, bag=bag)
+                self.collect_required_objects(qs, bag=bag, req_by=tfn)
 
             else:
                 raise NsimModelError("Unknown model object (%s)"
@@ -551,8 +555,9 @@ class Model(object):
         required_objects = self.collect_required_objects(targets)
 
         # Removed unused computations
+        all_computations = list(self.computations._all)
         removed_computations = []
-        for computation in self.computations._all:
+        for computation in all_computations:
             fn = computation.get_full_name()
             if fn not in required_objects:
                 removed_computations.append(computation)
@@ -564,19 +569,18 @@ class Model(object):
             logger.info("Removed unused computations: %s." % c_names)
 
         # Remove quantities (except Constant quantities)
+        all_quantities = list(self.quantities._all)
         removed_quantities = []
-        for quantity in self.quantities._all:
+        for quantity in all_quantities:
             if not isinstance(quantity, Constant):
                 fn = quantity.get_full_name()
-                #if fn not in required_objects:
-                #    removed_quantities.append(quantity)
-                #    self.quantities.pop(quantity)
+                if fn not in required_objects:
+                    removed_quantities.append(quantity)
+                    self.quantities.pop(quantity)
 
         if removed_quantities:
             q_names = ", ".join(map(Quantity.get_name, removed_quantities))
             logger.info("Removed unused quantities: %s." % q_names)
-            
-        raw_input()
 
     def write_dependency_tree(self, out=sys.stdout):
         """Write to the provided stream (sys.stdout, if not provided)
@@ -615,7 +619,7 @@ class Model(object):
         nlam_tss = {}
         simplify_context = \
           EqSimplifyContext(quantities=self.quantities,
-                            material=self.all_material_names)
+                            material=self.regions.all_entity_names)
         for ts in self.timesteppers._all:
             nr_primary_fields = len(ts.x)
             assert nr_primary_fields == len(ts.dxdt)
@@ -710,6 +714,17 @@ class Model(object):
         return nlam_tss
 
     def _build_lam(self, remove_unused=True):
+        # Carry out equation and operator simplifications
+        self._simplify_operators()
+        self._simplify_equations()
+
+        # Build the dependency tree
+        self._build_dependency_tree()
+
+        # Remove unused objects, if required
+        if remove_unused:
+            self._remove_unused(self.targets)
+
         # First build all the elements
         field_quants = self.quantities._by_type.get('SpaceField', [])
         field_quants += self.quantities._by_type.get('SpaceTimeField', [])
@@ -722,17 +737,6 @@ class Model(object):
         # Now build all the MWEs
         for field_quant in field_quants:
             self._build_mwe(field_quant.name)
-
-        # Carry out equation and operator simplifications
-        self._simplify_operators()
-        self._simplify_equations()
-
-        # Build the dependency tree
-        self._build_dependency_tree()
-
-        # Remove unused objects, if required
-        if remove_unused:
-            self._remove_unused(self.targets)
 
         # Build the simplified operators
         operators = self._build_operators()
@@ -748,11 +752,11 @@ class Model(object):
 
         # Build LAM vector dictionary
         vectors = {}
-        for mwe_name in self.mwes:
+        for mwe_name in self.mwes.copy():
             vec_name = "v_%s" % mwe_name
             assert not vec_name in vectors, \
                    "Duplicate definition of vector '%s'" % vec_name
-            quantity = self.quantities._by_name[mwe_name]
+            quantity = self.quantities[mwe_name]
             vectors[vec_name] = \
               nlam.lam_vector(name=vec_name, mwe_name=mwe_name,
                               restriction=quantity.restrictions)
@@ -789,13 +793,6 @@ class Model(object):
             eq.vivify(self)
 
     def build(self):
-        # Extended properties by region
-        self.ext_pbr = \
-          _extended_properties_by_region(self.region_materials,
-                                         self.min_region,
-                                         self.properties_by_region)
         self._build_lam()
         self._vivify_objs(self.lam)
         self._built["LAM"] = True
-
-
