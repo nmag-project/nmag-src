@@ -14,6 +14,27 @@
 import os
 import sys
 
+class DirectoryOf(object):
+  """Class to be used with the 'with' statement like this:
+      
+  with TestPath(__file__):
+    # the test is here
+  """
+
+  def __init__(self, filename):
+    self.original_path = None
+    self.path = os.path.split(filename)[0]
+
+  def __enter__(self):
+    self.original_path = os.getcwd()
+    if self.path:
+      os.chdir(self.path)
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    os.chdir(self.original_path)
+    return False
+
+
 def find_make_exec(envvar="MAKE"):
   """Find the executable for the program 'make' by first inspecting
   the environment variable 'MAKE' and making guesses if this is not defined.
@@ -21,10 +42,12 @@ def find_make_exec(envvar="MAKE"):
   make_exec_env = os.getenv(envvar)
   return (make_exec_env if make_exec_env else "make")
 
-def run_make(file_in_dir, make=None):
+def run_make(file_in_dir, target="", make=None):
   """Run make inside the directory which contains the file 'file_in_dir'."""
   make_exec = make or find_make_exec()
   makefile_dir = os.path.split(file_in_dir)[0] or "."
+  if target:
+    make_exec += " " + str(target)
   exit_status = run_in_dir(makefile_dir, make_exec)
   if exit_status != 0:
     raise ValueError("%s failed with exit status %d" % (make_exec, exit_status))
