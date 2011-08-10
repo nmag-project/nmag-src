@@ -146,8 +146,10 @@ if want_repo.chosen != 1:
 
 if rm_nmagprobe.chosen:
     script.writeln('remove_file "$PKGNAME" nsim/bin/nmagprobe')
-    if want_doc.chosen:
+    if has_doc:
         script.writeln('remove_dir "$PKGNAME" doc/manual/nmag/example_nmagprobe')
+    if has_test:
+        script.writeln('remove_dir "$PKGNAME" nsim/tests/regression/nmag/nmagprobe')
 
 if want_tarb.chosen in [0, 2]:
     script.writeln('gen_tarball "$PKGNAME"')
