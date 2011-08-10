@@ -3768,15 +3768,17 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 	      in
 	      let hlib_params = (pylist_toarray data.(7)) in
 	      let () = ensure_has_enough_args "hlib_params" 8 data in
-	      let algorithm = guarded_pyint_asint hlib_params.(0) in
-	      let nfdeg = guarded_pyint_asint hlib_params.(1) in
-	      let nmin = guarded_pyint_asint hlib_params.(2) in
-	      let eta = guarded_pyfloat_asfloat hlib_params.(3) in
-	      let eps_aca = guarded_pyfloat_asfloat hlib_params.(4) in
-	      let eps = guarded_pyfloat_asfloat hlib_params.(5) in
-	      let p = guarded_pyint_asint hlib_params.(6) in
-	      let kmax = guarded_pyint_asint hlib_params.(7) in
-	      let hlib_params_tuple = (algorithm, nfdeg, nmin, eta, eps_aca, eps, p, kmax) in
+	      let cluster_strategy = guarded_pyint_asint hlib_params.(0) in
+	      let algorithm = guarded_pyint_asint hlib_params.(1) in
+	      let nfdeg = guarded_pyint_asint hlib_params.(2) in
+	      let nmin = guarded_pyint_asint hlib_params.(3) in
+	      let eta = guarded_pyfloat_asfloat hlib_params.(4) in
+	      let eps_aca = guarded_pyfloat_asfloat hlib_params.(5) in
+	      let eps = guarded_pyfloat_asfloat hlib_params.(6) in
+	      let p = guarded_pyint_asint hlib_params.(7) in
+	      let kmax = guarded_pyint_asint hlib_params.(8) in
+	      let hlib_params_tuple = (cluster_strategy, algorithm, nfdeg,
+				       nmin, eta, eps_aca, eps, p, kmax) in
 	      let matoptions = parsed_matoptions data.(6) in
 		{
 		  ldms_name=name;

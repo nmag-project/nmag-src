@@ -172,7 +172,7 @@ type las_dense_matrix_spec =
       (* XXX MUST BE REPAIRED - SEARCH FOR "REPAIR" *)
       ldms_name: string;
       ldms_hlib: bool;
-      ldms_hlib_params: (int*int*int*float*float*float*int*int);
+      ldms_hlib_params: (int*int*int*int*float*float*float*int*int);
       ldms_mwe_name: string;
       ldms_dof_name: dof_name;
       ldms_boundary_spec: string;
@@ -2385,6 +2385,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	in
 	  (* === CVODE PC-Solve === *)
         let ts_ksp_name = Printf.sprintf "TS_KSP_%s" name_ts in
+	let () = Printf.printf "registering log stage '%s'\n%!" ts_ksp_name in
         let log_precond_ksp = Mpi_petsc.petsc_log_stage_register ts_ksp_name in
 	let cvode_fun_preconditioner_solve args () =
 	  (* let () = Printf.printf "[Node=%d] pc-solve\n%!" myrank in *)
@@ -3023,15 +3024,17 @@ Thomas Fischbacher, 13.05.2008
 		       ~inside_property:"material" (* DDD XXX REPAIR: need ldms.ldms_inside_property *)
 		       mwe (lts,stl)
 		   in
-		   let (algorithm,nfdeg,nmin,eta,eps_aca,eps,p,kmax) = ldms.ldms_hlib_params in
+		   let (cluster_strategy, algorithm, nfdeg,
+			nmin, eta, eps_aca, eps, p, kmax) = ldms.ldms_hlib_params
+		   in
 		   let hmx =
 		     Bem3d.bem_hmatrix
-		       ~algorithm ~nfdeg ~nmin ~eta ~eps_aca ~eps ~p ~kmax
+		       ~cluster_strategy ~algorithm ~nfdeg ~nmin ~eta ~eps_aca
+		       ~eps ~p ~kmax
 		       ~geom_info
                        ?lattice_info:ldms.ldms_lattice_info
 		       (* ldms.ldms_inside_regions
-			  ldms.ldms_dof_name
-		       *)
+			  ldms.ldms_dof_name *)
 		       ldms.ldms_dof_name
 			  mwe
                    in

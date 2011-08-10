@@ -19,17 +19,18 @@ def lam_operator(name,mwe_name_le,mwe_name_ri,op,matoptions=[],mwe_name_mid=None
 def lam_bem(name, is_hlib=False, mwe_name="", dof_name=["phi"],
             boundary_spec="outer and material", lattice_info=[], matoptions=[],
             hlib_params=None):
-    hlp = {'algorithm':4, 'nfdeg':2, 'nmin':50, 'eta':2.0, 'eps_aca':0.00001,
-           'eps':0.00001, 'p':3, 'kmax':50}
+    hlp_list = [('cluster_strategy', 2), ('algorithm', 4), ('nfdeg', 2),
+                ('nmin', 50), ('eta', 2.0), ('eps_aca', 0.00001),
+                ('eps', 0.00001), ('p', 3), ('kmax', 50)]
+    hlp = dict(hlp_list)
     if hlib_params != None:
         for param_name in hlib_params:
-            if hlp.has_key(param_name):
+            if param_name in hlp:
                 hlp[param_name] = hlib_params[param_name]
-
             else:
-                raise "Unknow HLib parameter '%s'" % param_name
-    hlp_list = [hlp['algorithm'], hlp['nfdeg'], hlp['nmin'], hlp['eta'],
-                hlp['eps_aca'], hlp['eps'], hlp['p'], hlp['kmax']]
+                raise ValueError("Unknow HLib parameter '%s'" % param_name)
+
+    hlp_list = [hlp[param_name] for param_name, _ in hlp_list]
     return [name, is_hlib, mwe_name, dof_name, boundary_spec,
             lattice_info, matoptions, hlp_list]
 

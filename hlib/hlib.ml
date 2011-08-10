@@ -13,6 +13,11 @@ type hlib_algorithm =
     ACA_I | ACA_II | Interpolation | HCA_I | HCA_II
 ;;
 
+type cluster_strategy =
+    CLUSTER_DEFAULT | CLUSTER_GEOMETRIC | CLUSTER_REGULAR | CLUSTER_REGULARBOX
+  | CLUSTER_CARDINALITY | CLUSTER_PCA
+;;
+
 let hlib_algorithm_id x =
   match x with
     | ACA_I -> 0
@@ -22,14 +27,31 @@ let hlib_algorithm_id x =
     | HCA_II -> 4
 ;;
 
+let get_cluster_strategy_id cs =
+  match cs with
+    | CLUSTER_DEFAULT -> 0
+    | CLUSTER_GEOMETRIC -> 1
+    | CLUSTER_REGULAR -> 2
+    | CLUSTER_REGULARBOX -> 3
+    | CLUSTER_CARDINALITY -> 4
+    | CLUSTER_PCA -> 5
+;;
+
+let get_cluster_strategy_from_id id =
+  match id with
+    | 0 -> CLUSTER_DEFAULT
+    | 1 -> CLUSTER_GEOMETRIC
+    | 2 -> CLUSTER_REGULAR
+    | 3 -> CLUSTER_REGULARBOX
+    | 4 -> CLUSTER_CARDINALITY
+    | 5 -> CLUSTER_PCA
+    | _ -> failwith "Unknown value for ClusterStrategy"
+;;
+
 type simple_float_bigarray = (float, Bigarray.float64_elt,
 			      Bigarray.c_layout) Bigarray.Array1.t;;
 
 external hlib_init_raw: string -> unit = "caml_hlib_init";;
-
-external raw_make_hmatrix:
-  float array array -> int array array -> int array array -> int array array
-  -> (int*int*int*float*float*float*int*int) -> hmatrix = "caml_hlib_raw_make_hmatrix";;
 
 type indexinfo =
   float array array * int array array * int array array * int array array;;
@@ -42,8 +64,19 @@ type indexinfo =
 
 (* Code: HLib parallel *)
 external raw_make_hmatrix_strip:
-  indexinfo -> indexinfo -> int -> (int*int*int*float*float*float*int*int)
+  indexinfo -> indexinfo -> int -> (int*int*int*int*float*float*float*int*int)
   -> hmatrix = "caml_hlib_raw_make_hmatrix_strip";;
+
+(*external raw_make_hmatrix:
+  float array array -> int array array -> int array array -> int array array
+  -> (int*int*int*int*float*float*float*int*int)
+  -> hmatrix = "caml_hlib_raw_make_hmatrix";;
+NOTE: ^^^ raw_make_hmatrix is now defined in terms of raw_make_hmatrix_strip *)
+let raw_make_hmatrix vertices3d triangles edges triangle_edges args =
+  let row_info = (vertices3d, triangles, edges, triangle_edges)
+  in
+  raw_make_hmatrix_strip row_info row_info 1 (* <-- is_square *) args
+;;
 
 external write_hmatrix: string -> hmatrix -> unit = "caml_hlib_write_hmatrix";;
 
@@ -159,13 +192,14 @@ let positive_surface_triangulation points triangles normals =
 ;;
 
 let make_hmatrix_from_oriented_triangles
-    ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0) ?(eps_aca=0.00001) ?(eps=0.00001) ?(p=3) ?(kmax=50)
+    ?(cluster_strategy=2) ?(algorithm=4) ?(nfdeg=2) ?(nmin=50)
+    ?(eta=2.0) ?(eps_aca=0.00001) ?(eps=0.00001) ?(p=3) ?(kmax=50)
     vertices3d triangles =
   let edges, triangle_edges = edges_of_surface_triangulation triangles in
-  let args = (algorithm, nfdeg, nmin, eta, eps_aca, eps, p, kmax) in
-  let row_info = (vertices3d, triangles, edges, triangle_edges)
+  let args =
+    (cluster_strategy, algorithm, nfdeg, nmin, eta, eps_aca, eps, p, kmax)
   in
-    raw_make_hmatrix_strip row_info row_info 1 args
+  raw_make_hmatrix vertices3d triangles edges triangle_edges args
 ;;
 
 let make_hmatrix_old
@@ -238,15 +272,16 @@ let build_col_surface rpoints rtriangles lattice_info =
 ;;
 
 let make_hmatrix_new
-    ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0) ?(eps_aca=0.00001)
-    ?(eps=0.00001) ?(p=3) ?(kmax=50) ?(lattice_info=default_lattice_info)
+    ?(cluster_strategy=2) ?(algorithm=4) ?(nfdeg=2) ?(nmin=50)
+    ?(eta=2.0) ?(eps_aca=0.00001) ?(eps=0.00001) ?(p=3) ?(kmax=50)
+    ?(lattice_info=default_lattice_info)
     vertices3d triangles surface_normals =
-  let () = mgdesc_print_debug lattice_info in
   let rtriangles =
     positive_surface_triangulation vertices3d triangles surface_normals in
   let redges, rtriangle_edges =
     edges_of_surface_triangulation rtriangles in
-  let args = (algorithm, nfdeg, nmin, eta, eps_aca, eps, p, kmax) in
+  let cs_id = get_cluster_strategy_id CLUSTER_REGULAR in
+  let args = (cs_id, algorithm, nfdeg, nmin, eta, eps_aca, eps, p, kmax) in
   let cpoints, ctriangles =
     build_col_surface vertices3d rtriangles lattice_info in
   let cedges, ctriangle_edges = edges_of_surface_triangulation ctriangles in

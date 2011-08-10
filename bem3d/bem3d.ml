@@ -553,7 +553,7 @@ let bem_matrix
 ;;
 
 let bem_hmatrix
-    ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0)
+    ?(cluster_strategy=2) ?(algorithm=4) ?(nfdeg=2) ?(nmin=50) ?(eta=2.0)
     ?(eps_aca=0.00001) ?(eps=0.00001) ?(p=3) ?(kmax=50)
     ?geom_info
     ?lattice_info
@@ -584,7 +584,8 @@ let bem_hmatrix
       Printf.printf "DDD H-MATRIX\n vertices %s\n triangles %s\n normals %s\n%!"
 	(faas vertex_coords) (iaas triangles) (faas normals)
   in*)
-  let hmx = Hlib.make_hmatrix ~algorithm ~nfdeg ~nmin ~eta ~eps_aca ~eps ~p ~kmax
+  let hmx = Hlib.make_hmatrix ~cluster_strategy ~algorithm ~nfdeg ~nmin ~eta
+                              ~eps_aca ~eps ~p ~kmax
                               ?lattice_info
                               vertex_coords triangles normals in
   let pi = 4.0*.atan 1.0 in

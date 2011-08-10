@@ -41,6 +41,7 @@ val bem_matrix :
   ?inside_property:string ->
   ?outside_property:string -> 'b * 'c -> 'd Fem.mesh_with_elements -> 'a
 val bem_hmatrix :
+  ?cluster_strategy:int ->
   ?algorithm:int ->
   ?nfdeg:int ->
   ?nmin:int ->

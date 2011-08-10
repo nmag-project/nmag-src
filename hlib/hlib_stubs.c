@@ -364,15 +364,36 @@ static value gridbuilder_init(gridbuilder_t *gb,
   CAMLreturn(Val_unit);
 }
 
-void gridbuilder_build_vertexcluster(gridbuilder_t *gb, int nmin) {
+void gridbuilder_build_vertexcluster(gridbuilder_t *gb, 
+                                     int cluster_strategy,
+				     int nmin, int depth,
+                                     int top_split) {
+  int cs;
+
+  switch (cluster_strategy) {
+  case 0: cs = HLIB_DEFAULT; break;
+  case 1: cs = HLIB_GEOMETRIC; break;
+  case 2: cs = HLIB_REGULAR; break;
+  case 3: cs = HLIB_REGULARBOX; break;
+  case 4: cs = HLIB_CARDINALITY; break;
+  case 5: cs = HLIB_PCA; break;
+  default: cs = HLIB_DEFAULT; break;
+  }
+
   /* Compute outer normal vectors and Gram determinants */
   DEBUGMSG("Preparing grid...\n");
   dyn_prepare_bemgrid3d(gb->gr);
 
   /* Build the cluster tree for the grid defined by a bemgrid3d object,
      using piecewise linear basis functions */
-  DEBUGMSG("creating the vertexclusters...\n");
-  gb->ct = dyn_buildvertexcluster_bemgrid3d(gb->gr, HLIB_REGULAR, nmin, 0);
+  if (top_split > 0) {
+    DEBUGMSG("creating the vertexclusters (PBC)...\n");
+    gb->ct = dyn_buildcustomcluster_bemgrid3d(gb->gr, top_split, nmin, depth);
+
+  } else {
+    DEBUGMSG("creating the vertexclusters...\n");
+    gb->ct = dyn_buildvertexcluster_bemgrid3d(gb->gr, cs, nmin, depth);
+  }
 }
 
 void gridbuilder_build_vertexcluster2(gridbuilder_t *gb, int nmin, int nr_rows) {
@@ -399,27 +420,41 @@ static void finalize_hmatrix(value block)
          build the supermatrix. We may or may not want to keep this.
          This de-allocator can deal with either situation.
       */
+      if (hmatrix->smx)
+        dyn_del_supermatrix(hmatrix->smx);
+printf("DEL1\n");
+
+      if (hmatrix->bcluster) {
+        fprintf(stderr,"DDD NOTE: deleting block cluster (Do I really have "
+                       "to do that, or is that a mistake?)\n");
+        fflush(stderr);
+        dyn_del_blockcluster(hmatrix->bcluster);
+      }
+printf("DEL2\n");
+      if (hmatrix->sbf)
+        dyn_del_surfacebemfactory(hmatrix->sbf);
+printf("DEL3\n");
+
       if (hmatrix->col != hmatrix->row)
         gridbuilder_destroy(hmatrix->col);
+printf("DEL4\n");
+
       gridbuilder_destroy(hmatrix->row);
       hmatrix->col = hmatrix->row = NULL;
+printf("DEL5\n");
 
-      if(hmatrix->sbf)dyn_del_surfacebemfactory(hmatrix->sbf);
-      if(hmatrix->bcluster)
-        {
-          fprintf(stderr,"DDD NOTE: deleting block cluster (Do I really have "
-                         "to do that, or is that a mistake?)\n");
-          fflush(stderr);
-          dyn_del_blockcluster(hmatrix->bcluster);
-        }
-      if(hmatrix->smx)dyn_del_supermatrix(hmatrix->smx);
-      if(hmatrix->pbuffer_lhs)free(hmatrix->pbuffer_lhs);
-      if(hmatrix->pbuffer_rhs)free(hmatrix->pbuffer_rhs);
+      if (hmatrix->pbuffer_lhs)
+        free(hmatrix->pbuffer_lhs);
+      if (hmatrix->pbuffer_rhs)
+        free(hmatrix->pbuffer_rhs);
       free(hmatrix);
+printf("DEL6\n");
+
       Store_c_field(block,1,0);
     }
 }
 
+#if 0
 typedef struct {
   int    failure;
   int    have_timing[2];
@@ -519,6 +554,7 @@ static void fprint_memory_info(const char *filename, hmatrix_interna *hm,
     fflush(stderr);
   }
 }
+#endif
 
 CAMLprim value caml_hlib_raw_make_hmatrix(value ml_vertices,
 					  value ml_triangles,
@@ -528,15 +564,16 @@ CAMLprim value caml_hlib_raw_make_hmatrix(value ml_vertices,
 {
   CAMLparam5(ml_vertices, ml_triangles, ml_edges, ml_triangle_edges, ml_args);
   hmatrix_interna *hmatrix;
-  int  algorithm =    Int_val(Field(ml_args, 0)),
-           nfdeg =    Int_val(Field(ml_args, 1)),
-            nmin =    Int_val(Field(ml_args, 2));
-  double     eta = Double_val(Field(ml_args, 3)),
-         eps_aca = Double_val(Field(ml_args, 4)),
-             eps = Double_val(Field(ml_args, 5));
-  int          p =    Int_val(Field(ml_args, 6)),
-            kmax =    Int_val(Field(ml_args, 7)),
-     nr_vertices = Wosize_val(ml_vertices);
+  int cluster_strategy =    Int_val(Field(ml_args, 0)),
+             algorithm =    Int_val(Field(ml_args, 1)),
+                 nfdeg =    Int_val(Field(ml_args, 2)),
+                  nmin =    Int_val(Field(ml_args, 3));
+  double           eta = Double_val(Field(ml_args, 4)),
+               eps_aca = Double_val(Field(ml_args, 5)),
+                   eps = Double_val(Field(ml_args, 6));
+  int                p =    Int_val(Field(ml_args, 7)),
+                  kmax =    Int_val(Field(ml_args, 8)),
+           nr_vertices = Wosize_val(ml_vertices);
 
   DEBUGMSG("caml_hlib_raw_make_hmatrix: function entered!\n");
   DEBUGMSG("algorithm=%d, eta=%f, kmax=%d, eps_aca=%f, eps=%f.\n",
@@ -560,7 +597,7 @@ CAMLprim value caml_hlib_raw_make_hmatrix(value ml_vertices,
   hmatrix->row = gridbuilder_create();
   gridbuilder_init(hmatrix->row,
                    ml_vertices, ml_triangles, ml_edges, ml_triangle_edges);
-  gridbuilder_build_vertexcluster(hmatrix->row, nmin);
+  gridbuilder_build_vertexcluster(hmatrix->row, cluster_strategy, nmin, 0, 0);
   hmatrix->col = (gridbuilder_t *) NULL; /* Matrix is square */
 
   /* Create a surfacebemfactory object for the double layer potential */
@@ -610,10 +647,8 @@ CAMLprim value caml_hlib_write_hmatrix(value ml_name, value ml_hmx)
   hmx=(hmatrix_interna *)Field(ml_hmx,1);
 
   if(!hmx)
-    {
-      own_raise_with_string(*caml_named_value(err_exn_name),
-			    "hmatrix: tried to write invalid supermatrix!");
-    }
+    own_raise_with_string(*caml_named_value(err_exn_name),
+                          "hmatrix: tried to write invalid supermatrix!");
 
   dyn_write_supermatrix(String_val(ml_name),hmx->smx);
 
@@ -695,17 +730,17 @@ CAMLprim value caml_hlib_raw_make_hmatrix_strip(value ml_row_info,
 {
   CAMLparam4(ml_row_info, ml_col_info, ml_is_square, ml_args);
   hmatrix_interna *hmatrix;
-  int    is_square = Int_val(ml_is_square);
-  int    algorithm =    Int_val(Field(ml_args, 0)),
-         nfdeg     =    Int_val(Field(ml_args, 1)),
-         nmin      =    Int_val(Field(ml_args, 2));
-  double eta       = Double_val(Field(ml_args, 3)),
-         eps_aca   = Double_val(Field(ml_args, 4)),
-         eps       = Double_val(Field(ml_args, 5));
-  int    p         =    Int_val(Field(ml_args, 6)),
-         kmax      =    Int_val(Field(ml_args, 7));
-  int    nr_vertices_rows, nr_vertices_cols;
-  double size_smx;
+  int is_square = Int_val(ml_is_square);
+  int cluster_strategy =    Int_val(Field(ml_args, 0)),
+             algorithm =    Int_val(Field(ml_args, 1)),
+             nfdeg     =    Int_val(Field(ml_args, 2)),
+             nmin      =    Int_val(Field(ml_args, 3));
+  double     eta       = Double_val(Field(ml_args, 4)),
+             eps_aca   = Double_val(Field(ml_args, 5)),
+             eps       = Double_val(Field(ml_args, 6));
+  int        p         =    Int_val(Field(ml_args, 7)),
+             kmax      =    Int_val(Field(ml_args, 8));
+  int nr_vertices_rows, nr_vertices_cols;
 
   CAMLlocal4(ml_vertices_row, ml_triangles_row, ml_edges_row,
              ml_triangle_edges_row);
@@ -742,7 +777,8 @@ CAMLprim value caml_hlib_raw_make_hmatrix_strip(value ml_row_info,
   hmatrix->row = gridbuilder_create();
   gridbuilder_init(hmatrix->row, ml_vertices_row, ml_triangles_row,
                    ml_edges_row, ml_triangle_edges_row);
-  gridbuilder_build_vertexcluster2(hmatrix->row, nmin, nr_vertices_rows);
+  gridbuilder_build_vertexcluster(hmatrix->row, cluster_strategy,
+				  nmin, 0, (is_square) ? 0 : nr_vertices_rows);
 
   if (is_square) {
     DEBUGMSG("Matrix is square: using same bemgrid3d and blockcluster...\n");
@@ -754,7 +790,8 @@ CAMLprim value caml_hlib_raw_make_hmatrix_strip(value ml_row_info,
     hmatrix->col = gridbuilder_create();
     gridbuilder_init(hmatrix->col, ml_vertices_col, ml_triangles_col,
                      ml_edges_col, ml_triangle_edges_col);
-    gridbuilder_build_vertexcluster2(hmatrix->col, nmin, nr_vertices_rows);
+    gridbuilder_build_vertexcluster(hmatrix->col, cluster_strategy,
+                                    nmin, 0, nr_vertices_rows);
   }
 
   /* Create a surfacebemfactory object for the double layer potential */

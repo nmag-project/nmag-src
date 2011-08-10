@@ -61,7 +61,7 @@ type las_dense_matrix =
 type las_dense_matrix_spec = {
   ldms_name : string;
   ldms_hlib : bool;
-  ldms_hlib_params : int * int * int * float * float * float * int * int;
+  ldms_hlib_params : int * int * int * int * float * float * float * int * int;
   ldms_mwe_name : string;
   ldms_dof_name : Fem.dof_name;
   ldms_boundary_spec : string;

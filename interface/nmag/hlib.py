@@ -91,11 +91,12 @@ class HMatrixSetup(object):
         self.parameters['HCA1'] = {"algorithm":3, "eta":2.0, "nmin":30,
                                    "quadorder":3, "eps_aca":0.0000001,
                                    "polyorder":6, "eps":0.001}
-        self.parameters['HCA2'] = {"algorithm":4, "eta":2.0, "nmin":30,
-                                   "quadorder":3, "eps_aca":0.0000001,
-                                   "polyorder":4, "eps":0.001}
+        self.parameters['HCA2'] = {"cluster_strategy": 2, "algorithm": 4,
+                                   "eta": 2.0, "nmin": 30,
+                                   "quadorder": 3, "eps_aca": 0.0000001,
+                                   "polyorder": 4, "eps": 0.001}
 
-        if algorithm in self.parameters.keys():
+        if algorithm in self.parameters:
             self.alg_param = self.parameters[algorithm]
         else:
             sys.stderr.write("The algorithm '%s' is not known. Known "
@@ -103,22 +104,20 @@ class HMatrixSetup(object):
                                                      self.parameters.keys()))
             sys.exit()
 
-        for item in kwargs.iterkeys():
-            assert item in self.alg_param.iterkeys(), \
-              "%s is not an argument for algorithm %s." % (item,algorithm)
-            self.alg_param[item] = kwargs[item]
+        for name, value in kwargs.iteritems():
+            assert name in self.alg_param, \
+              "%s is not an argument for algorithm %s." % (name, algorithm)
+            self.alg_param[name] = value
 
         self._hlib_param__ = {"algorithm":0, "nfdeg":0, "nmin":0,
                               "eta":0.0, "eps_aca":0.0, "eps":0.0,
                               "p":1, "kmax":0}
 
-        self.paramnames_match = {"algorithm":"algorithm", "nmin":"nmin",
-                                 "quadorder":"nfdeg", "eta":"eta",
-                                 "eps_aca":"eps_aca", "eps":"eps",
-                                 "polyorder":"p", "kmax":"kmax"}
+        # We should remove the following dict, by naming params uniformly
+        translation = {"quadorder":"nfdeg", "polyorder":"p"}
 
-        for item in self.alg_param.iterkeys():
-            self._hlib_param__[self.paramnames_match[item]] = self.alg_param[item]
+        for name, value in self.alg_param.iteritems():
+            self._hlib_param__[translation.get(name, name)] = value
 
     def __repr__(self):
         s = ", ".join(["%s=%s" % key_val
