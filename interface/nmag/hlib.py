@@ -13,7 +13,17 @@
 constructing hierarchical matrices with the programme library HLib."""
 
 import sys
+
 from nmag_exceptions import *
+
+# Available cluster strategies and corresponding indices
+cluster_strategy_ids = {"default": 0,
+                        "geometric": 1,
+                        "regular": 2,
+                        "regularbox": 3,
+                        "cardinality": 4,
+                        "pca": 5}
+
 
 class HMatrixSetup(object):
     """A class collecting the parameters needed in order to set up an HMatrix
@@ -44,6 +54,18 @@ class HMatrixSetup(object):
           The default value is 0.001.
 
     :Parameters influencing the tree structure:
+
+        `cluster_strategy` : string
+          algorithm to be used for crating the cluster tree. Available choices
+          are 'regular' (cluster constructed splitting the bounding box of the
+          surface in two smaller bounding boxes with half the size along x,
+          then y, z, x, and so on), 'geometric' (similar to 'regular' but the
+          splitting is done along longer dimension of the bounding box)
+          'regular_box' (behaves similarly to 'regular'), 'cardinality' (the
+          bounding box is split into two bounding boxes containing the same
+          number of points, cyclically along each dimension), 'pca' (clustering
+          based on principal directions), 'default' (uses the default).
+          The default clustering strategy is 'regular'.
 
         `eta` : float
           eta is a parameter which influences the so called admissibility
@@ -91,47 +113,49 @@ class HMatrixSetup(object):
         self.parameters['HCA1'] = {"algorithm":3, "eta":2.0, "nmin":30,
                                    "quadorder":3, "eps_aca":0.0000001,
                                    "polyorder":6, "eps":0.001}
-        self.parameters['HCA2'] = {"cluster_strategy": 2, "algorithm": 4,
+        self.parameters['HCA2'] = {"cluster_strategy": "regular", "algorithm": 4,
                                    "eta": 2.0, "nmin": 30,
                                    "quadorder": 3, "eps_aca": 0.0000001,
                                    "polyorder": 4, "eps": 0.001}
 
+        default_params = {"algorithm":0, "quadorder":0, "nmin":0,
+                          "eta":0.0, "eps_aca":0.0, "eps":0.0,
+                          "polyorder":1, "kmax":0}
         if algorithm in self.parameters:
-            self.alg_param = self.parameters[algorithm]
+            default_params.update(self.parameters[algorithm])
+
         else:
-            sys.stderr.write("The algorithm '%s' is not known. Known "
-                             "algorithms are: %s" % (algorithm,
-                                                     self.parameters.keys()))
-            sys.exit()
+            algorithms = self.parameters.keys()
+            raise ValueError("The algorithm '%s' is not known. Known "
+                             "algorithms are: %s" % (algorithm, algorithms))
 
-        for name, value in kwargs.iteritems():
-            assert name in self.alg_param, \
+        for name in kwargs:
+            assert name in default_params, \
               "%s is not an argument for algorithm %s." % (name, algorithm)
-            self.alg_param[name] = value
 
-        self._hlib_param__ = {"algorithm":0, "nfdeg":0, "nmin":0,
-                              "eta":0.0, "eps_aca":0.0, "eps":0.0,
-                              "p":1, "kmax":0}
+        self.default_params = default_params
+        self.user_params = kwargs
 
-        # We should remove the following dict, by naming params uniformly
-        translation = {"quadorder":"nfdeg", "polyorder":"p"}
+    def get_hlib_parameters(self, **default_params):
+        """Returns the dictionary hlib_param_internal of hlib
+        parameters and their corresponding values.
+        """
+        params = self.default_params.copy()
+        params.update(default_params)
+        params.update(self.user_params)
+        cluster_strategy = params.get("cluster_strategy", "regular")
+        params["cluster_strategy"] = cluster_strategy_ids[cluster_strategy]
+        return params
 
-        for name, value in self.alg_param.iteritems():
-            self._hlib_param__[translation.get(name, name)] = value
+    # Provided for compatibility
+    get_hlib_parameters_internal = get_hlib_parameters
 
     def __repr__(self):
         s = ", ".join(["%s=%s" % key_val
-                       for key_val in self.alg_param.iteritems()
+                       for key_val in self.user_params.iteritems()
                        if key_val[0] != "algorithm"])
         return "HMatrixSetup(%s)" % s
 
-    def get_hlib_parameters_internal(self):
-        """Returns the dictionary hlib_param_internal of hlib
-        parameters and their corresponding values.
-
-        """
-
-        return self._hlib_param__
 
 default_hmatrix_setup = HMatrixSetup()
 
@@ -167,4 +191,3 @@ def initialize_library(logmsg=None):
             else:
                 logmsg("'%s' is not there!" % candidate)
     return False
-

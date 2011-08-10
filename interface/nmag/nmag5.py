@@ -113,7 +113,17 @@ class Simulation(SimulationCore):
                     "HMatrix setup parameters are: %s" % str(phi_BEM))
             if not hlib.initialize_library(logmsg=lg.debug):
                 raise NmagUserError("Cannot initialise HLib!")
-            self.hlib_params = phi_BEM.get_hlib_parameters_internal()
+
+            # Use different defaults depending on whether we are using PBC.
+            # NOTE: these choices are superseded by the parameters given by
+            #   the user.
+            default_hlib_params = \
+                ({"cluster_strategy": "geometric", "eta": 0.2}
+                 if self._periodic_bc
+                 else {})
+
+            self.hlib_params = \
+                phi_BEM.get_hlib_parameters(**default_hlib_params)
 
         # General settings
         self.do_sl_stt = do_sl_stt      # Compute Slonczewski STT

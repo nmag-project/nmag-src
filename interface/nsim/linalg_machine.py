@@ -19,9 +19,9 @@ def lam_operator(name,mwe_name_le,mwe_name_ri,op,matoptions=[],mwe_name_mid=None
 def lam_bem(name, is_hlib=False, mwe_name="", dof_name=["phi"],
             boundary_spec="outer and material", lattice_info=[], matoptions=[],
             hlib_params=None):
-    hlp_list = [('cluster_strategy', 2), ('algorithm', 4), ('nfdeg', 2),
+    hlp_list = [('cluster_strategy', 2), ('algorithm', 4), ('quadorder', 2),
                 ('nmin', 50), ('eta', 2.0), ('eps_aca', 0.00001),
-                ('eps', 0.00001), ('p', 3), ('kmax', 50)]
+                ('eps', 0.00001), ('polyorder', 3), ('kmax', 50)]
     hlp = dict(hlp_list)
     if hlib_params != None:
         for param_name in hlib_params:

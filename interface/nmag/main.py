@@ -967,7 +967,16 @@ class Simulation(SimulationCore):
                      % str(phi_BEM))
             if not hlib.initialize_library(logmsg=log.debug):
                 raise NmagUserError("Cannot initialise HLib!")
-            self.hlib_params = phi_BEM.get_hlib_parameters_internal()
+
+            # Use different defaults depending on whether we are using PBC.
+            # NOTE: these choices are superseded by the parameters given by
+            #   the user.
+            default_hlib_params = \
+                ({"cluster_strategy": "geometric", "eta": 0.2}
+                 if self._periodic_bc
+                 else {})
+
+            self.hlib_params = phi_BEM.get_hlib_parameters(**default_hlib_params)
             self.use_hlib = True
 
         ######### Use euristics for tolerance adjustments

@@ -63,13 +63,13 @@ def get_root_path(relative_path=None):
     nsim_module_path = os.path.split(os.path.realpath(nsim.__file__))[0]
     return os.path.split(nsim_module_path)[0]
 
-def get_interface_path():
+def get_interface_path(relative_path=[]):
     """
     Get the absolute path where the Nsim Python interface is located
     (this is the directory containing the directories nsim, nmag, nmesh, ...
-    which contain the implementation of the corresponding modules).
+    which contains the implementation of the corresponding modules).
     """
-    return get_root_path(['interface'])
+    return get_root_path(['interface'] + relative_path)
 
 def get_exec_path(executable='nsim'):
     """Return the full path to the given executable of the Nsim package."""
