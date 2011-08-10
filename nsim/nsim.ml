@@ -2385,7 +2385,6 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	in
 	  (* === CVODE PC-Solve === *)
         let ts_ksp_name = Printf.sprintf "TS_KSP_%s" name_ts in
-	let () = Printf.printf "registering log stage '%s'\n%!" ts_ksp_name in
         let log_precond_ksp = Mpi_petsc.petsc_log_stage_register ts_ksp_name in
 	let cvode_fun_preconditioner_solve args () =
 	  (* let () = Printf.printf "[Node=%d] pc-solve\n%!" myrank in *)

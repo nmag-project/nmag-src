@@ -14,16 +14,25 @@
 import os
 import sys
 
-class DirectoryOf(object):
-  """Class to be used with the 'with' statement like this:
+from setup import get_exec_path
+
+
+def get_directory_of(filename):
+  """Return the directory containing 'filename'."""
+  return os.path.split(filename)[0] or "."
+
+
+class Directory(object):
+  """Class to be used with the 'with' statement to do something within a
+  given directory. For example:
       
-  with TestPath(__file__):
-    # the test is here
+  with Directory("/tmp"):
+    # do something under /tmp
   """
 
-  def __init__(self, filename):
+  def __init__(self, directory):
     self.original_path = None
-    self.path = os.path.split(filename)[0]
+    self.path = directory
 
   def __enter__(self):
     self.original_path = os.getcwd()
@@ -33,6 +42,18 @@ class DirectoryOf(object):
   def __exit__(self, exc_type, exc_value, traceback):
     os.chdir(self.original_path)
     return False
+
+
+class DirectoryOf(Directory):
+  """Similar to the class 'Directory', but do something under the directory
+  containing the specified file. For example:
+      
+  with DirectoryOf(__file__):
+    # this make sure we are running on the directory which contains
+    # the current Python script
+  """
+  def __init__(self, filename):
+    Directory.__init__(self, get_directory_of(filename))
 
 
 def find_make_exec(envvar="MAKE"):
@@ -55,15 +76,19 @@ def run_make(file_in_dir, target="", make=None):
 def run_in_dir(directory, command):
   """Run (using os.system) the command given in 'command' inside the directory
   'directory'. Return the exit status of the command."""
-
-  original_dir = os.getcwd()
-  try:
-    os.chdir(directory)
-  except:
-    raise ValueError("Cannot chdir into the directory '%s'" % directory)
-  exit_status = os.system(command)
-  os.chdir(original_dir)
+  exit_status = 1
+  with Directory(directory):
+    exit_status = os.system(command)
   return exit_status
+
+def run_nsim_in_dir(directory, *args):
+  """Run 'nsim' with the given arguments and inside the given directory.
+  Return the exit status.
+  Example: run_nsim_in_dir("/tmp", "script.py", "--clean")
+  """
+  nsim_exec = get_exec_path()
+  command = " ".join((nsim_exec,) + args)
+  return run_in_dir(directory, command)
 
 def get_test_mesh(size=None, dim=None, shape=None, regions=1, periodic=None):
   """Return the full path to an existing mesh with the required
