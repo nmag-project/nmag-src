@@ -96,6 +96,30 @@ class MemoryReport(object):
         pass
 
 
+class SetLatticePoints(object):
+    """Set the lattice points for the "virtual" copies of the system.
+    XXX DOCUMENT-ME!"""
+
+    def __init__(self, vectorlist=[[0.0,0.0,0.0]], scalefactor=SI(1,'m')):
+        identity_matrix = [[1.0, 0.0, 0.0],
+                           [0.0, 1.0, 0.0],
+                           [0.0, 0.0, 1.0]]
+        ortho_transf = 0
+        greyfact = 1.0
+        transf_ls=[]   # list of transformations to be done on the repeated
+                       # system (orthogonal transf,  displacement, weight)
+
+        conversionfactor = simulation_units.of(scalefactor)
+
+        if [0.0, 0.0, 0.0] not in vectorlist:
+            vectorlist.append([0.0, 0.0, 0.0])
+
+        for vector in vectorlist:
+            su_vector = numpy.array(vector,'d')*conversionfactor
+            transf_ls.append((ortho_transf, greyfact, su_vector.tolist()))
+        self.structure = ([identity_matrix], transf_ls)
+
+
 class Simulation(SimulationCore):
     def __init__(self, name=None, phi_BEM=None, periodic_bc=None,
                  do_demag=True, do_sl_stt=False):
@@ -986,8 +1010,9 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True,
                                 rtol=1e-5, atol=1e-5, maxits=1000000)
 
     # The BEM matrix
+    opt_lattice_info = ([lattice_info] if lattice_info != None else [])
     bem = BEM("BEM", mwe_name="phi", dof_name="phi",
-              lattice_info=lattice_info, hlib_params=hlib_params)
+              lattice_info=opt_lattice_info, hlib_params=hlib_params)
 
     # The LAM program for the demag
     commands=[["SM*V", op_div_m, "v_m", op_div_m_dest],
