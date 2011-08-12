@@ -962,21 +962,19 @@ class Simulation(SimulationCore):
             self.hlib_params = None
 
         elif phi_BEM.__module__=='nmag.hlib':
-            log.info("Using HLib to compress the BEM matrix. "
-                     "HMatrix setup parameters are: %s"
-                     % str(phi_BEM))
             if not hlib.initialize_library(logmsg=log.debug):
                 raise NmagUserError("Cannot initialise HLib!")
 
             # Use different defaults depending on whether we are using PBC.
             # NOTE: these choices are superseded by the parameters given by
             #   the user.
-            default_hlib_params = \
-                ({"cluster_strategy": "geometric", "eta": 0.2}
-                 if self._periodic_bc
-                 else {})
-
-            self.hlib_params = phi_BEM.get_hlib_parameters(**default_hlib_params)
+            if self._periodic_bc:
+                phi_BEM.set_default_params(cluster_strategy="geometric",
+                                           eta=0.2)
+            log.info("Using HLib to compress the BEM matrix. "
+                     "HMatrix setup parameters are: %s"
+                     % str(phi_BEM))
+            self.hlib_params = phi_BEM.get_params()
             self.use_hlib = True
 
         ######### Use euristics for tolerance adjustments

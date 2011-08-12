@@ -109,21 +109,19 @@ class Simulation(SimulationCore):
                 raise ValueError("the argument phi_BEM of the Simulation "
                                  "class must be an instance of the "
                                  "HMatrixSetup class")
-            lg.info("Using HLib to compress the BEM matrix. "
-                    "HMatrix setup parameters are: %s" % str(phi_BEM))
-            if not hlib.initialize_library(logmsg=lg.debug):
+
+            if not hlib.initialize_library(logmsg=log.debug):
                 raise NmagUserError("Cannot initialise HLib!")
 
             # Use different defaults depending on whether we are using PBC.
             # NOTE: these choices are superseded by the parameters given by
             #   the user.
-            default_hlib_params = \
-                ({"cluster_strategy": "geometric", "eta": 0.2}
-                 if self._periodic_bc
-                 else {})
-
-            self.hlib_params = \
-                phi_BEM.get_hlib_parameters(**default_hlib_params)
+            if self._periodic_bc:
+                phi_BEM.set_default_params(cluster_strategy="geometric",
+                                           eta=0.2)
+            log.info("Using HLib to compress the BEM matrix. "
+                     "HMatrix setup parameters are: %s" % str(phi_BEM))
+            self.hlib_params = phi_BEM.get_params()
 
         # General settings
         self.do_sl_stt = do_sl_stt      # Compute Slonczewski STT

@@ -280,8 +280,8 @@ let make_hmatrix_new
     positive_surface_triangulation vertices3d triangles surface_normals in
   let redges, rtriangle_edges =
     edges_of_surface_triangulation rtriangles in
-  let cs_id = get_cluster_strategy_id CLUSTER_REGULAR in
-  let args = (cs_id, algorithm, nfdeg, nmin, eta, eps_aca, eps, p, kmax) in
+  let args = (cluster_strategy, algorithm, nfdeg, nmin, eta, eps_aca, eps,
+	      p, kmax) in
   let cpoints, ctriangles =
     build_col_surface vertices3d rtriangles lattice_info in
   let cedges, ctriangle_edges = edges_of_surface_triangulation ctriangles in

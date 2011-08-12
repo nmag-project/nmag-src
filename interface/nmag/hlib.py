@@ -56,7 +56,7 @@ class HMatrixSetup(object):
     :Parameters influencing the tree structure:
 
         `cluster_strategy` : string
-          algorithm to be used for crating the cluster tree. Available choices
+          algorithm to be used for creating the cluster tree. Available choices
           are 'regular' (cluster constructed splitting the bounding box of the
           surface in two smaller bounding boxes with half the size along x,
           then y, z, x, and so on), 'geometric' (similar to 'regular' but the
@@ -136,23 +136,28 @@ class HMatrixSetup(object):
         self.default_params = default_params
         self.user_params = kwargs
 
-    def get_hlib_parameters(self, **default_params):
+    def set_default_params(self, **default_params):
+        """Modify the default parameters. Note that the values given during
+        initialisation have the precedences on the values set here."""
+        self.default_params.update(default_params)
+
+    def get_params(self):
         """Returns the dictionary hlib_param_internal of hlib
         parameters and their corresponding values.
         """
         params = self.default_params.copy()
-        params.update(default_params)
         params.update(self.user_params)
         cluster_strategy = params.get("cluster_strategy", "regular")
         params["cluster_strategy"] = cluster_strategy_ids[cluster_strategy]
         return params
 
     # Provided for compatibility
-    get_hlib_parameters_internal = get_hlib_parameters
+    get_hlib_parameters_internal = get_params
 
     def __repr__(self):
+        params = self.get_params()
         s = ", ".join(["%s=%s" % key_val
-                       for key_val in self.user_params.iteritems()
+                       for key_val in params.iteritems()
                        if key_val[0] != "algorithm"])
         return "HMatrixSetup(%s)" % s
 
