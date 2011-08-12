@@ -32,6 +32,11 @@
 
 #include "hlib_stubs.h"
 
+/* Whether to make clusters which are one included inside the other
+ * when dealing with PBC
+ */
+#define USE_SUBCLUSTERS 0
+
 /* define DEBUG to 2 to see all the debug messages */
 #define DEBUG 0
 
@@ -366,7 +371,7 @@ static value gridbuilder_init(gridbuilder_t *gb,
 
 void gridbuilder_build_vertexcluster(gridbuilder_t *gb, 
                                      int cluster_strategy,
-				     int nmin, int depth,
+                                     int nmin, int depth,
                                      int top_split) {
   int cs;
 
@@ -381,19 +386,27 @@ void gridbuilder_build_vertexcluster(gridbuilder_t *gb,
   }
 
   /* Compute outer normal vectors and Gram determinants */
-  DEBUGMSG("Preparing grid...\n");
+  DEBUGMSG("gridbuilder_build_vertexcluster: preparing grid...\n");
   dyn_prepare_bemgrid3d(gb->gr);
+
+  DEBUGMSG("Parameters:\ncluster_strategy=%d\nnmin=%d\ndepth=%d\n"
+           "top_split=%d\nusing_subclusters=%d\n", cluster_strategy,
+           nmin, depth, top_split, (USE_SUBCLUSTERS));
 
   /* Build the cluster tree for the grid defined by a bemgrid3d object,
      using piecewise linear basis functions */
+#if USE_SUBCLUSTERS != 0
   if (top_split > 0) {
     DEBUGMSG("creating the vertexclusters (PBC)...\n");
     gb->ct = dyn_buildcustomcluster_bemgrid3d(gb->gr, top_split, nmin, depth);
 
   } else {
+#endif
     DEBUGMSG("creating the vertexclusters...\n");
     gb->ct = dyn_buildvertexcluster_bemgrid3d(gb->gr, cs, nmin, depth);
+#if USE_SUBCLUSTERS != 0
   }
+#endif
 }
 
 void gridbuilder_build_vertexcluster2(gridbuilder_t *gb, int nmin, int nr_rows) {
