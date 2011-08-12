@@ -29,9 +29,10 @@ from tree import *
 import collections
 
 class OpSimplifyContext:
-    def __init__(self, quantities=None, material=None):
+    def __init__(self, quantities=None, material=None, is_periodic=False):
         self.quantities = quantities
         self.material = material
+        self.is_periodic = is_periodic
 
 default_simplify_context = OpSimplifyContext()
 
@@ -344,6 +345,11 @@ class MxDimAmendNode(Node):
 
 class PeriodicAmendNode(Node):
     fmt = ListFormatter("periodic:", "", "")
+
+    def simplify(self, context=None):
+        if context != None and not context.is_periodic:
+            return None
+        return Node.simplify(self, context=context)
 
 class OptFieldsNode(Node):
     def __str__(self):

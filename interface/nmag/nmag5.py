@@ -340,8 +340,10 @@ class Simulation(SimulationCore):
 
         # Now add the different parts of the physics
         contexts = []
+        is_periodic = (self.periodic_bc != None)
         _add_micromagnetics(model, contexts, self._quantity_creator)
-        _add_exchange(model, contexts, self._quantity_creator)
+        _add_exchange(model, contexts, self._quantity_creator,
+                      is_periodic=is_periodic)
         _add_demag(model, contexts, self._quantity_creator, self.do_demag,
                    lattice_info=self.periodic_bc,
                    hlib_params=self.hlib_params)
@@ -863,7 +865,7 @@ def _add_micromagnetics(model, contexts, quantity_creator=None):
     model.add_computation(eq)
     model.declare_target(eq)
 
-def _add_exchange(model, contexts, quantity_creator=None):
+def _add_exchange(model, contexts, quantity_creator=None, is_periodic=False):
     if "exch" in contexts:
         return
     contexts.append("exch")
@@ -880,8 +882,10 @@ def _add_exchange(model, contexts, quantity_creator=None):
     if isinstance(exchange_factor, Constant):
         # If exchange_factor is a constant, we can include it in the operator
         # directly.
-        op_str = "exchange_factor*<d/dxj H_exch(k)||d/dxj m(k)>, j:3,  k:3"
-        op_exch = Operator("exch", op_str, cofield_to_field=True)
+        op_str = ("exchange_factor*<d/dxj H_exch(k)||d/dxj m(k)>;"
+                  "periodic: H_exch(k), j:3,  k:3")
+        op_exch = Operator("exch", op_str, cofield_to_field=True,
+                           is_periodic=is_periodic)
         model.add_computation(op_exch)
 
     else:
@@ -893,8 +897,10 @@ def _add_exchange(model, contexts, quantity_creator=None):
         #                          "for now...")
         H_exch_tmp = qc(SpaceField, "H_exch_tmp", [3], subfields=True,
                         unit=H_unit)
-        op_str = "<d/dxj H_exch_tmp(k)||d/dxj m(k)>, j:3,  k:3"
-        op_exch = Operator("exch", op_str, cofield_to_field=True)
+        op_str = ("<d/dxj H_exch_tmp(k)||d/dxj m(k)>;"
+                  "periodic: H_exch_tmp(k), j:3,  k:3")
+        op_exch = Operator("exch", op_str, cofield_to_field=True,
+                           is_periodic=is_periodic)
         eq_exch_tmp = \
           Equation("H_exch",
                    "(H_exch(i) <- exchange_factor*H_exch_tmp(i))_(i:3);")

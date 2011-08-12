@@ -39,7 +39,7 @@ Once this has been done, the Model is finally compiled. This will,
 for example, involve calls to GCC to compile some C code snippets, etc.
 
 Finally, when the model is built, all the objects are 'vivified'.
-For example, the Quantity objects acquire the memory which store their values.
+For example, the Quantity objects acquire the memory to store their values.
 At this points the objects are ready to be used: the Model is realised.
 '''
 

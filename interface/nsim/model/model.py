@@ -383,6 +383,7 @@ class Model(object):
             eq.simplify(context=simplify_context)
 
     def _own_ccodes(self):
+        # Call the own methods of all the CCodes objects in the Model.
         ccodes = self.computations._by_type.get('CCode', [])
         ccodes_names = ", ".join(map(CCode.get_name, ccodes))
         logger.info("Get ownership of C-codes: %s." % ccodes_names)

@@ -217,9 +217,20 @@ class Equation(ParsedComputation):
 class Operator(ParsedComputation):
     type_str = "Operator"
 
-    def __init__(self, name, operator_string, mat_opts=[],
+    def __init__(self, name, operator_string, mat_opts=[], is_periodic=False,
                  inputs=None, outputs=None, cofield_to_field=False,
                  auto_dep=None):
+        """Create a new Operator Computation.
+
+        :Parameters:
+
+          `is_periodic` : bool
+            Whether the operator is periodic. If this is set to False, then
+            the amendments 'periodic' in the operator string are silently
+            removed during the operator simplification.
+        """
+
+        self.is_periodic = is_periodic
         operator_tree = opparser.parse(operator_string)
         ParsedComputation.__init__(self, name, "OpProg",
                                    operator_tree, operator_string,
@@ -227,6 +238,11 @@ class Operator(ParsedComputation):
                                    auto_dep=auto_dep)
         self.mat_opts = mat_opts
         self.cofield_to_field = cofield_to_field
+
+    def simplify(self, context=None):
+        if context != None:
+            context.is_periodic = self.is_periodic
+        ParsedComputation.simplify(self, context=context)
 
 
 _variable_re = re.compile("[$][^$]*[$]")

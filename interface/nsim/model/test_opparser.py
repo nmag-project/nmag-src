@@ -76,29 +76,49 @@ def test_simplify_quantities():
     m = SpaceField("m", [3], subfields=True)
     qs = [C, a, b, H_exch, m, rho, M_sat]
     context = OpSimplifyContext(quantities=Quantities(qs),
-                                material=["mat1", "mat2"])
-    strings = [("<a||b>", "<a_mat1||b> + <a_mat2||b>"),
-               ("C*<d/dxj H_exch(k)||d/dxj m(k)>, j:1, k:3",
-                "  (-1.25)*<d/dxj H_exch_mat1(k)||d/dxj m_mat1(k)> "
-                "+ (-2.5)*<d/dxj H_exch_mat2(k)||d/dxj m_mat2(k)>,j:1, k:3"),
-               ("M_sat*<rho||d/dxj m(j)> + M_sat*<rho||D/Dxj m(j)>, j:3",
-                " 1000000.0*<rho||d/dxj m_mat1(j)> + "
-                "1000000.0*<rho||D/Dxj m_mat1(j)> + "
-                "500000.0*<rho||d/dxj m_mat2(j)> + "
-                "500000.0*<rho||D/Dxj m_mat2(j)>, j:3"),
-               ("C*<d/dxj H_exch(k)||d/dxj m(k)>; periodic:H_exch(k), j:1, k:3",
-                "  (-1.25)*<d/dxj H_exch_mat1(k)||d/dxj m_mat1(k)> "
-                "+ (-2.5)*<d/dxj H_exch_mat2(k)||d/dxj m_mat2(k)>; "
-                "periodic: H_exch_mat1(k); periodic: H_exch_mat2(k),"
-                "j:1, k:3")]
+                                material=["mat1", "mat2"],
+                                is_periodic=True)
 
-    for string, result in strings:
-        parse_tree = parse(string).simplify(context=context)
-        my_result = str(parse_tree)
-        assert compare_strings(my_result, result), \
-          ("Simplified of '%s' is '%s', but '%s' is expected."
-           % (string, my_result, result))
-        print "passed"
+    # Testing the 'periodic' amendment
+    pbc_in = \
+        "C*<d/dxj H_exch(k)||d/dxj m(k)>; periodic:H_exch(k), j:1, k:3"
+    # Expected result if context.is_periodic = True
+    pbc_out_if_pbc = \
+        ("  (-1.25)*<d/dxj H_exch_mat1(k)||d/dxj m_mat1(k)> "
+         "+ (-2.5)*<d/dxj H_exch_mat2(k)||d/dxj m_mat2(k)>; "
+         "periodic: H_exch_mat1(k); periodic: H_exch_mat2(k),"
+         "j:1, k:3")
+    # Expected result if context.is_periodic = False
+    pbc_out_ifnot_pbc = \
+        ("  (-1.25)*<d/dxj H_exch_mat1(k)||d/dxj m_mat1(k)> "
+         "+ (-2.5)*<d/dxj H_exch_mat2(k)||d/dxj m_mat2(k)>, "
+         "j:1, k:3")
+        
+    strings = {}
+    strings[True] = \
+        [("<a||b>", "<a_mat1||b> + <a_mat2||b>"),
+         ("C*<d/dxj H_exch(k)||d/dxj m(k)>, j:1, k:3",
+          "  (-1.25)*<d/dxj H_exch_mat1(k)||d/dxj m_mat1(k)> "
+          "+ (-2.5)*<d/dxj H_exch_mat2(k)||d/dxj m_mat2(k)>,j:1, k:3"),
+         ("M_sat*<rho||d/dxj m(j)> + M_sat*<rho||D/Dxj m(j)>, j:3",
+          " 1000000.0*<rho||d/dxj m_mat1(j)> + "
+          "1000000.0*<rho||D/Dxj m_mat1(j)> + "
+          "500000.0*<rho||d/dxj m_mat2(j)> + "
+          "500000.0*<rho||D/Dxj m_mat2(j)>, j:3"),
+         (pbc_in, pbc_out_if_pbc)]
+
+    strings[False] = [(pbc_in, pbc_out_ifnot_pbc)]
+
+    for is_periodic in (False, True):
+        context.is_periodic = is_periodic
+        for string, result in strings[is_periodic]:
+            parse_tree = parse(string).simplify(context=context)
+            my_result = str(parse_tree)
+            assert compare_strings(my_result, result), \
+                ("Simplified of '%s' is '%s', but '%s' is expected."
+                 % (string, my_result, result))
+            print "passed"
+
 
 def test_region_logic():
     print "Testing region logic parser"
