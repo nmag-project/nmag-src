@@ -81,11 +81,16 @@ def test_simplify_quantities():
                ("C*<d/dxj H_exch(k)||d/dxj m(k)>, j:1, k:3",
                 "  (-1.25)*<d/dxj H_exch_mat1(k)||d/dxj m_mat1(k)> "
                 "+ (-2.5)*<d/dxj H_exch_mat2(k)||d/dxj m_mat2(k)>,j:1, k:3"),
-                ("M_sat*<rho||d/dxj m(j)> + M_sat*<rho||D/Dxj m(j)>, j:3",
-                 " 1000000.0*<rho||d/dxj m_mat1(j)> + "
-                 "1000000.0*<rho||D/Dxj m_mat1(j)> + "
-                 "500000.0*<rho||d/dxj m_mat2(j)> + "
-                 "500000.0*<rho||D/Dxj m_mat2(j)>, j:3")]
+               ("M_sat*<rho||d/dxj m(j)> + M_sat*<rho||D/Dxj m(j)>, j:3",
+                " 1000000.0*<rho||d/dxj m_mat1(j)> + "
+                "1000000.0*<rho||D/Dxj m_mat1(j)> + "
+                "500000.0*<rho||d/dxj m_mat2(j)> + "
+                "500000.0*<rho||D/Dxj m_mat2(j)>, j:3"),
+               ("C*<d/dxj H_exch(k)||d/dxj m(k)>; periodic:H_exch(k), j:1, k:3",
+                "  (-1.25)*<d/dxj H_exch_mat1(k)||d/dxj m_mat1(k)> "
+                "+ (-2.5)*<d/dxj H_exch_mat2(k)||d/dxj m_mat2(k)>; "
+                "periodic: H_exch_mat1(k); periodic: H_exch_mat2(k),"
+                "j:1, k:3")]
 
     for string, result in strings:
         parse_tree = parse(string).simplify(context=context)

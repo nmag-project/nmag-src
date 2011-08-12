@@ -22,8 +22,8 @@ __all__ = ['OpSimplifyContext',
            'SignSym', 'RegionNode', 'RegLogSomeNode', 'RegLogAllNode',
            'RegLogNRegsNode', 'RegLogParenthesisNode', 'RegLogNotNode',
            'RegLogAndNode', 'RegLogOrNode', 'AmendSpecNode', 'DiagAmendNode',
-           'AmendMxDimNode', 'OptFieldsNode', 'FieldsNode'
-           ]
+           'MxDimAmendNode', 'PeriodicAmendNode',
+           'OptFieldsNode', 'FieldsNode']
 
 from tree import *
 import collections
@@ -102,10 +102,8 @@ class ContribsNode(AssocNode):
         material = None
         if context != None and context.material != None:
             material = context.material
-            if isinstance(material, str):
-                material_list = [material]
-            else:
-                material_list = material
+            material_list = ([material] if isinstance(material, str)
+                             else material)
 
             def set_material(mn):
                 context.material = mn
@@ -235,7 +233,6 @@ class FieldNode(Node):
                 field_node = Node.simplify(self, context=context)
                 field_node.data[0] += "_%s" % context.material
                 return field_node
-
         return Node.simplify(self, context=context)
 
     def __str__(self):
@@ -308,17 +305,45 @@ class RegLogOrNode(RegionLogicNode):
 
 class AmendSpecNode(Node):
     fmt = ListFormatter("; ", "", "; ")
+
     def __str__(self):
         if len(self.children) == 0:
             return ""
         else:
             return Node.__str__(self)
 
+    def simplify(self, context=None):
+        material_list = [""]
+        set_material = lambda mn: None
+        material = None
+        if context != None and context.material != None:
+            material = context.material
+            material_list = ([material] if isinstance(material, str)
+                             else material)
+
+            def set_material(mn):
+                context.material = mn
+
+        amendms = self.children
+        expanded_amendms = AmendSpecNode()
+        for amendm in amendms:
+            for material_name in material_list:
+                set_material(material_name)
+                simplified = amendm.simplify(context=context)
+                if simplified != None:
+                    expanded_amendms.add(simplified)
+
+        set_material(material)
+        return expanded_amendms
+
 class DiagAmendNode(Node):
     fmt = ListFormatter("", "", "=")
 
-class AmendMxDimNode(Node):
+class MxDimAmendNode(Node):
     fmt = ListFormatter("(L||R)=(", ")", "||")
+
+class PeriodicAmendNode(Node):
+    fmt = ListFormatter("periodic:", "", "")
 
 class OptFieldsNode(Node):
     def __str__(self):
@@ -329,4 +354,3 @@ class OptFieldsNode(Node):
 
 class FieldsNode(Node):
     fmt = plain_list_formatter
-

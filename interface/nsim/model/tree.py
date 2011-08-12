@@ -116,12 +116,9 @@ class GenericNode(object):
         """Simplify the parse tree using algebraic rules such as
         0*(...) -> 0 and similar ones."""
         def simplify(c):
-            if c == None:
-                return None
-            else:
-                return c.simplify(context=context)
+            return (c.simplify(context=context) if c != None else None)
 
-        simplified_children = [simplify(c) for c in self.children]
+        simplified_children = map(simplify, self.children)
         new_obj = self.__class__()
         new_obj.children = simplified_children
         new_obj.data = copy.copy(self.data)

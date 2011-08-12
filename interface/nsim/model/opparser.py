@@ -223,7 +223,7 @@ def p_amendment_spec(t):
 
 def p_amdmt_mxdim(t):
     """amdmt_mxdim : MXDIM EQUALS LPAREN opt_fields VBAR VBAR opt_fields RPAREN"""
-    t[0] = AmendMxDimNode([t[4], t[7]])
+    t[0] = MxDimAmendNode([t[4], t[7]])
 
 def p_amdmt_diagonal_ones(t):
     """amdmt_diagonal_ones : field EQUALS field"""
@@ -236,9 +236,7 @@ def p_amdmt_gauge_fix(t):
 
 def p_amdmt_periodic(t):
     """amdmt_periodic : PERIODIC field"""
-    #{ AMDMT_PERIODIC $2 }
-    pass
-
+    t[0] = PeriodicAmendNode(t[2])
 
 def p_opt_fields(t):
     """opt_fields :
