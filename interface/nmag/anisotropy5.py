@@ -244,25 +244,21 @@ def ccode_add_prefix(ccode, quantity_names, prefix):
 
 class QuantityContainer(object):
     def __init__(self, allowed_quantities=None):
-        self.quantities_types = \
-          allowed_quantities if allowed_quantities != None else {}
+        self.quantities_types = allowed_quantities or {}
 
-    def _create_quantity(self, q_type, q_name, q_absname,
+    def _create_quantity(self, default_q_type, q_name, q_absname,
                          *args, **named_args):
-        proposed_q_type = self.quantities_types.get(q_name, None)
-        if proposed_q_type != None:
-            q_type = proposed_q_type
+        q_type = self.quantities_types.get(q_name, None) or default_q_type
         return q_type(q_absname, *args, **named_args)
 
-    def declare(self, attrs, objs):
-        """Provide some attributes for the given objects. 'attrs' is a list
-        of the attributes (a list of strings) to associate to the objects
-        'objs' (a list of strings). Example:
+    def declare(self, attr, *objs):
+        """States that the objects in 'objs' have the attribute 'attr'.
+        Example:
 
-          sim.declare("space field", "llg_damping")
+          sim.declare("spacefield", "llg_damping", "llg_gamma_G")
 
-        Can be used to declare that the damping should be a field which can
-        change in space, rather than just a constant.
+        Can be used to declare that damping and gamma should be fields which
+        can change in space, rather than just constants.
         """
 
         # Available Quantity TypeS
@@ -271,7 +267,7 @@ class QuantityContainer(object):
         dos = self.quantities_types # Declarable ObjectS
         recognized_attrs = {}
 
-        declare_usage = ("USAGE: x.declare(attrs, objs) where attrs is a "
+        declare_usage = ("USAGE: x.declare(attr, objs) where attr is a "
                          "list of attributes (strings) to associate to the "
                          "objects whose names are in objs (a list of "
                          "strings).")
@@ -279,23 +275,23 @@ class QuantityContainer(object):
         if isinstance(objs, types.StringTypes):
             objs = [objs]
 
-        if isinstance(attrs, types.StringTypes):
-            attrs = [attrs]
-
         qt = []
         for obj_name in objs:
             if obj_name in dos:
                 assert isinstance(obj_name, types.StringTypes), declare_usage
-                for attr in attrs:
-                    assert isinstance(attr, types.StringTypes), declare_usage
-                    fmt_attr = attr.lower().replace(" ", "")
-                    if fmt_attr in aqts:
-                        qt.append(fmt_attr)
-                        self.quantities_types[obj_name] = aqts[fmt_attr]
+                assert isinstance(attr, types.StringTypes), declare_usage
+                fmt_attr = attr.lower().replace(" ", "")
+                if fmt_attr in aqts:
+                    qt.append(fmt_attr)
+                    self.quantities_types[obj_name] = aqts[fmt_attr]
 
-                    else:
-                        msg = "Unrecognized attribute '%s'" % attr
-                        raise NmagUserError(msg)
+                else:
+                    msg = "Unrecognized attribute '%s'" % attr
+                    raise NmagUserError(msg)
+
+            else:
+                raise NmagUserError("%s does not exist or is not declarable"
+                                    % obj_name)
 
         if len(qt) > 1:
             msg = "Conflicting attributes %s." % (", ".join(qt))
@@ -326,7 +322,7 @@ class Anisotropy(QuantityContainer):
                                                q_absname, *args, **named_args)
         # We add the object to the group without the prefix which is
         # identifying the anisotropy
-        self.quantities.add(q, name=q_absname)
+        self.quantities.add(q)
         return q
 
     def _define_quantities(self):

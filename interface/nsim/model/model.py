@@ -77,7 +77,8 @@ import nmag
 from nsim import linalg_machine as nlam
 
 from computation import Computation, Computations, EqSimplifyContext, \
-                        OpSimplifyContext, LAMProgram, Operator, Equation
+                        OpSimplifyContext, LAMProgram, Operator, Equation, \
+                        CCode
 from quantity import Quantity, Quantities, Constant
 from timestepper import Timestepper, Timesteppers
 from nsim.snippets import contains_all
@@ -369,7 +370,7 @@ class Model(object):
         return bem_dict
 
     def _simplify_equations(self):
-        """Simplify the operators before building them."""
+        """Simplify the equations before building them."""
         eqs = self.computations._by_type.get('Equation', [])
         eq_names = ", ".join(map(Equation.get_name, eqs))
         logger.info("Simplifying equations: %s." % eq_names)
@@ -380,6 +381,15 @@ class Model(object):
         for eq in eqs:
             logger.debug("Simplifying equation %s" % eq.name)
             eq.simplify(context=simplify_context)
+
+    def _own_ccodes(self):
+        ccodes = self.computations._by_type.get('CCode', [])
+        ccodes_names = ", ".join(map(CCode.get_name, ccodes))
+        logger.info("Get ownership of C-codes: %s." % ccodes_names)
+
+        for ccode in ccodes:
+            logger.debug("Getting ownership of ccode '%s'" % ccode.name)
+            ccode.own(self)        
 
     def _build_equations(self):
         eqs = self.computations._by_type.get('Equation', [])
@@ -404,7 +414,7 @@ class Model(object):
         ccodes = self.computations._by_type.get('CCode', [])
         ccode_dict = {}
         for ccode in ccodes:
-            logger.info("Building ccode %s" % ccode.name)
+            logger.debug("Building ccode %s" % ccode.name)
             ccode_full_name = ccode.get_full_name()
             ccode_dict[ccode_full_name] = ccode._build_lam_object(self)
 
@@ -554,7 +564,7 @@ class Model(object):
     def _remove_unused(self, targets):
         required_objects = self.collect_required_objects(targets)
 
-        # Removed unused computations
+        # Remove unused computations
         all_computations = list(self.computations._all)
         removed_computations = []
         for computation in all_computations:
@@ -717,6 +727,7 @@ class Model(object):
         # Carry out equation and operator simplifications
         self._simplify_operators()
         self._simplify_equations()
+        self._own_ccodes()
 
         # Build the dependency tree
         self._build_dependency_tree()

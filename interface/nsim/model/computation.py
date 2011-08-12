@@ -333,11 +333,11 @@ class CCode(LAMProgram):
     def append(self, ccode, materials=None):
         self.ccodes.append((ccode, materials))
 
-    def _build_ccode(self, model):
-        Computation.vivify(self, model)
-
+    def own(self, model):
         # We now substitute the constant quantities inside the ccode and
         # determine which field quantities are used by the ccode.
+
+        LAMProgram.own(self, model)
 
         ccode = ""
         all_required_qs = {}
@@ -369,9 +369,8 @@ class CCode(LAMProgram):
         self.inputs.extend(all_required_qs.keys())
 
     def _build_lam_object(self, model):
-        if self.ccode == None:
-            self._build_ccode(model)
-
+        assert self.is_owned(), "Cannot build LAM object: CCode is not owned."
+        assert self.ccode != None
         required_quantities = self.get_all_quantities()
         return \
           nlam.lam_local(self.get_full_name(),
