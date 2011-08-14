@@ -209,7 +209,7 @@ class SpaceField(Quantity):
     type_str = "SpaceField"
 
     def __init__(self, name, shape=[], value=None, unit=1.0,
-                 subfields=False, restrictions=""):
+                 subfields=False, restrictions="", normalized=False):
 
         Quantity.__init__(self, name, shape, value, unit, subfields)
 
@@ -221,6 +221,7 @@ class SpaceField(Quantity):
         self.material_names = None       # Name of materials where field
                                          # is defined
         self.restrictions = restrictions # Restrictions for the field
+        self.normalized = normalized
 
     def vivify(self, model):
         Quantity.vivify(self, model)
@@ -266,7 +267,7 @@ class SpaceField(Quantity):
                 fn = "%s_%s" % (self.name, v)
                 flexible_set_fielddata(self.master, fn, m, 1e-9,
                                        scale_factor=scale_factor,
-                                       normalise=False)
+                                       normalise=self.normalized)
 
         else:
             set_plan = value.get_set_plan(self.material_names, unit=self.unit)
@@ -275,7 +276,7 @@ class SpaceField(Quantity):
             scale_factor = float(u)
             flexible_set_fielddata(self.master, self.name, m, 1e-9,
                                    scale_factor=scale_factor,
-                                   normalise=False)
+                                   normalise=self.normalized)
 
         ocaml.lam_set_field(self.lam, self.master, "v_" + self.name)
 

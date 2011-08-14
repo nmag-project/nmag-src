@@ -879,7 +879,8 @@ def _add_micromagnetics(model, contexts, quantity_creator=None):
     contexts.append("mumag")
 
     qc = quantity_creator or _default_qc
-    m = qc(SpaceField, "m", [3], subfields=True, unit=SI(1))
+    m = qc(SpaceField, "m", [3], subfields=True, unit=SI(1),
+           normalized=True)
     M = qc(SpaceField, "M", [3], subfields=True, unit=H_unit)
     Ms = qc(Constant, "Ms", subfields=True, unit=SI(1e6, "A/m"))
     mu0_const = Constant("mu0", value=Value(mu0), unit=SI(1e-6, "N/A^2"))
