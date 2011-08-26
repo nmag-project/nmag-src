@@ -951,10 +951,12 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True,
     H_demag = qc(SpaceField, "H_demag", [3], unit=H_unit)
     phi1b = qc(SpaceField, "phi1b", [], restrictions="phi1b[outer]")
     phi2b = qc(SpaceField, "phi2b", [], restrictions="phi2b[outer]")
-    phis = [qc(SpaceField, n, [], unit=SI("A"))
-            for n in ["phi", "phi1", "phi2"]]
-    rhos = [qc(SpaceField, n, [], unit=SI("A/m^2")) for n in ["rho", "rho_s"]]
-    model.add_quantity(H_demag, phi1b, phi2b, *(phis + rhos))
+    phi   = qc(SpaceField,   "phi", [], unit=SI("A"))
+    phi1  = qc(SpaceField,  "phi1", [], unit=SI("A"))
+    phi2  = qc(SpaceField,  "phi2", [], unit=SI("A"))
+    rho   = qc(SpaceField,   "rho", [], unit=SI("A/m^2"))
+    rho_s = qc(SpaceField, "rho_s", [], unit=SI("A/m^2"))
+    model.add_quantity(H_demag, phi1b, phi2b, phi, phi1, phi2, rho, rho_s)
 
     # Operators for the demag
     # NOTE: this is again a temporary hack to deliver the exchange extension
@@ -964,7 +966,7 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True,
         op_div_m = Operator("div_m", "  Ms*<rho||d/dxj m(j)>"
                                      "+ Ms*<rho||D/Dxj m(j)>, j:3")
         command_adjust_rho = ["SCALE", "v_rho", -1.0]
-        op_div_m_dest = "v_rho"
+        op_div_m_dest = rho
 
     else:
         #raise NotImplementedError("Ms can only be a constant for now...")
@@ -979,8 +981,9 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True,
         #     FIXME! (need explicit material sums)
         model.add_quantity(rho_tmp)
         model.add_computation(eq_rho)
-        command_adjust_rho = ["GOSUB", eq_rho.get_prog_name()]
-        op_div_m_dest = "v_rho_tmp"
+        command_adjust_rho = ["GOSUB", eq_rho]
+        op_div_m_dest = rho_tmp
+        #model.declare_target(eq_rho)
 
     op_neg_laplace_phi = \
       Operator("neg_laplace_phi", "<d/dxj rho || d/dxj phi>, j:3",
@@ -1016,18 +1019,19 @@ def _add_demag(model, contexts, quantity_creator=None, do_demag=True,
               lattice_info=opt_lattice_info, hlib_params=hlib_params)
 
     # The LAM program for the demag
-    commands=[["SM*V", op_div_m, "v_m", op_div_m_dest],
+    m = model.quantities["m"]
+    commands=[["SM*V", op_div_m, m, op_div_m_dest],
               command_adjust_rho,
-              ["SOLVE", ksp_solve_neg_laplace_phi, "v_rho", "v_phi1"],
-              ["PULL-FEM", "phi", "phi[outer]", "v_phi1", "v_phi1b"],
-              ["DM*V", bem, "v_phi1b", "v_phi2b"],
-              ["SM*V", op_load_DBC, "v_phi2b", "v_rho_s"],
-              ["SOLVE", ksp_solve_laplace_DBC, "v_rho_s", "v_phi2"],
-              ["PUSH-FEM", "phi", "phi[outer]", "v_phi2b", "v_phi2"],
-              ["AXPBY", 1.0, "v_phi1", 0.0, "v_phi"],
-              ["AXPBY", 1.0, "v_phi2", 1.0, "v_phi"],
-              ["SM*V", op_grad_phi, "v_phi", "v_H_demag"],
-              ["CFBOX", "H_demag", "v_H_demag"]]
+              ["SOLVE", ksp_solve_neg_laplace_phi, rho, phi1],
+              ["PULL-FEM", "phi", "phi[outer]", phi1, phi1b],
+              ["DM*V", bem, phi1b, phi2b],
+              ["SM*V", op_load_DBC, phi2b, rho_s],
+              ["SOLVE", ksp_solve_laplace_DBC, rho_s, phi2],
+              ["PUSH-FEM", "phi", "phi[outer]", phi2b, phi2],
+              ["AXPBY", 1.0, phi1, 0.0, phi],
+              ["AXPBY", 1.0, phi2, 1.0, phi],
+              ["SM*V", op_grad_phi, phi, H_demag],
+              ["CFBOX", "H_demag", H_demag]]
     prog_set_H_demag = \
       LAMProgram("set_H_demag", commands,
                  inputs=["m"],

@@ -232,6 +232,10 @@ class SpaceField(Quantity):
         self.material_names = model.regions.all_entity_names
         self.set_value(self.value)
 
+    def get_lam_name(self):
+        return "v_" + self.name
+    get_lam_name.__doc__ = ModelObj.get_lam_name.__doc__
+
     def get_master(self):
         if self._master != None:
             return self._master
@@ -245,7 +249,7 @@ class SpaceField(Quantity):
 
     def get_updated_master(self):
         master = self.master
-        ocaml.lam_get_field(self.lam, master, "v_" + self.name)
+        ocaml.lam_get_field(self.lam, master, self.get_lam_name())
         return master
 
     def set_value(self, value):
@@ -278,10 +282,10 @@ class SpaceField(Quantity):
                                    scale_factor=scale_factor,
                                    normalise=self.normalized)
 
-        ocaml.lam_set_field(self.lam, self.master, "v_" + self.name)
+        ocaml.lam_set_field(self.lam, self.master, self.get_lam_name())
 
     def compute_integral(self, where=None, as_value=True):
-        ocaml.lam_get_field(self.lam, self.master, "v_" + self.name)
+        ocaml.lam_get_field(self.lam, self.master, self.get_lam_name())
 
         dof_stem = ""
         if where != None:

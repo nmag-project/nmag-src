@@ -71,21 +71,22 @@ class Computation(ModelObj):
         raise NotImplementedError("_build_lam_object not implemented.")
 
 
-def _expand_commands(cmds):
-    def _expand_arg(arg):
-        return arg.get_full_name() if isinstance(arg, Computation) else arg
-    return [[_expand_arg(arg) for arg in cmd] for cmd in cmds]
-
-
 class LAMProgram(Computation):
     type_str = "LAMProgram"
 
     def __init__(self, name, commands=None,
                  inputs=None, outputs=None, internals=None,
                  auto_dep=None):
+        """LAM program. commands is a list of commands in the form
+        ["COMMANDNAME", arg1, arg2, ...]. Arguments can be provided as strings
+        or as ModeObj objects. In the latter case, the ModelObj will be used to
+        compute dependencies automatically (so that the user does not need to
+        specify dependencies manually).
+        """
+        self.commands = commands or []
+        internals = _find_internals(self.commands, internals or [])
         Computation.__init__(self, name, inputs=inputs, outputs=outputs,
                              internals=internals, auto_dep=auto_dep)
-        self.commands = commands or []
 
     def add_commands(self, commands):
         if type(commands[0]) == str:
@@ -119,6 +120,58 @@ class LAMProgram(Computation):
         commands = _expand_commands(self.commands)
         return nlam.lam_program(self.get_prog_name(),
                                 commands=commands)
+
+
+# Commands that Python knows in form 
+#   "NAME": (list_of_types, list_of_argument_mapping_functions)
+# NOTE: commands not known are treated "generically" (arguments are mapped
+#   to string using the method arg.get_lam_name()).
+known_commands = {"GOSUB": ((LAMProgram,),
+                            (lambda obj: obj.get_prog_name(),))}
+
+def _expand_command(cmd):
+    """Used to expand a LAM command to a form which can be taken by OCaml
+    (a list of strings).
+    """
+
+    cmd_name = cmd[0]
+    args = cmd[1:]
+
+    expected_args_and_maps = known_commands.get(cmd_name, None)
+    if expected_args_and_maps != None:
+        expected_args, maps = expected_args_and_maps
+        expanded_cmd = [cmd_name]
+        for i, expected_arg in enumerate(expected_args):
+            arg = args[i]
+            if type(arg) == str:
+                arg_str = arg
+                
+            elif isinstance(arg, expected_arg):
+                arg_str = maps[i](arg)
+
+            else:
+                msg = ("Error in LAMProgram command expansion: argument "
+                       "%d of '%s' expects '%s', but got '%s'"
+                       % (i, cmd_name, expected_arg, type(arg)))
+                raise ValueError(msg)
+            expanded_cmd.append(arg_str)
+            return expanded_cmd
+
+    else:
+        def _expand_arg(arg):
+            return (arg.get_lam_name() if isinstance(arg, ModelObj) else arg)
+        return [cmd_name] + map(_expand_arg, args)
+
+def _expand_commands(cmds):
+    return map(_expand_command, cmds)
+
+def _find_internals(cmds, internals=[]):
+    idict = dict((q, None) for q in internals)
+    for cmd in cmds:
+        for arg in cmd:
+            if isinstance(arg, quantity.SpaceField):
+                idict[arg.get_name()] = arg
+    return idict.keys()
 
 
 class ParsedComputation(LAMProgram):

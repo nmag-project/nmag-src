@@ -72,6 +72,11 @@ class ModelObj(object):
            % (self.type_str, self.name))
         return self.lam
 
+    def get_lam_name(self):
+        """Return the name (a string) which is used to refer to this ModelObj
+        in a LAM program."""
+        return self.get_full_name()
+
     def own(self, model):
         """Called by the Model to obtain ownership of this object."""
         #assert self.model == None, "Object was already owned by a Model!"
