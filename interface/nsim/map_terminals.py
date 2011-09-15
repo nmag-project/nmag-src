@@ -34,8 +34,9 @@ def SI_vector(v):
     """
 
     def invalid_syntax():
-        raise "Invalid syntax for vector. Examples of valid syntax are " \
-              "[SI(1), SI(2), SI(3), ...] and ([1, 2, 3, ...], SI(\"\"))."
+        raise ValueError("Invalid syntax for vector. Examples of valid syntax "
+                         "are [SI(1), SI(2), SI(3), ...] and ([1, 2, 3, ...], "
+                         "SI(\"\")).")
 
     # First we assume that v is in the form 2): vector/matrix of SI objects
 
@@ -54,8 +55,8 @@ def SI_vector(v):
                     u[0] = "_SI"
                     return 0.0
                 if not scalar.is_compatible_with(u[0]):
-                    raise "Your vector/matrix contains scalars with " \
-                          "incompatible units: %s" % v
+                    raise ValueError("Your vector/matrix contains scalars "
+                                     "with incompatible units: %s" % v)
             return scalar._value
         else:
             if len(u) == 0:

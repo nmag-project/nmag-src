@@ -1185,7 +1185,7 @@ class Simulation(SimulationCore):
         self.mesh = nmesh.load(filename,do_reorder,do_distribute)
         memory_report("just after nmesh.load")
 
-        if(manual_distribution):
+        if manual_distribution:
             ocaml.mesh_set_vertex_distribution(self.mesh.raw_mesh,manual_distribution)
 
         if scalefactor != 1.0:
