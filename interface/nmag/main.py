@@ -1762,6 +1762,8 @@ class Simulation(SimulationCore):
         return data
 
     def _set_subfield(self,subfieldname,values,unit,fieldname,auto_normalise):
+        if not self._fields:
+            raise NmagUserError("Failed to set field, probably because no mesh was loaded first (use load_mesh to do this).")
         self._fields.set_subfield(subfieldname,
                                   values,
                                   unit,
