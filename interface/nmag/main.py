@@ -1788,21 +1788,21 @@ class Simulation(SimulationCore):
             To set an applied field that is homogenous and points in
             +x-direction, one can use::
 
-              sim.set_H_ext([1e6,0,0],SI(1,"A/m"))
+              sim.set_H_ext([1e6, 0, 0], SI("A/m"))
 
               which is equivalent to::
 
-              sim.set_H_ext([1,0,0],SI(1e6,"A/m"))
+              sim.set_H_ext([1, 0, 0], SI(1e6, "A/m"))
 
             However, we could also define the field in Oersted::
 
               from nmag.si import Oe
-              sim.set_H_ext([100,0,0],Oe)
+              sim.set_H_ext([100, 0, 0],Oe)
 
             or in Tesla/mu0::
 
               from nmag.si import Tesla, mu0
-              sim.set_H_ext([1,0,0],T/mu0)
+              sim.set_H_ext([1, 0, 0], Tesla/mu0)
 
         """
 
