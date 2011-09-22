@@ -39,6 +39,10 @@ import nsim
 import nsim.versions
 import hlib
 
+# Add the nmag.si module (as advertised in the manual)
+# This is an alias for nsim.si_units.si
+sys.modules["nmag.si"] = nsim.si_units.si
+
 log = logging.getLogger('nmag')
 def memory_report(tag):
     t,vmem,rss = ocaml.time_vmem_rss()
