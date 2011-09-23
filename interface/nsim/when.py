@@ -183,14 +183,14 @@ class When:
           Usually it does not make too much sense anyway!
           Let's see some examples of things that you should not do:
 
-            every(10, 'step') & every(5, 'stage_step')
-            every(10, 'step') & every(SI(1e-9, "s"), 'time')
+            every('step', 10) & every('stage_step', 5)
+            every('step', 10) & every('time', SI(1e-9, "s"))
 
           These examples will produce apparently crazy results, because
           step, stage_step, time and stage_time are dependend variables.
           Other crazy things can be done with the operator &. Example:
 
-            w = every(2, 'step') & every(2, 'step', first=1)
+            w = every('step', 2) & every('step', 2, first=1)
             w.next_time('step', time_object)
 
           The evaluation of the w When object will lead to an infinite
@@ -209,8 +209,8 @@ def every(arg1, arg2=None, first=0, last=None):
     """
     Function to specify that an action should be performed periodically.
     Examples::
-      every(10, 'step')
-      every(5, 'step', first=10, last=100)
+      every('step', 10)
+      every('step', 5, first=10, last=100)
       every('step', first=15)
     """
     # I want both every(10, 'step') and every('step', 10) to be valid.
@@ -222,7 +222,7 @@ def every(arg1, arg2=None, first=0, last=None):
         identifier, delta = arg2, arg1
     if type(identifier) != str:
         raise ValueError("Bad usage of the function every: you should "
-                         "specify an identifier. Example: every(10, 'step')")
+                         "specify an identifier. Example: every('step', 10)")
     if last != None and last <= first:
         raise ValueError("Bad usage of the function every: the value of the "
                          "optional argument last must be greater than "
@@ -231,7 +231,7 @@ def every(arg1, arg2=None, first=0, last=None):
     if delta <= 0:
         raise ValueError("Bad usage of the function every: the delta value "
                          "must be positive, but you specified something like "
-                         "every(-1, 'step') or every(0, 'step')")
+                         "every('step', -1) or every('step', 0)")
     return When(('every', (identifier, (delta, first, last))))
 
 never = When(('never', (None, None)))
@@ -247,18 +247,18 @@ if __name__ == "__main__":
     # & operator is implemented using brute force: it will search
     # matching events. This could result in infinite loops, if there
     # are no matching events!
-    # Example: every(2, 'step') & every(2, 'step', first=1)
+    # Example: every('step', 2) & every('step', 2, first=1)
     # the resulting intersection is empty!
 
-    w = every(2, 'step', last=10) & every(5, 'step', first=10)
-    w = every(2, 'step', last=21) & every(4, 'step', first=10)
-    w = every(2, 'step', last=21) & every(4, 'step', first=10) | at('step', 15)
+    w = every('step', 2, last=10) & every('step', 5, first=10)
+    w = every('step', 2, last=21) & every('step', 4, first=10)
+    w = every('step', 2, last=21) & every('step', 4, first=10) | at('step', 15)
 
 
-    # every(100, 'step') + every(SI('0.1 ns'), 'stage_time')
+    # every('step', 1000) + every('stage_time', SI('0.1 ns'))
 
     if True:
-        w = every(SI(1.5e-12, 's'), 'time')
+        w = every('time', SI(1.5e-12, 's'))
         from nsim.si_units import SI
         time['time'] = SI(0.0e-12, "s")
         w = every('time', SI(100.0e-12, "s")) | every('time', SI(30.0e-12, "s"))
@@ -278,11 +278,11 @@ if __name__ == "__main__":
         if next == False: break
 
 
-    #w = at('convergence') & every(2, 'stage')
+    #w = at('convergence') & every('stage', 2)
 
 
     #H_list = [[0, 0, 0], ...]
-    #save_list = save('averages', every(10, 'stage_step')) and \
+    #save_list = save('averages', every('stage_step', 10)) and \
                 #save('fields', at('convergence'))]
     #sim.hysteresis(H_list, save_list)
 

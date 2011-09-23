@@ -208,7 +208,7 @@ def simulation_relax(self,
                      H_applied = None,
                      save=[('averages', 'fields', at('stage_end'))],
                      do = [],
-                     convergence_check=every(5, 'step')):
+                     convergence_check=every('step', 5)):
     """
     This method carries out the time integration of the LLG until
     the system reaches a (metastable) equilibrium.
@@ -228,7 +228,7 @@ def simulation_relax(self,
         on the ``Schedule`` object.
 
       `convergence_check` : every object The default value
-      (``every(5,'step')`` specifies that we ask the time
+      (``every('step', 5)`` specifies that we ask the time
       integrator to carry out 5 steps before we check for
       convergence. If in doubt, ignore this feature.
 
@@ -244,7 +244,7 @@ def simulation_relax(self,
 def simulation_hysteresis(self, H_ext_list,
                           save=[('averages', 'fields', at('stage_end'))],
                           do=[],
-                          convergence_check=every(5, 'step'),
+                          convergence_check=every('step', 5),
                           progress_message_minimum_delay=60):
 
     #Note we are using __argdoclong__ here (below this function).
@@ -313,11 +313,11 @@ def simulation_hysteresis(self, H_ext_list,
 
           def my_fun(sim):
             sim.save_data()
-          sim.hysteresis(..., save=[(my_fun, every(10, 'step'))])
+          sim.hysteresis(..., save=[(my_fun, every('step', 10))])
 
         are equivalent to::
 
-          sim.hysteresis(..., save=[('averages', every(10, 'step'))])
+          sim.hysteresis(..., save=[('averages', every('step', 10))])
 
         To specify when something has to be saved the module ``when``
         is used. The functions ``at`` and ``every``, provided by
@@ -338,9 +338,9 @@ def simulation_hysteresis(self, H_ext_list,
         Remember that you can combine time specifications using
         the operator | (or) and & (and)::
 
-          every(2, 'stage') & at('convergence') --> only at convergence
+          every('stage', 2) & at('convergence') --> only at convergence
                                                     of odd stages
-          every(10, 'step') | at('convergence') --> at convergence
+          every('step', 10) | at('convergence') --> at convergence
                                                     and every 10 steps.
 
         Some usage examples::
@@ -352,7 +352,7 @@ def simulation_hysteresis(self, H_ext_list,
 
           # Averages will be saved every 10 steps, fields (and
           # implicitely averages) will be saved at convergence.
-          sim.hysteresis(..., save=[('averages', every(10, 'step')),
+          sim.hysteresis(..., save=[('averages', every('step', 10)),
                                     ('fields', at('convergence'))])
 
           # Each stage will not last more than 10 ps, even
@@ -362,9 +362,9 @@ def simulation_hysteresis(self, H_ext_list,
           # Exit hysteresis loop simulation if the total number of
           # steps exceeds 1e6, save fields every 100 steps and at
           # convergence before that:
-          sim.hysteresis(..., save=[('fields', every(100, 'step') |
+          sim.hysteresis(..., save=[('fields', every('step', 100) |
                                     at('convergence'))],
-                               do =[('exit', at(1e6, 'step'))])
+                               do =[('exit', at('step', 1e6))])
 
           # Save averages every 0.1 ns (useful for fourier transform)
           # leave after 20 ns (using the related relax_ command)
@@ -379,7 +379,7 @@ def simulation_hysteresis(self, H_ext_list,
           # save restart file every 1000 steps
           sim.relax(save=[('averages',every('time', SI(1e-9, 's'))),
                           ('fields',  every('time', SI(100e-9, 's'))),
-                          ('restart', every(1000, 'step'))])
+                          ('restart', every('step', 1000))])
 
         If ``save`` is not given, averages and fields will be saved whenever
         the stage ends (this is the default behaviour).
@@ -554,7 +554,7 @@ self,
 H_ext_list,
 save=[('averages', 'fields', at('stage_end'))],
 do=[],
-convergence_check=every(5, 'step')
+convergence_check=every('step', 5)
 )
 """
 

@@ -14,7 +14,7 @@ def test_match_x():
     step_first_last_list = [(2, 3, 22), (2, 3, 23), (3, 0, None)]
     for step_first_last in step_first_last_list:
         x_step, x_first, x_last = step_first_last
-        w_obj = w.every(x_step, 'x', first=x_first, last=x_last)
+        w_obj = w.every('x', x_step, first=x_first, last=x_last)
         for x in range(40):
             t_obj['x'] = x
             matched = w_obj.match_time(t_obj)
@@ -32,7 +32,7 @@ def test_next_x():
     step_first_last_list = [(2, 3, 22), (2, 3, 23), (3, 0, None)]
     for step_first_last in step_first_last_list:
         x_step, x_first, x_last = step_first_last
-        w_obj = w.every(x_step, 'x', first=x_first, last=x_last)
+        w_obj = w.every('x', x_step, first=x_first, last=x_last)
         for x in range(40):
             t_obj['x'] = x
             next_x = w_obj.next_time('x', t_obj)
@@ -51,7 +51,7 @@ def test_next_x():
 def test_match_x_and_y():
     x_step = 2
     y_step = 3
-    w_obj = w.every(x_step, 'x') & w.every(y_step, 'y')
+    w_obj = w.every('x', x_step) & w.every('y', y_step)
     for x in range(10):
         t_obj['x'] = x
         for y in range(10):
@@ -67,7 +67,7 @@ def test_match_x_and_y():
 def test_next_x_and_y():
     x_step = 2
     y_step = 3
-    w_obj = w.every(x_step, 'x') & w.every(y_step, 'y')
+    w_obj = w.every('x', x_step) & w.every('y', y_step)
     for x in range(10):
         t_obj['x'] = x
         for y in range(10):
@@ -86,8 +86,8 @@ def test_next_x_and_y():
 def test_next_x_and_y_or_z():
     x0_y_step = 10
     x_y_step = 2
-    w_obj =   (w.at('x', 0) & w.every(x0_y_step, 'y')) \
-            | (w.every('x', 1, first=1) & w.every(x_y_step, 'y'))
+    w_obj =   (w.at('x', 0) & w.every('y', x0_y_step)) \
+            | (w.every('x', 1, first=1) & w.every('y', x_y_step))
     for x in range(4):
         t_obj['x'] = x
         for y in range(100):
