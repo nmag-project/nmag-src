@@ -85,14 +85,14 @@ function allsrc_dev_compose {
 }
 
 function add_doc {
-  DOC_TAG=${1:-tip}
+  DOC_TAG=${2:-tip}
   echo "Adding documentation"
   $VC_CHECKOUT "$REPOS_NSIM_DOC" --rev="$DOC_TAG" "$1/doc/manual" >>$LOG_FILE \
   || fatalerr "Cannot add the documentation to the distribution"
 }
 
 function add_test {
-  TEST_TAG=${1:-tip}
+  TEST_TAG=${2:-tip}
   echo "Adding test suite"
   $VC_CHECKOUT "$REPOS_NSIM_TEST" --rev="$TEST_TAG" "$1/nsim/tests" >>$LOG_FILE \
   || fatalerr "Cannot add the test suite to the distribution"

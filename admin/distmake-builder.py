@@ -185,9 +185,11 @@ for line in lines:
 # # Here is the package name
 # pkg_name = "nmag-%s" % version.version_str
 
-script.writeln("PKGNAME=nmag-`get_version ..`")
-script.writeln("allsrc_dev_compose \"$PKGNAME\" '%s' '%s'"
+script.writeln("allsrc_dev_compose nmag-X.Y.Z '%s' '%s'"
                % (main_tag, dev_tag))
+
+script.writeln("PKGNAME=nmag-`get_version nmag-X.Y.Z/nsim`")
+script.writeln("mv nmag-X.Y.Z \"$PKGNAME\"")
 
 has_doc = (want_doc.chosen != 0)
 if has_doc:
