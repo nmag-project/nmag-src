@@ -42,7 +42,7 @@ class ChoiceList(object):
         self.choices = []
 
     def __str__(self):
-        return "\n".join([str(c) for c in self.choices])
+        return "\n".join(filter(None, map(str, self.choices)))
 
     def wait(self, text):
         print "="*40
@@ -116,6 +116,10 @@ class OpenQuestion(object):
         self.answer = None
         self.should_ask_function = None
         self._answer_is_ok = None
+
+    def __str__(self):
+        return ("Q: %s\n   %s" % (self.desc, self.answer)
+                if self.answer != None else "")
 
     def when_should_ask(self, fn):
         self.should_ask_function = fn

@@ -11,10 +11,17 @@
 #          (see <http://www.gnu.org/licenses/>)
 
 import os
+import getpass
 
-from choice import ChoiceList, Choice, Alternative, Script
+from choice import ChoiceList, Choice, Alternative, OpenQuestion, Script
+
+import repositories
 
 version = "distmake-builder 0.1"
+
+# This may not be the best way to retrieve the username, but we are asking
+# the user anyway, therefore it shouldn't matter too much...
+username = getpass.getuser()
 
 def comment(text):
     return "\n".join(["# %s" % line for line in text.splitlines()])
@@ -28,6 +35,41 @@ plan = ChoiceList("I'm now going to ask a few questions in order to build a "
                   "that you don't need to answer the same questions again "
                   "and again).")
 
+use_def_un = plan.add_choice(Choice("Which username should I use to access "
+                                    "the repositories?"))
+use_def_un.add_alternative(Alternative("Use '%s'." % username))
+use_def_un.add_alternative(Alternative("Use a different username."))
+
+what_un = plan.add_choice(OpenQuestion("What username shoud I use?"))
+what_un.when_should_ask(lambda: use_def_un.chosen == 1)
+
+want_ctr = plan.add_choice(Choice("Which repositories do you want to use as "
+                                  "source for building the tarball?"))
+want_ctr.add_alternative(Alternative("Use the central repositories."))
+want_ctr.add_alternative(Alternative("Use the current repository for src and "
+                                     "central repositories for doc and test."))
+
+want_old = plan.add_choice(Choice("Do you want to create the tarball for a "
+                                  "previous version of the software?"))
+want_old.add_alternative(Alternative("No, I want the latest dev version."))
+want_old.add_alternative(Alternative("Yes, I want to give the tag name and "
+                                     "create a tarball for that."))
+
+which_tag = plan.add_choice(OpenQuestion("What tag do you want to use? "
+                                         "(try \"hg tag\" from the src "
+                                         "repository)"))
+which_tag.when_should_ask(lambda: want_old.chosen == 1)
+
+same_tag = plan.add_choice(Choice("Do you want to use the same tag for "
+                                  "dist, test and doc?"))
+same_tag.when_should_ask(lambda: want_old.chosen == 1)
+same_tag.add_alternative(Alternative("No, use the latest versions for dist, "
+                                     "test and doc (may create inconsistent "
+                                     "tarballs)."))
+same_tag.add_alternative(Alternative("Yes, use the same tags (may fail if "
+                                     "dev, test and doc do not all have such "
+                                     " tag)."))
+
 want_doc = plan.add_choice(Choice("Do you want to include documentation?"))
 want_doc.add_alternative(Alternative("No, I'm concerned with size."))
 want_doc.add_alternative(Alternative("Yes, include documentation."))
@@ -37,7 +79,8 @@ want_test = plan.add_choice(Choice("Do you want to include the test suite?"))
 want_test.add_alternative(Alternative("No, I'm concerned with size."))
 want_test.add_alternative(Alternative("Yes, include the big test suite."))
 
-want_repo = plan.add_choice(Choice("Do you want to use the repositories?"))
+want_repo = plan.add_choice(Choice("Do you want to keep the repositories "
+                                   "in the tarball?"))
 want_repo.add_alternative(Alternative("No, I don't care about version "
                                       "control."))
 want_repo.add_alternative(Alternative("Yes, I'm a developer, I want the "
@@ -96,6 +139,42 @@ script.writeln("# Script generated from the following answers:")
 script.writeln(comment(str(plan)))
 script.writeln(". disttools.sh")
 
+# Use the user-provided username, if necessary
+if use_def_un.chosen == 1:
+    username = what_un.answer
+
+want_local_main = (want_ctr.chosen == 1)
+local_main = "`cd .. && pwd`" if want_local_main else None
+
+varname_repository_haslocal_local = \
+  (("REPOS_NSIM_MAIN", repositories.repos_main, want_local_main, local_main),
+   ("REPOS_NSIM_TEST", repositories.repos_test, 0, None),
+   ("REPOS_NSIM_DOC", repositories.repos_doc, 0, None),
+   ("REPOS_NSIM_DIST", repositories.repos_dist, 0, None))
+
+userat = username + "@"
+
+script.writeln(comment("Configuration for the host and the repositories"))
+for varname, repository, haslocal, local in varname_repository_haslocal_local:
+    if haslocal:
+        line = "%s=%s" % (varname, local)
+    else:
+        line = "%s='ssh://%s%s'" % (varname, userat, repository)
+    script.writeln(line)
+
+main_tag = ("tip" if want_old.chosen == 0 else which_tag.answer)
+dev_tag = doc_tag = test_tag = "tip"
+
+if same_tag.chosen == 1:
+    dev_tag = doc_tag = test_tag = main_tag
+
+lines = \
+    ("PKGS_FILE=%s" % repositories.pkgs_file,
+     "REMOTE_MACHINE=%s%s" % (userat, repositories.pkgs_host),
+     "MAIN_TAG=%s" % main_tag)
+for line in lines:
+    script.writeln(line)
+
 # # Import interface/nsim/versions.py to get version information
 # import os
 # import sys
@@ -107,15 +186,16 @@ script.writeln(". disttools.sh")
 # pkg_name = "nmag-%s" % version.version_str
 
 script.writeln("PKGNAME=nmag-`get_version ..`")
-script.writeln("allsrc_dev_compose \"$PKGNAME\" 'trunk'")
+script.writeln("allsrc_dev_compose \"$PKGNAME\" '%s' '%s'"
+               % (main_tag, dev_tag))
 
 has_doc = (want_doc.chosen != 0)
 if has_doc:
-    script.writeln('add_doc "$PKGNAME"')
+    script.writeln("add_doc \"$PKGNAME\" '%s'" % doc_tag)
 
 has_test = (want_test.chosen != 0)
 if has_test:
-    script.writeln('add_test "$PKGNAME"')
+    script.writeln("add_test \"$PKGNAME\" '%s'" % test_tag)
 
 if want_repo.chosen != 1:
     if want_repo.chosen == 0:

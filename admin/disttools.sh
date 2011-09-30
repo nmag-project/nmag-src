@@ -1,7 +1,6 @@
 #!/bin/bash
 
 . settings.conf
-. repositories.conf
 
 function msg {
   echo $*
@@ -41,7 +40,8 @@ function allsrc_dev_compose {
   #  to produce a standalone directory which still can be used to commit
   #  with SVN (the .svn directory are not removed!)
   ALLSRC_DIR_NAME=$1
-  ALLSRC_NSIM_BRANCH=$2
+  MAIN_TAG=${2:-tip}
+  DEV_TAG=${3:-tip}
 
   # File where to put version control info
   INFOFILE=nsim/interface/nsim/info.py
@@ -53,10 +53,10 @@ function allsrc_dev_compose {
 
   mkdir $TEMPDIR && cd $TEMPDIR && \
   msg "Checking out the all-source build system..." && \
-  $VC_CHECKOUT $REPOS_NSIM_DIST nmag >> $LOG_FILE && \
+  $VC_CHECKOUT $REPOS_NSIM_DIST --rev="$DEV_TAG" nmag >> $LOG_FILE && \
   (cd nmag && make hierarchy) && \
   msg "Checking out the nsim repository..." && \
-  $VC_CHECKOUT $REPOS_NSIM_MAIN nsim >> $LOG_FILE && \
+  $VC_CHECKOUT $REPOS_NSIM_MAIN --rev="$MAIN_TAG" nsim >> $LOG_FILE && \
   msg "Marking repositories with versions" && \
   echo "dist_mode = 'all-source'" >> $INFOFILE && \
   echo "dist_date = '`date`'" >> $INFOFILE && \
@@ -85,14 +85,16 @@ function allsrc_dev_compose {
 }
 
 function add_doc {
+  DOC_TAG=${1:-tip}
   echo "Adding documentation"
-  $VC_CHECKOUT "$REPOS_NSIM_DOC" "$1/doc/manual" >>$LOG_FILE \
+  $VC_CHECKOUT "$REPOS_NSIM_DOC" --rev="$DOC_TAG" "$1/doc/manual" >>$LOG_FILE \
   || fatalerr "Cannot add the documentation to the distribution"
 }
 
 function add_test {
+  TEST_TAG=${1:-tip}
   echo "Adding test suite"
-  $VC_CHECKOUT "$REPOS_NSIM_TEST" "$1/nsim/tests" >>$LOG_FILE \
+  $VC_CHECKOUT "$REPOS_NSIM_TEST" --rev="$TEST_TAG" "$1/nsim/tests" >>$LOG_FILE \
   || fatalerr "Cannot add the test suite to the distribution"
 }
 
