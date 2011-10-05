@@ -268,15 +268,10 @@ int petsc_error(int line,
 		const char *func_name,
 		const char *file_name,
 		const char *dir_name,
-		int nr_generic,
+		PetscErrorCode nr_generic,
 		int nr_specific,
 		const char *message,
-		void *closure_arg_ignored
-		/* Note: there is a bug in the petsc docs:
-		   this last arg is omitted in the description
-		   of the error handling function!
-		*/
-		)
+		void *closure_arg_ignored)
 {
   /* XXX Note that this should properly unwind the Ocaml/C call stack!
      I strongly suppose so, but for now this is only an assumption
@@ -284,23 +279,21 @@ int petsc_error(int line,
 
      -- at least, it looks pretty good when just using it.
    */
-
   CAMLlocal1(ex);
+  const char *my_message = (message != NULL ?
+			    NULL : "PETSc exception");
+  /* ^^^ note that message may be NULL (in particular when a signal is raised
+         by the OS, e.g. SIGTERM) */
 
-  ex=alloc_tuple(3);
-  Store_field(ex,0,Val_int(_caml_petsc_error_nr_to_caml(nr_generic)));
-  Store_field(ex,1,Val_int(nr_specific));
-  Store_field(ex,2,copy_string(message));
-  fprintf(stderr,"XXX Ocaml-PETSC Exception: '%s'\n",message);fflush(stderr);
-  raise_with_arg(*caml_named_value("ocaml_exn_petsc"),ex);
+  ex = alloc_tuple(3);
+  Store_field(ex, 0, Val_int(_caml_petsc_error_nr_to_caml(nr_generic)));
+  Store_field(ex, 1, Val_int(nr_specific));
+  Store_field(ex, 2, copy_string(my_message));
+  raise_with_arg(*caml_named_value("ocaml_exn_petsc"), ex);
 
-  /* The petsc documentation does not say what the handler is supposed to return.
-     Well, anyway, such a handler presumably usually does not return,
-     it will do the equivalent of a longjmp()
-     (at least that's what I hope how it's supposed to be done!)
-     XXX Check that point out XXX!
-  */
-  return 0;
+  /* PETSc documentation doesn't say what this function should return, but we
+     know it must be a PetscError. It is then natural to return nr_generic. */
+  return nr_generic;
 }
 
 /** Convert an integer (OCaml) to a MatStructure value */
