@@ -1077,15 +1077,17 @@ let python_interfaced_function
 	  | Assert_failure (filename,line,column) ->
 	      pycaml_seterror Pyerr_StandardError (Printf.sprintf "OCaml exception 'Assert_failure file=%s line=%d(c. %d)'%s" filename line column exn_name);
 	      pynull()
-	  | something_else ->
+	  | exc ->
 	      if catch_weird_exceptions then
 		begin
 		  pycaml_seterror
 		    Pyerr_StandardError
-		    (Printf.sprintf "OCaml weird low-level exception (not resolved any further)%s" exn_name);
+		    (Printf.sprintf "Exception: %s. Backtrace: %s."
+                       (Printexc.to_string exc)
+                       (Printexc.get_backtrace ()));
 		  pynull()
 		end
-	      else raise something_else
+	      else raise exc
   in
     match name with
       | None -> wrapper work_fun
