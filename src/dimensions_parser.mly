@@ -12,7 +12,7 @@
 */
 
 %start parse_dimension
-%type <physical_dimension> parse_dimension
+%type <Dimensions.physical_dimension> parse_dimension
 
 %%
 

@@ -29,7 +29,8 @@ NSIMEXEC_OBJECTS=\
   nlog.cmx \
   mesh0.cmx simplex.cmx periodic.cmx correct_broken_mesh.cmx mesh.cmx \
   ddiffop.cmx ddiffop_lexer.cmx ddiffop_parser.cmx \
-  localeqn.cmx localeqn_lexer.cmx localeqn_parser.cmx \
+  localeqn.cmx localeqn_parser.cmx  localeqn_lexer.cmx \
+  dimensions.cmx dimensions_parser.cmx dimensions_lexer.cmx \
   collcomm.o comm.o groups.o init.o msgs.o utils.o petsc_stubs.o \
   petsc_error.o mpi_petsc.cmx \
   sundials_sp.cmx sundials_sp_stubs.o \
@@ -104,6 +105,13 @@ localeqn_parser.ml localeqn_parser.mli: localeqn_parser.mly
 localeqn_parser.cmi: localeqn_parser.mli localeqn.cmi
 localeqn_lexer.cmx: localeqn_lexer.ml localeqn_parser.cmi
 localeqn_parser.cmx: localeqn_parser.ml localeqn_parser.cmi
+
+dimensions.cmx: dimensions.ml dimensions.cmi
+dimensions_parser.ml dimensions_parser.mli: dimensions_parser.mly
+	$(OCAMLYACC) dimensions_parser.mly
+dimensions_parser.cmi: dimensions_parser.mli dimensions.cmi
+dimensions_parser.cmx: dimensions_parser.ml dimensions_parser.cmi
+dimensions_lexer.cmx: dimensions_parser.ml dimensions_parser.cmi
 
 mpi_petsc.ml: mpi.ml petsc.ml petsc_error.ml
 	cat  mpi.ml petsc_error.ml petsc.ml > mpi_petsc.ml
