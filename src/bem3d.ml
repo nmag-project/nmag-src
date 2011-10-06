@@ -527,8 +527,8 @@ let bem_matrix
   let mesh = mwe.mwe_mesh in
   let restr =
     Some [|(field_name,
-	    Ddiffop_parser.DLOG_and
-	      [Ddiffop_parser.DLOG_some inside_property;Ddiffop_parser.DLOG_some outside_property;])|]
+	    Ddiffop.DLOG_and
+	      [Ddiffop.DLOG_some inside_property;Ddiffop.DLOG_some outside_property;])|]
   in
   let (lts,stl,distrib) = mwe_shortvec_info mwe restr in
   let mxsize = Array.length stl in
@@ -565,8 +565,8 @@ let bem_hmatrix
   (* building an HLib h-matrix BEM *)
   let restr =
     Some [|(field_name,
-	    Ddiffop_parser.DLOG_and
-	      [Ddiffop_parser.DLOG_some inside_property;Ddiffop_parser.DLOG_some outside_property;])|]
+	    Ddiffop.DLOG_and
+	      [Ddiffop.DLOG_some inside_property;Ddiffop.DLOG_some outside_property;])|]
   in
   let (lts,stl,distrib) = mwe_shortvec_info mwe restr in
   let (surfaces_and_normals,solid_angles,vertex_coords) =
@@ -952,8 +952,8 @@ let nas_partially_fill_bem_matrix_row_constrained
   let mesh = mwe.mwe_mesh in
   let restr =
     Some [|(field_name,
-	    Ddiffop_parser.DLOG_and
-	      [Ddiffop_parser.DLOG_some inside_property;Ddiffop_parser.DLOG_some outside_property;])|]
+	    Ddiffop.DLOG_and
+	      [Ddiffop.DLOG_some inside_property;Ddiffop.DLOG_some outside_property;])|]
   in
   let (lts,stl,distrib) = mwe_shortvec_info mwe restr in
   let mxsize = Array.length stl in
@@ -1063,8 +1063,8 @@ let nas_partially_fill_bem_matrix_col_constrained
   let mesh = mwe.mwe_mesh in
   let restr =
     Some [|(field_name,
-	    Ddiffop_parser.DLOG_and
-	      [Ddiffop_parser.DLOG_some inside_property;Ddiffop_parser.DLOG_some outside_property;])|]
+	    Ddiffop.DLOG_and
+	      [Ddiffop.DLOG_some inside_property;Ddiffop.DLOG_some outside_property;])|]
   in
   let (lts,stl,distrib) = mwe_shortvec_info mwe restr in
   let mxsize = Array.length stl in

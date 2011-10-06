@@ -206,7 +206,7 @@ type nsim_ccpla_opcode =
   | NSIM_OP_mwes_create of string * float Fem.mwe_made_by array option *
       float Fem.mesh_with_elements array option
   | NSIM_OP_vivificators_create of string *
-      (string * Ddiffop_parser.ddiffop * string * string * string option)
+      (string * Ddiffop.ddiffop * string * string * string option)
       array
   | NSIM_OP_vivificator_exec of (string * bool * bool * string option)
   | NSIM_OP_jacobi_operators_create of (string * string array)
@@ -220,29 +220,29 @@ type nsim_ccpla_opcode =
       option
 val special_tensor_delta2 :
   ix_ranges:(string * int) array ->
-  Localeqn_parser.ix array -> string list * (float * int list) array
+  Localeqn.ix array -> string list * (float * int list) array
 val special_tensor_epsilon :
   ix_ranges:('a * 'b) array ->
-  Localeqn_parser.ix array -> string list * (float * int list) array
+  Localeqn.ix array -> string list * (float * int list) array
 val default_special_tensors :
   (string *
    (ix_ranges:(string * int) array ->
-    Localeqn_parser.ix array -> string list * (float * int list) array))
+    Localeqn.ix array -> string list * (float * int list) array))
   list
 val local_equation_normal_form :
   ?special_tensors:(string *
                     (ix_ranges:(string * int) array ->
-                     Localeqn_parser.ix array ->
+                     Localeqn.ix array ->
                      string list * (float * int list) array))
                    list ->
   ix_ranges:(string * int) array ->
-  lhs:string * Localeqn_parser.ix array ->
-  rhs:Localeqn_parser.tensor_term ->
+  lhs:string * Localeqn.ix array ->
+  rhs:Localeqn.tensor_term ->
   unit ->
   ((string * int array) * (float * (string * int array) array) array) array
 val parse_localeqn :
   string ->
-  Localeqn_parser.local_spec array *
+  Localeqn.local_spec array *
   ((string * int array) * (float * (string * int array) array) array) array
   array
 val parsed_eqn_ccode :
@@ -306,7 +306,7 @@ val nsim_vivificators_create :
   (nsim_ccpla_opcode, 'a) Ccpla.ccpla ->
   string ->
   mwes:Ccpla.drh ->
-  vivificator_specs:(string * Ddiffop_parser.ddiffop * string * string *
+  vivificator_specs:(string * Ddiffop.ddiffop * string * string *
                      string option)
                     array ->
   Ccpla.distributed_resource_handle

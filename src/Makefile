@@ -29,11 +29,18 @@ NSIMEXEC_OBJECTS=\
   nlog.cmx \
   mesh0.cmx simplex.cmx periodic.cmx correct_broken_mesh.cmx mesh.cmx \
   ddiffop.cmx ddiffop_lexer.cmx ddiffop_parser.cmx \
+  localeqn.cmx localeqn_lexer.cmx localeqn_parser.cmx \
   collcomm.o comm.o groups.o init.o msgs.o utils.o petsc_stubs.o \
   petsc_error.o mpi_petsc.cmx \
   sundials_sp.cmx sundials_sp_stubs.o \
   fem.cmx fem_stubs.o \
-  pycaml.cmx pycaml_stubs.o
+  hlib.cmx hlib_stubs.o mgdesc.o \
+  bem3d.cmx bem3d_stubs.o \
+  nsim_anisotropy.cmx \
+  ccpla.cmx \
+  nsim.cmx \
+  pycaml.cmx pycaml_stubs.o \
+  bindings.cmx pypetsc.cmx pyfem.cmx nsimexec.cmx
 
 .PHONY: all clean
 
@@ -91,6 +98,13 @@ ddiffop_lexer.cmx: ddiffop_lexer.ml ddiffop_parser.cmi
 ddiffop_parser.cmi: ddiffop_parser.mli ddiffop.cmi
 ddiffop_parser.cmx: ddiffop_parser.ml ddiffop_parser.cmi
 
+localeqn.cmx: localeqn.ml localeqn.cmi
+localeqn_parser.ml localeqn_parser.mli: localeqn_parser.mly
+	$(OCAMLYACC) localeqn_parser.mly
+localeqn_parser.cmi: localeqn_parser.mli localeqn.cmi
+localeqn_lexer.cmx: localeqn_lexer.ml localeqn_parser.cmi
+localeqn_parser.cmx: localeqn_parser.ml localeqn_parser.cmi
+
 mpi_petsc.ml: mpi.ml petsc.ml petsc_error.ml
 	cat  mpi.ml petsc_error.ml petsc.ml > mpi_petsc.ml
 
@@ -99,6 +113,16 @@ mpi_petsc.ml: mpi.ml petsc.ml petsc_error.ml
 
 sundials_sp.cmx: sundials_sp.ml sundials_sp.cmi
 
+hlib.cmx: hlib.ml hlib.cmi
+
+bem3d.cmx: bem3d.ml bem3d.cmi
+
+nsim_anisotropy.cmx: nsim_anisotropy.ml nsim_anisotropy.cmi
+
+ccpla.cmx: ccpla.ml ccpla.cmi
+
+nsim.cmx: nsim.ml nsim.cmi
+
 pycaml_stubs.o: pycaml_stubs.c pycaml_stubs.h
 	$(OCAMLOPT_CC_C) \
 	  -ccopt $(PYTHON_CFLAGS) \
@@ -106,6 +130,8 @@ pycaml_stubs.o: pycaml_stubs.c pycaml_stubs.h
 
 pycaml.cmi: pycaml.mli
 pycaml.cmx: pycaml.ml pycaml.cmi
+
+nsimexec.cmx: nsimexec.ml nsimexec.cmi
 
 nsimexec: $(NSIMEXEC_OBJECTS)
 	$(OCAMLOPT) \

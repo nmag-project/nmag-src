@@ -18,7 +18,7 @@ open Snippets;;
 open Mesh;;
 open Fem;;
 open Ccpla;;
-open Localeqn_parser;;
+open Localeqn;;
 
 
 let logmsg = Nlog.getLogger("nfem.ocaml");;
@@ -441,7 +441,7 @@ type nsim_ccpla_opcode =
 	 master just takes the original mwes, slaves build them
 	 from geometry information.
       *)
-  | NSIM_OP_vivificators_create of string * ((string * Ddiffop_parser.ddiffop * string * string * (string option)) array)
+  | NSIM_OP_vivificators_create of string * ((string * Ddiffop.ddiffop * string * string * (string option)) array)
       (* (name_RES_vivificators, [|(name_this_vivificator,ddiffop,name_mwe_le,name_mwe_ri,opt_name_mwe_mid)|])
 	 DRES args: [|drh_mwes|]
       *)
@@ -2948,7 +2948,7 @@ Thomas Fischbacher, 13.05.2008
 			mx_abs_name loms.loms_symbolic_operator)
 		 in
 		 let ddiffop = v_ddiffops.(nr_loms) in
-		 let (mxdim_le,mxdim_ri) = ddiffop.Ddiffop_parser.diff_mxdim in
+		 let (mxdim_le,mxdim_ri) = ddiffop.Ddiffop.diff_mxdim in
 		 let mwe_le = get_mwe loms.loms_mwe_name_le in
 		 let mwe_ri = get_mwe loms.loms_mwe_name_ri in
 		 let (_,_,distrib_le) = ddiffop_mxdim_index_mapping mwe_le mxdim_le in
