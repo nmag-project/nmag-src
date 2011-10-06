@@ -119,21 +119,21 @@ let dvss_to_string dvss =
     | Some a ->
 	let rec dof_region_logic_to_string drl =
 	  match drl with
-	    | Ddiffop_parser.DLOG_true -> "TRUE"
-	    | Ddiffop_parser.DLOG_and xs ->
+	    | Ddiffop.DLOG_true -> "TRUE"
+	    | Ddiffop.DLOG_and xs ->
 		(Printf.sprintf "(AND %s)"
 		   (String.concat " " (List.map dof_region_logic_to_string xs)))
-	    | Ddiffop_parser.DLOG_or xs ->
+	    | Ddiffop.DLOG_or xs ->
 		(Printf.sprintf "(OR %s)"
 		   (String.concat " " (List.map dof_region_logic_to_string xs)))
-	    | Ddiffop_parser.DLOG_not x ->
+	    | Ddiffop.DLOG_not x ->
 		(Printf.sprintf "(NOT %s)"
 		   (dof_region_logic_to_string x))
-	    | Ddiffop_parser.DLOG_all x ->
+	    | Ddiffop.DLOG_all x ->
 		(Printf.sprintf "(ALL %s)" x)
-	    | Ddiffop_parser.DLOG_some x ->
+	    | Ddiffop.DLOG_some x ->
 		(Printf.sprintf "(SOME %s)" x)
-	    | Ddiffop_parser.DLOG_nregions x ->
+	    | Ddiffop.DLOG_nregions x ->
 		(Printf.sprintf "(NREGIONS %d)" x)
 	in
 	  Printf.sprintf "#[DVSS: %s]"
@@ -670,13 +670,13 @@ let dof_belongs_to mwe dof region_logic =
     in walk regions
   and dlog x =
     match x with
-      | Ddiffop_parser.DLOG_true -> true
-      | Ddiffop_parser.DLOG_and x -> dlog_and x
-      | Ddiffop_parser.DLOG_or x -> dlog_or x
-      | Ddiffop_parser.DLOG_not x -> dlog_not x
-      | Ddiffop_parser.DLOG_all x -> dlog_all x
-      | Ddiffop_parser.DLOG_some x -> dlog_some x
-      | Ddiffop_parser.DLOG_nregions x -> dlog_nregions x
+      | Ddiffop.DLOG_true -> true
+      | Ddiffop.DLOG_and x -> dlog_and x
+      | Ddiffop.DLOG_or x -> dlog_or x
+      | Ddiffop.DLOG_not x -> dlog_not x
+      | Ddiffop.DLOG_all x -> dlog_all x
+      | Ddiffop.DLOG_some x -> dlog_some x
+      | Ddiffop.DLOG_nregions x -> dlog_nregions x
   in dlog region_logic
 ;;
 
@@ -755,7 +755,7 @@ let boundary_shortvec_info dof_stem mwe boundary_spec =
   let the_region_logic =
     parse_or_error
       Ddiffop_lexer.token
-      Ddiffop_parser.region_logic (* parser entry point *)
+      Ddiffop.region_logic (* parser entry point *)
       boundary_spec
   in
   mwe_shortvec_info mwe (Some [|(dof_stem,the_region_logic)|])
@@ -4814,7 +4814,7 @@ let mwe_simplex_id_to_elem_dof_nr_to_dof_nr mwe =
 
 
 let ddiffop_from_string str =
-  parse_or_error Ddiffop_lexer.token Ddiffop_parser.parse_ddiffop str
+  parse_or_error Ddiffop_lexer.token Ddiffop.parse_ddiffop str
 ;;
 
 (*
@@ -4837,12 +4837,12 @@ let ddiffop_from_string str =
 *)
 let _dof_belongs_to_field mwe dof field =
   let (dof_name,dof_indices) = the_dof_name mwe dof in
-    dof_name = field.Ddiffop_parser.f_name
+    dof_name = field.Ddiffop.f_name
       &&
-      dof_indices = field.Ddiffop_parser.f_indices
+      dof_indices = field.Ddiffop.f_indices
       &&
-      (match field.Ddiffop_parser.f_bspec with
-	 | Ddiffop_parser.DLOG_true -> true
+      (match field.Ddiffop.f_bspec with
+	 | Ddiffop.DLOG_true -> true
 	 | dlog -> dof_belongs_to mwe dof dlog)
 ;;
 
@@ -4920,19 +4920,19 @@ let ddiffop_vivified
   (* This hack ensures we do not constantly have to discern between having
      mwe_mid or not for the sake of the type system alone... Simplifies coding.
    *)
-  let for_ddiffop_dof_combinations f = Array.iter f ddiffop.Ddiffop_parser.diff_contribs in
+  let for_ddiffop_dof_combinations f = Array.iter f ddiffop.Ddiffop.diff_contribs in
   let (ixmap_le,mx_size_le) =
     let (a,b,_) =
-      ddiffop_mxdim_index_mapping mwe_le (let (x,_) = ddiffop.Ddiffop_parser.diff_mxdim in x) in
+      ddiffop_mxdim_index_mapping mwe_le (let (x,_) = ddiffop.Ddiffop.diff_mxdim in x) in
       (a, Array.length b)
   in
   let (ixmap_ri,mx_size_ri) =
     let (a,b,_) =
-      ddiffop_mxdim_index_mapping mwe_ri (let (_,x) = ddiffop.Ddiffop_parser.diff_mxdim in x) in
+      ddiffop_mxdim_index_mapping mwe_ri (let (_,x) = ddiffop.Ddiffop.diff_mxdim in x) in
       (a,Array.length b)
   in
   let v_periodicity =
-    let p_fields = ddiffop.Ddiffop_parser.diff_periodic in
+    let p_fields = ddiffop.Ddiffop.diff_periodic in
       Array.mapi
 	(fun nr_dof_le dof_le ->
 	   if -1=array_position_if (_dof_belongs_to_field mwe_le dof_le) p_fields 0
@@ -4985,10 +4985,10 @@ let ddiffop_vivified
   in
   let optionally_diff femfun difftype =
     match difftype with
-      | Ddiffop_parser.DIFF_none -> femfun
-      | Ddiffop_parser.DIFF_vol ix ->
+      | Ddiffop.DIFF_none -> femfun
+      | Ddiffop.DIFF_vol ix ->
 	  femfun_diff_x femfun ix
-      | Ddiffop_parser.DIFF_boundary _ -> femfun_zero
+      | Ddiffop.DIFF_boundary _ -> femfun_zero
   in
     (* When we create the element/element thunks below,
        we also need means to apply them, in particular
@@ -5013,8 +5013,8 @@ let ddiffop_vivified
 	 0 simplices)
   in
   let forall_element_dof_nrs_belonging_to_field elem field f =
-    let field_name =  field.Ddiffop_parser.f_name in
-    let field_indices = field.Ddiffop_parser.f_indices in
+    let field_name =  field.Ddiffop.f_name in
+    let field_indices = field.Ddiffop.f_indices in
       array_foreach_do_n elem.el_dof_names
 	(fun nr_dof (dofname,indices) ->
 	   if dofname = field_name && indices = field_indices then f nr_dof else ())
@@ -5051,10 +5051,10 @@ let ddiffop_vivified
 	    else mwe_mid.mwe_elements.(nel_mid)
 	  in
 	  let () =
-	    array_foreach_do ddiffop.Ddiffop_parser.diff_contribs
+	    array_foreach_do ddiffop.Ddiffop.diff_contribs
 	      (fun (fields_lrm,ddiffop_contribs) ->
 		 let () = (if Array.length fields_lrm = 3 &&
-			     fields_lrm.(2).Ddiffop_parser.f_bspec <> Ddiffop_parser.DLOG_true
+			     fields_lrm.(2).Ddiffop.f_bspec <> Ddiffop.DLOG_true
 			   then failwith "Note: we at present do not allow middle fields to carry region specifiers. This may be changed later on."
 			   else ())
 		 in
@@ -5088,22 +5088,22 @@ let ddiffop_vivified
 				    femfun_mult femfun_mid
 				      (femfun_mult
 					 (match diff_le with
-					    | Ddiffop_parser.DIFF_none -> femfun_le
-					    | Ddiffop_parser.DIFF_vol nr_dx -> femfun_diff_x femfun_le nr_dx
+					    | Ddiffop.DIFF_none -> femfun_le
+					    | Ddiffop.DIFF_vol nr_dx -> femfun_diff_x femfun_le nr_dx
 					    | _ -> femfun_le)
 					 (match diff_ri with
-					    | Ddiffop_parser.DIFF_none -> femfun_ri
-					    | Ddiffop_parser.DIFF_vol nr_dx -> femfun_diff_x femfun_ri nr_dx
+					    | Ddiffop.DIFF_none -> femfun_ri
+					    | Ddiffop.DIFF_vol nr_dx -> femfun_diff_x femfun_ri nr_dx
 					    | _ -> femfun_ri))
 				  in
 				  let fast_femfun_integrate = femfun_integrate_over_simplex_opt mesh femfun_total in
 				  let sx_opt_surface_diff_dir = (* None = do full volume integral instead. *)
 				    match diff_le_ri with
-				      | (Ddiffop_parser.DIFF_boundary _,Ddiffop_parser.DIFF_boundary _) ->
+				      | (Ddiffop.DIFF_boundary _,Ddiffop.DIFF_boundary _) ->
 					  failwith "Problem: Differential operator contains boundary/boundary derivative combination. As 'pointwise products of distributions' are not well defined, we cannot handle this case."
-				      | (Ddiffop_parser.DIFF_boundary n,_) ->
+				      | (Ddiffop.DIFF_boundary n,_) ->
 					  Some n
-				      | (_,Ddiffop_parser.DIFF_boundary n) ->
+				      | (_,Ddiffop.DIFF_boundary n) ->
 					  Some n
 				      | _ -> None
 				  in
@@ -5119,8 +5119,8 @@ let ddiffop_vivified
 				      then fun_entry_field_mid (mwe_mid.mwe_dof_nrs_by_simplex_index.(sx.ms_id).(nr_edof_mid))
 				      else 1.0
 				    in
-				      if not(   dof_belongs_to mwe_le dof_le fields_lrm.(0).Ddiffop_parser.f_bspec
-					     && dof_belongs_to mwe_ri dof_ri fields_lrm.(1).Ddiffop_parser.f_bspec)
+				      if not(   dof_belongs_to mwe_le dof_le fields_lrm.(0).Ddiffop.f_bspec
+					     && dof_belongs_to mwe_ri dof_ri fields_lrm.(1).Ddiffop.f_bspec)
 				      then ()
 				      else
 					match sx_opt_surface_diff_dir with
@@ -5130,9 +5130,9 @@ let ddiffop_vivified
 					  | Some diff_dir ->
 					      let disappearing_across =
 						match diff_le_ri with
-						  | (Ddiffop_parser.DIFF_boundary _,_) ->
+						  | (Ddiffop.DIFF_boundary _,_) ->
 						      dof_le.dof_disappears_across
-						  | (_,Ddiffop_parser.DIFF_boundary _) ->
+						  | (_,Ddiffop.DIFF_boundary _) ->
 						      dof_ri.dof_disappears_across
 						  | _ -> impossible()
 					      in
@@ -5193,7 +5193,7 @@ let ddiffop_vivified
 	  let ht:((int,int array*(int*int*float)) Hashtbl.t) = graph_components ?fun_join_data fun_body in
 	    f_end ht
 	in
-	let diff_gauge_fix = ddiffop.Ddiffop_parser.diff_gauge_fix in
+	let diff_gauge_fix = ddiffop.Ddiffop.diff_gauge_fix in
 	let lambda_produce_wrapped_fun_add_contrib ~produce =
 	  (*
 	     let wrapped_fun_add_contrib = ...
@@ -5331,7 +5331,7 @@ let ddiffop_vivified
 		   ))
 	in
 	let () =
-	  let diag_ones = ddiffop.Ddiffop_parser.diff_diag_ones in
+	  let diag_ones = ddiffop.Ddiffop.diff_diag_ones in
 	    if Array.length diag_ones = 0 then () else
 	      hashtbl_foreach_do mwe_le.mwe_dofs_by_site
 		(fun site dofs_le ->

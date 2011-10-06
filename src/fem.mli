@@ -10,7 +10,7 @@ type dof_mapping_short_to_long = int array
 type distribution_information = int array
 type dof_region_spec = (string * bool * int option array) array
 val print_dof_region_spec : (string * bool * int option array) array -> unit
-type dof_region_logic = Ddiffop_parser.dof_logic
+type dof_region_logic = Ddiffop.dof_logic
 type dvss = (string * dof_region_logic) array option
 val dvss_to_string: dvss -> string
 type dof_name = string * int array
@@ -123,10 +123,10 @@ val the_dof_femfun :
   'a mesh_with_elements -> Mesh.simplex -> dof -> 'a femfun
 val the_dof_machine : 'a mesh_with_elements -> dof -> int
 val dof_belongs_to :
-  'a mesh_with_elements -> dof -> Ddiffop_parser.dof_logic -> bool
+  'a mesh_with_elements -> dof -> Ddiffop.dof_logic -> bool
 val dvss_constraint :
   'a mesh_with_elements ->
-  dof -> (string * Ddiffop_parser.dof_logic) array option -> bool
+  dof -> (string * Ddiffop.dof_logic) array option -> bool
 val mwe_shortvec_info :
   'a mesh_with_elements ->
   dvss ->
@@ -347,12 +347,12 @@ val fun_tensor_norms :
   'a mesh_with_elements -> 'b fem_field -> (string * float * float) array
 val mwe_simplex_id_to_elem_dof_nr_to_dof_nr :
   'a mesh_with_elements -> int array array
-val ddiffop_from_string : string -> Ddiffop_parser.ddiffop
+val ddiffop_from_string : string -> Ddiffop.ddiffop
 val _dof_belongs_to_field :
-  'a mesh_with_elements -> dof -> Ddiffop_parser.field -> bool
+  'a mesh_with_elements -> dof -> Ddiffop.field -> bool
 val ddiffop_mxdim_index_mapping :
   'a mesh_with_elements ->
-  Ddiffop_parser.field array -> int array * int array * int array
+  Ddiffop.field array -> int array * int array * int array
 type 'a vivificator =
     ?fun_make_matrix:(int -> int -> 'a) ->
     ?fun_finish_matrix:('a -> unit) ->
@@ -360,7 +360,7 @@ type 'a vivificator =
     ('a option -> int -> int -> float -> unit) -> 'a option
 val ddiffop_vivified :
   ?nr_cpu:int ->
-  Ddiffop_parser.ddiffop ->
+  Ddiffop.ddiffop ->
   ?mwe_mid:float mesh_with_elements ->
   float mesh_with_elements ->
   float mesh_with_elements ->

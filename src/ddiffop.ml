@@ -1,4 +1,80 @@
-%{
+
+type tensor_index = IX_int of int | IX_name of string 
+
+type parsed_difftype = PDIFF_none | PDIFF_vol of tensor_index | PDIFF_boundary of tensor_index
+
+(* === OBSOLETE ===
+type doftype =
+  | DOFTYPE_all
+  | DOFTYPE_vol of int option list
+      (* list of region numbers. Option None = all regions *)
+  | DOFTYPE_boundary of ((int option) * (int option)) list
+      (* List of selected boundaries *)
+*)
+
+type dof_logic =
+  | DLOG_true
+      (* Would be logically equivalent to DLOG_and [],
+	 but it makes sense to have a specific extra
+	 notion for this. *)
+  | DLOG_and  of dof_logic list
+  | DLOG_or   of dof_logic list
+  | DLOG_not  of dof_logic
+  | DLOG_all of string
+  | DLOG_some of string
+  | DLOG_nregions of int
+      
+type nsi_field = (* numerically or symbolically indexed field *)
+    {fnsi_name: string;
+     fnsi_indices: tensor_index array;
+     fnsi_bspec: dof_logic;
+    }
+
+type field =
+    {f_name: string;
+     f_indices: int array;
+     f_bspec: dof_logic;
+    }
+
+
+type amendment =
+  | AMDMT_MXDIM of nsi_field list option * nsi_field list option
+  | AMDMT_DIAGONAL_ONES of nsi_field * nsi_field 
+  | AMDMT_GAUGE_FIX of nsi_field
+  | AMDMT_PERIODIC of nsi_field
+
+
+type diff_field_spec = field * parsed_difftype
+
+type diff_mxdim_spec = string list option
+
+
+type difftype = DIFF_none | DIFF_vol of int | DIFF_boundary of int
+
+type ddiffop =
+    (* This is what our friends who use the parser actually
+       want to work with in the end:
+
+       We need a "hook", which is:
+
+       ((dof_name_left,surface_handling_left),
+        (dof_name_right,surface_handling_right),
+        opt_dof_name_middle)
+
+       For every such hook, we have an array of contribs,
+       where every contrib is:
+
+       (coeff,difftype_le,difftype_ri)
+       
+    *)
+    {diff_contribs:
+       (field array * (* length-2 (left,right) or length-3 (left,right,mid) *)
+	  (difftype * difftype, float) Hashtbl.t) array;
+     diff_mxdim: field array * field array; (* MatriXDIMension *)
+     diff_diag_ones: (field * field) array;
+     diff_gauge_fix: field array;
+     diff_periodic: field array;
+    }
 
 (* from snippets: *)
   let multifor v_max_indices f =
@@ -332,199 +408,4 @@ let instantiate_field_indices ~ix_value nsi_field =
        diff_gauge_fix=amdmt_get_gauge_fixed sum_specs amendments;
        diff_periodic=amdmt_get_periodic sum_specs amendments;
       }
-
-%}
-
-%token <int> INT
-%token <float> FLOAT
-%token <string> STRING
-%token <float> SIGN
-%token DDX_VOL DDX_BOUNDARY
-%token DOF_REGION_AND
-%token DOF_REGION_OR
-%token DOF_REGION_NOT
-%token LPAREN RPAREN
-%token STAR SLASH
-%token LANGLE RANGLE
-%token GE LE
-%token VBAR COMMA COLON SEMICOLON MXDIM EQUALS LBRACKET RBRACKET HASH
-%token DOF_REGION_SOME DOF_REGION_ALL
-%token GAUGEFIX PERIODIC
-%token EOF
-
-/* Note: an ocamlyacc grammar may have multiple entry points,
-   but we have to define %start and %type for every single one of them.
-*/
-
-%start parse_ddiffop  
-%type <ddiffop> parse_ddiffop
-
-/* Another entry point... */
-%start short_vector_restriction
-%type <(string * dof_logic) array option> short_vector_restriction
-
-/* Another entry point: Region logic */
-%start region_logic
-%type <dof_logic> region_logic
-
-%%
-
-parse_ddiffop:
-  | contribs opt_amendment_specs opt_sum_specs { build_ddiffop $1 $3 $2 }
-;
-
-contribs:
-  | contrib                     { [$1] }
-  | contribs SIGN contrib       { let (c1, t2) = $3 in ($2*.c1, t2)::$1 }
-;
-
-contrib:
-   unsigned_contrib             { $1 }
- | SIGN contrib                 { let (c, t) = $2 in ($1*.c, t) }
-;
-
-unsigned_contrib:
-   bracket                      { (1.0,$1) }
- | expr bracket                 { ($1,$2) }
- | expr STAR bracket           { ($1,$3) }
-;
-
-expr:
-   unsigned_scalar              { $1 }
- | LPAREN signed_scalar RPAREN  { $2 }
- | LPAREN expr RPAREN           { $2 }
-;
-
-signed_scalar:
-   SIGN unsigned_scalar         { $1*.$2 }
- | SIGN signed_scalar           { $1*.$2 }
-;
-
-unsigned_scalar:
-   INT                          { float_of_int $1 }
- | FLOAT                        { $1 }
-;
-
-bracket:
-   LANGLE opt_diff_field VBAR VBAR opt_diff_field RANGLE { ($2,$5,None) }
- | LANGLE opt_diff_field VBAR field VBAR opt_diff_field RANGLE { ($2,$6,Some $4) }
-;
-     
-
-opt_diff_field:
-    field         { ($1,PDIFF_none) }
-  | diff field    { ($2,$1) }
-;
-
-diff:
-    DDX_VOL     diff_index     { PDIFF_vol $2 }
-  | DDX_BOUNDARY diff_index     { PDIFF_boundary $2 }
-;
-
-diff_index:
-    INT                    { IX_int $1 }
-  | STRING                 { IX_name $1 }
-
-field:
-    field_name opt_bspec     { {fnsi_name=$1;fnsi_indices=[||];fnsi_bspec=$2;} }
-  | field_name opt_bspec LPAREN field_indices RPAREN { {fnsi_name=$1;fnsi_indices=Array.of_list $4;fnsi_bspec=$2;} }
-;
-
-opt_bspec:
-  LBRACKET region_logic RBRACKET                   {$2}
-  |                                                { DLOG_true }
-
-region_logic_atomic:
-  | LPAREN region_logic RPAREN {$2}
-  | INT                    {DLOG_some (string_of_int $1)}
-  | STRING                 {DLOG_some $1}
-  | DOF_REGION_ALL EQUALS INT   {DLOG_all (string_of_int $3)}
-  | DOF_REGION_SOME EQUALS INT  {DLOG_some (string_of_int $3)}
-  | DOF_REGION_ALL EQUALS STRING   {DLOG_all $3}
-  | DOF_REGION_SOME EQUALS STRING  {DLOG_some $3}
-  | HASH EQUALS INT    {DLOG_nregions $3}
-
-region_logic_opt_not:
-  | DOF_REGION_NOT region_logic_atomic {DLOG_not $2}
-  | region_logic_atomic                {$1}
-
-region_logic_and:
-  | region_logic_opt_not DOF_REGION_AND region_logic_and {DLOG_and [$1;$3]}
-  | region_logic_opt_not {$1}
-
-region_logic_or:
-  | region_logic_and DOF_REGION_OR region_logic_or {DLOG_or [$1;$3]}
-  | region_logic_and {$1}
-
-
-region_logic:
-  | region_logic_or     {$1}
-
-
-field_name:
-  STRING            { $1 }
-;
-
-field_indices:
-    field_index     { [$1] }
-  | field_index COMMA field_indices { $1::$3 }
-;
-
-field_index:
-  | INT             { IX_int $1 }
-  | STRING          { IX_name $1 }
-;
-
-opt_sum_specs:
-  |                            { [] }
-  | COMMA sum_specs            { $2 }
-
-sum_specs:
-  | sum_spec                   { [$1] }
-  | sum_specs COMMA sum_spec   { $3::$1 }
-
-sum_spec:
-  STRING COLON INT             { ($1,$3) }
-
-opt_amendment_specs:
-  |                            { [] }
-  | SEMICOLON amendment_spec opt_amendment_specs     { $2::$3 }
-
-amendment_spec:
-  | amdmt_mxdim             { $1 }
-  | amdmt_diagonal_ones     { $1 }
-  | amdmt_gauge_fix         { $1 }
-  | amdmt_periodic          { $1 }
-
-amdmt_mxdim:
-  | MXDIM EQUALS LPAREN opt_fields VBAR VBAR opt_fields RPAREN { AMDMT_MXDIM ($4,$7) }
-
-amdmt_diagonal_ones:
-  | field EQUALS field  { AMDMT_DIAGONAL_ONES ($1,$3) }
-
-amdmt_gauge_fix:
-  | GAUGEFIX field { AMDMT_GAUGE_FIX $2 }
-
-amdmt_periodic:
-  | PERIODIC field { AMDMT_PERIODIC $2 }
-
-
-opt_fields:
-  | STAR                       { None }
-  | fields                     { Some $1 }
-
-fields:
-  | field                        { [$1] }
-  | field COMMA fields           { $1::$3 }
-
-short_vector_restriction:
-  |  opt_fields opt_sum_specs    { match $1 with
-				     | None -> None
-				     | Some fields ->
-					 let v_fields = expand_fields $2 fields in
-					   (* XXX NOTE: this actually is somewhat broken: expanding the
-					      field indices wrt sum specs will not give us what we expected
-					      in the next step, when we again throw away all indices:
-					   *)
-					   Some (Array.map (fun field -> (field.f_name, field.f_bspec)) v_fields)
-				 }
+;;

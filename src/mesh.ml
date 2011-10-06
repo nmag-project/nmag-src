@@ -3203,29 +3203,25 @@ let make_meshgen_engine
 	  0.
 	  1.
       in
-      let pct mat =                                                                  (* principal component transformation -> eigen vectors + eigen values *)
-        let gsl_s = Gsl_vector.create dim in
+      let pct mat =
+        failwith "pct: functionality is not supported anymore"
+        (* The code above has been commented to remove dependence on GSL.
+           The code was used in mesh creation, which is not our businnes
+           anymore. *)
+      in
+      (*let gsl_s = Gsl_vector.create dim in
         let gsl_work = Gsl_vector.copy gsl_s in
         let s = `V gsl_s in
         let work = `V gsl_work in
-
 	let gsl_a = Gsl_matrix.of_arrays mat in
 	let gsl_v = Gsl_matrix.create dim dim in
 	let a = `M gsl_a in
 	let v = `M gsl_v in
-
 	let () = Gsl_linalg._SV_decomp a v s work in
-
 	let eigen_vects_mat = (Gsl_matrix.to_arrays ((fun (`M x) -> x) a )) in
-
-(*	let mat_u = Gsl_matrix.to_arrays ((fun (`M x) -> x) a ) in
-	let mat_v = Gsl_matrix.to_arrays ((fun (`M x) -> x) v ) in
-	RRR
-*)
 	let eigen_vals_vec = Gsl_vector.to_array ((fun (`V x) -> x) s ) in
-
 	(eigen_vects_mat, eigen_vals_vec)
-      in
+      in*)
 
 
 (* ############################ SOLID ANGLES ############################## *)
