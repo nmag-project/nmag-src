@@ -28,5 +28,4 @@ if [ -f $RT/bin/ldflags.bash ]; then
 fi
 
 # Finally invoke the executable
-$RT/pyfem3/pyfem3 "$@"
-
+$RT/src/nsimexec "$@"
