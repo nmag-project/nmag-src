@@ -1,21 +1,26 @@
 CC="cc"
 
-PYTHON_CFLAGS="-fPIC -Wall -O3 -fomit-frame-pointer -malign-double -fstrict-aliasing -ffast-math -I../config -I/usr/lib/pymodules/python2.7/numpy/core/include -I/usr/lib/pymodules/python2.7/numpy/core/include -I/usr/include/python2.7 -DPIC -DNATIVE_CODE"
+PETSC_INCLUDE_PATH=/usr/include/petsc
+PYTHON_CFLAGS="-fPIC -Wall -O3 -fomit-frame-pointer -malign-double -fstrict-aliasing -ffast-math -I../config -I/usr/lib/pymodules/python2.7/numpy/core/include -I/usr/lib/pymodules/python2.7/numpy/core/include -I/usr/include/python2.7 -I/usr/include/mpi -DPIC -DNATIVE_CODE"
 
-NSIMEXEC_LDFLAGS="-lpython2.7 -lqhull"
+CFLAGS="-I/usr/include/mpi -I$(PETSC_INCLUDE_PATH)"
+
+NSIMEXEC_LDFLAGS="-lpython2.7 -lqhull -lpetsc -lpetscvec -lpetscmat -lpetscksp -lpetscts -lpetscsnes -lpetscdm -lmetis -lparmetis"
 
 CC=cc
 CPP=cpp
+PERL=perl
 
 OCAMLFIND=ocamlfind
 OCAMLOPT=$(OCAMLFIND) ocamlopt
-OCAMLOPT_CC_C=$(OCAMLOPT) -cc $(CC) -ccopt "-Wall"
+OCAMLOPT_CC_C=$(OCAMLOPT) -cc $(CC) -ccopt $(CFLAGS)
 OCAMLOPT_CC=$(OCAMLOPT) -cc $(CC) -pp $(CPP)
 OCAMLOPT_C=$(OCAMLOPT) -c
 OCAMLLEX=ocamllex
 OCAMLYACC=ocamlyacc
 
 NSIMEXEC_OBJECTS=\
+  nsimconf.cmx \
   mt19937.cmx mt19937_impl.o mt19937_stubs.o \
   snippets.cmx snippets_stubs.o objsize.o \
   fastfields.cmx fastfields_stubs.o \
@@ -23,8 +28,11 @@ NSIMEXEC_OBJECTS=\
   deferred.cmx ba.cmx base.cmx ba_stubs.o \
   nlog.cmx \
   mesh0.cmx simplex.cmx periodic.cmx correct_broken_mesh.cmx mesh.cmx \
-  ddiffop_parser.cmx \
-  fem.cmx \
+  ddiffop.cmx ddiffop_lexer.cmx ddiffop_parser.cmx \
+  collcomm.o comm.o groups.o init.o msgs.o utils.o petsc_stubs.o \
+  petsc_error.o mpi_petsc.cmx \
+  sundials_sp.cmx sundials_sp_stubs.o \
+  fem.cmx fem_stubs.o \
   pycaml.cmx pycaml_stubs.o
 
 .PHONY: all clean
@@ -72,11 +80,24 @@ periodic.cmx: periodic.ml periodic.cmi
 mesh.cmx: mesh.ml mesh0.cmi correct_broken_mesh.cmi simplex.cmi \
           periodic.cmi mesh.cmi
 
+#mpi_petsc.ml mpi_petsc.mli 
+petsc_error.c petsc_error.ml petsc_error.mli: petsc_error.pl
+	$(PERL) petsc_error.pl $(PETSC_INCLUDE_PATH)
+
 fem.cmx: fem.ml fem.cmi
 
-ddiffop_lexer.cmi: ddiffop_lexer.ml
+ddiffop.cmx: ddiffop.ml ddiffop.cmi
+ddiffop_lexer.cmx: ddiffop_lexer.ml ddiffop_parser.cmi
 ddiffop_parser.cmi: ddiffop_parser.mli ddiffop.cmi
 ddiffop_parser.cmx: ddiffop_parser.ml ddiffop_parser.cmi
+
+mpi_petsc.ml: mpi.ml petsc.ml petsc_error.ml
+	cat  mpi.ml petsc_error.ml petsc.ml > mpi_petsc.ml
+
+#mpi_petsc.mli: mpi_petsc.ml
+#        ocamlc -i -I ../config mpi_petsc.ml >mpi_petsc.mli
+
+sundials_sp.cmx: sundials_sp.ml sundials_sp.cmi
 
 pycaml_stubs.o: pycaml_stubs.c pycaml_stubs.h
 	$(OCAMLOPT_CC_C) \

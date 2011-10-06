@@ -97,7 +97,7 @@ let print_dof_region_spec drs =		(* DDD *)
 	 (int_array_to_string (Array.map (fun x -> match x with | None -> -100 | Some n -> n) regions)))
 ;;
 
-type dof_region_logic = Ddiffop_parser.dof_logic;;
+type dof_region_logic = Ddiffop.dof_logic;;
 
 (* A data vector shortening selection (dvss) will consist of information about
    subfield name stems plus associated region logic. (Note: every subfield name
@@ -755,7 +755,7 @@ let boundary_shortvec_info dof_stem mwe boundary_spec =
   let the_region_logic =
     parse_or_error
       Ddiffop_lexer.token
-      Ddiffop.region_logic (* parser entry point *)
+      Ddiffop_parser.region_logic (* parser entry point *)
       boundary_spec
   in
   mwe_shortvec_info mwe (Some [|(dof_stem,the_region_logic)|])
@@ -4814,7 +4814,7 @@ let mwe_simplex_id_to_elem_dof_nr_to_dof_nr mwe =
 
 
 let ddiffop_from_string str =
-  parse_or_error Ddiffop_lexer.token Ddiffop.parse_ddiffop str
+  parse_or_error Ddiffop_lexer.token Ddiffop_parser.parse_ddiffop str
 ;;
 
 (*
