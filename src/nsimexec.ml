@@ -4698,22 +4698,10 @@ let () = Gc.set
 
 let () =
   let argv = !effective_argv in
-  (* let () = Printf.printf "DDD effective_argv=%s\n%!" (string_array_to_string argv) in *)
   let () = set_python_argv (array_one_shorter argv 0) in
   if Array.length argv>1
   then python_load(argv.(1))
-  else
-    if
-      (try
-	let _ = Str.search_forward (Str.regexp "/ipyfem") argv.(0) 0 in true
-      with | Not_found -> false)
-    then ignore(Pycaml.ipython())
-    else if
-      (try
-	let _ = Str.search_forward (Str.regexp "/pyfem") argv.(0) 0 in true
-      with | Not_found -> false)
-    then ignore(Pycaml.python())
-    else ()
+  else ignore(Pycaml.python())
 ;;
 
 
