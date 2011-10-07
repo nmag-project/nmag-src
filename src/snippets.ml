@@ -3755,7 +3755,7 @@ let nr_entries = pq.pq_heap_nr_entries in
     let heap = pq.pq_heap in
     match heap.(pos) with
     | None -> _failure ()
-    | Some {pqe_pri=pri;pqe_rpos=ref_pos;pqe_data=data} as entry_here ->
+    | Some {pqe_pri=pri; pqe_rpos=ref_pos; pqe_data=data} ->
 	match heap.(nr_entries) with
 	| None -> _failure ()
 	| Some {pqe_pri=pri_last;pqe_rpos=ref_pos_last;pqe_data=data_last}
@@ -3931,15 +3931,6 @@ let integrate2d =
 		  else ())
 	in
 	  result
-      in
-      let average v =
-	(* Works in arbitrary dimension *)
-	let rescale = 1.0/.(float_of_int (Array.length v)) in
-	let rec walk n x =
-	  if n = Array.length v
-	  then x*.rescale
-	  else walk (1+n) (x+.v.(n))
-	in walk 0 0.0
       in
       let simplex_volume points =
 	(* D=2 specific:
@@ -4197,7 +4188,6 @@ let oommf_data oommf_filename =
 	  then
 	    (* have complete header *)
 	    let dtype = Str.matched_group 1 line in
-	    let ddd = Printf.printf "DDD dtype: '%s'\n%!" dtype in (* DDD *)
 	    let () =
 	      (if dtype = "Text" then ()
 	       else failwith "FIXME: reading OOMMF binary data files is not supported yet. For now, you have to convert to text data files.")

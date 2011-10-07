@@ -4324,12 +4324,12 @@ let mesh_it_work
 
 
   let add_meshdata_of_piece_nr                                                    (* dht_immobile_points is a hash table mapping coords-vector => index *)
+      ?(simply_points=[||])
       n                                                                           (* which will be modified destructively by putting in all the new	*)
       li_simplices_pcoords_sf                                                     (* boundary points which we discover as well.				*)
       li_surfaces_pcoords_sf                                                      (*  We use the value to index-count points.                           *)
       dht_immobile_points
       points_preventing_surface_pb
-      ?(simply_points=[||])
       =
 
     let fem_geo_piece =                                                           (* copy the fem_geometry data structure related to the n-th object
@@ -4768,12 +4768,12 @@ let mesh_it_work
 
   (* Everything together now *)
   let rec walk_pieces
+      ?(simply_points=[||])
       nr_piece
       li_simplices_pcoords_sf
       li_surfaces_pcoords_sf
       dht_immobile_points
       dht_points_preventing_surface_pb
-      ?(simply_points=[||])
       =
     (* We work with decreasing nr_piece, with piece #0 being "outer space"
        (if requested to be meshed as well). Rationale: our method deals better

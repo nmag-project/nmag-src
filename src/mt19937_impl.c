@@ -49,6 +49,7 @@
 /* ACM Transactions on Modeling and Computer Simulation,           */
 /* Vol. 8, No. 1, January 1998, pp 3--30.                          */
 
+#include <stdlib.h>
 #include <stdio.h>
 #include "mt19937.h"
 
@@ -69,14 +70,16 @@
 
 mt19937_rng *mt19937_new_rng(mt19937_malloc_fun_t *allocator)
 {
-  mt19937_rng *ctx;
-  if(0==(ctx=(mt19937_rng *)((*allocator)(sizeof(mt19937_rng)))))
+  mt19937_rng *ctx =
+    (mt19937_rng *) ((*allocator)(sizeof(mt19937_rng)));
+  if (ctx == NULL)
     {
       fprintf(stderr,"memory allocator failure!");
       exit(1);
     }
 
-  ctx->mti=N+1; /* means: RNG is not initialized */
+  ctx->mti = N + 1; /* means: RNG is not initialized */
+  return ctx;
 }
 
 

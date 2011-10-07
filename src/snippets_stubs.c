@@ -102,7 +102,7 @@ CAMLprim value caml_7bit_decode_string_to_double(value ml_string)
   CAMLparam1(ml_string);
 
   double x=0.0;
-  int accumulator,acc_fill_state,i,k,ix_inc;
+  int accumulator, acc_fill_state, k, ix_inc;
   unsigned char *c, v, v_store;
 
     
@@ -149,7 +149,9 @@ CAMLprim value caml_7bit_decode_string_to_double(value ml_string)
 CAMLprim value caml_debugprint_entity(value ml_x)
 {
   CAMLparam1(ml_x);
-  fprintf(stderr,"CAML value: %lx sizeof(value)=%d sizeof(void*)=%d\n",ml_x,sizeof(value),sizeof(void*));fflush(stderr);
+  fprintf(stderr, "CAML value: %lx sizeof(value)=%ld sizeof(void*)=%ld\n",
+	  ml_x, (long) sizeof(value), (long) sizeof(void*));
+  fflush(stderr);
   CAMLreturn(Val_unit);
 }
 

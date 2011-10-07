@@ -49,6 +49,9 @@
   which expands to code which declares new variables.
  */
 
+#include <stdio.h>
+#include <float.h>
+#include <assert.h>
 
 #include <caml/alloc.h>
 #include <caml/callback.h>
@@ -56,8 +59,6 @@
 #include <caml/memory.h>
 #include <caml/misc.h>
 #include <caml/mlvalues.h>
-
-#include <float.h>
 
 #include <mpi.h>
 
@@ -79,7 +80,7 @@
 
 #include <parmetis.h>
 
-#include <stdio.h>
+
 /* ^ This is just for debugging! */
 
 
@@ -1212,37 +1213,37 @@ CAMLprim value caml_petsc_vec_extract(value ml_vec)
   VecGetLocalSize(vec,&local_size);
   VecGetSize(vec,&global_size);
 
-  if(local_size==global_size)
-    {
-      vec_local=vec;
-    }
-  else
-    {
-      VecCreateSeq(PETSC_COMM_SELF,global_size,&vec);
-      VecCopy(vec,vec_local);
-    }
+  if (local_size == global_size)
+    vec_local = vec;
+
+  else {
+    /* I think the line above is wrong (vec should be vec_local).
+       In general, the whole idea is here flawn (VecCopy does only copy vectors
+       locally) */
+    fprintf(stderr, "Suspended functionality. Contact the nmag developers.");
+    assert(0); 
+#if 0
+    VecCreateSeq(PETSC_COMM_SELF, global_size, & vec);
+#else
+    VecCreateSeq(PETSC_COMM_SELF, global_size, & vec_local);
+#endif
+    VecCopy(vec, vec_local);
+  }
 
   CAMLlocal1(result);
 
-  /* XXX I hope I do all this right... */
+  result = alloc(Double_wosize*global_size, Double_array_tag);
 
-  result=alloc(Double_wosize*global_size,Double_array_tag);
+  VecGetArray(vec_local, & data);
 
-  /* XXX here, we get a slight typing problem... XXX CONTINUE HERE! */
+  for(i = 0; i < global_size; i++)
+    Store_double_field(result, i, data[i]);
 
-  VecGetArray(vec_local,&data);
+  VecRestoreArray(vec_local, & data);
 
-  for(i=0;i<global_size;i++)
-    {
-      Store_double_field(result,i,data[i]);
-    }
-
-  VecRestoreArray(vec_local,&data);
-
-  if(local_size!=global_size)	/* If we allocated that vector... */
-    {
-      VecDestroy(vec_local);	/* ...we have to destroy it. */
-    }
+  /* If we allocated that vector we have to destroy it. */
+  if (local_size != global_size)  
+    VecDestroy(vec_local);
 
   CAMLreturn(result);
 }

@@ -691,7 +691,7 @@ for var in configuration:
 cf.save('configuration.inc', language='makefile')
 cf.save('configuration.h', language='c_header')
 cf.save('nsimconf.py', language='python')
-cf.save('nsimconf.ml', language='ocaml')
+cf.save('../src/nsimconf.ml', language='ocaml')
 
 # Recap configuration settings on the screen
 msg.summary("bash shell binary path", configuration["BASH"])
