@@ -38,9 +38,9 @@ CAMLprim value caml_bem3d_raw_lindholm(value ml_min_dist, value ml_args)
     v_zeta[3], eta0[3],eta1[3],eta2[3],
     v_log[3],gamma[3][3],lh[3];
 
-  static double zeta, norm, inv_norm, len_buffer2,
+  static double zeta, inv_norm, len_buffer2,
     area, angle, r0l, r1l, r2l, s0l, s1l, s2l,
-    c01, c12, c20, sp01, sp12, sp20, numerator, denominator, z;
+    c01, c12, c20, sp01, sp12, sp20, numerator, denominator;
 
   CAMLlocal3(ml_osn,ml_store_lh012,ml_observer);
   CAMLlocal3(ml_p0,ml_p1,ml_p2);
@@ -199,9 +199,9 @@ CAMLprim value caml_bem3d_raw_lindholm_longdouble(value ml_min_dist, value ml_ar
     v_zeta[3], eta0[3],eta1[3],eta2[3],
     v_log[3],gamma[3][3],lh[3], max_geometry=0.0, geo_eps;
 
-  static long double zeta, norm, inv_norm, len_buffer2,
+  static long double zeta, inv_norm, len_buffer2,
     area, angle, r0l, r1l, r2l, s0l, s1l, s2l,
-    c01, c12, c20, sp01, sp12, sp20, numerator, denominator, z;
+    c01, c12, c20, sp01, sp12, sp20, numerator, denominator;
 
   CAMLlocal3(ml_osn,ml_store_lh012,ml_observer);
   CAMLlocal3(ml_p0,ml_p1,ml_p2);
@@ -426,7 +426,7 @@ CAMLprim value caml_bem3d_raw_lindholm_block_pbc(value ml_min_dist, value ml_arg
     v_log[3],gamma[3][3],lh[3],
     otrans[3][3];
 
-  static double zeta, norm, inv_norm, len,
+  static double zeta, inv_norm, len,
     area, angle, r0l, r1l, r2l, s0l, s1l, s2l,
     c01, c12, c20, sp01, sp12, sp20, numerator, denominator,
     area_denominator,greyfactor;

@@ -3888,7 +3888,7 @@ let set_subfield (FEM_field (mwe, _, v) as field) subfield_name value_ba =
 
 *)
 
-(* internal: *)
+(* DEAD CODE, COMMENTED OUT 
 external dipole_evaluator_sumpairs_fast_ccode:
   (int * int * float)  ->
   (* Parameters:
@@ -3909,6 +3909,7 @@ external dipole_evaluator_sumpairs_fast_ccode:
   unit
   = "caml_dipole_evaluator_sumpairs_fast_ccode"
 ;;
+*)
 
 (* We need means to produce a fine mesh from a coarse mesh, as well as
    means to transport fields from corresponding mwes - that is,

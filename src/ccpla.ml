@@ -281,6 +281,14 @@ let dres_get_vector_lengths_offsets res =
 	failwith failstring
 ;;
 
+let dres_get_vector_all res =
+  match res with
+    | DRES_petsc_vector (a, b, c) -> (a, b, c)
+    | other_res ->
+	let failstring = "Expected a petsc_vector, got a "^(dres_type other_res) in
+	failwith failstring
+;;
+
 
 let dres_get_vector_multiseq res =
   match res with
@@ -319,7 +327,7 @@ let dres_get_matnullspace res =
 
 let dres_get_parameters res =
   match res with
-    | DRES_parameters (_,prs) -> prs
+    | DRES_parameters (names, values) -> (names, values)
     | other_res ->
 	let failstring = "Expected parameters, got a "^(dres_type other_res) in
 	failwith failstring
@@ -567,7 +575,7 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	  let () = !rccpla_logdebug (Printf.sprintf "[Node %d]CMD DCOM_register_parameters DONE\n" myrank) in
 	    ()
       | DCOM_manipulate_parameters (DRH name, f) ->
-	  let DRES_parameters (names,values) = get_resource name in
+	  let (names, values) = dres_get_parameters (get_resource name) in
 	    f names values
       | DCOM_vec_create (name,local_sizes) ->
 	  let global_size = Array.fold_left (+) 0 local_sizes in
@@ -721,7 +729,7 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	  let vecs =
 	    Array.map
 	      (fun (DRH name) ->
-		 let DRES_petsc_vector (_,_,v) = get_resource name
+		 let v = dres_get_vector (get_resource name)
 		 in v)
 	      drhs_vecs
 	  in
@@ -736,45 +744,45 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	  in
 	    ()
       | DCOM_ksp_set_initial_guess_nonzero (DRH name,flag) ->
-	  let DRES_petsc_ksp (_,ksp) = get_resource name in
+	  let ksp = dres_get_ksp (get_resource name) in
 	    Mpi_petsc.ksp_set_initial_guess_nonzero ksp flag
       | DCOM_ksp_set_matnullspace (DRH ksp_name, DRH mns_name) ->
-	  let DRES_petsc_ksp (_,ksp) = get_resource ksp_name in
-	  let DRES_petsc_matnullspace (_,mns) = get_resource mns_name in
+	  let ksp = dres_get_ksp (get_resource ksp_name) in
+	  let mns = dres_get_matnullspace (get_resource mns_name) in
 	    Mpi_petsc.ksp_set_matnullspace ksp mns
       | DCOM_ksp_set_type (DRH name, type_string) ->
-	  let DRES_petsc_ksp (_,ksp) = get_resource name in
+	  let ksp = dres_get_ksp (get_resource name) in
 	    Mpi_petsc.ksp_set_type ksp type_string
       | DCOM_ksp_set_pc_type (DRH name, type_string) ->
-	  let DRES_petsc_ksp (_,ksp) = get_resource name in
+	  let ksp = dres_get_ksp (get_resource name) in
 	    Mpi_petsc.ksp_set_pc_type ksp type_string
       | DCOM_ksp_set_pc_bjacobi_subtype (DRH name, type_string) ->
-	  let DRES_petsc_ksp (_,ksp) = get_resource name in
+	  let ksp = dres_get_ksp (get_resource name) in
 	    Mpi_petsc.ksp_set_pc_bjacobi_sub_type ksp type_string
       | DCOM_ksp_set_tolerances_opt (DRH name,ortol,oatol,odtol,omaxit) ->
-	  let DRES_petsc_ksp (_,ksp) = get_resource name in
+	  let ksp = dres_get_ksp (get_resource name) in
 	    Mpi_petsc.ksp_set_tolerances_opt ksp ortol oatol odtol omaxit
       | DCOM_ksp_set_operators (drh_ksp, drh_mx, drh_precond) ->
 	  let DRH name = drh_ksp
 	  and DRH name_mx = drh_mx
 	  and DRH name_precond = drh_precond
 	  in
-	  let DRES_petsc_ksp (_,ksp) = get_resource name in
+	  let ksp = dres_get_ksp (get_resource name) in
 	  let mx = dres_get_matrix (get_resource name_mx) in
 	  let precond = dres_get_matrix (get_resource name_precond) in
 	  let () = Mpi_petsc.ksp_set_operators ksp mx precond in
 	    ()
       | DCOM_ksp_set_up (DRH name) ->
-	  let DRES_petsc_ksp (_,ksp) = get_resource name in
+	  let ksp = dres_get_ksp (get_resource name) in
 	    Mpi_petsc.ksp_set_up ksp
-      | DCOM_ksp_solve (DRH name_ksp,DRH name_v_input,DRH name_v_sol) ->
-	  let DRES_petsc_ksp (_,ksp) = get_resource name_ksp in
-	  let DRES_petsc_vector (_,_,v_input) = get_resource name_v_input in
-	  let DRES_petsc_vector (_,_,v_sol) = get_resource name_v_sol in
+      | DCOM_ksp_solve (DRH name_ksp, DRH name_v_input, DRH name_v_sol) ->
+	  let ksp = dres_get_ksp (get_resource name_ksp) in
+	  let v_input = dres_get_vector (get_resource name_v_input) in
+	  let v_sol = dres_get_vector (get_resource name_v_sol) in
 	  let _ = Mpi_petsc.ksp_solve_raw ksp v_sol v_input in
 	    ()
       | DCOM_ksp_manipulate_tolerances (DRH name, f) ->
-	  let DRES_petsc_ksp (_,ksp) = get_resource name in
+	  let ksp = dres_get_ksp (get_resource name) in
 	  let tols = Mpi_petsc.ksp_get_tolerances ksp in
 	  let (rtol,atol,dtol,maxit) = f tols in
 	  let () = Mpi_petsc.ksp_set_tolerances ksp rtol atol dtol maxit in
@@ -782,8 +790,8 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
       (* --- *)
       | DCOM_getfrom_master (nr_v_master, DRH name_slave) ->
 	  (*let () = Printf.printf "[Node %d]DDD DCOM_getfrom_master nr_v_master=%d (of %d) name_slave='%s'\n%!" myrank nr_v_master (Array.length local_vectors) name_slave in*)
-	  let DRES_petsc_vector (_,(ba_local_sizes,ba_offsets),vec) =
-	    get_resource name_slave
+	  let (_, (ba_local_sizes, ba_offsets), vec) =
+	    dres_get_vector_all (get_resource name_slave)
 	  in
 	    if myrank > 0
 	    then (* we are on a slave node *)
@@ -793,8 +801,8 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 		Mpi_petsc.vec_scatter comm v_master vec ba_local_sizes ba_offsets
       | DCOM_sendto_master (nr_v_master, DRH name_slave) ->
 	  (* let () = Printf.printf "[Node %d]DDD DCOM_sendto_master nr_v_master=%d (of %d) name_slave='%s'\n%!" myrank nr_v_master (Array.length local_vectors) name_slave in *)
-	  let DRES_petsc_vector (_,(ba_local_sizes,ba_offsets),vec) =
-	    get_resource name_slave
+	  let (_, (ba_local_sizes, ba_offsets), vec) =
+	    dres_get_vector_all (get_resource name_slave)
 	  in
 	    if myrank > 0
 	    then
@@ -805,22 +813,22 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
       | DCOM_getfrom_master_v (opt_v_master, DRH name_slave) ->
 	  (* NOTE: opt_v_master will be None on slave machines, the master's vector on the master *)
           (*let () = Printf.printf "[Node %d]DDD DCOM_getfrom_master_v name_slave='%s'\n%!" myrank name_slave in*)
-	  let DRES_petsc_vector (_,(ba_local_sizes,ba_offsets),vec) =
-	    get_resource name_slave
+	  let (_, (ba_local_sizes, ba_offsets), vec) =
+	    dres_get_vector_all (get_resource name_slave)
 	  in
 	  let v = match opt_v_master with | None -> vec_dummy | Some x -> x
 	  in
 	    Mpi_petsc.vec_scatter comm v vec ba_local_sizes ba_offsets
       | DCOM_sendto_master_v (opt_v_master, DRH name_slave) ->
           (*let () = Printf.printf "[Node %d]DDD DCOM_sendto_master_v name_slave='%s'\n%!" myrank name_slave in*)
-	  let DRES_petsc_vector (_,(ba_local_sizes,ba_offsets),vec) =
-	    get_resource name_slave
+	  let (_, (ba_local_sizes, ba_offsets), vec) =
+	    dres_get_vector_all (get_resource name_slave)
 	  in
 	  let v = match opt_v_master with | None -> vec_dummy | Some x -> x
 	  in
 	    Mpi_petsc.vec_gather comm v vec ba_local_sizes ba_offsets
       | DCOM_printvec (DRH name) ->
-	  let DRES_petsc_vector (_,_,vec) = get_resource name in
+	  let vec = dres_get_vector (get_resource name) in
 	    Mpi_petsc.with_petsc_vector_as_bigarray vec
 	      (fun ba ->
 		 let d = Bigarray.Array1.dim ba in
@@ -831,7 +839,7 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	  let mat = dres_get_matrix (get_resource name) in
 	    Mpi_petsc.mat_view mat
       | DCOM_vec_scale (DRH name,s) ->
-	  let DRES_petsc_vector (_,_,vec) = get_resource name in
+	  let vec = dres_get_vector (get_resource name) in
 	    if s=0.0 then
 	      Mpi_petsc.vector_zero vec
 	    else
@@ -857,10 +865,10 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	     | _ -> failwith "DCOM_vec_pointwise: resource was not a vector!")
       | DCOM_push (locations,DRH name_src,DRH name_target) ->
 	  (* Entries of short vector go into long vector *)
-	  let DRES_petsc_vector (_,(src_lengths,src_offsets),v_src) =
-	    get_resource name_src
+	  let (_, (src_lengths, src_offsets), v_src) =
+	    dres_get_vector_all (get_resource name_src)
 	  in
-	  let DRES_petsc_vector (_,_,v_target) = get_resource name_target
+	  let v_target = dres_get_vector (get_resource name_target)
 	  in
 	  let my_src_length = Nsimconf.c_int_to_int src_lengths.{myrank} in
 	    (* actually not used, as bigarray carries length data! *)
@@ -877,10 +885,10 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	  (* Entries of long vector go into short vector. The "locations" data structure
 	     is precisely the same as for DCOM_push: long_index_by_short_index!
 	  *)
-	  let DRES_petsc_vector (_,(src_lengths,src_offsets),v_src) =
-	    get_resource name_src
+	  let (_, (src_lengths, src_offsets), v_src) =
+	    dres_get_vector_all (get_resource name_src)
 	  in
-	  let DRES_petsc_vector (_,_,v_target) = get_resource name_target
+	  let v_target = dres_get_vector (get_resource name_target)
 	  in
 	  let my_src_length = Nsimconf.c_int_to_int src_lengths.{myrank} in
 	  let my_src_offset = Nsimconf.c_int_to_int src_offsets.{myrank} in
@@ -898,14 +906,16 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	    ()
       | DCOM_mx_x_vec (DRH name_mx,DRH name_src,DRH name_target) ->
 	  let mx = dres_get_matrix (get_resource name_mx) in
-	  let DRES_petsc_vector (_,_,v_src) = get_resource name_src in
-	  let DRES_petsc_vector (_,_,v_target) = get_resource name_target
+	  let v_src = dres_get_vector (get_resource name_src) in
+	  let v_target = dres_get_vector (get_resource name_target)
 	  in
 	    Mpi_petsc.matrix_times_vector mx v_src v_target
       | DCOM_vec_sety_axpby (ca,cb,DRH name_iparams, DRH name_x,DRH name_y) ->
-	  let DRES_parameters (param_names,param_vals) = get_resource name_iparams in
-	  let DRES_petsc_vector (_,_,vx) = get_resource name_x in
-	  let DRES_petsc_vector (_,_,vy) = get_resource name_y in
+	  let (param_names, param_vals) =
+	    dres_get_parameters
+	      (get_resource name_iparams) in
+	  let vx = dres_get_vector (get_resource name_x) in
+	  let vy = dres_get_vector (get_resource name_y) in
 	  let resolve c =
 	    match c with
 	      | CCCOEFF_float x -> x
@@ -915,14 +925,14 @@ and dcom_execute_1 ?(local_vectors=[||]) ccpla dcom =
 	  in
 	    Mpi_petsc.vector_AXPBY (resolve ca) (resolve cb) vx vy
       | DCOM_vec_pointwise_mult (DRH name_x, DRH name_y, DRH name_result) ->
-	  let DRES_petsc_vector (_,_,vx) = get_resource name_x in
-	  let DRES_petsc_vector (_,_,vy) = get_resource name_y in
-	  let DRES_petsc_vector (_,_,v_res) = get_resource name_result in
+	  let vx = dres_get_vector (get_resource name_x) in
+	  let vy = dres_get_vector (get_resource name_y) in
+	  let v_res = dres_get_vector (get_resource name_result) in
 	  Mpi_petsc.vector_pointwise_mult vx vy v_res
       | DCOM_vec_pointwise_divide (DRH name_x, DRH name_y, DRH name_result) ->
-	  let DRES_petsc_vector (_,_,vx) = get_resource name_x in
-	  let DRES_petsc_vector (_,_,vy) = get_resource name_y in
-	  let DRES_petsc_vector (_,_,v_res) = get_resource name_result in
+	  let vx = dres_get_vector (get_resource name_x) in
+	  let vy = dres_get_vector (get_resource name_y) in
+	  let v_res = dres_get_vector (get_resource name_result) in
 	  Mpi_petsc.vector_pointwise_divide vx vy v_res
       | DCOM_opcode (op,distributed_resources) ->
 	  let new_names_and_resources =
@@ -1183,24 +1193,25 @@ let ccpla_petsc_matrix ccpla (DRH name) =
 ;;
 
 let ccpla_petsc_vector ccpla (DRH name) =
-  let DRES_petsc_vector (_,_,v) = ccpla_get_resource ccpla name in
+  let v = dres_get_vector (ccpla_get_resource ccpla name) in
     v
 ;;
 
 let ccpla_petsc_ksp ccpla (DRH name) =
-  let DRES_petsc_ksp (_,ksp) = ccpla_get_resource ccpla name in
+  let ksp = dres_get_ksp (ccpla_get_resource ccpla name) in
     ksp
 ;;
 
 
 let ccpla_iparams ccpla (DRH name) =
-  let DRES_parameters (names,vals) = ccpla_get_resource ccpla name in
-    (names,vals)
+  let (names, vals) =
+    dres_get_parameters (ccpla_get_resource ccpla name)
+  in (names, vals)
 ;;
 
 let ccpla_petsc_multiseq_vector ccpla (DRH name) =
   let () = !rccpla_logdebug (Printf.sprintf "DDD ccpla_petsc_multiseq_vector name='%s'\n" name) in
-  let DRES_petsc_vector_multiseq (_,v) = ccpla_get_resource ccpla name in
+  let v = dres_get_vector_multiseq (ccpla_get_resource ccpla name) in
     v
 ;;
 
@@ -1481,8 +1492,9 @@ let _master_set_finalization_alarm ccpla =
 	in
 	  Queue.push destroy_commands !(ccpla.ccpla_queue)
   in
-  let a = Gc.create_alarm fun_destroy_resources in
-    () (* don't bother to delete that alarm. The ccpla will stay around
+  let _ = Gc.create_alarm fun_destroy_resources in
+    () (* don't bother to delete that alarm (which would be the return
+	  value of Gc.create_alarm). The ccpla will stay around
 	  as long as the program is running.
        *)
 ;;
@@ -1511,9 +1523,8 @@ let setup ?(petsc_argv=[||]) mpi_argv opcode_interpreter fun_quit =
       Mpi_petsc.petsc_init petsc_argv petscrc_filename "help-message" true
   in
   let ccpla_comm = Mpi_petsc.comm_dup Mpi_petsc.comm_world (* (Mpi_petsc.petsc_get_comm_world()) *)  in
-  let nr_nodes = Mpi_petsc.comm_size ccpla_comm in
-  let f_dummy _ = failwith "" in
-  let f_ldummy ?local_vectors _ = failwith "" in
+  let f_dummy _ = failwith "Dummy CCPLA method" in
+  let f_ldummy ?local_vectors _ = failwith "Dummy CCPLA method" in
   let ccpla =
     {
       ccpla_comm=ccpla_comm;
@@ -1600,7 +1611,8 @@ let setup ?(petsc_argv=[||]) mpi_argv opcode_interpreter fun_quit =
 let do_test ccpla =
   let mysleep n = () (* Unix.sleep n *) in
   let describe_vector s =
-    let DRES_petsc_vector (_,_,v) = Hashtbl.find ccpla.ccpla_resources s in
+    let v =
+       dres_get_vector (Hashtbl.find ccpla.ccpla_resources s) in
     let _ = Mpi_petsc.vec_describe v in
       ()
   in

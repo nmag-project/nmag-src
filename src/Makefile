@@ -131,7 +131,8 @@ nsim_anisotropy.cmx: nsim_anisotropy.ml nsim_anisotropy.cmi
 
 ccpla.cmx: ccpla.ml ccpla.cmi
 
-nsim.cmx: nsim.ml nsim.cmi bem3d.cmi mesh.cmi fem.cmi
+nsim.cmx: nsim.ml nsim.cmi bem3d.cmi snippets.cmi mesh.cmi fem.cmi ccpla.cmi \
+  localeqn.cmi
 
 pycaml_stubs.o: pycaml_stubs.c pycaml_stubs.h
 	$(OCAMLOPT_CC_C) \
@@ -143,7 +144,7 @@ pycaml.cmx: pycaml.ml pycaml.cmi
 
 pyfem.cmx: pyfem.ml fem.cmi mesh.cmi
 
-nsimexec.cmx: nsimexec.ml nsimexec.cmi snippets.cmi mesh.cmi fem.cmi
+nsimexec.cmx: nsimexec.ml nsimexec.cmi $(NXIMEXEC_OBJECTS)
 
 nsimexec: $(NSIMEXEC_OBJECTS)
 	$(OCAMLOPT) \

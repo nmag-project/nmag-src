@@ -142,6 +142,10 @@ CAMLprim value caml_forall_fem_sites_do(value ml_petsc_vectors,
 }
 
 
+#if 0
+//DEAD CODE, COMMENTED OUT
+// NOTE: this function is buggy. min_distance is never set, but apparently
+//   enters the computation.
 
 CAMLprim value caml_dipole_evaluator_sumpairs_fast_ccode(value ml_params,
 							 value ml_posns,
@@ -238,3 +242,4 @@ CAMLprim value caml_dipole_evaluator_sumpairs_fast_ccode(value ml_params,
 
   CAMLreturn(Val_unit);
 }
+#endif

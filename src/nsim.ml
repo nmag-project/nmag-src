@@ -20,7 +20,6 @@ open Fem;;
 open Ccpla;;
 open Localeqn;;
 
-
 let logmsg = Nlog.getLogger("nfem.ocaml");;
 let loginfo = logmsg Nlog.Info;;
 let loginfo2 = logmsg Nlog.Info2;;
@@ -425,6 +424,51 @@ type ('matrix) nsim_ccpla_resource =
   | NSIM_RES_timestepper of par_timestepper
 ;;
 
+let get_nsim_ccpla_resource_type res =
+  match res with
+      NSIM_RES_swex _ -> "swex"
+    | NSIM_RES_mwes _ -> "mwes"
+    | NSIM_RES_vivificators _ -> "vivificator"
+    | NSIM_RES_jacobi_operators _ -> "jacobi_operators"
+    | NSIM_RES_timestepper _ -> "timestepper"
+;;
+
+let dres_get_swex res =
+  match (dres_get_opdata res) with
+      NSIM_RES_swex x -> x
+    | other_res -> failwith ("Expected a SWEX opdata, got a "
+                            ^ (get_nsim_ccpla_resource_type other_res))
+;;
+  
+let dres_get_mwes res =
+  match (dres_get_opdata res) with
+      NSIM_RES_mwes x -> x
+    | other_res -> failwith ("Expected a MWEs opdata, got a "
+                            ^ (get_nsim_ccpla_resource_type other_res))
+;;
+
+
+let dres_get_vivificators res =
+  match (dres_get_opdata res) with
+      NSIM_RES_vivificators x -> x
+    | other_res -> failwith ("Expected a vivificator opdata, got a "
+                            ^ (get_nsim_ccpla_resource_type other_res))
+;;
+
+let dres_get_jacobi_operators res =
+  match (dres_get_opdata res) with
+      NSIM_RES_jacobi_operators x -> x
+    | other_res -> failwith ("Expected a Jacobi-opeartor opdata, got a "
+                            ^ (get_nsim_ccpla_resource_type other_res))
+;;
+
+let dres_get_timestepper res =
+  match (dres_get_opdata res) with
+      NSIM_RES_timestepper x -> x
+    | other_res -> failwith ("Expected a timestepper opdata, got a "
+                            ^ (get_nsim_ccpla_resource_type other_res))
+;;
+
 type nsim_ccpla_opcode =
   | NSIM_OP_swex_create of
       (string (* Name *)
@@ -550,10 +594,6 @@ let special_tensor_delta2 ~ix_ranges indices =
 
 let special_tensor_epsilon ~ix_ranges indices =
   (* Note: we silently assume we are not fed with junk like eps(1,2,3,8)! *)
-  let range v =
-    let (_,r) = array_find (fun (n,_) -> n=v) ix_ranges
-    in r
-  in
   let nr_indices = Array.length indices in
   let sorted_indices = array_sorted compare indices in
     if sorted_array_has_duplicate (=) sorted_indices
@@ -843,7 +883,6 @@ let localeqn_ccode str = parsed_eqn_ccode (parse_localeqn str);;
 *)
 
 let layout_y_timestepper_from_primary_fields v_mwes_primary_fields =
-  let vv_distrib = Array.map (fun mwe -> mwe.mwe_distribution) v_mwes_primary_fields in
     (* Evidently, we want to arrange y such that parallel distribution of the y vector
        matches parallel distribution of the mesh. This means that we have to describe
        y-components by site. As we generally take sites to be in lexicographical
@@ -1016,7 +1055,8 @@ let pts_jacobi_derive_me__localpolynomial ccpla v_mwes equation =
      else ())
   in
   let subfields_to_derive_by = Array.map (fun (stem,_) -> stem) v_mwes.(0).mwe_subfields in
-  let is_derivative_dof ((dof_stem,_) as dof_name) =
+  let is_derivative_dof dof_name =
+    let (dof_stem, _) = dof_name in
     -1 <> array_position dof_stem subfields_to_derive_by 0
   in
   let matrix_thunk_derivatives =
@@ -1060,7 +1100,7 @@ let pts_jacobi_derive_me__localpolynomial ccpla v_mwes equation =
       [||] (* cofield mwes *)
       [||] (* aux arg names *)
   in
-  let ddd = Printf.printf "DDD NOTE TODO: site_wise_structure_and_offsets_and_defines can be improved considerably!\n%!" in
+  let () = Printf.printf "DDD NOTE TODO: site_wise_structure_and_offsets_and_defines can be improved considerably!\n%!" in
     (* Note: a site definition is (str_nr_field_indices,v_offsets,pos).
        Note furthermore that an offset of (-1) means that the corresponding
        DOF is not present at that site.
@@ -1414,12 +1454,22 @@ let pts_jacobi_vivificator
 		   else if nr_factor = pos_deriv
 		   then walk_other_factors (1+nr_factor) contrib
 		   else
-		     let this_factor = v_ba_fields_msv.(buf_factors_fields.(nr_factor)).{buf_factors_offsets.(nr_factor)} in
+		     let this_factor =
+		       v_ba_fields_msv.(buf_factors_fields.(nr_factor))
+			              .{buf_factors_offsets.(nr_factor)}
+		     in
 		     let () =
 		       let fc = classify_float this_factor in
 			 if fc <> FP_zero && fc <> FP_normal
 			   || (abs_float this_factor > 1e20)
-			 then Printf.printf "ROGUE FACTOR: buf_factors_fields=%s buf_factors_offsets=%s nr_factor=%d factor=%f\n%!" (int_array_to_string buf_factors_fields) (int_array_to_string buf_factors_offsets) nr_factor this_factor
+			 then
+			   Printf.printf
+			     "ROGUE FACTOR: buf_factors_fields=%s \
+                              buf_factors_offsets=%s nr_factor=%d \
+                              factor=%f\n%!"
+			     (int_array_to_string buf_factors_fields)
+			     (int_array_to_string buf_factors_offsets)
+			     nr_factor this_factor
 			 else ()
 		     in
 		       walk_other_factors
@@ -1497,11 +1547,12 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
   match op with
     | NSIM_OP_swex_create (name,c_code,site_info_this_machine,defines) ->
 	let swex = site_wise_executor site_info_this_machine defines c_code in
-	  [|(name,DRES_opdata (NSIM_RES_swex swex,do_nothing))|]
+	  [|(name, DRES_opdata (NSIM_RES_swex swex,do_nothing))|]
     | NSIM_OP_swex (nr_fields,param_names) ->
 	let nr_cofields = (Array.length v_distributed_resources)-nr_fields-2 in
-	let DRES_opdata (NSIM_RES_swex swex,_) = v_distributed_resources.(0) in
-	let DRES_parameters (all_param_names,all_param_vals) = v_distributed_resources.(1) in
+	let swex = dres_get_swex v_distributed_resources.(0) in
+	let (all_param_names, all_param_vals) =
+	  dres_get_parameters v_distributed_resources.(1) in
 	let params =
 	  Array.map
 	    (fun name ->
@@ -1511,11 +1562,11 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	in
 	let v_petsc_fields =
 	  Array.init nr_fields
-	    (fun n -> let DRES_petsc_vector (_,_,v) = v_distributed_resources.(2+n) in v)
+	    (fun n -> let v = dres_get_vector v_distributed_resources.(2+n) in v)
 	in
 	let v_petsc_cofields =
 	  Array.init nr_cofields
-	    (fun n -> let DRES_petsc_vector (_,_,v) = v_distributed_resources.(n+2+nr_fields) in v)
+	    (fun n -> let v = dres_get_vector v_distributed_resources.(n+2+nr_fields) in v)
 	in
 	let result = swex params v_petsc_fields v_petsc_cofields in
 	  (* We do not care whether site-wise execution was stopped early... *)
@@ -1631,7 +1682,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	in
 	  [|(name,DRES_opdata (NSIM_RES_mwes mwes,do_nothing))|]
     | NSIM_OP_vivificators_create (name_vivs,viv_specifiers) ->
-	let DRES_opdata (NSIM_RES_mwes v_mwes,_) = v_distributed_resources.(0) in
+	let v_mwes = dres_get_mwes v_distributed_resources.(0) in
 	let get_mwe name =
 	  let pos = array_position_if (fun mwe -> mwe.mwe_name = name) v_mwes 0 in
 	    v_mwes.(pos)
@@ -1665,9 +1716,9 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	     logdebug (Printf.sprintf "NSIM_OP_vivificator_exec '%s'" name_viv)
 	   else ())
 	in
-	let DRES_opdata (NSIM_RES_vivificators v_vivs,_) = v_distributed_resources.(0) in
+	let v_vivs = dres_get_vivificators v_distributed_resources.(0) in
 	let mx = dres_get_matrix v_distributed_resources.(1) in
-	let DRES_opdata (NSIM_RES_mwes v_mwes,_) = v_distributed_resources.(2) in
+	let v_mwes = dres_get_mwes v_distributed_resources.(2) in
 	let field_mid =
 	  match opt_mwe_name_field_mid with
 	    | None -> None
@@ -1681,8 +1732,12 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	  let pos = array_position_if (fun (name,_) -> name = name_viv) v_vivs 0 in
 	  let () =
 	    (if pos = -1
-	     then failwith "Fatal: could not find vivificator '%s' (known: %s)"
-	       name_viv (string_array_to_string (Array.map (fun (n,_) -> n) v_vivs)) else ())
+	     then
+		failwith
+		  (Printf.sprintf
+		     "Fatal: could not find vivificator '%s' (known: %s)"
+		     name_viv (string_array_to_string (Array.map (fun (n,_) -> n) v_vivs)))
+	     else ())
 	  in
 	  let (_,viv) = v_vivs.(pos) in viv
 	in
@@ -1717,7 +1772,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	  [|(name,DRES_opdata (NSIM_RES_jacobi_operators v_names_and_mxs,do_nothing))|]
     | NSIM_OP_fill_bem (ldms) ->
 	let myrank = Mpi_petsc.comm_rank comm in
-	let DRES_opdata (NSIM_RES_mwes v_mwes,_) = v_distributed_resources.(0) in
+	let v_mwes = dres_get_mwes v_distributed_resources.(0) in
 	let mx = dres_get_matrix v_distributed_resources.(1) in
 	let (dof_stem,_) = ldms.ldms_dof_name in
 	let mwe =
@@ -1753,12 +1808,12 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	    ldms.ldms_dof_name mwe
 	in [||]
     | NSIM_OP_advance_timestepper (exact_tstop, t_final, maxits) ->
-	let DRES_opdata ((NSIM_RES_timestepper pts),_) = v_distributed_resources.(0) in
+	let pts = dres_get_timestepper v_distributed_resources.(0) in
 	let t_reached = pts.pts_advance ~exact_tstop t_final maxits in
 	let () = pts.pts_time_reached <- t_reached in
 	  [||]
     | NSIM_OP_init_timestepper (initial_time,rel_tol,abs_tol) ->
-	let DRES_opdata ((NSIM_RES_timestepper pts),_) = v_distributed_resources.(0) in
+	let pts = dres_get_timestepper v_distributed_resources.(0) in
 	let () = pts.pts_set_initial_from_phys ~initial_time ~rel_tol ~abs_tol () in
 	  [||]
     | NSIM_OP_hmatrix_mult (opt_hmx_buffers) ->
@@ -1784,8 +1839,10 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	  end
 	in [||]
     | NSIM_OP_make_timestepper (name_ts,lts) ->
-	(* C4R (mf, 2 Jun 2008): let ddd = Printf.fprintf stderr "DDD Note: (Harmless design flaw, should be repaired nevertheless)\n timestepper does not hold on to the DRHs of the distributed resources it uses.\n It must (otherwise, we may get GC trouble in later versions of nsim, though not this one)!\n%!"
-	in*)
+	(* Harmless design flaw, should be repaired nevertheless: timestepper
+	   does not hold on to the DRHs of the distributed resources it uses.
+	   It must (otherwise, we may get GC trouble in later versions of nsim,
+	   though not this one)! *)
 	let () =
 	  Sundials_sp.sundials_init
 	    ~path_cvode:(sundials_path Nsimconf.sundials_cvode_lib) (*"libsundials_cvode.so" Nsimconf.sundials_cvode_lib*)
@@ -1800,14 +1857,14 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	     i.e. for nmag, this is not "rhs" but "update_dmdt"!
 	  *)
 	let sub_velocities = dres_get_sequence v_distributed_resources.(0) in
-	let DRES_opdata ((NSIM_RES_mwes v_all_relevant_mwes),_) = v_distributed_resources.(1) in
+	let v_all_relevant_mwes = dres_get_mwes v_distributed_resources.(1) in
 	let v_mwes =
 	  Array.map
 	    (fun name ->
 	       array_find (fun mwe -> mwe.mwe_name=name) v_all_relevant_mwes)
 	    lts.lts_names_phys_field_mwes
 	in
-	let DRES_opdata ((NSIM_RES_jacobi_operators jacobi_names_ops),_) = v_distributed_resources.(2) in
+	let jacobi_names_ops = dres_get_jacobi_operators v_distributed_resources.(2) in
 	let v_mwes_primary_fields = Array.sub v_mwes 0 lts.lts_nr_primary_fields in
 	let (y_distribution,y_phys) = layout_y_timestepper_from_primary_fields v_mwes_primary_fields in
 	let len_y = Array.length y_phys in
@@ -2547,18 +2604,18 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	  match cmd with
 	    | "RESET" ->
 		begin
-		  pts_timings.ptt_rhs_n = 0.0;
-		  pts_timings.ptt_rhs_t = 0.0;
-		  pts_timings.ptt_jacobi_n = 0.0;
-		  pts_timings.ptt_jacobi_t = 0.0;
-		  pts_timings.ptt_jv_n = 0.0;
-		  pts_timings.ptt_jv_t = 0.0;
-		  pts_timings.ptt_pc_setup_n = 0.0;
-		  pts_timings.ptt_pc_setup_t = 0.0;
-		  pts_timings.ptt_pc_solve_n = 0.0;
-		  pts_timings.ptt_pc_solve_t = 0.0;
-                  pts_timings.ptt_extra_n = 0.0;
-                  pts_timings.ptt_extra_t = 0.0;
+		  pts_timings.ptt_rhs_n <- 0.0;
+		  pts_timings.ptt_rhs_t <- 0.0;
+		  pts_timings.ptt_jacobi_n <- 0.0;
+		  pts_timings.ptt_jacobi_t <- 0.0;
+		  pts_timings.ptt_jv_n <- 0.0;
+		  pts_timings.ptt_jv_t <- 0.0;
+		  pts_timings.ptt_pc_setup_n <- 0.0;
+		  pts_timings.ptt_pc_setup_t <- 0.0;
+		  pts_timings.ptt_pc_solve_n <- 0.0;
+		  pts_timings.ptt_pc_solve_t <- 0.0;
+                  pts_timings.ptt_extra_n <- 0.0;
+                  pts_timings.ptt_extra_t <- 0.0;
 		  [||]
 		end
 	    | "REPORT" ->
@@ -2588,7 +2645,6 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	    }
 	in
 	  [|(name_ts,DRES_opdata (NSIM_RES_timestepper par_timestepper,timestepper_finalizer))|]
-    | _ -> failwith "operator not implemented!"
 ;;
 
 let nsim_swex_create ccpla name c_code v_field_mwes v_cofield_mwes aux_arg_names =
@@ -2666,7 +2722,6 @@ let nsim_vivificators_create ccpla name ~mwes ~vivificator_specs =
 
 let nsim_jacobi_operators_create ccpla name ~jacobi_operator_names ~jacobi_drhs =
   let () = logdebug (Printf.sprintf "nsim_jacobi_operators_create #1") in
-  let ddd = Printf.printf  in
   let nr_nodes = Mpi_petsc.comm_size ccpla.ccpla_comm in
   let cmds_create =
     Array.make nr_nodes
@@ -2868,7 +2923,8 @@ Thomas Fischbacher, 13.05.2008
 		 let (DRH name) as ccpla_v =
 		   ccpla.ccpla_vector_create buffer_abs_name distrib
 		 in
-		 let DRES_petsc_vector (_,_,p_v) = Hashtbl.find ccpla.ccpla_resources name in
+		 let p_v =
+		   dres_get_vector (Hashtbl.find ccpla.ccpla_resources name) in
 		 let () =
 		   (if initial_value = 0.0 then ()
 		    else
@@ -3017,7 +3073,7 @@ Thomas Fischbacher, 13.05.2008
 		   let (lts,stl,_) =
 		     boundary_shortvec_info dof_stem mwe ldms.ldms_boundary_spec
 		   in
-		   let ddd = logdebug "Computing 3d space angles" in
+		   let () = logdebug "Computing 3d space angles" in
 		   let geom_info =
 		     Bem3d.mwe_dof_3d_surface_triangles_and_space_angles_and_coords
 		       ~inside_property:"material" (* DDD XXX REPAIR: need ldms.ldms_inside_property *)
@@ -3365,8 +3421,6 @@ Thomas Fischbacher, 13.05.2008
 			    array_foreach_do names
 			      (fun name ->
 				 Hashtbl.replace timers_accum name 0.0)))|]
-	      | _ ->
-		  failwith "XXX write me!"
 	  in
 	  let () = logdebug (Printf.sprintf "DDD make_linalg_machine #8") in
 	  let compiled_sequences =
@@ -3486,7 +3540,9 @@ Thomas Fischbacher, 13.05.2008
 	    let pseq = compiled_sequences.(nr_seq) in
 	      ccpla.ccpla_sequence_execute ~local_vectors:this_cseq_arg_vectors pseq
 	  in
-	  let fun_get_set_field do_get field_name (FEM_field (mwe_target,restr_target,v_target) as the_field) =
+	  let fun_get_set_field
+	      do_get field_name
+	      (FEM_field (mwe_target, restr_target, v_target)) =
 	    let buf_ix = get_buffer_index field_name in
 	    let (_,mwe_name,restr,is_field,_) = script.las_internal_buffers.(buf_ix) in
 	    let () = (if not(mwes_are_compatible ~restr1:restr_target ~restr2:restr mwe_target (get_mwe mwe_name))
@@ -3500,7 +3556,9 @@ Thomas Fischbacher, 13.05.2008
 		~local_vectors:[|v_target|] 0
 		(let (v,_) = the_internal_buffers.(buf_ix) in v)
 	  in
-	  let fun_get_set_cofield do_get cofield_name (FEM_cofield (mwe_target,restr_target,v_target) as the_cofield) =
+	  let fun_get_set_cofield
+	      do_get cofield_name
+	      (FEM_cofield (mwe_target,restr_target,v_target)) =
 	    let buf_ix = get_buffer_index cofield_name in
 	    let (_,mwe_name,restr,is_field,_) = script.las_internal_buffers.(buf_ix) in
 	    let () = (if not(mwes_are_compatible ~restr1:restr_target ~restr2:restr mwe_target (get_mwe mwe_name))
@@ -3560,14 +3618,14 @@ Thomas Fischbacher, 13.05.2008
 	    let () = master_process_queue ccpla in
 	      (* Bad hack: should not resolve distributed resource handle (drh) on master, 24 Jan 2008 *)
 	    let (DRH pts_name) = drh_pts in
-	    let DRES_opdata ((NSIM_RES_timestepper pts),_) = Ccpla.ccpla_get_resource ccpla pts_name in
+	    let pts = dres_get_timestepper (Ccpla.ccpla_get_resource ccpla pts_name) in
 	      pts.pts_time_reached
 	  in
 	  let fun_timestepper_get_cvode name =
 	    let drh_pts = get_timestepper name in
 	      (* Bad hack: should not resolve distributed resource handle (drh) on master, 24 Jan 2008 *)
 	    let (DRH pts_name) = drh_pts in
-	    let DRES_opdata ((NSIM_RES_timestepper pts),_) = Ccpla.ccpla_get_resource ccpla pts_name in
+	    let pts = dres_get_timestepper (Ccpla.ccpla_get_resource ccpla pts_name) in
 	      match !(pts.pts_cvode) with
 		| None -> failwith "time stepper was not initialised yet"
 		| Some cvode -> cvode
@@ -3576,7 +3634,7 @@ Thomas Fischbacher, 13.05.2008
 	    let drh_pts = get_timestepper name in
 	      (* Bad hack: should not resolve distributed resource handle (drh) on master, 24 Jan 2008 *)
 	    let (DRH pts_name) = drh_pts in
-	    let DRES_opdata ((NSIM_RES_timestepper pts),_) = Ccpla.ccpla_get_resource ccpla pts_name in
+	    let pts = dres_get_timestepper (Ccpla.ccpla_get_resource ccpla pts_name) in
 	      pts.pts_timing_control cmd
 	  in
 	  let fun_internal_ccpla_resources () =
@@ -3623,7 +3681,7 @@ let bem_field_strength ?epsilon lam ~bem_name ~boundary_vec_name pos_observer =
 ;;
 
 let ddd_bem_potential lam ~bem_name ~boundary_vec_name pos_observer =
-  let dim = Array.length pos_observer in
+  (*let dim = Array.length pos_observer in*)
     (* ^ At present, we can only do dim=3, but let's keep this generic *)
   let fun_pot pos =
     lam.get_potential bem_name boundary_vec_name pos

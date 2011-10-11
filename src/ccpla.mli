@@ -81,7 +81,7 @@ val dres_get_matrix : ('a, 'b) distributed_resource -> Mpi_petsc.matrix
 val dres_get_ksp : ('a, 'b) distributed_resource -> Mpi_petsc.ksp
 val dres_get_matnullspace :
   ('a, 'b) distributed_resource -> Mpi_petsc.matnullspace
-val dres_get_parameters : ('a, 'b) distributed_resource -> float array
+val dres_get_parameters : ('a, 'b) distributed_resource -> string array*float array
 val dres_get_sequence :
   ('a, 'b) distributed_resource -> ('a, 'b) distributed_command array
 val dres_get_opdata : ('a, 'b) distributed_resource -> 'b

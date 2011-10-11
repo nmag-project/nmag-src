@@ -94,7 +94,7 @@ let mwe_dof_3d_surface_triangles_and_space_angles_and_coords
 	  let sx = simplices.(bdof.dof_sx_nel_ix.(2*n)) in
 	  let nel_ix = bdof.dof_sx_nel_ix.(2*n+1) in
 	  let ix = nel_ix land 0xffff in
-	  let nel = nel_ix lsr 16 in
+	  (*let nel = nel_ix lsr 16 in*)
 	  let bdof_indices =
 	    Array.map (fun p -> local_index_by_mesh_index.(p.mp_id)) sx.ms_points
 	  in

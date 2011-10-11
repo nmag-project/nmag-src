@@ -1211,7 +1211,6 @@ let _py_simple_convex_mesh =
 	    if n < nr_hull_points then v_hull_points.(n)
 	    else generate_point())
       in
-      let f_dim = float_of_int dim in
       let point_distance ix1 ix2 =
 	let p1 = v_points.(ix1)
 	and p2 = v_points.(ix2)
@@ -1287,9 +1286,9 @@ let _py_simple_convex_mesh =
 	     (fun simplex -> (Mesh.Body_Nr 1,simplex))
 	     triangulation)
       in
-      let ddd = Printf.printf "DDD made mesh!\n%!" in
+      let () = Printf.printf "DDD made mesh!\n%!" in
       let () = mesh_grow_bookkeeping_data ~do_connectivity:true the_mesh in
-      let ddd = Printf.printf "DDD did connectivity!\n%!" in
+      let () = Printf.printf "DDD did connectivity!\n%!" in
       ocamlpill_from_mesh the_mesh)
 ;;
 
@@ -2286,7 +2285,7 @@ let _py_field_alias =
   python_pre_interfaced_function
     [|CamlpillType;CamlpillType|] (* field, new-mwe *)
     (fun args ->
-      let (FEM_field (mwe_f,r,v_f) as field) = field_from_ocamlpill args.(0) in
+      let FEM_field (mwe_f, r, v_f) = field_from_ocamlpill args.(0) in
       let mwe = mwe_from_ocamlpill args.(1) in
       if not(mwes_are_compatible mwe_f mwe)
       then failwith "field_alias: new mwe and field mwe are incompatible!"
@@ -2611,11 +2610,11 @@ let _py_data_dofvector_from_field =
    ~doc:"Given a mwe or field or cofield and the name of a dof, this returns all the data associated with that dof (positions, data). Unfinished; not working currently. Hans, Nov 2006"
     [|CamlpillType;StringType|]
     (fun args ->
-      let mwe = __mwe_from_mwe_or_field_or_cofield args.(0) in
+      (*let mwe = __mwe_from_mwe_or_field_or_cofield args.(0) in
       let dofname = pystring_asstring args.(1) in
-      let mwedofs=mwe.mwe_dofs in
-      pytuple2 (pylist_fromarray [|pynone()|] ,pylist_fromarray [|pynone()|])
-    )
+      let mwedofs = mwe.mwe_dofs in*)
+        pytuple2 (pylist_fromarray [|pynone()|],
+		  pylist_fromarray [|pynone()|]))
 ;;
 
 
@@ -2627,11 +2626,11 @@ let _py_field_entry_wise =
       let ty_x = ocamlpill_type_of x in
       let (mwe,stl,v) =
 	if ty_x = pysym_field then
-	  let (FEM_field (mwe,restr,v) as field) = ocamlpill_hard_unwrap x in
+	  let FEM_field (mwe, restr, v) = ocamlpill_hard_unwrap x in
 	  let (_,stl,_) = mwe_shortvec_info mwe restr in
 	  (mwe,stl,v)
 	else if ty_x = pysym_cofield then
-	  let (FEM_cofield (mwe,restr,v) as cofield) = ocamlpill_hard_unwrap x in
+	  let FEM_cofield (mwe, restr, v) = ocamlpill_hard_unwrap x in
 	  let (_,stl,_) = mwe_shortvec_info mwe restr in
 	  (mwe,stl,v)
 	else raise (Py_Exn (Printf.sprintf "py_field_entry_wise: got pill of bad type: %s" ty_x))
@@ -2660,11 +2659,6 @@ let _py_field_entry_wise =
       in pynone())
 ;;
 
-
-
-(* mf: I'm not sure this definition is not redundant. But I need this function
-       to do the hysteresis loop.
- *)
 let _py_set_field =
   python_pre_interfaced_function
     [|CamlpillType;CallableType|]
@@ -2672,7 +2666,6 @@ let _py_set_field =
     (fun args ->
        let (FEM_field (mwe,_, _) as field) = field_from_ocamlpill args.(0) in
        let () = ensure_field_is_unrestricted field in (* XXX *)
-       let nr_dof = Array.length mwe.mwe_dofs in
        let f_py_sample = pycallable_asfun args.(1) in
        let fun_sampling (dof_name,dof_indices) dof =
          let dof_pos = dof.dof_pos in
@@ -2724,7 +2717,9 @@ let _py_raw_make_field_or_cofield do_field =
        let v_petsc =
 	 match opt_callable with
 	   | None ->
-	       Mpi_petsc.vector_pack (Array.make nr_dof 0.0) (* XXX improve! *)
+	       Mpi_petsc.vector_pack
+		 ?name:petsc_name
+		 (Array.make nr_dof 0.0) (* XXX improve! *)
 	   | Some f_py_sample ->
 	       let fun_sampling (dof_name,dof_indices) dof =
 		 let dof_pos = dof.dof_pos in
@@ -2750,6 +2745,7 @@ let _py_raw_make_field_or_cofield do_field =
 		     | _ -> failwith "Python field/cofield sampling function returned non-number!"
 	       in (* XXX Note that we do not use sample_field here, but sample directly! *)
 		 Mpi_petsc.vector_pack
+		   ?name:petsc_name
 		   (Array.init nr_dof
 		      (fun n ->
 			 let dof = mwe.mwe_dofs.(dof_mapping_s_to_l.(n)) in
@@ -4384,7 +4380,6 @@ let _py_memory_footprint =
     ~doc:"Returns a triple containing three double numbers (size_data, size_headers, depth) that describe the size of a given OCamlpill. The size is expressed in bytes."
     [|CamlpillType|]
     (fun args ->
-       let x = args.(0) in
        let value = Snippets.get_feature ~domain:"debug" "do_ocaml_pill_memory_reports" in
        let inactive = (-1.,-1.,-1.) in
        let (sz_data,sz_headers,sz_depth) =

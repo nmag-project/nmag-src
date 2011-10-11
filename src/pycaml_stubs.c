@@ -303,14 +303,14 @@ PyObject *pycall_callback_buggy( PyObject *obj, PyObject *args ) {
    this is how I suppose it should work:
 */
 
-static PyObject *pycall_callback( PyObject *obj, PyObject *args ) {
+static PyObject *pycall_callback(PyObject *obj, PyObject *args) {
   CAMLparam0();
   CAMLlocal3(ml_out,ml_func,ml_args);
   PyObject *out;
 
     if( !PyCObject_Check(obj) ) {
 	Py_INCREF(Py_None);
-	CAMLreturn(Py_None);
+	CAMLreturnT(PyObject *, Py_None);
     }
 
     ml_func = *(value *)PyCObject_AsVoidPtr( obj );
@@ -325,7 +325,7 @@ static PyObject *pycall_callback( PyObject *obj, PyObject *args ) {
        see that we own that reference:
     */
     if(out)Py_INCREF(out);	/* NOTE: may be 0! */
-    CAMLreturn(out);
+    CAMLreturnT(PyObject *, out);
 }
 
 typedef void  (*type_1)( void );
@@ -1786,6 +1786,7 @@ Removed by T.F., as this piece of code seemed quite buggy....
   so we effectively always bailout into python.
  */
 
+#if 0
 static int pycaml_raise_error(int type, char *message)
 {
   CAMLlocal1(ex);
@@ -1794,6 +1795,7 @@ static int pycaml_raise_error(int type, char *message)
   Store_field(ex,1,copy_string(message));
   raise_with_arg(*caml_named_value("ocaml_exn_pycaml"),ex);
 }
+#endif
 
 /* These were missing */
 value pybool_frombool(value x) {
