@@ -196,7 +196,9 @@ let _py_mpi_status =
 
 let _py_ccpla_hello =
   python_pre_interfaced_function
-    ~doc:"Ping hello messages from all nodes (in the Centrally Coordinated Parallel Linear Algebra (CCPLA) Machine). Useful for mpi-testing and debugging via stdout. Report hostname and rank for each node."
+    ~doc:"Ping hello messages from all nodes (in the Centrally Coordinated \
+          Parallel Linear Algebra (CCPLA) Machine). Useful for mpi-testing \
+          and debugging via stdout. Report hostname and rank for each node."
     [||]
     ( fun args ->
       let () = match !pyfem_ccpla with
@@ -208,7 +210,9 @@ let _py_ccpla_hello =
 
 let _py_execute_on_all_nodes_hello =
   python_pre_interfaced_function
-    ~doc:"Ping hello messages from all nodes Centrally Coordinated Parallel Linear Algebra (CCPLA) Machine, triggered via the nsim_execute_all_CPUs function (useful for mpi-testing)"
+    ~doc:"Ping hello messages from all nodes Centrally Coordinated Parallel \
+          Linear Algebra (CCPLA) Machine, triggered via the \
+          nsim_execute_all_CPUs function (useful for mpi-testing)"
     [||]
     ( fun args ->
       let () = match !pyfem_ccpla with
@@ -240,8 +244,6 @@ let () =
 let pysym_mesh = "Mesh"
 and pysym_mesher_defaults_int = "Mesher Defaults (with state of type int)"
 and pysym_mg_gendriver = "Mesh Generator Driver Generator"
-and pysym_mgo_int = "Mesh Generator Engine Output (with state of type int)" (* XXX TO GO AWAY! *)
-and pysym_meshed_physics = "Meshed Differential Operator" (* XXX OBSOLETE! *)
 and pysym_fem_body = "FEM Body"
 and pysym_element = "FEM Element"
 and pysym_operator = "FEM Operator"
@@ -259,8 +261,6 @@ let () = register_ocamlpill_types
     [|pysym_mesh;
       pysym_mesher_defaults_int;
       pysym_mg_gendriver;
-      pysym_mgo_int;
-      pysym_meshed_physics;
       pysym_fem_body;
       pysym_element;
       pysym_operator;
@@ -276,22 +276,8 @@ let () = register_ocamlpill_types
 ;;
 
 let rec
-(*    _sample_mesh =
-  let m =
-    mesh_from_known_delaunay
-      [| [|1.0|];[|2.0|];[|3.0|] |]
-      [| (Body_Nr 0,[|0;1|]); (Body_Nr 0,[|1;2|]); |]
-  in
-  let () = mesh_grow_bookkeeping_data ~do_connectivity:true m
-  in m
-and
-*)
     _sample_mesher_defaults_int= !opt_mesher_defaults
-and
-    _sample_mg_gendriver = default_gendriver
-and
-    _sample_mgo_int =
-  Mesh_Engine_Finished_Step_Limit_Reached (dummy_mesh,0)
+and _sample_mg_gendriver = default_gendriver
 and _sample_fem_body = (Body (body_trafo_id 2,(fun (pos:(float array)) -> 1.0)))
 and _sample_element = make_element 1 ("T",[||]) 1
 ;;
@@ -323,9 +309,6 @@ let (ocamlpill_from_mesher_defaults_int, mesher_defaults_int_from_ocamlpill) =
 
 let (ocamlpill_from_mg_gendriver, mg_gendriver_from_ocamlpill) =
   make_ocamlpill_wrapper_unwrapper pysym_mg_gendriver _sample_mg_gendriver;;
-
-let (ocamlpill_from_mgo_int, mgo_int_from_ocamlpill) =
-  make_ocamlpill_wrapper_unwrapper pysym_mgo_int _sample_mgo_int;;
 
 let (ocamlpill_from_fem_body, fem_body_from_ocamlpill) =
   make_ocamlpill_wrapper_unwrapper pysym_fem_body _sample_fem_body;;
@@ -395,6 +378,21 @@ let _py_mesh_set_vertex_distribution =
        let dist = py_int_list_as_array ~length:nr_nodes args.(1) in
        let () = mesh.mm_vertex_distribution <- dist in
 	 pynone())
+;;
+
+let _py_mesh_get_permutation =
+  python_pre_interfaced_function
+    ~doc: "Return the permutation used to rearrange the mesh (rearranging the \
+           mesh is necessary in order to distribute it across several \
+           machines via MPI"
+    [|CamlpillType|]
+    (fun args ->
+       let mesh = mesh_from_ocamlpill args.(0) in
+       let permutation = get_permutation mesh
+       in
+         match permutation with
+	     None -> pynone ()
+	   | Some p -> pylist_fromarray (Array.map (fun i -> pyint_fromint i) p))
 ;;
 
 let _py_petsc_mpi_nr_nodes =
@@ -877,38 +875,6 @@ let _py_make_mg_gendriver =
 	 ocamlpill_from_mg_gendriver gendriver)
 ;;
 
-
-let _py_mgo_extract_mesh =
-  python_pre_interfaced_function
-    [|CamlpillType|]
-    (fun args ->
-      let mgo = mgo_int_from_ocamlpill args.(0) in
-      match mgo with
-      | Mesh_Engine_Finished_Step_Limit_Reached (mesh, nr_steps)
-	->
-	  pytuple3(pystring_fromstring "Step Limit Reached",
-		   pyint_fromint nr_steps,
-		   ocamlpill_from_mesh mesh)
-      | Mesh_Engine_Finished_Force_Equilibrium_Reached (mesh, residual_force)
-	->
-	  pytuple3(pystring_fromstring "Force Equilibrium Reached",
-		   pyfloat_fromdouble residual_force,
-		   ocamlpill_from_mesh mesh)
-      | Mesh_Engine_Produced_Intermediate_Mesh_And_Can_Continue (mesh, _)
-	->
-	  pytuple3(pystring_fromstring "Intermediate Mesh",
-		   args.(0),	(* Just put in the object itself -
-				   this is the most appropriate value here,
-				   as it tells us how to continue.
-				   We might also just provide pynone()
-				   or something similar.
-				 *)
-		   ocamlpill_from_mesh mesh)
-      | _ -> pynone()
-	    (* No mesh to extract! *)
-	    (* XXX is that right? Should we return pynull()? *)
-    )
-;;
 
 (* Geometry/Body functions *)
 
@@ -4498,6 +4464,7 @@ let _ =
       ("mesh_nr_points", _py_mesh_nr_points);
       ("mesh_nr_simplices", _py_mesh_nr_simplices);
       ("mesh_set_vertex_distribution", _py_mesh_set_vertex_distribution);
+      ("mesh_get_permutation", _py_mesh_get_permutation);
       ("mesh_plotinfo",_py_mesh_plotinfo);
       ("mesh_plotinfo_points",_py_mesh_plotinfo_points);
       ("mesh_plotinfo_pointsregions",_py_mesh_plotinfo_pointsregions);
@@ -4542,7 +4509,6 @@ let _ =
       (* -- *)
 
       ("make_mg_gendriver",_py_make_mg_gendriver); (* XXX needs a better name! *)
-      ("mesher_extract_mesh",_py_mgo_extract_mesh); (* XXX presumably, also obsolete, just as all mgo stuff! *)
       ("mesh_bodies_raw",_py_mesh_bodies_raw); (* XXX Needs a python-side wrapper "mesh_bodies"! *)
       (* -- *)
       ("mesh2d_ps",_py_mesh2d_ps);

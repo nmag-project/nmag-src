@@ -9,7 +9,7 @@
  * LICENSE: GNU General Public License 2.0
  *          (see <http://www.gnu.org/licenses/>)
  *
- * Exporting PETSc functionality to Python.
+ * Exporting FEM functionality to Python.
  *
  *)
 

@@ -403,11 +403,11 @@ type mesh =
       mm_la: la_functions;
       mm_make_find_visible: (mesh -> float array -> (simplex * int));
       mutable mm_fem_geometry: fem_geometry option;
-	(* Note: the slot above is required, as a mesh should know about its geometry
-	   e.g. to answer questions such as "what boundary condition is that given point on",
-	   but we make this mutable so that we can zero it out. This way, we can avoid
-	   closure serialization issues.
-	 *)
+      (* Note: the slot above is required, as a mesh should know
+	 about its geometry e.g. to answer questions such as "what
+	 boundary condition is that given point on", but we make
+	 this mutable so that we can zero it out. This way, we can
+	 avoid closure serialization issues.  *)
       mutable mm_boundaries:
 	((simplex_region * simplex_region)*((simplex_id*face_ix) array)) array;
       (* A vector of (simplex_id,nr_face) per combination of regions. *)
@@ -416,11 +416,23 @@ type mesh =
       mutable mm_mesh0: Mesh0.t;
       mutable mm_simplex_data: Simplex.t;
       mutable mm_region_volumes: float array;
-      mutable mm_vertex_distribution: int array; (* how many nodes go to what machine? *)
-      (* NOTE: we still have to deal with removal of points and simplices.
-	 The way we handle this is to keep a list of all point_ids/simplex_ids
-	 which correspond to entries in mm_points/mm_simplices which actually
-	 are not used in the current mesh, and hence may be recycled.
+
+      mutable mm_vertex_distribution: int array;
+      (* how many nodes go to what machine? *)
+      mutable mm_permutation: int array option;
+      (* Permutation used to distribute the mesh across several machines.
+	 This field allows to reconstruct the original mesh (the one provided
+         by the user and which we may have reordered in order to distribute it
+         across many machines. This is important as we may have to save data
+         accordingly to the original mesh. In particular node 'i' in the
+         current mesh 'm' corresponds to the node m.mm_permutation.(i) in the
+         original mesh. *)
+
+      (* NOTE: we still have to deal with removal of points and
+	 simplices. The way we handle this is to keep a list of all
+	 point_ids/simplex_ids which correspond to entries in
+	 mm_points/mm_simplices which actually are not used in the
+	 current mesh, and hence may be recycled.
 
 	 NOT USED YET - will be used when we think about dynamic mesh adjustment.
       *)
@@ -444,11 +456,17 @@ let dummy_mesh =
      mm_simplex_data = Simplex.dummy;
      mm_region_volumes = [||];
      mm_vertex_distribution = [||];
+     mm_permutation = None;
      mm_periodic_points = [||];
      mm_have_connectivity = false;
      mm_have_regions = false;
     };;
 
+(* Retrieve the permutation which maps the original mesh to this one.  The
+   permutation records any reordering applied to the mesh from the initial
+   version. Reordering are typically applied to distribute the mesh across
+   several machines. *)
+let get_permutation mesh = mesh.mm_permutation;;
 
 (* TRANSITION FUNCTION *)
 let mesh0_from_mesh mesh_points mesh_simplices =
@@ -1688,6 +1706,7 @@ let mesh_from_known_delaunay                                                    
      mm_simplex_data = simplex_data;
      mm_region_volumes = _region_volumes simplex_data msimplices;
      mm_vertex_distribution=[|Array.length mpoints|];
+     mm_permutation = None;
      mm_periodic_points = [||];
      mm_have_connectivity=false;
      mm_have_regions=false;
@@ -6143,10 +6162,18 @@ let mesh_connectivity mesh =
 let mesh_do_reorder_vertices mesh permutation =
   let points = mesh.mm_points in
   let nr_points = Array.length points in
+  let new_permutation =
+    match mesh.mm_permutation with
+	None ->                      (* Use the new permutation *)
+	Array.init nr_points (fun n -> permutation n)
+      | Some previous_permutation -> (* Compose the two permutations *)
+	Array.init nr_points (fun n -> previous_permutation.(permutation n))
+  in
   let reordered_points = Array.init nr_points (fun n -> points.(permutation n)) in
   begin
     Array.iteri (fun n p -> p.mp_id <- n) reordered_points;
     mesh.mm_points <- reordered_points;
+    mesh.mm_permutation <- Some new_permutation;
     mesh.mm_mesh0 <- mesh0_from_mesh mesh.mm_points mesh.mm_simplices;
     (* That seems necessary to me, after the change I made
        even if the simulations I made did not require it, apparenlty.

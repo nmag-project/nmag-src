@@ -374,12 +374,15 @@ type mesh =
 	 which correspond to entries in mm_points/mm_simplices which actually
 	 are not used in the current mesh, and hence may be recycled.
       *)
-     mutable mm_periodic_points : int array array;
-     mutable mm_have_connectivity: bool;
-     mutable mm_have_regions: bool;
+      mutable mm_permutation: int array option;
+      mutable mm_periodic_points : int array array;
+      mutable mm_have_connectivity: bool;
+      mutable mm_have_regions: bool;
     }
 
 val dummy_mesh : mesh
+
+val get_permutation: mesh -> int array option
 
 val simplex_surface_1form_component: mesh -> Simplex.idx -> int -> int -> float
 

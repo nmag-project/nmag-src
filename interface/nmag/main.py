@@ -1178,15 +1178,17 @@ class Simulation(SimulationCore):
         else:
             do_distribute=True
 
-	#Need to convert the mesh positions into simulation units. The mesh positions are SI when
-	#the unit_length is multiplied with the actual coordinates. We thus only have to convert the
-	#unit_length SI object into simulation units:
-	scalefactor=simulation_units.of(unit_length, compatible_with=SI(1,'m'))
+	# Need to convert the mesh positions into simulation
+	# units. The mesh positions are SI when the unit_length is
+	# multiplied with the actual coordinates. We thus only have to
+	# convert the unit_length SI object into simulation units:
+	scalefactor=simulation_units.of(unit_length, compatible_with=SI('m'))
 
-        log.log(15,"User sets mesh_unit_length to be %s (in load_mesh)" % str(self.mesh_unit_length))
+        log.log(15, ("User sets mesh_unit_length to be %s (in load_mesh)"
+                     % str(self.mesh_unit_length)))
 
         memory_report("just before nmesh.load")
-        self.mesh = nmesh.load(filename,do_reorder,do_distribute)
+        self.mesh = nmesh.load(filename, do_reorder, do_distribute)
         memory_report("just after nmesh.load")
 
         if manual_distribution:

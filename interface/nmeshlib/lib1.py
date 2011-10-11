@@ -799,21 +799,24 @@ def load_hdf5(filename,do_reorder=False,do_distribute=True):
 	pass #this mesh is not periodic
 
     if has_periodic_data:
-	tmp_periodic_point_indices = f.root.mesh.periodicpointindices.read().tolist()
-	#This list still includes many -1 which represent None. This is because (in contrast
-	#to points, simplices and regionindices) the periodicpointindices will (in general) 
-	#have a different number of entries per line. See hdf5_v01.py:add_mesh().
+	tmp_periodic_point_indices = \
+            f.root.mesh.periodicpointindices.read().tolist()
+	# This list still includes many -1 which represent None. This
+	# is because (in contrast to points, simplices and
+	# regionindices) the periodicpointindices will (in general)
+	# have a different number of entries per line. See
+	# hdf5_v01.py:add_mesh().
 
 	for line in tmp_periodic_point_indices:
 	    periodic_point_indices.append( [index for index in line if index!=-1])
 
 	
-    res = mesh_from_points_and_simplices(points,simplices,simplices_regions,\
-                                          periodic_point_indices,do_reorder=do_reorder,
-                                          do_distribute=do_distribute)
+    res = mesh_from_points_and_simplices(points,simplices,simplices_regions,
+                                         periodic_point_indices, 
+                                         do_reorder=do_reorder,
+                                         do_distribute=do_distribute)
 
     h5.close_pytables_file(f)
-
     return res
 
 
@@ -871,7 +874,7 @@ class mesh_from_points_and_simplices(meshBaseClass):
        Constructor of mesh from points and simplices.
        """
 
-    def __init__(self, points=[], simplices_indices=[], simplices_regions=[], \
+    def __init__(self, points=[], simplices_indices=[], simplices_regions=[],
                  periodic_point_indices=[], initial=0, do_reorder=False,
                  do_distribute=True):
 
