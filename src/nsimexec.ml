@@ -392,7 +392,8 @@ let _py_mesh_get_permutation =
        in
          match permutation with
 	     None -> pynone ()
-	   | Some p -> pylist_fromarray (Array.map (fun i -> pyint_fromint i) p))
+	   | Some p ->
+	       pylist_fromarray (Array.map (fun i -> pyint_fromint i) p))
 ;;
 
 let _py_petsc_mpi_nr_nodes =

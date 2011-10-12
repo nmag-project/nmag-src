@@ -1347,7 +1347,7 @@ def get_dof_row_data_in_meshpoint_order(fh,field,dofname,row):
 
 
 
-def add_mesh(file,mesh,mesh_unit_length):
+def add_mesh(file, mesh, mesh_unit_length):
     """
     Add mesh data structure to open hdf5 file.
 
@@ -1369,68 +1369,51 @@ def add_mesh(file,mesh,mesh_unit_length):
 
         If we save the mesh from the mesher (using this function), then
         we do not want to add a unit_length scale (so this parameter is optional).
-
-
     """
 
-    if type(file)==tables.File:#open tables file handler
-        f=file
-    elif type(file)==types.StringType: #filename
-        f=open_pytables_file(file,'r+')
+    if type(file) == tables.File:            # Open tables file handler
+        f = file
+
+    elif type(file) == types.StringType:     # Filename
+        f = open_pytables_file(file, 'r+')
 
     meshgroup = f.createGroup("/", 'mesh', 'Mesh data')
 
+    # C-array or not C-array:
+    #
+    # Experiment: bar30_30_100.nmesh (688k ) -> compressed carray (110k), -
+    # -> array(246k) (this is just binary, can't be compressed)
+    # -> uncompressed table -> 250k,
+    # -> compressed table -> 114k
+    #
+    # So the C-array is slightly better, even though regions and simplices are
+    # not compressed together.
     use_c_array = True
-
-        #c-array or not c-array:
-        #
-        #experiment: bar30_30_100.nmesh (688k ) -> compressed carray (110k), -
-        # -> array(246k) (this is just binary, can't be compressed)
-        # -> uncompressed table -> 250k,
-        # -> compressed table -> 114k
-        #
-        #so the C-array is slightly better, even though regions and simplices are
-        #not compressed together.
-
     if use_c_array:
         filter = tables.Filters(complevel=5, complib="zlib")
 
-        #positions
-        pos_shape = (len(mesh.points),mesh.dim)
-        pos_chunk = tables.Float64Atom(shape = pos_shape)
-
-        #import nmag
-        #nmag.ipython()
-
-
-        #pos_c_array = my_tables_createCArray_Float64(f,meshgroup, 'points', pos_shape, \
-        #                                 filters=filter,title='Positions of mesh nodes (=points)')
+        # Add points
+        pos_shape = (len(mesh.points), mesh.dim)
+        pos_chunk = tables.Float64Atom(shape=pos_shape)
 
         pos_c_array = \
           my_tables_createCArray(f, meshgroup, 'points', pos_shape,
                                  tables.Float64Atom, filters=filter,
                                  title='Positions of mesh nodes (=points)')
 
-        pos_c_array[:] = numpy.array(mesh.points,dtype=numpy.float64)
+        pos_c_array[:] = numpy.array(mesh.points, dtype=numpy.float64)
 
-        simp_dim = mesh.dim+1 #simplices are n+1 dimensional
+        # Compression note: I have tested different integer data types for
+        # simplex indices and region indices. Between tables.Int16Bit and
+        # tables.Int32BitAtom there is less than 1% difference in file size
+        # (using zlib compression level 5) for a file with 2000 points and
+        # 10000 simplices.  For simplicity, we only use Int32Bit at the moment.
+        # (fangohr 19/01/2007)
 
-        #Compression note: I have tested different integer data types
-        #for simplex indices and region indices. Between
-        #tables.Int16Bit and tables.Int32BitAtom there is less than 1%
-        #difference in file size (using zlib compression level 5) for
-        #a file with 2000 points and 10000 simplices.
-        #For simplicity, we only use Int32Bit at the moment.
-        #(fangohr 19/01/2007)
-
-        #simplices
-        simplex_shape = (len(mesh.simplices),simp_dim)
-        simplex_chunk = tables.Int32Atom(shape = simplex_shape)
-
-        #simplex_c_array = f.createCArray(meshgroup, 'simplices',
-	#				 simplex_shape, simplex_chunk, \
-        #                                 title='Indices of nodes (starting from zero). Each row is one simplex.',\
-        #                                 filters=filter)
+        # Add simplices
+        simp_dim = mesh.dim + 1 # Simplices are n+1 dimensional
+        simplex_shape = (len(mesh.simplices), simp_dim)
+        simplex_chunk = tables.Int32Atom(shape=simplex_shape)
 
         simplex_c_array = \
           my_tables_createCArray(f,meshgroup, 'simplices',
@@ -1440,7 +1423,7 @@ def add_mesh(file,mesh,mesh_unit_length):
 
         simplex_c_array[:,:] = numpy.array(mesh.simplices,dtype=numpy.int32)
 
-        #simplicex regions
+        # Add simplicex regions
         simplexregion_shape = (len(mesh.simplicesregions),)
 
         simplexregion_chunk = tables.Int32Atom(shape=simplexregion_shape)
@@ -1452,38 +1435,49 @@ def add_mesh(file,mesh,mesh_unit_length):
 
         simplexregion_c_array[:] = numpy.array(mesh.simplicesregions,dtype=numpy.int32)
 
+        # Add permutation info
+        permutation = mesh.permutation
+        if permutation != None:
+            permutation_shape = (len(mesh.simplices),)
+            permutation_c_array = \
+              my_tables_createCArray(f, meshgroup, 'permutation',
+                                     permutation_shape, tables.Int32Atom,
+                                     filter,
+                                     ('Permutation of sites with respect to '
+                                      'the original (non-distributed) mesh'))
+            permutation_c_array[:] = \
+              numpy.array(permutation, dtype=numpy.int32)
 
-	#periodic points:
+	# Add periodic points 
+        # NOTE: each line for periodic points may have a different number of
+	# indices: a corner may have 4 or 8 equivalent points (in 2d or 3d) but
+	# a point on the side may just have one periodic repeat.
 
-	#Note that each line for periodic points may have a different number of indices:
-	#a corner may have 4 or 8 equivalent points (in 2d or 3d) but a point on the side may
-	#just have one periodic repeat.
-
-	#We convert this into a CArray (which supports compression). We thus need
-	#to convert the list of lists of irregular length into a regular matrix
-	#before we can convert to a numpy array.
-
+	# We convert this into a CArray (which supports compression). We thus
+        # need to convert the list of lists of irregular length into a regular
+        # matrix before we can convert to a numpy array.
 	if mesh.periodicpointindices != []:
-	    #Need to find maximum length:
-	    max_len = max(map(len,mesh.periodicpointindices))
+	    # Need to find maximum length:
+	    max_len = max(map(len, mesh.periodicpointindices))
 
-	    periodicpointindices_shape = (len(mesh.periodicpointindices),max_len)
+	    periodicpointindices_shape = (len(mesh.periodicpointindices), max_len)
 
-	    #we use -1 as the token for None
-	    periodicpointindices_data = numpy.zeros(periodicpointindices_shape,dtype=numpy.int32)-1
+	    # We use -1 as the token for None
+	    periodicpointindices_data = \
+                numpy.zeros(periodicpointindices_shape, dtype=numpy.int32) - 1
 
-	    #populate numpy array with list-data
-	    for i,data in enumerate(mesh.periodicpointindices):
-		periodicpointindices_data[i,0:len(data)] = data
+	    # Populate numpy array with list-data
+	    for i, data in enumerate(mesh.periodicpointindices):
+		periodicpointindices_data[i, 0:len(data)] = data
 
 	    periodicpointindices_c_array = \
-          my_tables_createCArray(f, meshgroup, 'periodicpointindices',
-                                 periodicpointindices_shape,
-                                 tables.Int32Atom,
-                                 title=('Indices of periodic points (one '
-                                        'line for each indipendent point, '
-                                        '-1=None).'),
-                          filters=filter)
+              my_tables_createCArray(f, meshgroup, 'periodicpointindices',
+                                     periodicpointindices_shape,
+                                     tables.Int32Atom,
+                                     title=('Indices of periodic points (one '
+                                            'line for each indipendent point, '
+                                            '-1=None).'),
+                                     filters=filter)
 
 	    periodicpointindices_c_array[:] = periodicpointindices_data
 
@@ -1492,7 +1486,8 @@ def add_mesh(file,mesh,mesh_unit_length):
         #Therefore , we should not need the next chunk of code. However, we may decide
         #to change our mind on this later, so I'll leave it in for now. (Tables
         #maybe better for larger meshes.)
-        raise "MyError", "If we start writing tables, we need to modify reading routines"
+        raise NotImplementedError("If we start writing tables, we need to "
+                                  "modify reading routines")
 
         filter = tables.Filters(complevel=5, complib="zlib")
 

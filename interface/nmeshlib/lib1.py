@@ -636,11 +636,21 @@ class meshBaseClass(object):
             self.__meshinfo_periodic_point_indices = ocaml.mesh_plotinfo_periodic_points_indices( self.raw_mesh )
         return self.__meshinfo_periodic_point_indices
 
-    periodicpointindices = property(__get_periodic_point_indices,doc="List of lists keeping the indices of the periodic nodes")
+    periodicpointindices = property(__get_periodic_point_indices,
+                                    doc=("List of lists keeping the indices of "
+                                         "the periodic nodes"))
 
     def set_vertex_distribution(self,dist):
         raw_mesh=self.raw_mesh
         ocaml.mesh_set_vertex_distribution(raw_mesh,dist)
+
+    def __get_permutation(self):
+        return ocaml.mesh_get_permutation(self.raw_mesh)
+
+    permutation = property(__get_permutation,
+                           doc=("The permutation mapping the original mesh "
+                                "(the one provided by the user) to the "
+                                "current mesh (reordered with parmetis)."))
 
 
 def _is_nmesh_ascii_file(filename):
