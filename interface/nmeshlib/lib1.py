@@ -760,75 +760,77 @@ class load_ascii(meshBaseClass):
 #    return(mesh_from_points_and_simplices(points,simplices,simplices_regions,do_reorder=do_reorder))
     
 
+def raise_if_not_hdf5(filename):
+    """Raise an exception if filename is not a Pytables file."""
+    from nfem.hdf5_v01 import importtables
+    tables = importtables()
 
-def load_hdf5(filename,do_reorder=False,do_distribute=True):
-    memory_report("beginning of load_hdf5(%s)" % filename)
+    if not tables.isPyTablesFile(filename):
+        is_not = ("Pytables file" if tables.isHDF5File(filename)
+                  else "HDF5 file")
+        raise IOError("'%s' is not a %s" % (filename, is_not))
 
-    import nfem
+def mesh_get_attrs(filename, *attrs):
+    raise_if_not_hdf5(filename)
+
     import nfem.hdf5_v01 as h5
     tables = h5.importtables()
 
-    #sanity check:
-    if not tables.isPyTablesFile(filename):
-        msg = ""
-        if tables.isHDF5File(filename):
-            msg += "%s is hdf5 file\n" % filename
-        msg += "%s is not pytables file\n" % filename
-        raise IOError,msg
+    # Start with some consistency checks...
+    f = h5.open_pytables_file(filename, 'r')
 
-    memory_report("about to open file (%s)" % filename)
-    f=h5.open_pytables_file(filename,'r')
-    memory_report("have opened file (%s)" % filename)
+    if not hasattr(f.root, 'mesh'):
+        raise IOError("File '%s' does not contain a mesh" % filename)
 
-    if not hasattr(f.root,'mesh'):
-        msg = "Content of file '%s':\n %s" % (filename, f)
-        raise IOError,"%s doesn't have '/mesh'\n%s" % (filename,msg)
+    if not hasattr(f.root, 'etc'):
+        raise IOError("File '%s' has no /etc node: "
+                      "cannot be nmesh file" % filename)
 
-    if not hasattr(f.root,'etc'):
-        msg = "HDF5 file '%s' has no /etc node -- can't be nmesh file" % filename
-        raise IOError,msg
+    h5.checktag(f, 'nmesh', '1.0', alt=[('nsimdata', '0.1')])
 
-    import nfem.hdf5_v01 as h5
+    # Retrieve mesh attributes
+    mesh_pool = f.root.mesh
+    read = lambda x: (x.read() if x != None else x)
+    attr_data = [read(getattr(mesh_pool, attr, None))
+                 for attr in attrs]
 
-    h5.checktag(f,'nmesh','1.0',alt=[('nsimdata','0.1')])
+    h5.close_pytables_file(f)
+    return attr_data
 
-    points = f.root.mesh.points.read().tolist()
-    memory_report("have put points in list")
-    simplices = f.root.mesh.simplices.read().tolist()
-    memory_report("have simplices in list")
-    simplices_regions = f.root.mesh.simplicesregions.read().tolist()
-    memory_report("have put simplex regions in list")
+def mesh_get_permutation(filename):
+    """Retrieve the permutation associated to the given mesh, or None
+    if there isn't any."""
+    return mesh_get_attrs(filename, "permutation")[0]
 
-    has_periodic_data=False
+def load_hdf5(filename, do_reorder=False, do_distribute=True):
+    attrs = ["points", "simplices", "simplicesregions",
+             "periodicpointindices"]
+
+    vals = mesh_get_attrs(filename, *attrs)
+    if None in vals[:3]:
+        raise IOError("File '%s' is not a valid mesh file: some mesh "
+                      "attributes are missing")
+
+    points, simplices, simplices_regions = map(lambda x: x.tolist(), vals[:3])
+    periodicpointindices = vals[3]
+
     periodic_point_indices = []
-    try:
-	_ = f.root.mesh._f_getChild('periodicpointindices')
-	has_periodic_data = True
-    except tables.NoSuchNodeError:
-	log.debug("Mesh is not periodic")
-	pass #this mesh is not periodic
-
-    if has_periodic_data:
-	tmp_periodic_point_indices = \
-            f.root.mesh.periodicpointindices.read().tolist()
+    if periodicpointindices != None:
 	# This list still includes many -1 which represent None. This
 	# is because (in contrast to points, simplices and
 	# regionindices) the periodicpointindices will (in general)
 	# have a different number of entries per line. See
 	# hdf5_v01.py:add_mesh().
 
-	for line in tmp_periodic_point_indices:
-	    periodic_point_indices.append( [index for index in line if index!=-1])
+	for line in periodicpointindices:
+            # We could use filter((-1).__cmp__, line) above: is faster
+            # but less readable.
+	    periodic_point_indices.append([index for index in line if index!=-1])
 
-	
-    res = mesh_from_points_and_simplices(points,simplices,simplices_regions,
-                                         periodic_point_indices, 
-                                         do_reorder=do_reorder,
-                                         do_distribute=do_distribute)
-
-    h5.close_pytables_file(f)
-    return res
-
+    return mesh_from_points_and_simplices(points, simplices, simplices_regions,
+                                          periodic_point_indices, 
+                                          do_reorder=do_reorder,
+                                          do_distribute=do_distribute)
 
 def load(filename,reorder=False,do_distribute=True):
 
