@@ -287,8 +287,7 @@ def flexible_set_fielddata(field, subfieldname, data, pos_unit_length,
                                     normalise=normalise)
 
     elif type(data) == numpy.ndarray:
-        fn = (set_fielddata_from_numpyarray if experimental
-              else set_fielddata_from_numpyarray_old)
+        fn = set_fielddata_from_numpyarray # set_fielddata_from_numpyarray_old
         fn(field, subfieldname, data, scale_factor=scale_factor,
            normalise=normalise)
 

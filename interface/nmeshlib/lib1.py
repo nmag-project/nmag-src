@@ -770,7 +770,7 @@ def raise_if_not_hdf5(filename):
                   else "HDF5 file")
         raise IOError("'%s' is not a %s" % (filename, is_not))
 
-def mesh_get_attrs(filename, *attrs):
+def hdf5_mesh_get_attrs(filename, *attrs):
     raise_if_not_hdf5(filename)
 
     import nfem.hdf5_v01 as h5
@@ -797,16 +797,16 @@ def mesh_get_attrs(filename, *attrs):
     h5.close_pytables_file(f)
     return attr_data
 
-def mesh_get_permutation(filename):
+def hdf5_mesh_get_permutation(filename):
     """Retrieve the permutation associated to the given mesh, or None
     if there isn't any."""
-    return mesh_get_attrs(filename, "permutation")[0]
+    return hdf5_mesh_get_attrs(filename, "permutation")[0]
 
 def load_hdf5(filename, do_reorder=False, do_distribute=True):
     attrs = ["points", "simplices", "simplicesregions",
              "periodicpointindices"]
 
-    vals = mesh_get_attrs(filename, *attrs)
+    vals = hdf5_mesh_get_attrs(filename, *attrs)
     if None in vals[:3]:
         raise IOError("File '%s' is not a valid mesh file: some mesh "
                       "attributes are missing")

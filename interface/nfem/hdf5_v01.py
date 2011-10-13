@@ -1438,7 +1438,7 @@ def add_mesh(file, mesh, mesh_unit_length):
         # Add permutation info
         permutation = mesh.permutation
         if permutation != None:
-            permutation_shape = (len(mesh.simplices),)
+            permutation_shape = (len(mesh.points),)
             permutation_c_array = \
               my_tables_createCArray(f, meshgroup, 'permutation',
                                      permutation_shape, tables.Int32Atom,
@@ -1622,10 +1622,12 @@ def average_data_has_step(filename,step):
         result = False
     return result
 
-def get_subfield_from_h5file(filename, subfieldname, id=None, row=None,
-                             unit=None):
+def hdf5_get_subfield(filename, subfieldname, id=None, row=None, unit=None):
     """
-    Retrieve data from h5 file. Data are returned as :ref:`SI-value <SI object>`\ s.
+    Retrieve data from h5 file.
+    Return two numpy.array-s (sites, vals): vals[i] is the value of the field
+    on the site sites[i] in the mesh. The entries of vals are returned as
+    :ref:`SI-value <SI object>`\ s.
 
     Analog to get_subfield_ (which returns subfield data for a
     subfield of a simulation object), but will retrieve data from
@@ -1642,18 +1644,18 @@ def get_subfield_from_h5file(filename, subfieldname, id=None, row=None,
          The ``id`` of the configuration to return (defaults to 0)
 
       `row` : integer
-         If the ``id`` is not specified, the ``row`` can
-         be used to address the data row with index ``row``.
+         If the ``id`` is not specified, the ``row`` can be used to address the
+         data row with index ``row``.
 
-         For example, the magnetisation may have been saved at some
-         point during the simulation into a file (for example
-         using the :ref:`Restart example <Restart example>` functionality, or using the
-         save_data_ method for the first time to save the m-field
+         For example, the magnetisation may have been saved at some point
+         during the simulation into a file (for example using the :ref:`Restart
+         example <Restart example>` functionality, or using the save_data_
+         method for the first time to save the m-field
          (i.e. ``sim.save_data(fields=['m']``) into a new file).
 
-         We can use ``row=0`` to read the first magnetisation
-         configuration that has been written into this file (and
-         ``row=1`` to access the second etc).
+         We can use ``row=0`` to read the first magnetisation configuration
+         that has been written into this file (and ``row=1`` to access the
+         second etc).
 
     :Returns:
       numpy array
@@ -1672,11 +1674,12 @@ def get_subfield_from_h5file(filename, subfieldname, id=None, row=None,
         row, _, _, _ = \
           get_row_stage_step_time_for_field_and_id(fh, field, id)
 
-    supos, sidata, site = get_dof_row_data(fh, field, subfieldname, row)
-
+    _, sidata, site = get_dof_row_data(fh, field, subfieldname, row)
     close_pytables_file(fh)
+    return (site, sidata)
 
-    return numpy.array(sidata)
+def get_subfield_from_h5file(*args, **nargs):
+    return numpy.array(hdf5_get_subfield(*args, **nargs)[1])
 
 def report_append_field_timings():
     for key in append_fields_timings:
