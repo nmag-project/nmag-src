@@ -97,6 +97,8 @@ petsc_error.c petsc_error.ml petsc_error.mli: petsc_error.pl
 fem.cmx: fem.ml fem.cmi mesh.cmi
 
 ddiffop.cmx: ddiffop.ml ddiffop.cmi
+ddiffop_parser.ml ddiffop_parser.mli: ddiffop_parser.mly
+	$(OCAMLYACC) ddiffop_parser.mly
 ddiffop_lexer.cmx: ddiffop_lexer.ml ddiffop_parser.cmi
 ddiffop_parser.cmi: ddiffop_parser.mli ddiffop.cmi
 ddiffop_parser.cmx: ddiffop_parser.ml ddiffop_parser.cmi
