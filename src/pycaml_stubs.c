@@ -1715,7 +1715,6 @@ value pytuple_fromarray( value array ) {
     CAMLparam1(array);
     PyObject *tuple = PyTuple_New(Wosize_val(array));
     int i;
-    int x;
 
     for( i = 0; i < Wosize_val(array); i++ )
       {
@@ -1733,7 +1732,7 @@ value pytuple_fromarray( value array ) {
 	   does this of its own! Nice, isn't it?
 	*/
 	Py_INCREF(entry);
-	x = PyTuple_SetItem(tuple,i,entry);
+	(void) PyTuple_SetItem(tuple,i,entry);
       }
 
     CAMLreturn(pywrap_steal(tuple));
@@ -1823,7 +1822,6 @@ value pylist_fromarray( value array ) {
     CAMLparam1(array);
     PyObject *list = PyList_New(Wosize_val(array));
     int i;
-    int x;
 
     for( i = 0; i < Wosize_val(array); i++ )
       {
@@ -1831,7 +1829,7 @@ value pylist_fromarray( value array ) {
 	entry=pyunwrap(Field(array,i));
 	/* T.F.: See pytuple_fromarray code comments! */
 	Py_INCREF(entry);
-	x = PyList_SetItem(list,i,entry);
+	(void) PyList_SetItem(list,i,entry);
       }
     CAMLreturn(pywrap_steal(list));
 }

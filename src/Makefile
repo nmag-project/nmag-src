@@ -7,7 +7,7 @@ PYTHON_CFLAGS="-fPIC -Wall -O3 -fomit-frame-pointer -malign-double -fstrict-alia
 
 CFLAGS="-I/usr/include/mpi -I$(PETSC_INCLUDE_PATH) -DGCC_FLAGS_SHLIB='$(CC_SHLIB_FLAGS)' -Wall -O3 -ffast-math"
 
-NSIMEXEC_LDFLAGS="-lpython2.7 -lqhull -lpetsc -lpetscvec -lpetscmat -lpetscksp -lpetscts -lpetscsnes -lpetscdm -lmetis -lparmetis"
+NSIMEXEC_LDFLAGS="-lpython2.7 -lqhull -lpetsc -lpetscvec -lpetscmat -lpetscksp -lpetscts -lpetscsnes -lpetscdm -lmetis -lparmetis -lmpi"
 
 CC=cc
 CPP=cpp
@@ -150,8 +150,8 @@ nsimexec: $(NSIMEXEC_OBJECTS)
 	$(OCAMLOPT) \
 	  -cc $(CC) \
 	  -package str,bigarray -linkpkg \
-	  -ccopt $(NSIMEXEC_LDFLAGS) \
 	  $(NSIMEXEC_OBJECTS) \
+	  -cclib $(NSIMEXEC_LDFLAGS) \
 	  -o nsimexec
 
 clean:
