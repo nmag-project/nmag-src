@@ -6,16 +6,12 @@ Script to configure Nsim. Try
 to get a list of configuration options.
 """
 
-import os, sys
+import os
+import sys
+import re
 
-#----------------------------------------------------------------------------
-# We detect the python version and obtain the path where libpython is.
-
-def myexit(msg, exit_status=1):
-    """Print a message and exit."""
-    sys.stderr.write(msg)
-    sys.exit(exit_status)
-
+###############################################################################
+# WE START BY RETRIEVING CONFIGURATION INFORMATION FROM PYTHON
 
 # We gather other configuration infos from the distutils python module.
 try:
@@ -53,9 +49,16 @@ is_macos = "bundle" in pyconfig.get('LDSHARED', [])
 # To build dynamic loadable modules (used by fastfield)
 LDSHARED = ("-fno-common -bundle" if is_macos else "-fPIC -shared")
 
-#----------------------------------------------------------------------------
+###############################################################################
+# UTILITY FUNCTIONS AND CLASSES
+
 # Here we define some functions for configuration of external libraries
 # (finding directories and files)
+
+def myexit(msg, exit_status=1):
+    """Print a message and exit."""
+    sys.stderr.write(msg)
+    sys.exit(exit_status)
 
 class Msg(object):
     def __init__(self, show_debug=False):
@@ -169,6 +172,47 @@ def get_std_paths(additional_paths=[], env=None, sep=":"):
       paths.append(additional_path)
   return paths
 
+# Replacement utilities
+_configvar_re = re.compile(r"[@][^@]*[@]")
+
+def configvar_replace(config, text):
+    """"Substitute configuration variables with form @NAME@ with their
+    values."""
+
+    def replacer(match_object):
+        try:
+            cv = match_object.group(0)[1:-1]
+        except:
+            raise ValueError("Error when substituting the configuration "
+                             "variable.")
+        if len(cv) == 0:
+            return "@"
+
+        else:
+            val = config.get(cv, None)
+            return str(val) if val != None else ""
+
+    return re.sub(_configvar_re, replacer, text)
+
+def configvar_replace_file(config, filename_in, filename_out=None):
+    """Copy file with name filename_in to a file with name filename_out,
+    replacing all configuration variables with form "@NAME@" with their values.
+    """
+    if filename_out == None:
+        filename_out = os.path.splitext(filename_in)[0]
+
+    with open(filename_in, "r") as f:
+        text_in = f.read()
+
+    text_out = configvar_replace(config, text_in)
+
+    with open(filename_out, "w") as f:
+        f.write(text_out)
+    
+  
+###############################################################################
+# FIND BINARIES
+
 std_bin_paths = \
   get_std_paths(['/bin', '/usr/bin', '/usr/local/bin'], "PATH")
 std_lib_paths = \
@@ -177,7 +221,7 @@ std_inc_paths = \
   get_std_paths(['/usr/include', '/usr/local/include'],
                 ["CPATH", "C_INCLUDE_PATH"])
 
-def find_binary(name, additional_paths=[], use_env=True):
+def find_binary(name, additional_paths=[], env_var=None, use_env=True):
   paths = std_bin_paths + additional_paths
   name_and_path = find_file([name], [''], [''], paths)
   if name_and_path == None:
@@ -186,7 +230,8 @@ def find_binary(name, additional_paths=[], use_env=True):
   name, path = name_and_path
   return os.path.join(path, name)
 
-#-----------------------------------------------------------------------------
+###############################################################################
+# PER-LIBRARY CONFIGURATION
 
 config_file = "configuration"
 lib_option = "-l"
@@ -350,8 +395,8 @@ def help_msg(description_offset=28):
       msg +=  left + description + "\n"
   return msg
 
-#----------------------------------------------------------------------------
-# Option parsing
+###############################################################################
+# COMMAND LINE PARSING
 
 import getopt, sys
 long_opts = [option + '=' for option in configs]
@@ -469,7 +514,7 @@ for key in configs:
     else:
         msg.prnln("Warning: configuration failed for '%s'" % key, "warning")
 
-#----------------------------------------------------------------------------
+###############################################################################
 # Retrieve PyCaml specific flags (taken from 'python-config', option --libs)
 
 #if not pyconfig.get("Py_ENABLE_SHARED"):
@@ -490,8 +535,6 @@ configuration["PETSC_ARCH"] = "" # I should check that this is supported
 configuration["PYCAML_OCAMLLDFLAGS"] = "" # I should check that this is supported
 configuration["OCAMLDEBUGFLAGS"] = "-g" # I should check that this is supported
 configuration["DEBUGFLAGS"] = "" # I should check that this is supported
-configuration["PYCAML_OPT_DARWIN"] = "" # Remove?
-configuration["EXTRA_LIBRARY_PATH"] = "" # Remove?
 configuration["GCC_FLAGS_SHLIB"] = LDSHARED
 configuration["PYCAML_CLIBS"] = pynamever
 configuration["PYTHON_LIBRARY_PATH"] = py_config_files_dir
@@ -501,12 +544,39 @@ configuration["DLLIB"] = 'ldl'
 configuration["PETSC_INCFLAGS"] = "%s %s/usr/local/petsc/bmake/freebsd" % (configuration["PETSC_INCFLAGS"], inc_option)
 
 if os.uname()[0] == 'FreeBSD':
-	configuration["DLFLAGS"] = '-lc' # dlopen, etc are built into libc on FreeBSD
-	configuration["DLLIB"] = 'c'
+    configuration["DLFLAGS"] = '-lc' # dlopen, etc are built into libc on FreeBSD
+    configuration["DLLIB"] = 'c'
 
-configuration["BASH"] = find_binary('bash')
-configuration["MPICC"] = find_binary('mpicc', ['/usr/local/mpi/openmpi/bin'])
+###############################################################################
+# FIND BINARIES OF REQUIRED UTILITIES
 
+required_binaries = \
+  [("BASH", "bash",[], "Bash shell"),
+   ("CC", "cc",[], "C compiler"),
+   ("CPP", "cpp",[], "C preprocessor"), 
+   ("PERL", "perl",[], "Perl interpreter"), 
+   ("MPICC", "mpicc", ["/usr/local/mpi/openmpi/bin"],
+    "Mpi C compiler wrapper"),
+   ("OCAMLFIND", "ocamlfind",[], "Findlib utility"),
+   ("OCAMLLEX", "ocamllex",[], "OCaml Lex utility"),
+   ("OCAMLYACC", "ocamlyacc",[], "OCaml Yacc utility")]
+
+for env_var, command, paths, desc in required_binaries:
+    # First we should try to scan the command line for something like VAR=VAL
+    val = None
+
+    # Then we check whether there is something in the environment
+    if val == None:
+        val = os.getenv(env_var)
+
+    # Finally, if the user didn't give us instructions of where to find the
+    # binary, then we will search it using the PATH environment variable
+    if val == None:
+        val = find_binary(command, paths)
+
+    assert val != None
+    configuration[env_var] = val
+    
 # We have to ensure that libpmpich and libmpich are in the same path!
 try:
     if configuration["PMPICH_LIB_PATH"] != configuration["MPICH2_LIBRARY_PATH"]:
@@ -533,7 +603,7 @@ except:
     configuration["SUNDIALS_NVECSERIAL_LIB"] = None
     configuration["SUNDIALS_NVECPARALLEL_LIB"] = None
 
-#----------------------------------------------------------------------------
+###############################################################################
 # Calling the configure script generated by autoconf: this script will
 # create the python file arch.py, which will be imported.
 # This file contains all the relevant information that we need
@@ -591,7 +661,7 @@ if os.uname()[0] == 'FreeBSD':
        '-lumfpack -llapack -lX11 -lamd -lmpi -lmpi_f77 '
        '-L/usr/local/mpi/openmpi/lib -lblas ')
 
-#----------------------------------------------------------------------------
+###############################################################################
 # We finally write the configuration to file(s): we produce four files
 # one for each language used in nsim sources: ocaml, C, python and a file
 # which can be included by Makefile-s
@@ -694,9 +764,19 @@ cf.save('./src/configuration.h', language='c_header')
 cf.save('./src/nsimconf.py', language='python')
 cf.save('./src/nsimconf.ml', language='ocaml')
 
+# Replace all files
+in_files = \
+  ["./src/Makefile.in",
+   "./bin/Makefile.in",
+   "./Makefile.in"]
+
+for in_file in in_files:
+    configvar_replace_file(configuration, in_file)
+
 # Recap configuration settings on the screen
-msg.summary("bash shell binary path", configuration["BASH"])
-msg.summary("mpicc binary path", configuration["MPICC"])
+for env_var, _, _, desc in required_binaries:
+    msg.summary("%s (%s)" % (desc, env_var), configuration[env_var])
+
 msg.summary("NumPy array support",
             bool_to_yesno(cf.have("NUMPY_INCLUDE_PATH")))
 msg.summary("CFLAGS", CFLAGS)
