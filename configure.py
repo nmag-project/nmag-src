@@ -525,7 +525,7 @@ pycaml_ldflags = ["-L%s/lib" % sys.exec_prefix]
 pycaml_ldflags += pyconfig.get("LIBS", "").split()
 pycaml_ldflags += pyconfig.get("SYSLIBS", "").split()
 pycaml_ldflags.append("-l" + pynamever)
-configuration["PYCAML_LDFLAGS"] = " ".join(pycaml_ldflags)
+configuration["PYTHON_LDFLAGS"] = " ".join(pycaml_ldflags)
 
 #----------------------------------------------------------------------------
 # Other configurations
@@ -613,7 +613,6 @@ except:
 
 print "Invoking autoconf configure script to fine-tune the system..."
 
-import os
 exit_status = os.system("cd config/ac; ./configure")
 print ("Exited from ./config/ac/configure script with status %d"
        % exit_status)
@@ -632,6 +631,7 @@ else:
     sizeof_int = 4 # often the case (64 bits cpus are lp64, typically)
 
     try:
+        sys.path.append("./config")
         import arch
         warn_CFLAGS = arch.warn_cflags
         opt_CFLAGS = arch.cflags
@@ -771,6 +771,7 @@ in_files = \
    "./Makefile.in"]
 
 for in_file in in_files:
+    print "Substituting", in_file
     configvar_replace_file(configuration, in_file)
 
 # Recap configuration settings on the screen

@@ -29,15 +29,9 @@ OCAMLYACC=@OCAMLYACC@
 # COMPILATION FLAGS
 
 CC_SHLIB_FLAGS=-fPIC -shared
-
-PETSC_INCLUDE_PATH=/usr/include/petsc
-PYTHON_CFLAGS="-fPIC -Wall -O3 -fomit-frame-pointer -malign-double -fstrict-aliasing -ffast-math -I/usr/lib/pymodules/python2.7/numpy/core/include -I/usr/lib/pymodules/python2.7/numpy/core/include -I/usr/include/python2.7"
-
-#-I../config  -I/usr/include/mpi -DPIC -DNATIVE_CODE"
-
-CFLAGS="-I/usr/include/mpi -I$(PETSC_INCLUDE_PATH) -DGCC_FLAGS_SHLIB='$(CC_SHLIB_FLAGS)' -Wall -O3 -ffast-math"
-
-NSIMEXEC_LDFLAGS="-lpython2.7 -lqhull -lpetsc -lpetscvec -lpetscmat -lpetscksp -lpetscts -lpetscsnes -lpetscdm -lmetis -lparmetis -lmpi"
+PYTHON_CFLAGS="@NSIM_CFLAGS@ -I@NUMPY_INCLUDE_PATH@ -I@PYTHON_INCLUDE_PATH@"
+CFLAGS="@MPICH_INCFLAGS@ -I@PETSC_INCLUDE_PATH@ @NSIM_CFLAGS@"
+NSIMEXEC_LDFLAGS="@PYTHON_LDFLAGS@ @QHULL_LDFLAGS@ @PETSC_LDFLAGS@ @METIS_LDFLAGS@ @MPICH_LDFLAGS@"
 
 ###############################################################################
 
@@ -97,7 +91,7 @@ qhull.cmx: qhull.ml qhull.cmi
 deferred.cmx: deferred.ml deferred.cmi
 ba.cmx: ba.ml ba.cmi
 base.mli: ba.cmi deferred.cmi
-	ocamlc -i base.ml > base.mli
+	$(OCAMLFIND) ocamlc -i base.ml > base.mli
 base.cmx: base.ml base.cmi
 
 nlog.cmx: nlog.ml nlog.cmi
