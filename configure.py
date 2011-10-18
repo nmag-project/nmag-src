@@ -689,7 +689,7 @@ for var in configuration:
     cf.add_value(var, configuration[var])
 
 # Write the same configuration in different languages
-#cf.save('configuration.inc', language='makefile')
+cf.save('./config/configuration.inc', language='makefile')
 cf.save('./src/configuration.h', language='c_header')
 cf.save('./src/nsimconf.py', language='python')
 cf.save('./src/nsimconf.ml', language='ocaml')
