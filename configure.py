@@ -173,7 +173,7 @@ def get_std_paths(additional_paths=[], env=None, sep=":"):
   return paths
 
 # Replacement utilities
-_configvar_re = re.compile(r"[@][^@]*[@]")
+_configvar_re = re.compile(r"[@][a-zA-Z_]*[@]")
 
 def configvar_replace(config, text):
     """"Substitute configuration variables with form @NAME@ with their

@@ -1,4 +1,32 @@
-CC="cc"
+# Nmag micromagnetic simulator
+# Copyright (C) 2011 University of Southampton
+# Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
+#
+# WEB:     http://nmag.soton.ac.uk 
+# CONTACT: nmag@soton.ac.uk
+#
+# AUTHOR(S) OF THIS FILE: Matteo Franchin
+# LICENSE: GNU General Public License 2.0
+#          (see <http://www.gnu.org/licenses/>)
+
+
+###############################################################################
+# REQUIRED BINARIES
+
+CC=@CC@
+CPP=@CPP@
+PERL=@PERL@
+
+OCAMLFIND=@OCAMLFIND@
+OCAMLOPT=$(OCAMLFIND) ocamlopt
+OCAMLOPT_CC_C=$(OCAMLOPT) -cc $(CC) -ccopt $(CFLAGS)
+OCAMLOPT_CC=$(OCAMLOPT) -cc $(CC) -pp $(CPP)
+OCAMLOPT_C=$(OCAMLOPT) -c
+OCAMLLEX=@OCAMLLEX@
+OCAMLYACC=@OCAMLYACC@
+
+###############################################################################
+# COMPILATION FLAGS
 
 CC_SHLIB_FLAGS=-fPIC -shared
 
@@ -11,17 +39,7 @@ CFLAGS="-I/usr/include/mpi -I$(PETSC_INCLUDE_PATH) -DGCC_FLAGS_SHLIB='$(CC_SHLIB
 
 NSIMEXEC_LDFLAGS="-lpython2.7 -lqhull -lpetsc -lpetscvec -lpetscmat -lpetscksp -lpetscts -lpetscsnes -lpetscdm -lmetis -lparmetis -lmpi"
 
-CC=cc
-CPP=cpp
-PERL=perl
-
-OCAMLFIND=ocamlfind
-OCAMLOPT=$(OCAMLFIND) ocamlopt
-OCAMLOPT_CC_C=$(OCAMLOPT) -cc $(CC) -ccopt $(CFLAGS)
-OCAMLOPT_CC=$(OCAMLOPT) -cc $(CC) -pp $(CPP)
-OCAMLOPT_C=$(OCAMLOPT) -c
-OCAMLLEX=ocamllex
-OCAMLYACC=ocamlyacc
+###############################################################################
 
 NSIMEXEC_OBJECTS=\
   nsimconf.cmx \
