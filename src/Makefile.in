@@ -165,7 +165,7 @@ nsimexec.cmx: nsimexec.ml nsimexec.cmi $(NXIMEXEC_OBJECTS)
 nsimexec: $(NSIMEXEC_OBJECTS)
 	$(OCAMLOPT) \
 	  -cc $(CC) \
-	  -package str,bigarray -linkpkg \
+	  -package unix,str,bigarray -linkpkg \
 	  $(NSIMEXEC_OBJECTS) \
 	  -cclib $(NSIMEXEC_LDFLAGS) \
 	  -o nsimexec

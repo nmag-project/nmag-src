@@ -28,11 +28,11 @@ USERAT=${USERNAME:+$USERNAME@}
 
 # Configuration for the host and the repositories
 REPOS_NSIM_MAIN=`cd .. && pwd`
-REPOS_NSIM_TEST="ssh://${USERAT}gamma.kk.soton.ac.uk//var/local/hg/nsim/master/test"
-REPOS_NSIM_DOC="ssh://${USERAT}gamma.kk.soton.ac.uk//var/local/hg/nsim/master/doc"
-REPOS_NSIM_DIST="ssh://${USERAT}gamma.kk.soton.ac.uk//var/local/hg/nsim/dist"
-PKGS_FILE=/var/local/data/nsim/pkgs.tar
-REMOTE_MACHINE="${USERAT}gamma.kk.soton.ac.uk"
+REPOS_NSIM_TEST="ssh://${USERAT}summer.kk.soton.ac.uk//home/hg/local/hg/nsim/master/test"
+REPOS_NSIM_DOC="ssh://${USERAT}summer.kk.soton.ac.uk//home/hg/local/hg/nsim/master/doc"
+REPOS_NSIM_DIST="ssh://${USERAT}summer.kk.soton.ac.uk//home/hg/local/hg/nsim/dist"
+PKGS_FILE=/home/mf/local/data/nsim/pkgs.tar
+REMOTE_MACHINE="${USERAT}summer.kk.soton.ac.uk"
 MAIN_TAG=nsim-0.1.1
 PKGNAME=nmag-`get_version ..`
 allsrc_dev_compose "$PKGNAME" 'nsim-0.1.1' 'tip'
