@@ -547,8 +547,6 @@ c_funptr ->
       bool =
       "ocaml_c_fastfield_eval_bigarray";;
 
-external gcc_flags_shlibs: unit -> string = "gcc_flags_shlibs";;
-
 let get_it x = 
   match x with
   | None -> failwith "Inconceivable!"
@@ -733,7 +731,7 @@ let do_compile () =
 	  Printf.sprintf 
 	    (* "cp fastfields_ccode.c .. ;%s %s %s -o fastfields_dynlib.so fastfields_ccode.c" *)
 	    "%s %s %s -o fastfields_dynlib.so fastfields_ccode.c"
-	    !opt_cc (gcc_flags_shlibs ()) !opt_cc_opts
+	    !opt_cc (Nsimconf.gcc_flags_shlib) !opt_cc_opts
 	in
 	begin
 	  Unix.chdir (get_it !the_directory);

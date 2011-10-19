@@ -184,22 +184,3 @@ CAMLprim value ocaml_c_fastfield_eval_bigarray(value ml_funptr,
   
   CAMLreturn(Val_bool(success));
 }
-
-/* XXX NOTE (mf):
- * It seems I cannot avoid such preprocessor-tricks: I cannot define the macro
- * GCC_FLAGS_SHLIB as a string in the command line. This is because I'm using
- * ocaml to compile C-code and it passes arguments to C-compiler in this way
- * "arguments". So, if I replace arguments with -DMACRO="value" I get some
- * problems, since after expansion: "arguments" --> "-DMACRO="value"".
- * And it seems also that \" doesn't work.
- */
-#define STRINGIFY_AFTER_EXPANSION(str) #str
-#define STRINGIFY(str) STRINGIFY_AFTER_EXPANSION(str)
-
-CAMLprim value gcc_flags_shlibs(value ml_unit) {
-  CAMLparam1(ml_unit);
-  char *flags = STRINGIFY(GCC_FLAGS_SHLIB);
-  CAMLlocal1(ret_flags);
-  ret_flags = copy_string(flags);
-  CAMLreturn(ret_flags);
-}
