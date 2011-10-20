@@ -9,7 +9,6 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
-
 ###############################################################################
 # REQUIRED BINARIES
 
@@ -30,34 +29,24 @@ OCAMLYACC=@OCAMLYACC@
 
 CC_SHLIB_FLAGS=-fPIC -shared
 PYTHON_CFLAGS="@NSIM_CFLAGS@ -I@NUMPY_INCLUDE_PATH@ -I@PYTHON_INCLUDE_PATH@"
-CFLAGS="@MPICH_INCFLAGS@ -I@PETSC_INCLUDE_PATH@ @NSIM_CFLAGS@"
-NSIMEXEC_LDFLAGS="@PYTHON_LDFLAGS@ @QHULL_LDFLAGS@ @PETSC_LDFLAGS@ @METIS_LDFLAGS@ @MPICH_LDFLAGS@"
+CFLAGS="@MPICH_INCFLAGS@ -I@PETSC_INCLUDE_PATH@ @QHULL_INCFLAGS@ \
+  @METIS_INCFLAGS@ @NSIM_CFLAGS@"
+NSIMEXEC_LDFLAGS="@PYTHON_LDFLAGS@ @QHULL_LDFLAGS@ @PETSC_LDFLAGS@ \
+  @METIS_LDFLAGS@ @MPICH_LDFLAGS@"
 
 ###############################################################################
 
-NSIMEXEC_OBJECTS=\
-  nsimconf.cmx \
-  mt19937.cmx mt19937_impl.o mt19937_stubs.o \
-  snippets.cmx snippets_stubs.o objsize.o \
-  fastfields.cmx fastfields_stubs.o \
-  qhull.cmx qhull_stubs.o \
-  deferred.cmx ba.cmx base.cmx ba_stubs.o \
-  nlog.cmx \
-  mesh0.cmx simplex.cmx periodic.cmx correct_broken_mesh.cmx mesh.cmx \
-  ddiffop.cmx ddiffop_lexer.cmx ddiffop_parser.cmx \
-  localeqn.cmx localeqn_parser.cmx  localeqn_lexer.cmx \
-  dimensions.cmx dimensions_parser.cmx dimensions_lexer.cmx \
-  collcomm.o comm.o groups.o init.o msgs.o utils.o petsc_stubs.o \
-  petsc_error.o mpi_petsc.cmx \
-  sundials_sp.cmx sundials_sp_stubs.o \
-  fem.cmx fem_stubs.o \
-  hlib.cmx hlib_stubs.o mgdesc.o \
-  bem3d.cmx bem3d_stubs.o \
-  nsim_anisotropy.cmx \
-  ccpla.cmx \
-  nsim.cmx \
-  pycaml.cmx pycaml_stubs.o \
-  bindings.cmx pypetsc.cmx pyfem.cmx nsimexec.cmx
+NSIMEXEC_OBJECTS= nsimconf.cmx mt19937.cmx mt19937_impl.o mt19937_stubs.o     \
+  snippets.cmx snippets_stubs.o objsize.o fastfields.cmx fastfields_stubs.o   \
+  qhull.cmx qhull_stubs.o deferred.cmx ba.cmx base.cmx ba_stubs.o nlog.cmx    \
+  mesh0.cmx simplex.cmx periodic.cmx correct_broken_mesh.cmx mesh.cmx	      \
+  ddiffop.cmx ddiffop_lexer.cmx ddiffop_parser.cmx localeqn.cmx		      \
+  localeqn_parser.cmx localeqn_lexer.cmx dimensions.cmx dimensions_parser.cmx \
+  dimensions_lexer.cmx collcomm.o comm.o groups.o init.o msgs.o utils.o	      \
+  petsc_stubs.o petsc_error.o mpi_petsc.cmx sundials_sp.cmx		      \
+  sundials_sp_stubs.o fem.cmx fem_stubs.o hlib.cmx hlib_stubs.o mgdesc.o      \
+  bem3d.cmx bem3d_stubs.o nsim_anisotropy.cmx ccpla.cmx nsim.cmx pycaml.cmx   \
+  pycaml_stubs.o bindings.cmx pypetsc.cmx pyfem.cmx nsimexec.cmx
 
 .PHONY: all clean
 
@@ -78,51 +67,50 @@ all: nsimexec
 %.ml: %.mly
 	$(OCAMLYACC) $<
 
+nsimconf.cmx: nsimconf.ml
+nlog.cmx: nlog.ml nlog.cmi
+snippets.cmx: snippets.ml snippets.cmi
+base.cmx: base.ml base.cmi
+qhull.cmx: qhull.ml qhull.cmi
+hlib.cmx: hlib.ml hlib.cmi
+fastfields.cmx: fastfields.ml fastfields.cmi nsimconf.cmx
 mt19937_impl.o: mt19937_impl.c mt19937.h
 mt19937_stubs.o: mt19937_stubs.c mt19937.h
 mt19937.cmx: mt19937.ml mt19937.cmi
-
-snippets.cmx: snippets.ml snippets.cmi
-
-fastfields.cmx: fastfields.ml fastfields.cmi
-
-qhull.cmx: qhull.ml qhull.cmi
 
 deferred.cmx: deferred.ml deferred.cmi
 ba.cmx: ba.ml ba.cmi
 base.mli: ba.cmi deferred.cmi
 	$(OCAMLFIND) ocamlc -i base.ml > base.mli
-base.cmx: base.ml base.cmi
-
-nlog.cmx: nlog.ml nlog.cmi
 
 mesh0.cmx: mesh0.ml mesh0.cmi
-correct_broken_mesh.cmx: correct_broken_mesh.ml correct_broken_mesh.cmi
+periodic.cmx: periodic.ml periodic.cmi snippets.cmx
+correct_broken_mesh.cmx: correct_broken_mesh.ml correct_broken_mesh.cmi snippets.cmx
 simplex.cmi: simplex.mli mesh0.cmi
-simplex.cmx: simplex.ml simplex.cmi
-periodic.cmx: periodic.ml periodic.cmi
-mesh.cmx: mesh.ml mesh0.cmi correct_broken_mesh.cmi simplex.cmi \
-          periodic.cmi mesh.cmi
+simplex.cmx: simplex.ml simplex.cmi deferred.cmx base.cmx snippets.cmx
+mesh.cmx: mesh.ml mesh.cmi qhull.cmx correct_broken_mesh.cmx periodic.cmx \
+  base.cmx nlog.cmx simplex.cmx snippets.cmx
 
-#mpi_petsc.ml mpi_petsc.mli 
 petsc_error.c petsc_error.ml petsc_error.mli: petsc_error.pl
 	$(PERL) petsc_error.pl $(PETSC_INCLUDE_PATH)
 
-fem.cmx: fem.ml fem.cmi mesh.cmi
+fem.cmx: fem.ml fem.cmi ddiffop_lexer.cmx fastfields.cmx mpi_petsc.cmx \
+  ddiffop_parser.cmx base.cmx nlog.cmx simplex.cmx qhull.cmx mesh.cmx \
+  ddiffop.cmx snippets.cmx
 
 ddiffop.cmx: ddiffop.ml ddiffop.cmi
 ddiffop_parser.ml ddiffop_parser.mli: ddiffop_parser.mly
 	$(OCAMLYACC) ddiffop_parser.mly
-ddiffop_lexer.cmx: ddiffop_lexer.ml ddiffop_parser.cmi
+ddiffop_lexer.cmx: ddiffop_lexer.ml ddiffop_parser.cmi ddiffop_parser.cmx
 ddiffop_parser.cmi: ddiffop_parser.mli ddiffop.cmi
-ddiffop_parser.cmx: ddiffop_parser.ml ddiffop_parser.cmi
+ddiffop_parser.cmx: ddiffop_parser.ml ddiffop_parser.cmi ddiffop.cmx
 
 localeqn.cmx: localeqn.ml localeqn.cmi
 localeqn_parser.ml localeqn_parser.mli: localeqn_parser.mly
 	$(OCAMLYACC) localeqn_parser.mly
 localeqn_parser.cmi: localeqn_parser.mli localeqn.cmi
-localeqn_lexer.cmx: localeqn_lexer.ml localeqn_parser.cmi
-localeqn_parser.cmx: localeqn_parser.ml localeqn_parser.cmi
+localeqn_lexer.cmx: localeqn_lexer.ml localeqn_parser.cmi localeqn_parser.cmx
+localeqn_parser.cmx: localeqn_parser.ml localeqn_parser.cmi localeqn.cmx
 
 dimensions.cmx: dimensions.ml dimensions.cmi
 dimensions_parser.ml dimensions_parser.mli: dimensions_parser.mly
@@ -132,12 +120,13 @@ dimensions_parser.cmx: dimensions_parser.ml dimensions_parser.cmi
 dimensions_lexer.cmx: dimensions_parser.ml dimensions_parser.cmi
 
 mpi_petsc.ml: mpi.ml petsc.ml petsc_error.ml
-	cat  mpi.ml petsc_error.ml petsc.ml > mpi_petsc.ml
+	cat mpi.ml petsc_error.ml petsc.ml > mpi_petsc.ml
+mpi_petsc.cmx: mpi_petsc.ml nsimconf.cmx
 
 #mpi_petsc.mli: mpi_petsc.ml
 #        ocamlc -i -I ../config mpi_petsc.ml >mpi_petsc.mli
 
-sundials_sp.cmx: sundials_sp.ml sundials_sp.cmi
+sundials_sp.cmx: sundials_sp.ml sundials_sp.cmi mpi_petsc.cmx snippets.cmx
 
 hlib.cmx: hlib.ml hlib.cmi
 
@@ -145,22 +134,38 @@ bem3d.cmx: bem3d.ml bem3d.cmi fem.cmi mesh.cmi
 
 nsim_anisotropy.cmx: nsim_anisotropy.ml nsim_anisotropy.cmi
 
-ccpla.cmx: ccpla.ml ccpla.cmi
+ccpla.cmx: ccpla.ml ccpla.cmi nsimconf.cmx snippets.cmx mpi_petsc.cmx
 
-nsim.cmx: nsim.ml nsim.cmi bem3d.cmi snippets.cmi mesh.cmi fem.cmi ccpla.cmi \
-  localeqn.cmi
+nsim.cmx: nsim.ml nsim.cmi ddiffop_lexer.cmx localeqn_lexer.cmx          \
+  sundials_sp.cmx mpi_petsc.cmx fem.cmx localeqn_parser.cmx nsimconf.cmx \
+  mesh.cmx ddiffop_parser.cmx ccpla.cmx localeqn.cmx hlib.cmx nlog.cmx   \
+  ddiffop.cmx snippets.cmx
 
 pycaml_stubs.o: pycaml_stubs.c pycaml_stubs.h
 	$(OCAMLOPT_CC_C) \
 	  -ccopt $(PYTHON_CFLAGS) \
 	  -o pycaml_stubs.o pycaml_stubs.c 
 
+bindings.cmx: bindings.ml pycaml.cmx
 pycaml.cmi: pycaml.mli
 pycaml.cmx: pycaml.ml pycaml.cmi
 
-pyfem.cmx: pyfem.ml fem.cmi mesh.cmi
+pyfem.cmx: pyfem.ml pycaml.cmx mpi_petsc.cmx fem.cmx mesh.cmx pypetsc.cmx bindings.cmx
+pypetsc.cmx: pypetsc.ml pycaml.cmx mpi_petsc.cmx bindings.cmx
 
 nsimexec.cmx: nsimexec.ml nsimexec.cmi $(NXIMEXEC_OBJECTS)
+
+
+
+
+
+
+
+
+
+
+
+
 
 nsimexec: $(NSIMEXEC_OBJECTS)
 	$(OCAMLOPT) \

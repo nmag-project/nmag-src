@@ -9,9 +9,7 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
-include ../config/configuration.inc
-
-SHELL=${BASH}
+SHELL=@BASH@
 
 .PHONY: all build-bin clean
 
