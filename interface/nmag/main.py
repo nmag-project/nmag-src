@@ -1947,13 +1947,13 @@ class Simulation(SimulationCore):
         _, field = self._master_mwes_and_fields_by_name['m']
         names_and_shapes = nfem.data_doftypes(field)
 
+        file_to_my = None
         my_perm = self.mesh.permutation
         file_perm = nmesh.hdf5_mesh_get_permutation(filename)
         if my_perm != None or file_perm != None:
             perms_are_compatible = (my_perm != None and file_perm != None 
                                     and numpy.array_equal(my_perm, file_perm))
 
-            file_to_my = None
             if not perms_are_compatible:
                 # Compute the mapping from current indexing to file indexing
                 if my_perm == None:
