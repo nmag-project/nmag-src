@@ -126,6 +126,10 @@ class Simulation(SimulationCore):
         SimulationCore.__init__(self, name=name, do_demag=do_demag,
                                 id="FE Simulation class")
 
+        # General settings
+        self.do_sl_stt = do_sl_stt      # Compute Slonczewski STT
+        self.periodic_bc = periodic_bc  # Lattice for PBC
+
         # Get parameters for building the BEM matrix with HLib
         self.hlib_params = None
         if phi_BEM != None:
@@ -134,22 +138,18 @@ class Simulation(SimulationCore):
                                  "class must be an instance of the "
                                  "HMatrixSetup class")
 
-            if not hlib.initialize_library(logmsg=log.debug):
+            if not hlib.initialize_library(logmsg=lg.debug):
                 raise NmagUserError("Cannot initialise HLib!")
 
             # Use different defaults depending on whether we are using PBC.
             # NOTE: these choices are superseded by the parameters given by
             #   the user.
-            if self._periodic_bc:
+            if self.periodic_bc:
                 phi_BEM.set_default_params(cluster_strategy="geometric",
                                            eta=0.2)
-            log.info("Using HLib to compress the BEM matrix. "
+            lg.info("Using HLib to compress the BEM matrix. "
                      "HMatrix setup parameters are: %s" % str(phi_BEM))
             self.hlib_params = phi_BEM.get_params()
-
-        # General settings
-        self.do_sl_stt = do_sl_stt      # Compute Slonczewski STT
-        self.periodic_bc = periodic_bc  # Lattice for PBC
 
         # Mesh stuff...
         self.mesh = None                # The mesh object
