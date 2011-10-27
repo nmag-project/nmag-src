@@ -1923,7 +1923,7 @@ class Simulation(SimulationCore):
         self._set_subfield(subfieldname,values,unit,fieldname='m',auto_normalise=True)
         self._m_has_been_set = True
 
-    def load_m_from_h5file(self, filename):
+    def load_m_from_h5file(self, filename, **kwargs):
         """Use the magnetisation stored in ``filename`` to set the
         magnetisation of the simulation. (If more than one magnetisation
         configurations have been saved in the file, it will load the first
@@ -1945,75 +1945,10 @@ class Simulation(SimulationCore):
 
         """
         _, field = self._master_mwes_and_fields_by_name['m']
-        names_and_shapes = nfem.data_doftypes(field)
-
-        file_to_my = None
-        my_perm = self.mesh.permutation
-        file_perm = nmesh.hdf5_mesh_get_permutation(filename)
-        if my_perm != None or file_perm != None:
-            perms_are_compatible = (my_perm != None and file_perm != None 
-                                    and numpy.array_equal(my_perm, file_perm))
-
-            if not perms_are_compatible:
-                # Compute the mapping from current indexing to file indexing
-                if my_perm == None:
-                    my_perm = numpy.arange(len(file_perm))
-                elif file_perm == None:
-                    file_perm = numpy.arange(len(my_perm))
-
-                num_mesh_sites = len(my_perm)
-                if len(file_perm) != num_mesh_sites:
-                    raise ValueError("You are trying to set a field from an "
-                                     "incompatible data file")
-
-                # Compute the mapping current indexing -> file indexing. This
-                # is a permutation given by composing file_perm with the
-                # inverse of my_perm
-                inv_file_perm = numpy.arange(num_mesh_sites)
-                inv_file_perm[file_perm] = numpy.arange(len(file_perm))
-                file_to_my = inv_file_perm[my_perm]
-                del inv_file_perm
-
-        for subfield_name, shape in names_and_shapes:                
-            file_site_ids, file_values = \
-              hdf5.hdf5_get_subfield(filename, subfield_name)
-
-            if file_to_my != None:
-                # my_site_ids expresses how we want the numpy array to be
-                # ordered (before passing it for setting the field). The
-                # problem here is that the order of the numpy array as red from
-                # the file is not this one (it is not my_site_ids, but rather
-                # file_site_ids).  Moreover the two orderings my_site_ids and
-                # file_site_ids refer to possibly different orderings of the
-                # mesh (assuming the mesh has been partitioned differently in
-                # the two cases). This complicates things a bit...
-                my_site_ids, _, _, _ = \
-                  ocaml.mwe_subfield_metadata(field, subfield_name)
-
-                # Flatten the arrays: as Nsim was built to deal with FE at any
-                # order, the fields can be defined outside the mesh sites.
-                # The sites where the fields are defined are - in general -
-                # identified by a list of mesh sites ids (which are averaged
-                # to get the actual coordinates). Here we restrict ourselves
-                # to order 1 and we simply flatten the array (this will fail
-                # when FE orders > 1 are used).
-                file_site_ids = \
-                  numpy.array(my_site_ids).reshape(len(file_site_ids),)
-                my_site_ids = \
-                  numpy.array(my_site_ids).reshape((len(my_site_ids),))
-
-                # Compute inverse map of my_site_ids
-                num_mesh_sites = len(file_to_my)
-                my_site_ids_inv = numpy.arange(num_mesh_sites)
-                my_site_ids_inv[my_site_ids] = numpy.arange(len(file_site_ids))
-
-                permutation = my_site_ids_inv[file_to_my[file_site_ids]]
-                my_values = file_values[permutation]
-
-            else:
-                my_values = file_values
-
-            self.set_m(my_values, subfieldname=subfield_name)
+        values = \
+          hdf5.get_field_data_from_file(self.mesh, field, filename, **kwargs)
+        for subfieldname, subfieldvalues in values.iteritems():
+            self.set_m(subfieldvalues, subfieldname=subfieldname)
 
     def get_timers(self, timers=[]):
         """

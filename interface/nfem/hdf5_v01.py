@@ -11,24 +11,24 @@ TODO:
 
 __docformat__='restructuredtext'
 
+import os
+import types
+import string
+import logging
 
 import numpy
+
 import nfem.fields
 from nfem_exceptions import NfemUserError
-import os, types
-
 import nsim.snippets
-
 from nsim.si_units import SI
+import nsim.timings
+import nmesh
 
 import ocaml
 
-import string
 
-import nsim.timings
-
-import logging
-log=logging.getLogger('nfem')
+log = logging.getLogger('nfem')
 
 
 def pytables_version():
@@ -1693,6 +1693,89 @@ def report_timings():
     report_append_averages_timings()
     report_append_field_timings()
 
+def get_field_data_from_file(mesh, field, filename, **kwargs):
+    """Return a dictionary of numpy arrays containing the values of 'field' as
+    stored in 'filename' for each of its subfields. These numpy arrays are
+    reordered coherently with the currently used 'mesh'.  This is important, as
+    the 'mesh' may be reordered in a different way with respect to the mesh
+    used when saving the data. This may happend when the two simulations are
+    ran (via MPI) on a different number of compute nodes (Parmetis is called
+    just when the mesh is loaded, to permute the nodes and optimise the mesh
+    connectivity before distributing the data). Not reordering the data, could
+    lead to setting the magnetisation at the wrong nodes.
+    """
+
+    file_to_my = None
+    my_perm = mesh.permutation
+    file_perm = nmesh.hdf5_mesh_get_permutation(filename)
+    if my_perm != None or file_perm != None:
+        perms_are_compatible = (my_perm != None and file_perm != None 
+                                 and numpy.array_equal(my_perm, file_perm))
+
+        if not perms_are_compatible:
+            # Compute the mapping from current indexing to file indexing
+            if my_perm == None:
+                my_perm = numpy.arange(len(file_perm))
+            elif file_perm == None:
+                file_perm = numpy.arange(len(my_perm))
+
+            num_mesh_sites = len(my_perm)
+            if len(file_perm) != num_mesh_sites:
+                raise ValueError("You are trying to set a field from an "
+                                 "incompatible data file")
+
+            # Compute the mapping current indexing -> file indexing. This
+            # is a permutation given by composing file_perm with the
+            # inverse of my_perm
+            inv_file_perm = numpy.arange(num_mesh_sites)
+            inv_file_perm[file_perm] = numpy.arange(len(file_perm))
+            file_to_my = inv_file_perm[my_perm]
+            del inv_file_perm
+
+    values = {}
+    names_and_shapes = nfem.data_doftypes(field)
+    for subfield_name, shape in names_and_shapes:                
+        file_site_ids, file_values = \
+          hdf5_get_subfield(filename, subfield_name, **kwargs)
+
+        if file_to_my != None:
+            # my_site_ids expresses how we want the numpy array to be
+            # ordered (before passing it for setting the field). The
+            # problem here is that the order of the numpy array as red from
+            # the file is not this one (it is not my_site_ids, but rather
+            # file_site_ids).  Moreover the two orderings my_site_ids and
+            # file_site_ids refer to possibly different orderings of the
+            # mesh (assuming the mesh has been partitioned differently in
+            # the two cases). This complicates things a bit...
+            my_site_ids, _, _, _ = \
+              ocaml.mwe_subfield_metadata(field, subfield_name)
+
+            # Flatten the arrays: as Nsim was built to deal with FE at any
+            # order, the fields can be defined outside the mesh sites.
+            # The sites where the fields are defined are - in general -
+            # identified by a list of mesh sites ids (which are averaged
+            # to get the actual coordinates). Here we restrict ourselves
+            # to order 1 and we simply flatten the array (this will fail
+            # when FE orders > 1 are used).
+            file_site_ids = \
+              numpy.array(my_site_ids).reshape(len(file_site_ids),)
+            my_site_ids = \
+              numpy.array(my_site_ids).reshape((len(my_site_ids),))
+
+            # Compute inverse map of my_site_ids
+            num_mesh_sites = len(file_to_my)
+            my_site_ids_inv = numpy.arange(num_mesh_sites)
+            my_site_ids_inv[my_site_ids] = numpy.arange(len(file_site_ids))
+
+            permutation = my_site_ids_inv[file_to_my[file_site_ids]]
+            my_values = file_values[permutation]
+
+        else:
+            my_values = file_values
+
+        values[subfield_name] = my_values
+
+    return values
 
 
 if __name__ == "__main__":

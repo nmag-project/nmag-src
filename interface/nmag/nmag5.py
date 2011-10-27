@@ -755,12 +755,12 @@ class Simulation(SimulationCore):
         lg.info("Written fields %s data to %s" % (str(fieldnames), filename))
         timer1.stop('save_fields')
 
-    def load_m_from_h5file(self, file_name):
+    def load_m_from_h5file(self, filename, **kwargs):
         m = self.model.quantities["m"]
-        names_and_shapes = nfem.data_doftypes(m.master)
-        for subfield_name, shape in names_and_shapes:
-            arr = hdf5.get_subfield_from_h5file(file_name, subfield_name)
-            self.set_m(arr, subfieldname=subfield_name)
+        values = \
+          hdf5.get_field_data_from_file(self.mesh, m.master, filename, **kwargs)
+        for subfieldname, subfieldvalues in values.iteritems():
+            self.set_m(subfieldvalues, subfieldname=subfieldname)
 
     def save_m_to_file(self, file_name):
         self._save_fields(file_name, fieldnames=["m"])
