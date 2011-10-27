@@ -130,7 +130,7 @@ sundials_sp.cmx: sundials_sp.ml sundials_sp.cmi mpi_petsc.cmx snippets.cmx
 
 hlib.cmx: hlib.ml hlib.cmi
 
-bem3d.cmx: bem3d.ml bem3d.cmi fem.cmi mesh.cmi
+bem3d.cmx: bem3d.ml bem3d.cmi fem.cmi fem.cmx mesh.cmi
 
 nsim_anisotropy.cmx: nsim_anisotropy.ml nsim_anisotropy.cmi
 
@@ -153,19 +153,7 @@ pycaml.cmx: pycaml.ml pycaml.cmi
 pyfem.cmx: pyfem.ml pycaml.cmx mpi_petsc.cmx fem.cmx mesh.cmx pypetsc.cmx bindings.cmx
 pypetsc.cmx: pypetsc.ml pycaml.cmx mpi_petsc.cmx bindings.cmx
 
-nsimexec.cmx: nsimexec.ml nsimexec.cmi $(NXIMEXEC_OBJECTS)
-
-
-
-
-
-
-
-
-
-
-
-
+nsimexec.cmx: nsimexec.ml nsimexec.cmi pyfem.cmx
 
 nsimexec: $(NSIMEXEC_OBJECTS)
 	$(OCAMLOPT) \

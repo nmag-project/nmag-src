@@ -740,9 +740,12 @@ let mwe_shortvec_info mwe dvss =
 	  let () = Hashtbl.add mwe.mwe_dofs_and_distribution_by_dvss dvss (!canonical_entry)
 	  in
 	  let result = !canonical_entry in
-	  let ddd =
+	  let () =
 	    let (lts,stl,distrib) = result in
-	      logdebug (Printf.sprintf "mwe_shortvec_info (CPU %d mwe: %s dvss: %s): (lts=#[array length=%d],stl=#[array length=%d],distrib=%s"
+	      logdebug (Printf.sprintf
+                          "mwe_shortvec_info (CPU %d mwe: %s dvss: %s): \
+                           (lts=#[array length=%d],stl=#[array length=%d],\
+                           distrib=%s"
 			  (Mpi_petsc.comm_rank (Mpi_petsc.petsc_get_comm_world()))
 			  mwe.mwe_name
 			  (dvss_to_string dvss)
@@ -1391,7 +1394,7 @@ let femfun_integrate femfun nr_L =
  *)
 
 
-(* XXX It doesn't seem to be used. Is it obsolete? mf 12 Aug 2010 *)
+(*
 let femfun_numerical_integrator simplex_decomposition femfun (mesh, simplex_nr) =
   let m0 = mesh.mm_mesh0 in
   let sd = mesh.mm_simplex_data in
@@ -1414,7 +1417,7 @@ let femfun_numerical_integrator simplex_decomposition femfun (mesh, simplex_nr) 
     Array.fold_left
       (fun sf (pos,coeff) -> sf+.(numfun pos)*.coeff) 0.0 points_and_coeffs
 ;;
-
+*)
 
 (* Integration over surface:
 
@@ -1600,7 +1603,6 @@ let femfun_diff_x femfun nr_dx =
 let femfun_integrate_over_simplex_opt mesh (_,femfun) =
   let dLs = Simplex.get_inv_point_matrices mesh.mm_simplex_data in
   let dets = Simplex.get_point_matrix_det mesh.mm_simplex_data in
-  let dim = mesh.mm_dim in
   let nr_summands = Array.length femfun in
   let coeff_x_factor_Ls =
     Array.map
@@ -1637,12 +1639,10 @@ let femfun_integrate_over_simplex_opt mesh (_,femfun) =
        in integral *. abs_float(det))
 ;;
 
-
 let femfun_integrate_over_simplex mesh (_,femfun) simplex =
   let sx_nr = simplex.ms_id in
   let dLs = Simplex.get_inv_point_matrices mesh.mm_simplex_data in
   let det = Simplex.get_point_matrix_det mesh.mm_simplex_data sx_nr in
-  let dim = mesh.mm_dim in
   let integral =
     let nr_summands = Array.length femfun in
     let rec walk_summands sf n =
@@ -1801,7 +1801,6 @@ let mwe_ensure_has_volumes mwe =
 
 *)
 let fold_out_abssite interim_point_desc simplex_vertex_ids =
-  let nr_points = Array.length simplex_vertex_ids in
   let order = Array.fold_left (+) 0 interim_point_desc in
   let target = Array.make order 0 in
   let rec fill pos_target pos_ipd =
@@ -2283,8 +2282,7 @@ let mwe_memstats mwe =
 ;;
 
 let mwe_memstats_str stats =
-  let in_b nr_bytes = Printf.sprintf "%d B" (int_of_float nr_bytes) in
-  let in_kb nr_bytes = Printf.sprintf "%d KB" (int_of_float (nr_bytes/.1024.0))
+  let in_b nr_bytes = Printf.sprintf "%d B" (int_of_float nr_bytes)
   in
   let lines =
     Array.map
@@ -3124,7 +3122,7 @@ let equalize_periodic_field
 	    then failwith "equalize_periodic_field: field types must be PRECISELY equal!"
 	    else ())
   in
-  let mwe = mwe_src and restr = restr_src in
+  let mwe = mwe_src in
   let check_if_needs_equalizing =
     match opt_dof_stems with
       | None -> (fun _ -> true)
@@ -4896,10 +4894,6 @@ let ddiffop_vivified
     mwe_le
     mwe_ri
     =
-  let timing =
-    let t0 = Unix.gettimeofday() in
-      fun () -> Unix.gettimeofday()-.t0
-  in
   let have_mwe_mid = mwe_mid <> None in
   let constantly_1 x = 1.0 in
   let mesh = mwe_le.mwe_mesh in
@@ -4921,7 +4915,6 @@ let ddiffop_vivified
   (* This hack ensures we do not constantly have to discern between having
      mwe_mid or not for the sake of the type system alone... Simplifies coding.
    *)
-  let for_ddiffop_dof_combinations f = Array.iter f ddiffop.Ddiffop.diff_contribs in
   let (ixmap_le,mx_size_le) =
     let (a,b,_) =
       ddiffop_mxdim_index_mapping mwe_le (let (x,_) = ddiffop.Ddiffop.diff_mxdim in x) in
@@ -5173,10 +5166,6 @@ let ddiffop_vivified
       ?fun_finish_matrix (* e.g. PETSc may need MatAssembly() at the end. *)
       ?field_mid
       fun_add_contrib ->
-	let timing =
-	  let t0 = Unix.gettimeofday() in
-	    fun () -> Unix.gettimeofday()-.t0
-	in
 	let opt_the_matrix =
 	  match fun_make_matrix with
 	    | None -> None
@@ -5352,6 +5341,7 @@ let ddiffop_vivified
 	let () =
 	  match (fun_finish_matrix,opt_the_matrix) with
 	    | (Some f, Some m) -> f m
+            | _ -> ()
 	in
 	  opt_the_matrix
 ;;
