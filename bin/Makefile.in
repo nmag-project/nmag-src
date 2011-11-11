@@ -19,7 +19,7 @@ all: nsim-raw $(NSIM_EXECS)
 # Rule to make executables from the corresponding .in files
 %: %.in
 	. ./root.inc && \
-	 sed -e 's|\$$NMAGBINDIR\$$|'"$$NMAG_BIN"'|g' $< | sed -e 's|^#!/bin/bash|#!${BASH}|' > $@ || rm $@
+	 sed -e 's|\$$NMAGBINDIR\$$|'"$$NMAG_BIN"'|g' $< | sed -e 's|^#!/bin/bash|#!@BASH@|' > $@ || rm $@
 	 chmod u+x $@
 
 nsim-raw: nsim-raw.in root.inc
