@@ -19,13 +19,11 @@ clean:
 	(cd src && $(MAKE) clean)
 	(cd bin && $(MAKE) clean)
 
-
 # The target below is used in the all-from-sources tarball.
 all-log:
-	@echo "Compiling Nmag..."
-	@$(MAKE) all >compilation.log 2>&1 \
-	 && echo "Compilation successful." \
-	 || echo "Error compiling Nmag. See compilation.log in the Nmag" \
-	      "source directory (typically nsim) or send a bug report as" \
-	      "explained at" \
-	      "https://nmag.soton.ac.uk/community/wiki/nmag/Bug_report"
+	@echo "Now compiling Nmag."
+	@echo "Output is sent to the file 'compilation.log' in the Nmag" \
+	  "source directory (typically nsim)."
+	@echo "In case of errors send a bug report as explained at" \
+	  "https://nmag.soton.ac.uk/community/wiki/nmag/Bug_report"
+	@$(MAKE) all >compilation.log 2>&1 && echo "Compilation successful."
