@@ -48,7 +48,7 @@ NSIMEXEC_OBJECTS= nsimconf.cmx mt19937.cmx mt19937_impl.o mt19937_stubs.o     \
   bem3d.cmx bem3d_stubs.o nsim_anisotropy.cmx ccpla.cmx nsim.cmx pycaml.cmx   \
   pycaml_stubs.o bindings.cmx pypetsc.cmx pyfem.cmx nsimexec.cmx
 
-.PHONY: all clean
+.PHONY: all install uninstall clean
 
 all: nsimexec
 
@@ -162,6 +162,12 @@ nsimexec: $(NSIMEXEC_OBJECTS)
 	  $(NSIMEXEC_OBJECTS) \
 	  -cclib $(NSIMEXEC_LDFLAGS) \
 	  -o nsimexec
+
+install:
+	@INSTALL@ nsimexec @BINDIR@
+
+uninstall:
+	rm -f @BINDIR@/nsimexec
 
 clean:
 	rm -f nsimexec *.cmi *.cmo *.cmx *.o

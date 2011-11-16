@@ -1,0 +1,46 @@
+import re
+
+# Replacement utilities
+_configvar_re = re.compile(r"[@][a-zA-Z_]*[@]")
+
+def configvar_replace(config, text):
+    """"Substitute configuration variables with form @NAME@ with their
+    values."""
+
+    def replacer(match_object):
+        try:
+            cv = match_object.group(0)[1:-1]
+        except:
+            raise ValueError("Error when substituting the configuration "
+                             "variable.")
+        if len(cv) == 0:
+            return "@"
+
+        else:
+            val = config.get(cv, None)
+            return str(val) if val != None else ""
+
+    return re.sub(_configvar_re, replacer, text)
+
+def configvar_replace_file(config, filename_in, filename_out=None):
+    """Copy file with name filename_in to a file with name filename_out,
+    replacing all configuration variables with form "@NAME@" with their values.
+    """
+    if filename_out == None:
+        filename_out = os.path.splitext(filename_in)[0]
+
+    with open(filename_in, "r") as f:
+        text_in = f.read()
+
+    text_out = configvar_replace(config, text_in)
+
+    with open(filename_out, "w") as f:
+        f.write(text_out)
+
+configuration = @CONFIGURATION@
+
+import sys
+filename_in = sys.argv[1]
+filename_out = (sys.argv[2] if len(sys.argv) > 1 else None)
+
+configvar_replace_file(configuration, filename_in, filename_out)

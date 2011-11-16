@@ -1,4 +1,4 @@
-#!/bin/bash $NMAGBINDIR$/nsim-raw
+#!@BASH@ @BINDIR@/nsim-raw
 
 import sys,optparse,string,os
 

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!@BASH@
 # Nmag micromagnetic simulator
 # Copyright (C) 2010 University of Southampton
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
@@ -9,10 +9,11 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
-RT="$NMAGROOTDIR$"
+BINDIR="@BINDIR@"
+DATAROOTDIR="@DATAROOTDIR@"
 
 # Set PYTHONPATH so that Python can find Nsim modules
-INTERFACE_PATH=$RT/interface
+INTERFACE_PATH=$DATAROOTDIR/interface
 if [ x$PYTHONPATH == x ]; then
   PYTHONPATH=$INTERFACE_PATH
 else
@@ -23,9 +24,10 @@ export PYTHONPATH
 # Check whether the ldflags.bash file exists.
 # This file sets environment variables so that all the libraries
 # required by nsim are found.
-if [ -f $RT/bin/ldflags.bash ]; then
-  . $RT/bin/ldflags.bash
+LDFLAGS_FILE="$RT/bin/ldflags.bash"
+if [ -f $LDFLAGS_FILE ]; then
+  . $LDFLAGS_FILE
 fi
 
 # Finally invoke the executable
-$RT/src/nsimexec "$@"
+$BINDIR/nsimexec "$@"

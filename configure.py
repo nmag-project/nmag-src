@@ -238,6 +238,7 @@ lib_option = "-l"
 libpath_option = "-L"
 inc_option = "-I"
 use_full_lib_path = False
+gen_install_scripts = False
 
 #import glob
 #print glob('/usr/lib/petscdir/*')
@@ -359,21 +360,16 @@ configs["numpy-includedir"] = (
   numpy_include_dirs
 )
 
-configs["_util-libdir"] = (
-  "Hidden",
-  "UTIL",
-  "UTIL",
-  ["util"],
-  std_lib_paths
-)
-
 other_opts = [
   ("help", "Shows this help screen"),
   ("libdir=", "Path to be used when searching for all the libraries"),
   ("includedir=", "Path to be used when searching for all the headers"),
   ("full-lib-name", "Use 'path/libname.so' instead of '-Lpath -lname'"),
   ("with-single-petsc-lib", "Link only against libpetsc (PETSc > 3.1)"),
-  ("cflags=", "CFLAGS to use (override automatically detected values)")
+  ("cflags=", "CFLAGS to use (override automatically detected values)"),
+  ("prefix=", "Target root installation directory for Nmag"),
+  ("bindir=", "User executables (where executables are installed)"),
+  ("datarootdir=", "Data root (where *.pyc files are installed)")
 ]
 
 def help_msg(description_offset=28):
@@ -422,17 +418,20 @@ if '--with-single-petsc-lib' in recognized_opts:
     configs['petsc-libdir'][3] = ['petsc']
     processed_opts['--full-lib-name'] = True
 
-# Default assumption is that the user does not provide CFLAGS via a --cflags option:
-user_CFLAGS=None
+
+configuration = {}   # Configuration dictionary
+user_CFLAGS = None   # Default assumption is that the user does not provide
+                     # CFLAGS via a --cflags option:
 
 # Add other paths
 for opt, arg in recognized:
-    if len(opt)>2 and opt[0:2] == "--":
+    if opt.startswith("--"):
         key = opt[2:]
         if key in configs:
             config = configs[key]
             config[4].insert(0, arg)
             continue
+
         else:
             if key == 'libdir':
                 # Add this paths to all the config entries
@@ -441,6 +440,7 @@ for opt, arg in recognized:
                     if 'libdir' in key:
                         configs[key][4].insert(0, arg)
                 continue
+
             elif key == 'includedir':
                 # Add this paths to all the config entries
                 # which contain libdir (Such as qhull-libdir, sundials-libdir)
@@ -448,12 +448,58 @@ for opt, arg in recognized:
                     if 'includedir' in key:
                         configs[key][4].insert(0, arg)
                 continue
+
     if opt == '--cflags':
         user_CFLAGS = arg
         processed_opts[opt] = None
 
-    if opt not in processed_opts:
+    elif opt == '--prefix':
+        configuration["BINDIR"] = os.path.join(arg, "bin")
+        configuration["DATAROOTDIR"] = os.path.join(arg, "share")
+
+    elif opt == '--bindir':
+        configuration["BINDIR"] = arg
+
+    elif opt == '--datarootdir':
+        configuration["DATAROOTDIR"] = arg
+
+    elif opt not in processed_opts:
         msg.prnln("Warning: ignored option '%s'" % opt, "warning")
+
+###############################################################################
+# Determine the installation mode and directories
+
+# Set the path to the sources (the directory containing this script)
+src_dir = os.path.realpath(os.path.split(sys.argv[0])[0])
+configuration["SRCDIR"] = src_dir
+
+# Info about all directories involved in the installation process
+varname_reldir = \
+  (("BINDIR", ("bin",)),
+   ("DATAROOTDIR", ("share",)))
+
+# Determine the root directory
+root_dir = None
+for varname, reldir in varname_reldir:
+    varval = configuration.get(varname, None)
+    if varval != None:
+        if root_dir == None:
+            dotdot = len(reldir)*("..",)
+            root_dir = os.path.realpath(os.path.join(varval, *dotdot))
+
+# Whether Nmag should be installed or used locally
+do_install = (root_dir != None)
+
+# If root_dir is not set, then set it to the current Nmag source directory
+# (i.e. the directory containing this script).
+if root_dir == None:
+    configuration["BINDIR"] = os.path.join(src_dir, "bin")
+    configuration["DATAROOTDIR"] = src_dir
+
+else:
+    # Resolve all the paths
+    for varname, reldir in varname_reldir:
+        configuration.setdefault(os.path.join(root_dir, *reldir))
 
 #----------------------------------------------------------------------------
 # Print out some preliminary info
@@ -465,8 +511,6 @@ print "Searching for headers in:   " + ", ".join(std_inc_paths)
 # Now we find all the libraries nsim needs
 
 # Now we search for libraries
-configuration = {}
-configuration_extra = {}
 found_files = {}
 for key in configs:
     config = configs[key]
@@ -499,10 +543,6 @@ for key in configs:
         path, found = find_files(files, paths)
         if path:
             incs = "%s%s" % (inc_option, path)
-
-    if key[0] == '_': # Hidden option
-        configuration_extra[var] = (path, found)
-        continue
 
     if path != None:
         if incs: configuration["%s_INCFLAGS" % id_name] = incs
@@ -650,18 +690,6 @@ else:
 configuration["CFLAGS_ARCH"] = CFLAGS
 configuration["NSIM_CFLAGS"] = CFLAGS
 
-if os.uname()[0] == 'FreeBSD':
-    configuration["MISSINGFLAGS"] = \
-      (' -L/usr/local/petsc/lib/freebsd -lmpi '
-       '-L/usr/local/mpi/openmpi/lib -lX11 -L/usr/local/lib -lblas '
-       '-L/usr/local/lib/ocaml/ -L/usr/lib/ocaml -lbigarray '
-       '-L../mpi_petsc -lmpi_petsc_stubs '
-       '-L/usr/local/lib -L/usr/local/petsc/lib/freebsd '
-       '-lpetsc -lpetscdm -lpetscsnes -lpetscts -lpetscksp -lpetscvec '
-       '-lpetscmat -lmetis -lparmetis -L/usr/local/lib/parmetis '
-       '-lumfpack -llapack -lX11 -lamd -lmpi -lmpi_f77 '
-       '-L/usr/local/mpi/openmpi/lib -lblas ')
-
 ###############################################################################
 # We finally write the configuration to file(s): we produce four files
 # one for each language used in nsim sources: ocaml, C, python and a file
@@ -760,24 +788,37 @@ for var in configuration:
     cf.add_value(var, configuration[var])
 
 # Write the same configuration in different languages
-cf.save('./config/configuration.inc', language='makefile')
 cf.save('./src/configuration.h', language='c_header')
 cf.save('./src/nsimconf.py', language='python')
 cf.save('./src/nsimconf.ml', language='ocaml')
 
+###############################################################################
 # Replace all files
+
+my_configuration = configuration.copy()
+my_configuration["CONFIGURATION"] = repr(configuration)
+
 in_files = \
   ["./src/Makefile.in",
    "./bin/Makefile.in",
+   "./subst.py.in",
    "./Makefile.in"]
 
 for in_file in in_files:
     print "Substituting", in_file
-    configvar_replace_file(configuration, in_file)
+    configvar_replace_file(my_configuration, in_file)
 
+del my_configuration
+
+###############################################################################
 # Recap configuration settings on the screen
 for env_var, _, _, desc in required_binaries:
     msg.summary("%s (%s)" % (desc, env_var), configuration[env_var])
+
+# Installation settings
+msg.summary("Install Nmag on this system", bool_to_yesno(do_install))
+for varname, _ in varname_reldir:
+    msg.summary(varname, configuration[varname])
 
 msg.summary("NumPy array support",
             bool_to_yesno(cf.have("NUMPY_INCLUDE_PATH")))

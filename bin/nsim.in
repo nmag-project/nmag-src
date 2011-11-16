@@ -1,4 +1,4 @@
-#!/bin/bash $NMAGBINDIR$/nsim-raw
+#!@BASH@ @BINDIR@/nsim-raw
 # Nmag micromagnetic simulator
 # Copyright (C) 2010 University of Southampton
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
@@ -12,4 +12,3 @@
 from sys import argv
 from nsim.shell import main
 main(argv, use_ipython=True, locals=locals(), globals=globals())
-

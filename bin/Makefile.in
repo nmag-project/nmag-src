@@ -11,41 +11,24 @@
 
 SHELL=@BASH@
 
-.PHONY: all build-bin clean
+.PHONY: all install uninstall clean
 
-NSIM_EXECS=nsim nmeshpp ncol nmagpp nmeshimport
-all: nsim-raw $(NSIM_EXECS)
+NSIM_EXECS=nsim-raw nsim nmeshpp ncol nmagpp nmeshimport
 
 # Rule to make executables from the corresponding .in files
 %: %.in
-	. ./root.inc && \
-	 sed -e 's|\$$NMAGBINDIR\$$|'"$$NMAG_BIN"'|g' $< | sed -e 's|^#!/bin/bash|#!@BASH@|' > $@ || rm $@
+	@SRCDIR@/src/nsimexec @SRCDIR@/subst.py $< $@
 	 chmod u+x $@
 
-nsim-raw: nsim-raw.in root.inc
-	. ./root.inc && \
-	sed -e 's|\$$NMAGROOTDIR\$$|'"$$NMAG_ROOT"'|g' nsim-raw.in > $@ || rm $@
-	chmod u+x $@
+all: 
 
-nsim: nsim.in root.inc nsim-raw
+install: $(NSIM_EXECS)
+	list='$(NSIM_EXECS)'; for file in $$list; do \
+	  echo "@INSTALL@ $$file @BINDIR@;"; \
+	  @INSTALL@ $$file @BINDIR@/$$file.in; \
+	done
 
-nmeshpp: nmeshpp.in root.inc nsim-raw
-
-ncol: ncol.in root.inc nsim-raw
-
-nmagpp: nmagpp.in root.inc nsim-raw
-
-nmeshimport: nmeshimport.in root.inc nsim-raw
-
-root.inc:
-	echo "# NMAG_BIN should be set to the Nmag bin directory." > root.inc && \
-	echo "NMAG_BIN=`pwd`" >> root.inc && \
-	echo "NMAG_ROOT=`cd .. && pwd`" >> root.inc
-
-build-bin:
-	rm -f root.inc
-	$(MAKE)
+uninstall:
 
 clean:
-	rm -f nsim-raw root.inc $(NSIM_EXECS)
-
+	rm -f $(NSIM_EXECS)
