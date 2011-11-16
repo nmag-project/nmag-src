@@ -9,15 +9,13 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
-SHELL=@BASH@
-
 .PHONY: all install uninstall clean
 
 NSIM_EXECS=nsim-raw nsim nmeshpp ncol nmagpp nmeshimport nmagprobe \
   nsimversion nsim_i nmagpp_pre0_1_5000
 
 # Rule to make executables from the corresponding .in files
-$(NSIM_EXEC): %.in
+%: %.in
 	@SRCDIR@/src/nsimexec @SRCDIR@/subst.py $< $@
 	 chmod u+x $@
 

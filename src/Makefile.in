@@ -163,7 +163,7 @@ nsimexec: $(NSIMEXEC_OBJECTS)
 	  -cclib $(NSIMEXEC_LDFLAGS) \
 	  -o nsimexec
 
-install:
+install: nsimexec
 	@INSTALL@ nsimexec @BINDIR@
 
 uninstall:
