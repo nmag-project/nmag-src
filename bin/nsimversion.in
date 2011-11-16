@@ -1,5 +1,4 @@
-#!/bin/bash
+#!@BASH@
 
 echo "nsimversion is obsolete and will be removed in future Nmag versions."
 echo 'Please use "nsim --version" instead.'
-

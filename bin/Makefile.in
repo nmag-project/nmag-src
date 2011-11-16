@@ -13,22 +13,27 @@ SHELL=@BASH@
 
 .PHONY: all install uninstall clean
 
-NSIM_EXECS=nsim-raw nsim nmeshpp ncol nmagpp nmeshimport
+NSIM_EXECS=nsim-raw nsim nmeshpp ncol nmagpp nmeshimport nmagprobe \
+  nsimversion nsim_i nmagpp_pre0_1_5000
 
 # Rule to make executables from the corresponding .in files
-%: %.in
+$(NSIM_EXEC): %.in
 	@SRCDIR@/src/nsimexec @SRCDIR@/subst.py $< $@
 	 chmod u+x $@
 
 all: 
 
 install: $(NSIM_EXECS)
-	list='$(NSIM_EXECS)'; for file in $$list; do \
-	  echo "@INSTALL@ $$file @BINDIR@;"; \
-	  @INSTALL@ $$file @BINDIR@/$$file.in; \
+	@list='$(NSIM_EXECS)'; for file in $$list; do \
+	  echo "@INSTALL@ $$file @BINDIR@"; \
+	  @INSTALL@ $$file @BINDIR@; \
 	done
 
 uninstall:
+	@list='$(NSIM_EXECS)'; for file in $$list; do \
+	  echo "rm -f @BINDIR@/$$file;"; \
+	  rm -f $$file @BINDIR@/$$file; \
+	done
 
 clean:
 	rm -f $(NSIM_EXECS)
