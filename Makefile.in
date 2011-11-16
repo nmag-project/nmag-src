@@ -9,7 +9,10 @@
 # LICENSE: GNU General Public License 2.0
 #          (see <http://www.gnu.org/licenses/>)
 
-.PHONY: all all-log clean
+.PHONY: all all-log clean check checkslow checkmpi checkhlib checkall
+
+NSIMEXEC=./src/nsimexec
+NSIM_PYTEST=$(NSIMEXEC) ./test/test.py
 
 all:
 	(cd src && $(MAKE) all)
@@ -27,3 +30,20 @@ all-log:
 	@echo "In case of errors send a bug report as explained at" \
 	  "https://nmag.soton.ac.uk/community/wiki/nmag/Bug_report"
 	@$(MAKE) all >compilation.log 2>&1 && echo "Compilation successful."
+
+check:
+	@echo "Testing all reasonably fast tests".
+	@echo "Skipping tests with name test_slow* and test_mpi*".
+	$(NSIM_PYTEST) -k "-test_slow -test_mpi -test_hlib"
+
+checkslow:
+	$(NSIM_PYTEST) -k test_slow
+
+checkmpi:
+	$(NSIM_PYTEST) -k test_mpi
+
+checkhlib:
+	$(NSIM_PYTEST) -k test_hlib
+
+checkall:
+	$(NSIM_PYTEST)

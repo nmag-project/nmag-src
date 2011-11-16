@@ -559,7 +559,8 @@ required_binaries = \
     "Mpi C compiler wrapper"),
    ("OCAMLFIND", "ocamlfind",[], "Findlib utility"),
    ("OCAMLLEX", "ocamllex",[], "OCaml Lex utility"),
-   ("OCAMLYACC", "ocamlyacc",[], "OCaml Yacc utility")]
+   ("OCAMLYACC", "ocamlyacc",[], "OCaml Yacc utility"),
+   ("INSTALL", "install", [], "install utility")]
 
 for env_var, command, paths, desc in required_binaries:
     # First we should try to scan the command line for something like VAR=VAL
