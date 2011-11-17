@@ -2,11 +2,17 @@
 # The information is collected by autoconf (configure script)
 # which uses this file as a form to be filled.
 # The result is put in a file named 'arch.py'
-cc="@CC@"
-host_cpu="@host_cpu@"
-warn_cflags="@WARN_CFLAGS@"
-cflags="@CFLAGS@"
-sse_cflags="@SSE_CFLAGS@"
-arch_cflags="@ARCH_CFLAGS@"
-sizeof_int="@SIZEOF_INT@"
 
+def update_configuration(cfg):
+    cfg["INSTALL"] = "@INSTALL@"
+    cfg["INSTALL_DATA"] = "@INSTALL_DATA@"
+    cfg["INSTALL_SCRIPT"] = "@INSTALL_SCRIPT@"
+    cfg["INSTALL_PROGRAM"] = "@INSTALL_PROGRAM@"
+    cfg["CC"] = "@CC@"
+    cfg["host_cpu"] = "@host_cpu@"
+    cfg["WARN_CFLAGS"] = "@WARN_CFLAGS@"
+    cfg["CFLAGS"] = "@CFLAGS@"
+    cfg["SSE_CFLAGS"] = "@SSE_CFLAGS@"
+    cfg["ARCH_CFLAGS"] = "@ARCH_CFLAGS@"
+    cfg["SIZEOF_INT"] = "@SIZEOF_INT@"
+    cfg["BITS_IN_C_INT"] = str(8*@SIZEOF_INT@)

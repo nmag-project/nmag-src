@@ -13,6 +13,9 @@ AC_PREREQ(2.52)
 # Libtool support
 # AC_PROG_LIBTOOL
 
+# Find a BSD-compatible install program
+AC_PROG_INSTALL
+
 # Checks for programs.
 AC_PROG_CC
 #AC_CHECK_PROG([GAWK], [gawk], [found], [not found], [$PATH])

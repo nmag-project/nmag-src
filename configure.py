@@ -489,6 +489,7 @@ for varname, reldir in varname_reldir:
 
 # Whether Nmag should be installed or used locally
 do_install = (root_dir != None)
+configuration["DO_INSTALL"] = str(int(do_install))
 
 # If root_dir is not set, then set it to the current Nmag source directory
 # (i.e. the directory containing this script).
@@ -499,7 +500,7 @@ if root_dir == None:
 else:
     # Resolve all the paths
     for varname, reldir in varname_reldir:
-        configuration.setdefault(os.path.join(root_dir, *reldir))
+        configuration.setdefault(varname, os.path.join(root_dir, *reldir))
 
 #----------------------------------------------------------------------------
 # Print out some preliminary info
@@ -599,8 +600,7 @@ required_binaries = \
     "Mpi C compiler wrapper"),
    ("OCAMLFIND", "ocamlfind",[], "Findlib utility"),
    ("OCAMLLEX", "ocamllex",[], "OCaml Lex utility"),
-   ("OCAMLYACC", "ocamlyacc",[], "OCaml Yacc utility"),
-   ("INSTALL", "install", [], "install utility")]
+   ("OCAMLYACC", "ocamlyacc",[], "OCaml Yacc utility")]
 
 for env_var, command, paths, desc in required_binaries:
     # First we should try to scan the command line for something like VAR=VAL
@@ -658,139 +658,15 @@ exit_status = os.system("cd config/ac; ./configure")
 print ("Exited from ./config/ac/configure script with status %d"
        % exit_status)
 
-if exit_status !=  0:
-    sys.exit(1)
+sys.path.insert(0, "./config")
+import arch
+arch.update_configuration(configuration)
+sys.path.pop(0)
 
-if user_CFLAGS != None:
-    CFLAGS = user_CFLAGS
+CFLAGS = " ".join(configuration[flags]
+                  for flags in ("WARN_CFLAGS", "ARCH_CFLAGS", "CFLAGS"))
 
-else:
-    opt_CFLAGS = ""
-    arch_CFLAGS = ""
-    warn_CFLAGS = "" # I should check that this is supported
-
-    sizeof_int = 4 # often the case (64 bits cpus are lp64, typically)
-
-    try:
-        sys.path.append("./config")
-        import arch
-        warn_CFLAGS = arch.warn_cflags
-        opt_CFLAGS = arch.cflags
-        arch_CFLAGS = arch.arch_cflags
-        sizeof_int = int(arch.sizeof_int)
-        pylibs = arch.pylibs
-
-    except:
-        msg.prnln("WARNING: Cannot import arch. Optimisation flags disabled!")
-        msg.prnln("WARNING: Cannot obtain sizeof(int): "
-                  "assuming sizeof(int) = 4.")
-
-    CFLAGS = " ".join([warn_CFLAGS, arch_CFLAGS, opt_CFLAGS])
-
-configuration["CFLAGS_ARCH"] = CFLAGS
-configuration["NSIM_CFLAGS"] = CFLAGS
-
-###############################################################################
-# We finally write the configuration to file(s): we produce four files
-# one for each language used in nsim sources: ocaml, C, python and a file
-# which can be included by Makefile-s
-
-class ConfigFile(object):
-    def __init__(self):
-        self.content = []
-        makefile = {}
-        makefile['comment'] = lambda args: '# %s\n' % args[0]
-        makefile['value'] = lambda args: '%s=%s\n' % (args[0], args[1])
-        c_header = {}
-        c_header['comment'] = lambda args: '/* %s */\n' % args[0]
-        c_header['value'] = lambda args: '#define %s "%s"\n' % (args[0], args[1])
-        ocaml = {}
-        ocaml['comment'] = lambda args: '(* %s *)\n' % args[0]
-        ocaml['value'] = lambda args: 'let %s = "%s";;\n' % (args[0].lower(), args[1])
-        py = {}
-        py['comment'] = lambda args: '# %s\n' % args[0]
-        py['value'] = lambda args: '%s = "%s"\n' % (args[0].lower(), args[1])
-        self.executors = {'makefile':makefile, 'c_header':c_header,
-                          'ocaml':ocaml, 'python':py}
-    def add_comment(self, string):
-        self.content.append(['comment', string])
-    def add_value(self, name, value):
-        self.content.append(['value', name, value])
-    def add_extra(self, language, extra):
-        self.content.append(['extra', language, extra])
-    def save(self, file_name, language='makefile'):
-        executor = self.executors[language]
-        f = open(file_name, "w")
-        for line in self.content:
-            command = line[0]
-            args = line[1:]
-            if command == "extra":
-                if args[0] == language: f.write(args[1])
-            else:
-                command_executor = executor[command]
-                f.write(command_executor(args))
-        f.close()
-    def have(self, name):
-        def f(item):
-            return item[0] == "value" and item[1] == name
-        return len(filter(f, self.content)) > 0
-
-# Now we write the configuration file
-cf = ConfigFile()
-
-# We generate the configuration
-cf.add_comment("Configuration file for Nsim")
-cf.add_comment("generated automatically by configure.py")
-bigarray_c_int = {4:'32', 8:'64'}[sizeof_int]
-extra = """
-(* We provide means to define bigarrays whose elements are integers with
-   the same size of C integers declared with 'int' *)
-
-(* This is the ocaml type associated with the bigarray *)
-type c_int_mltype = int$$;;
-
-(* This is the element type and determines the actual size of the bigarray *)
-type c_int_elt = Bigarray.int$$_elt;;
-
-(* This is the kind as used in the creation functions Array1.create, ... *)
-let c_int_kind = Bigarray.int$$;;
-
-(* Example: to create a one dimensional bigarray:
-
-     let a1 = Bigarray.Array1.create Nsimconf.c_int_kind Bigarray.c_layout 5;;
-
-   which would then have type:
-
-     (Nsimconf.c_int_mltype, Nsimconf.c_int_elt, Bigarray.c_layout) Bigarray.Array1.t
-
-   Here we define this type, for convenience.
- *)
-
-type c_int_bigarray1 = (c_int_mltype,
-                        c_int_elt,
-                        Bigarray.c_layout) Bigarray.Array1.t;;
-
-(* Functions to convert OCaml integers to c_int and back *)
-let c_int_of_int oi = Int$$.of_int oi;;
-let c_int_to_int ci = Int$$.to_int ci;;
-(* functions to manipulate c_int-s *)
-let c_int_add x y = Int$$.add x y;;
-let c_int_sub x y = Int$$.sub x y;;
-let c_int_bigarray1_create size =
-  Bigarray.Array1.create
-    c_int_kind Bigarray.c_layout size;;
-
-"""
-extra = extra.replace("$$", bigarray_c_int)
-cf.add_extra('ocaml', extra)
-
-for var in configuration:
-    cf.add_value(var, configuration[var])
-
-# Write the same configuration in different languages
-cf.save('./src/configuration.h', language='c_header')
-cf.save('./src/nsimconf.py', language='python')
-cf.save('./src/nsimconf.ml', language='ocaml')
+configuration["NSIM_CFLAGS"] = user_CFLAGS or CFLAGS
 
 ###############################################################################
 # Replace all files
@@ -799,7 +675,9 @@ my_configuration = configuration.copy()
 my_configuration["CONFIGURATION"] = repr(configuration)
 
 in_files = \
-  ["./src/Makefile.in",
+  ["./src/nsimconf.ml.in",
+   "./src/configuration.h.in",
+   "./src/Makefile.in",
    "./bin/Makefile.in",
    "./subst.py.in",
    "./Makefile.in"]
@@ -821,9 +699,8 @@ for varname, _ in varname_reldir:
     msg.summary(varname, configuration[varname])
 
 msg.summary("NumPy array support",
-            bool_to_yesno(cf.have("NUMPY_INCLUDE_PATH")))
+            bool_to_yesno("NUMPY_INCLUDE_PATH" in configuration))
 msg.summary("CFLAGS", CFLAGS)
 
 msg.show("warning", "Warning messages")
 msg.show("summary", "Configuration summary")
-

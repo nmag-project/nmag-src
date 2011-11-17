@@ -12,6 +12,9 @@
 ###############################################################################
 # REQUIRED BINARIES
 
+INSTALL=@INSTALL@
+INSTALL_PROGRAM=@INSTALL_PROGRAM@
+
 CC=@CC@
 CPP=@CPP@
 PERL=@PERL@
@@ -164,7 +167,7 @@ nsimexec: $(NSIMEXEC_OBJECTS)
 	  -o nsimexec
 
 install: nsimexec
-	@INSTALL@ nsimexec @BINDIR@
+	$(INSTALL_PROGRAM) nsimexec @BINDIR@
 
 uninstall:
 	rm -f @BINDIR@/nsimexec

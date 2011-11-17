@@ -11,6 +11,9 @@
 
 .PHONY: all install uninstall clean
 
+INSTALL=@INSTALL@
+INSTALL_SCRIPT=@INSTALL_SCRIPT@
+
 NSIM_EXECS=nsim-raw nsim nmeshpp ncol nmagpp nmeshimport nmagprobe \
   nsimversion nsim_i nmagpp_pre0_1_5000
 
@@ -22,16 +25,20 @@ NSIM_EXECS=nsim-raw nsim nmeshpp ncol nmagpp nmeshimport nmagprobe \
 all: 
 
 install: $(NSIM_EXECS)
-	@list='$(NSIM_EXECS)'; for file in $$list; do \
-	  echo "@INSTALL@ $$file @BINDIR@"; \
-	  @INSTALL@ $$file @BINDIR@; \
-	done
+	@if test "@DO_INSTALL@" = "1"; then \
+	  list='$(NSIM_EXECS)'; for file in $$list; do \
+	    echo "@INSTALL_SCRIPT@ $$file @BINDIR@"; \
+	    @INSTALL_SCRIPT@ $$file @BINDIR@; \
+	  done; \
+	fi
 
 uninstall:
-	@list='$(NSIM_EXECS)'; for file in $$list; do \
-	  echo "rm -f @BINDIR@/$$file;"; \
-	  rm -f $$file @BINDIR@/$$file; \
-	done
+	@if test "@DO_INSTALL@" = "1"; then \
+	  list='$(NSIM_EXECS)'; for file in $$list; do \
+	    echo "rm -f @BINDIR@/$$file;"; \
+	    rm -f $$file @BINDIR@/$$file; \
+	  done; \
+	fi
 
 clean:
 	rm -f $(NSIM_EXECS)

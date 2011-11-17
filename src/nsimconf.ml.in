@@ -1,0 +1,46 @@
+(* We provide means to define bigarrays whose elements are integers with
+   the same size of C integers declared with 'int' *)
+
+(* This is the ocaml type associated with the bigarray *)
+type c_int_mltype = int@BITS_IN_C_INT@;;
+
+(* This is the element type and determines the actual size of the bigarray *)
+type c_int_elt = Bigarray.int@BITS_IN_C_INT@_elt;;
+
+(* This is the kind as used in the creation functions Array1.create, ... *)
+let c_int_kind = Bigarray.int@BITS_IN_C_INT@;;
+
+(* Example: to create a one dimensional bigarray:
+
+     let a1 = Bigarray.Array1.create Nsimconf.c_int_kind Bigarray.c_layout 5;;
+
+   which would then have type:
+
+     (Nsimconf.c_int_mltype, Nsimconf.c_int_elt, Bigarray.c_layout)
+       Bigarray.Array1.t
+
+   Here we define this type, for convenience.
+ *)
+
+type c_int_bigarray1 = (c_int_mltype,
+                        c_int_elt,
+                        Bigarray.c_layout) Bigarray.Array1.t;;
+
+(* Functions to convert OCaml integers to c_int and back *)
+let c_int_of_int oi = Int@BITS_IN_C_INT@.of_int oi;;
+let c_int_to_int ci = Int@BITS_IN_C_INT@.to_int ci;;
+(* functions to manipulate c_int-s *)
+let c_int_add x y = Int@BITS_IN_C_INT@.add x y;;
+let c_int_sub x y = Int@BITS_IN_C_INT@.sub x y;;
+let c_int_bigarray1_create size =
+  Bigarray.Array1.create
+    c_int_kind Bigarray.c_layout size;;
+
+(* Flags to produce dlopen-able shared libraries *)
+let gcc_flags_shlib = "@GCC_FLAGS_SHLIB@";;
+
+(* Paths to sundials libraries *)
+let sundials_lib_path = "@SUNDIALS_LIB_PATH@";;
+let sundials_cvode_lib = "@SUNDIALS_CVODE_LIB@";;
+let sundials_nvecserial_lib = "@SUNDIALS_NVECSERIAL_LIB@";;
+let sundials_nvecparallel_lib = "@SUNDIALS_NVECPARALLEL_LIB@";;
