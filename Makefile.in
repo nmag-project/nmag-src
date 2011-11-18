@@ -11,12 +11,13 @@
 
 .PHONY: all all-log clean check checkslow checkmpi checkhlib checkall
 
-NSIMEXEC=./config/nsimexec
+NSIMEXEC=@BASH@ @SRCDIR@/bin/nsim-local
 NSIM_PYTEST=$(NSIMEXEC) ./config/test.py
 
 all install uninstall clean:
 	(cd src && $(MAKE) $@)
 	(cd bin && $(MAKE) $@)
+	(cd interface && $(MAKE) $@)
 
 # The target below is used in the all-from-sources tarball.
 all-log:

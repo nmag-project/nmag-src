@@ -495,12 +495,15 @@ configuration["DO_INSTALL"] = str(int(do_install))
 # (i.e. the directory containing this script).
 if root_dir == None:
     configuration["BINDIR"] = os.path.join(src_dir, "bin")
-    configuration["DATAROOTDIR"] = src_dir
+    configuration["DATAROOTDIR"] = os.path.join(src_dir, "interface")
 
 else:
     # Resolve all the paths
     for varname, reldir in varname_reldir:
         configuration.setdefault(varname, os.path.join(root_dir, *reldir))
+
+    configuration["DATAROOTDIR"] = \
+      os.path.join(configuration["DATAROOTDIR"], "nmag")
 
 #----------------------------------------------------------------------------
 # Print out some preliminary info
@@ -679,6 +682,7 @@ in_files = \
    "./src/configuration.h.in",
    "./src/Makefile.in",
    "./bin/Makefile.in",
+   "./interface/Makefile.in",
    "./subst.py.in",
    "./Makefile.in"]
 

@@ -14,18 +14,38 @@
 INSTALL=@INSTALL@
 INSTALL_SCRIPT=@INSTALL_SCRIPT@
 
-NSIM_EXECS=nsim-raw nsim nmeshpp ncol nmagpp nmeshimport nmagprobe \
-  nsimversion nsim_i nmagpp_pre0_1_5000
+SRCDIR=@SRCDIR@
+DO_INSTALL=@DO_INSTALL@
 
+NSIM_EXECS=nsim-raw nsim nmeshpp ncol \
+  nmagpp nmeshimport nmagprobe nsimversion nsim_i \
+  nmagpp_pre0_1_5000
+
+NSIM_EXECS_IN=nsim-raw.in nsim.in nmeshpp.in ncol.in nmagpp.in \
+  nmeshimport.in nmagprobe.in nsimversion.in nsim_i.in \
+  nmagpp_pre0_1_5000.in
+
+subst_cmd=$(SRCDIR)/src/nsimexec $(SRCDIR)/subst.py
 # Rule to make executables from the corresponding .in files
-%: %.in
-	@SRCDIR@/src/nsimexec @SRCDIR@/subst.py $< $@
-	 chmod u+x $@
+$(NSIM_EXECS): $(NSIM_EXECS_IN)
+	echo $<
+	@for f_in in $<; do \
+	  echo "Substituting $$f_in"; \
+	  f_out=`echo $$f_in | sed -e 's|.in||'`; \
+	  $$subst_cmd $$f_in $$f_out; \
+	  chmod u+x $$f_out; \
+	done
 
-all: 
+nsim-local: nsim-local.in
+	$(subst_cmd) nsim-local.in nsim-local
+
+# Create a local (uninstalled) executable, just for executing the
+# tests with "make check" (we want to be able to test the software
+# before installing it).
+all: nsim-local
 
 install: $(NSIM_EXECS)
-	@if test "@DO_INSTALL@" = "1"; then \
+	@if test "$(DO_INSTALL)" = "1"; then \
 	  list='$(NSIM_EXECS)'; for file in $$list; do \
 	    echo "@INSTALL_SCRIPT@ $$file @BINDIR@"; \
 	    @INSTALL_SCRIPT@ $$file @BINDIR@; \
@@ -33,7 +53,7 @@ install: $(NSIM_EXECS)
 	fi
 
 uninstall:
-	@if test "@DO_INSTALL@" = "1"; then \
+	@if test "$(DO_INSTALL)" = "1"; then \
 	  list='$(NSIM_EXECS)'; for file in $$list; do \
 	    echo "rm -f @BINDIR@/$$file;"; \
 	    rm -f $$file @BINDIR@/$$file; \
