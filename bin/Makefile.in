@@ -13,8 +13,11 @@
 
 INSTALL=@INSTALL@
 INSTALL_SCRIPT=@INSTALL_SCRIPT@
+INSTALL_DATA=@INSTALL_DATA@
 
 SRCDIR=@SRCDIR@
+BINDIR=@BINDIR@
+DATAROOTDIR=@DATAROOTDIR@
 DO_INSTALL=@DO_INSTALL@
 
 NSIM_EXECS=nsim-raw nsim nmeshpp ncol \
@@ -28,11 +31,10 @@ NSIM_EXECS_IN=nsim-raw.in nsim.in nmeshpp.in ncol.in nmagpp.in \
 subst_cmd=$(SRCDIR)/src/nsimexec $(SRCDIR)/subst.py
 # Rule to make executables from the corresponding .in files
 $(NSIM_EXECS): $(NSIM_EXECS_IN)
-	echo $<
-	@for f_in in $<; do \
-	  echo "Substituting $$f_in"; \
-	  f_out=`echo $$f_in | sed -e 's|.in||'`; \
-	  $$subst_cmd $$f_in $$f_out; \
+	@for f_out in $@; do \
+	  f_in="$$f_out.in"; \
+	  echo "substituting $$f_in"; \
+	  $(subst_cmd) $$f_in $$f_out; \
 	  chmod u+x $$f_out; \
 	done
 
@@ -46,17 +48,22 @@ all: nsim-local
 
 install: $(NSIM_EXECS)
 	@if test "$(DO_INSTALL)" = "1"; then \
+	  nsim_ldflags="ldflags.bash"; \
+	  if test -f $$nsim_ldflags; then \
+	    echo "installing $$nsim_ldflags to $(DATAROOTDIR)"; \
+	    $(INSTALL_DATA) $$nsim_ldflags $(DATAROOTDIR); \
+	  fi; \
 	  list='$(NSIM_EXECS)'; for file in $$list; do \
-	    echo "@INSTALL_SCRIPT@ $$file @BINDIR@"; \
-	    @INSTALL_SCRIPT@ $$file @BINDIR@; \
+	    echo "installing $$file to $(BINDIR)"; \
+	    $(INSTALL_SCRIPT) $$file $(BINDIR); \
 	  done; \
 	fi
 
 uninstall:
 	@if test "$(DO_INSTALL)" = "1"; then \
 	  list='$(NSIM_EXECS)'; for file in $$list; do \
-	    echo "rm -f @BINDIR@/$$file;"; \
-	    rm -f $$file @BINDIR@/$$file; \
+	    echo "rm -f $(BINDIR)/$$file;"; \
+	    rm -f $$file $(BINDIR)/$$file; \
 	  done; \
 	fi
 

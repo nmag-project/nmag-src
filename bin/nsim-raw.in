@@ -23,7 +23,7 @@ export PYTHONPATH
 # Check whether the ldflags.bash file exists.
 # This file sets environment variables so that all the libraries
 # required by nsim are found.
-LDFLAGS_FILE="$RT/bin/ldflags.bash"
+LDFLAGS_FILE="$DATAROOTDIR/ldflags.bash"
 if [ -f $LDFLAGS_FILE ]; then
   . $LDFLAGS_FILE
 fi
