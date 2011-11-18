@@ -683,6 +683,7 @@ in_files = \
    "./src/Makefile.in",
    "./bin/Makefile.in",
    "./interface/Makefile.in",
+   "./interface/nsim/configuration.py.in",
    "./subst.py.in",
    "./Makefile.in"]
 

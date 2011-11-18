@@ -35,7 +35,7 @@ log = logging.getLogger('') # Use root logger as long as we don't have our own
 # The feature stores, used to propagate setup information to all the parts of
 # the program, both the Python and OCaml code.
 import nsim
-from nsim.versions import get_version_string, get_nmag_release_info,\
+from nsim.versions import get_version_string, get_nmag_release_info, \
                           get_nmag_paths_string
 pyfeatures = None
 ocamlfeatures = None
@@ -49,16 +49,7 @@ task_done = {'completed': False,
 
 # The OptionParser object which will be used in the setup stage to parse the
 # command line of the nsim executable
-cmdline_parser = None
-
-def get_root_path(relative_path=None):
-    """
-    Get the absolute path where the Nsim Python executable is located.
-    """
-    p = os.path.join(os.path.split(nsim.__file__)[0], "..", "..")
-    if relative_path != None:
-        p = os.path.join(p, *relative_path)
-    return os.path.realpath(p)
+cmdline_parser = None    
 
 def get_interface_path(relative_path=[]):
     """
@@ -67,6 +58,22 @@ def get_interface_path(relative_path=[]):
     which contains the implementation of the corresponding modules).
     """
     p = os.path.join(os.path.split(nsim.__file__)[0], "..")
+    if relative_path != None:
+        p = os.path.join(p, *relative_path)
+    return os.path.realpath(p)
+
+def get_root_path(relative_path=None):
+    """
+    Get the absolute path where the Nsim Python executable is located.
+    """
+    import configuration
+    cfg = configuration.configuration
+    bindir = cfg["BINDIR"]
+    datarootdir = cfg["DATAROOTDIR"]
+    interfacedir = get_interface_path()
+    p = (os.path.join(bindir, "..")
+         if os.path.samefile(datarootdir, interfacedir)
+         else os.path.join(os.path.split(nsim.__file__)[0], "..", ".."))
     if relative_path != None:
         p = os.path.join(p, *relative_path)
     return os.path.realpath(p)

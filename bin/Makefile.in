@@ -28,9 +28,11 @@ NSIM_EXECS_IN=nsim-raw.in nsim.in nmeshpp.in ncol.in nmagpp.in \
   nmeshimport.in nmagprobe.in nsimversion.in nsim_i.in \
   nmagpp_pre0_1_5000.in
 
-subst_cmd=$(SRCDIR)/src/nsimexec $(SRCDIR)/subst.py
+subst_script=$(SRCDIR)/subst.py
+subst_cmd=$(SRCDIR)/src/nsimexec $(subst_script)
+
 # Rule to make executables from the corresponding .in files
-$(NSIM_EXECS): $(NSIM_EXECS_IN)
+$(NSIM_EXECS): $(NSIM_EXECS_IN) $(subst_script)
 	@for f_out in $@; do \
 	  f_in="$$f_out.in"; \
 	  echo "substituting $$f_in"; \
