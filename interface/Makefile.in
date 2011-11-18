@@ -1,0 +1,46 @@
+# Nmag micromagnetic simulator
+# Copyright (C) 2011 University of Southampton
+# Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
+#
+# WEB:     http://nmag.soton.ac.uk 
+# CONTACT: nmag@soton.ac.uk
+#
+# AUTHOR(S) OF THIS FILE: Matteo Franchin
+# LICENSE: GNU General Public License 2.0
+#          (see <http://www.gnu.org/licenses/>)
+
+INSTALL=@INSTALL@
+INSTALL_DATA=@INSTALL_DATA@
+install_sh=@SRCDIR@/config/ac/install-sh
+mkinstalldirs=$(install_sh) -d
+
+DO_INSTALL=@DO_INSTALL@
+SRCDIR=@SRCDIR@
+TARGETDIR=@DATAROOTDIR@
+
+ALL_DIRS = find . -type d -print
+PY_FILES = find . -name "*.py" -type f -print
+CONF_FILES = find . -name "*.conf" -type f -print
+
+all:
+
+clean:
+
+install:
+	@if test "$(DO_INSTALL)" = "1"; then \
+	  test -d "$(TARGETDIR)" || mkdir "$(TARGETDIR)"; \
+	  cd $(SRCDIR)/interface; \
+	  all_files="`$(PY_FILES)` `$(CONF_FILES)`"; \
+	  for f in $$all_files; do \
+	    dir=`echo "/$$f" | sed -e 's,/[^/]*$$,,'`; \
+	    destdir="$(TARGETDIR)/$$dir"; \
+	    test -d "$$destdir" || \
+	      (echo "Creating $$destdir"; mkdir -p "$$destdir"); \
+	    echo "installing $$f to $$destdir"; \
+	    $(INSTALL_DATA) "$$f" "$$destdir"; \
+	  done; \
+	fi
+
+uninstall:
+
+.PHONY: all clean install uninstall
