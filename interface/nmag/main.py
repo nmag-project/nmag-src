@@ -1764,7 +1764,9 @@ class Simulation(SimulationCore):
 
     def _set_subfield(self,subfieldname,values,unit,fieldname,auto_normalise):
         if not self._fields:
-            raise NmagUserError("Failed to set field, probably because no mesh was loaded first (use load_mesh to do this).")
+            raise NmagUserError("Failed to set field, probably because no "
+                                "mesh was loaded first (use load_mesh to do "
+                                "this).")
         self._fields.set_subfield(subfieldname,
                                   values,
                                   unit,
@@ -1947,6 +1949,7 @@ class Simulation(SimulationCore):
         _, field = self._master_mwes_and_fields_by_name['m']
         values = \
           hdf5.get_field_data_from_file(self.mesh, field, filename, **kwargs)
+
         for subfieldname, subfieldvalues in values.iteritems():
             self.set_m(subfieldvalues, subfieldname=subfieldname)
 
@@ -2999,6 +3002,51 @@ class Simulation(SimulationCore):
             pass
         os.rename(tmp_filename, filename)
 
+
+get_subfield_from_h5file = hdf5.get_subfield_from_h5file
+get_subfield_from_h5file.__doc__ = \
+"""
+Retrieve data from h5 file. Data are returned as an array of floating
+point number (in SI units).
+
+This function should be used with care, as the order of the entries in the
+returned array depends on the partitioning of the mesh used when saving the
+data.
+
+Analog to get_subfield_ (which returns subfield data for a subfield of a
+simulation object), but will retrieve data from saved ``_dat.h5`` file.
+
+Note that the entries of the returned array are ordered accordingly
+to the mesh used in this simulation object.
+    
+:Parameters:
+  `filename` : string
+    The full name of the ``_dat.h5`` data file.
+         
+  `subfieldname` : string
+    The name of the subfield to be retrieved.
+
+  `id` : integer
+    The ``id`` of the configuration to return (defaults to 0)
+
+  `row` : integer 
+    
+    If the ``id`` is not specified, the ``row`` can be used to address the data
+    row with index ``row``.
+            
+    For example, the magnetisation may have been saved at some point during the
+    simulation into a file (for example using the :ref:`Restart example
+    <Restart example>` functionality, or using the save_data_ method for the
+    first time to save the m-field (i.e. ``sim.save_data(fields=['m']``) into a
+    new file).
+
+    We can use ``row=0`` to read the first magnetisation configuration that has
+    been written into this file (and ``row=1`` to access the second etc).
+
+    :Returns:
+      numpy array
+"""
+
 def get_subfield_positions_from_h5file(filename, subfieldname):
     """
     Analogous to get_subfield_positions_ (which returns the positions of
@@ -3015,8 +3063,6 @@ def get_subfield_positions_from_h5file(filename, subfieldname):
     :Returns:
       numpy array
         The positions are returned as :ref:`si-value <SI object>`\ s.
-
-
     """
 
     fh = hdf5.open_pytables_file(filename,'r') #TODO move this to hdf5
@@ -3030,7 +3076,7 @@ def get_subfield_positions_from_h5file(filename, subfieldname):
     return numpy.array(supos)*mesh_scale_factor_si.value
 
 
-def get_subfield_sites_from_h5file( filename, subfieldname):
+def get_subfield_sites_from_h5file(filename, subfieldname):
     """
     Analogous to get_subfield_sites_ (which returns the site ids of
     nodes for a subfield of a simulation object), but will retrieve
@@ -3128,4 +3174,3 @@ def fit_oscillation(data,freq=None):
         return fit[0]
     else:
         return None
-

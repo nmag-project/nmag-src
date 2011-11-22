@@ -1698,7 +1698,7 @@ def get_field_data_from_file(mesh, field, filename, **kwargs):
     stored in 'filename' for each of its subfields. These numpy arrays are
     reordered coherently with the currently used 'mesh'.  This is important, as
     the 'mesh' may be reordered in a different way with respect to the mesh
-    used when saving the data. This may happend when the two simulations are
+    used when saving the data. This may happen when the two simulations are
     ran (via MPI) on a different number of compute nodes (Parmetis is called
     just when the mesh is loaded, to permute the nodes and optimise the mesh
     connectivity before distributing the data). Not reordering the data, could
