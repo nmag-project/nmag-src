@@ -585,7 +585,7 @@ class Physical(object):
 
           >>> m = SI(1,'m')
           >>> s = SI(1,'s')
-     	  >>> velocity=2*m/s
+          >>> velocity=2*m/s
           >>> print velocity
           <SI: 2  m / s >
           >>> km = 1000*m
@@ -625,7 +625,7 @@ class Physical(object):
           >>> H = SI(10, 'A/m')
           >>> print H.value
           10.0
- 	  >>> print H
+          >>> print H
           <SI: 10  A / m >
         """
 

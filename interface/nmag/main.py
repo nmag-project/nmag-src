@@ -3005,8 +3005,7 @@ class Simulation(SimulationCore):
 
 get_subfield_from_h5file = hdf5.get_subfield_from_h5file
 get_subfield_from_h5file.__doc__ = \
-"""
-Retrieve data from h5 file. Data are returned as an array of floating
+"""Retrieve data from h5 file. Data are returned as an array of floating
 point number (in SI units).
 
 This function should be used with care, as the order of the entries in the
