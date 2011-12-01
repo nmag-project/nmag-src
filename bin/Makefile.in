@@ -49,12 +49,12 @@ nsim-local: nsim-local.in
 all: nsim-local
 
 install: $(NSIM_EXECS)
+	@nsim_ldflags="ldflags.bash"; \
+	if test -f $$nsim_ldflags; then \
+	  echo "installing $$nsim_ldflags to $(DATAROOTDIR)"; \
+	  $(INSTALL_DATA) $$nsim_ldflags $(DATAROOTDIR); \
+	fi
 	@if test "$(DO_INSTALL)" = "1"; then \
-	  nsim_ldflags="ldflags.bash"; \
-	  if test -f $$nsim_ldflags; then \
-	    echo "installing $$nsim_ldflags to $(DATAROOTDIR)"; \
-	    $(INSTALL_DATA) $$nsim_ldflags $(DATAROOTDIR); \
-	  fi; \
 	  list='$(NSIM_EXECS)'; for file in $$list; do \
 	    echo "installing $$file to $(BINDIR)"; \
 	    $(INSTALL_SCRIPT) $$file $(BINDIR); \
