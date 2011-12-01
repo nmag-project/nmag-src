@@ -178,8 +178,8 @@ print("\nCreating tarball...")
 confirm()
 #print getoutput("cd transition && cd admin && bash rbld.bash")
 print getoutput('cd %s && cd admin &&' 
-                'NMAGNAME="%s" NMAGTAG="%s" bash _relbld.bash'
-                % (transition_repos, pkgname, maintag))
+                'NMAGNAME="%s" bash _relbld.bash'
+                % (transition_repos, pkgname))
 
 print("\nMoving tarball to ./")
 print getoutput("mv %s/admin/nmag-*.tar.gz ." % transition_repos)

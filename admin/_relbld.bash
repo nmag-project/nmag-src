@@ -27,8 +27,8 @@
 USERAT=${USERNAME:+$USERNAME@}
 PKGNAME=${NMAGNAME=nmag-dev}
 MAINTAG=${NMAGTAG=tip}
-DOCTAG="tip"
-TESTTAG="tip"
+DOCTAG=$MAINTAG
+TESTTAG=$MAINTAG
 
 # Configuration for the host and the repositories
 REPOS_NSIM_MAIN=`cd .. && pwd`
