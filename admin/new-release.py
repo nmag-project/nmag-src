@@ -108,7 +108,7 @@ else:
     new_version = v.next(["patch", "minor", "major"][rel_kind.chosen])
 
 pkgname = "nsim-%s" % new_version
-maintag = pkgname
+maintag = str(new_version)
 
 #=============================================================================
 print "\n"
@@ -179,7 +179,7 @@ confirm()
 #print getoutput("cd transition && cd admin && bash rbld.bash")
 print getoutput('cd %s && cd admin &&' 
                 'NMAGNAME="%s" NMAGTAG="%s" bash _relbld.bash'
-                % (pkgname, maintag, transition_repos))
+                % (transition_repos, pkgname, maintag))
 
 print("\nMoving tarball to ./")
 print getoutput("mv %s/admin/nmag-*.tar.gz ." % transition_repos)

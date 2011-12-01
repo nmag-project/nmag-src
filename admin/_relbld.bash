@@ -27,6 +27,8 @@
 USERAT=${USERNAME:+$USERNAME@}
 PKGNAME=${NMAGNAME=nmag-dev}
 MAINTAG=${NMAGTAG=tip}
+DOCTAG="tip"
+TESTTAG="tip"
 
 # Configuration for the host and the repositories
 REPOS_NSIM_MAIN=`cd .. && pwd`
@@ -37,8 +39,8 @@ PKGS_FILE=/home/hg/local/data/nsim/pkgs.tar
 REMOTE_MACHINE="${USERAT}summer.kk.soton.ac.uk"
 PKGNAME=nmag-`get_version ..`
 allsrc_dev_compose "$PKGNAME" "$PKGNAME" "$MAINTAG"
-add_doc "$PKGNAME" "$MAINTAG"
-add_test "$PKGNAME" "$MAINTAG"
+add_doc "$PKGNAME" "$DOCTAG"
+add_test "$PKGNAME" "$TESTTAG"
 remove_hg "$PKGNAME"
 remove_hg "$PKGNAME/nsim"
 remove_dir "$PKGNAME" nsim/admin nsim/devel nsim/obsolete nsim/prototypes nsim/usersupport nsim/utils
