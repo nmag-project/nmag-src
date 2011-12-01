@@ -178,7 +178,7 @@ print("\nCreating tarball...")
 confirm()
 #print getoutput("cd transition && cd admin && bash rbld.bash")
 print getoutput('cd %s && cd admin &&' 
-                'PKGNAME="%s" MAINTAG="%s" bash _relbld.bash'
+                'NMAGNAME="%s" NMAGTAG="%s" bash _relbld.bash'
                 % (pkgname, maintag, transition_repos))
 
 print("\nMoving tarball to ./")
