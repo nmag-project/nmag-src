@@ -38,7 +38,7 @@ REPOS_NSIM_DIST="ssh://${USERAT}summer.kk.soton.ac.uk//home/hg/local/hg/nsim/dis
 PKGS_FILE=/home/hg/local/data/nsim/pkgs.tar
 REMOTE_MACHINE="${USERAT}summer.kk.soton.ac.uk"
 PKGNAME=nmag-`get_version ..`
-allsrc_dev_compose "$PKGNAME" "$PKGNAME" "$MAINTAG"
+allsrc_dev_compose "$PKGNAME" "$MAINTAG" "$MAINTAG"
 add_doc "$PKGNAME" "$DOCTAG"
 add_test "$PKGNAME" "$TESTTAG"
 remove_hg "$PKGNAME"
