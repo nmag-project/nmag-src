@@ -25,6 +25,8 @@
 . disttools.sh
 
 USERAT=${USERNAME:+$USERNAME@}
+PKGNAME=${NMAGNAME=nmag-dev}
+MAINTAG=${NMAGTAG=tip}
 
 # Configuration for the host and the repositories
 REPOS_NSIM_MAIN=`cd .. && pwd`
@@ -33,11 +35,10 @@ REPOS_NSIM_DOC="ssh://${USERAT}summer.kk.soton.ac.uk//home/hg/local/hg/nsim/mast
 REPOS_NSIM_DIST="ssh://${USERAT}summer.kk.soton.ac.uk//home/hg/local/hg/nsim/dist"
 PKGS_FILE=/home/hg/local/data/nsim/pkgs.tar
 REMOTE_MACHINE="${USERAT}summer.kk.soton.ac.uk"
-MAIN_TAG=nsim-0.1.1
 PKGNAME=nmag-`get_version ..`
-allsrc_dev_compose "$PKGNAME" 'nsim-0.1.1' 'tip'
-add_doc "$PKGNAME" 'tip'
-add_test "$PKGNAME" 'tip'
+allsrc_dev_compose "$PKGNAME" "$PKGNAME" "$MAINTAG"
+add_doc "$PKGNAME" "$MAINTAG"
+add_test "$PKGNAME" "$MAINTAG"
 remove_hg "$PKGNAME"
 remove_hg "$PKGNAME/nsim"
 remove_dir "$PKGNAME" nsim/admin nsim/devel nsim/obsolete nsim/prototypes nsim/usersupport nsim/utils
