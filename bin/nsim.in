@@ -1,6 +1,6 @@
 #!@BASH@ @BINDIR@/nsim-raw
 # Nmag micromagnetic simulator
-# Copyright (C) 2010 University of Southampton
+# Copyright (C) 2007-2012
 # Hans Fangohr, Thomas Fischbacher, Matteo Franchin and others
 #
 # WEB:     http://nmag.soton.ac.uk
