@@ -17,6 +17,7 @@ INSTALL_PROGRAM=@INSTALL_PROGRAM@
 
 CC=@CC@
 CPP=@CPP@
+MPICC=@MPICC@
 PERL=@PERL@
 
 OCAMLFIND=@OCAMLFIND@
@@ -126,9 +127,6 @@ mpi_petsc.ml: mpi.ml petsc.ml petsc_error.ml
 	cat mpi.ml petsc_error.ml petsc.ml > mpi_petsc.ml
 mpi_petsc.cmx: mpi_petsc.ml nsimconf.cmx
 
-#mpi_petsc.mli: mpi_petsc.ml
-#        ocamlc -i -I ../config mpi_petsc.ml >mpi_petsc.mli
-
 sundials_sp.cmx: sundials_sp.ml sundials_sp.cmi mpi_petsc.cmx snippets.cmx
 
 hlib.cmx: hlib.ml hlib.cmi
@@ -160,7 +158,7 @@ nsimexec.cmx: nsimexec.ml nsimexec.cmi pyfem.cmx
 
 nsimexec: $(NSIMEXEC_OBJECTS)
 	$(OCAMLOPT) \
-	  -cc $(CC) \
+	  -cc "$(MPICC)" \
 	  -package unix,str,bigarray -linkpkg \
 	  $(NSIMEXEC_OBJECTS) \
 	  -cclib $(NSIMEXEC_LDFLAGS) \
