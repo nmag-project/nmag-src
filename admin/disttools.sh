@@ -158,9 +158,6 @@ function build_doc {
   || fatalerr "Cannot copy HTML version of the manual (there may have been" \
               "a problem in generating the documentation!"
 
-  echo "Removing sources of manual"
-  rm -rf "$TARBALL_DIR/doc/manual"
-
   echo "Done. Directory $TMP_DOC_DIR is has been kept (to make the " \
        "compilation of the documentation faster in the future)."
 }
