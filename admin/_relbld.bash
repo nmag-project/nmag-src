@@ -48,5 +48,6 @@ remove_dir "$PKGNAME" nsim/admin nsim/devel nsim/obsolete nsim/prototypes nsim/u
 remove_hg "$PKGNAME/nsim/tests"
 remove_dir "$PKGNAME" nsim/tests/devtests
 remove_hg "$PKGNAME/doc/manual"
+remove_dir "$PKGNAME" doc/manual
 gen_tarball "$PKGNAME"
 remove_directory "$PKGNAME"
