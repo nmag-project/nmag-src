@@ -73,7 +73,9 @@ same_tag.add_alternative(Alternative("Yes, use the same tags (may fail if "
 want_doc = plan.add_choice(Choice("Do you want to include documentation?"))
 want_doc.add_alternative(Alternative("No, I'm concerned with size."))
 want_doc.add_alternative(Alternative("Yes, include documentation."))
-want_doc.add_alternative(Alternative("Yes, include and ALSO build it."))
+want_doc.add_alternative(Alternative("Yes, include and ALSO build it (this "
+                                     "requires a number of packages to be"
+                                     "installed in your system)."))
 
 want_test = plan.add_choice(Choice("Do you want to include the test suite?"))
 want_test.add_alternative(Alternative("No, I'm concerned with size."))
@@ -194,6 +196,8 @@ script.writeln("mv nmag-X.Y.Z \"$PKGNAME\"")
 has_doc = (want_doc.chosen != 0)
 if has_doc:
     script.writeln("add_doc \"$PKGNAME\" '%s'" % doc_tag)
+if want_doc.chosen == 2:
+    script.writeln("build_doc \"$PKGNAME\"")
 
 has_test = (want_test.chosen != 0)
 if has_test:

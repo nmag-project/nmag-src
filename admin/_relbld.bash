@@ -40,6 +40,7 @@ REMOTE_MACHINE="${USERAT}summer.kk.soton.ac.uk"
 PKGNAME=nmag-`get_version ..`
 allsrc_dev_compose "$PKGNAME" "$MAINTAG" "$MAINTAG"
 add_doc "$PKGNAME" "$DOCTAG"
+build_doc "$PKGNAME"
 add_test "$PKGNAME" "$TESTTAG"
 remove_hg "$PKGNAME"
 remove_hg "$PKGNAME/nsim"

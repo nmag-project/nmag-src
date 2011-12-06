@@ -98,6 +98,73 @@ function add_test {
   || fatalerr "Cannot add the test suite to the distribution"
 }
 
+function build_doc {
+  # This function builds the documentation for a given tarball and adds the
+  # result to it.
+
+  TARBALL_DIR="$1"
+  TMP_DOC_DIR=${2:-doc-build}
+  PYTHON_EXEC=${3:-python}
+
+  echo "Building documentation: this requires a number of packages to be" \
+       "installed in your Linux distribution."
+  echo "Creating temporary directory: $TMP_DOC_DIR"
+  mkdir -p "$TMP_DOC_DIR" \
+  || fatalerr "Cannot create temporary directory to store documentation"
+
+  echo "Copying the docs..."
+  cp -r "$TARBALL_DIR/doc/manual" "$TMP_DOC_DIR/" \
+  || fatalerr "Cannot find the documentation sources inside the tarball!"
+
+  echo "Copying nsim sources..."
+  cp -r "$TARBALL_DIR/nsim" "$TMP_DOC_DIR/" \
+  || fatalerr "Cannot copy nsim sources, which are necessary to build the docs"
+
+  OUTPUT="configure.log"
+  echo "Building nsim..."
+  echo "Running $PYTHON_EXEC configure.py (output to $OUTPUT)"
+  (cd "$TMP_DOC_DIR/nsim" \
+   && $PYTHON_EXEC configure.py >$OUTPUT 2>&1) \
+  || fatalerr "Failed to configure nsim."
+
+  OUTPUT="make-install.log"
+  echo "Making nsim (output to $OUTPUT)"
+  (cd "$TMP_DOC_DIR/nsim" \
+   && make clean install >$OUTPUT 2>&1) \
+  || fatalerr "Failed to make nsim."
+
+  OUTPUT="make-singlehtml.log"
+  echo "Bulding documentation: single-page HTML (output to $OUTPUT)"
+  (cd "$TMP_DOC_DIR/manual/nmag" \
+   && make NSIM_ROOT=../../nsim singlehtml >$OUTPUT 2>&1) \
+  || fatalerr "Cannot build the single-page HTML documentation." \
+              "Try to do it manually under $TMP_DOC_DIR."
+
+  OUTPUT="make-latexpdf.log"
+  echo "Building documentation: PDF (output to $OUTPUT)"
+  (cd "$TMP_DOC_DIR/manual/nmag" \
+   && make NSIM_ROOT=../../nsim latexpdf >$OUTPUT 2>&1) \
+  || fatalerr "Cannot build the PDF documentation." \
+              "Try to do it manually under $TMP_DOC_DIR."
+
+  echo "Copying documentation back into tarball..."
+  cp "$TMP_DOC_DIR/manual/nmag/_build/latex/NMAGUserManual.pdf" \
+     "$TARBALL_DIR/doc/" \
+  || fatalerr "Cannot copy PDF of manual (there may have been a problem in" \
+              "generating the documentation!"
+  rm -rf "$TARBALL_DIR/doc/html"
+  cp -r "$TMP_DOC_DIR/manual/nmag/_build/singlehtml" \
+     "$TARBALL_DIR/doc/html" \
+  || fatalerr "Cannot copy HTML version of the manual (there may have been" \
+              "a problem in generating the documentation!"
+
+  echo "Removing sources of manual"
+  rm -rf "$TARBALL_DIR/doc/manual"
+
+  echo "Done. Directory $TMP_DOC_DIR is has been kept (to make the " \
+       "compilation of the documentation faster in the future)."
+}
+
 function remove_hg {
   echo "Removing version control in directory $1"
   rm -r "$1/.hg" \
@@ -148,55 +215,3 @@ function allsrc_compose {
   (allsrc_dev_compose "$1" "$2" && remove_hg_stuff "$1" && \
    cleanup_allsrc_for_dist "$1")
 }
-
-
-
-#remove_svn_stuff 'nmag-0.1'
-# allsrc_dev_compose 'nmag-0.1' 'trunk'
-#allsrc_compose 'nmag-0.1' 'trunk'
-
-# Create links for nmag manual into toplevel 'doc' dir
-
-#         mkdir -p output/$(NSIM_VERSION)/download
-#
-#         rm -rf tmp/$(SRCDIR)/nmag/doc/nmag
-#         mkdir -p tmp/$(SRCDIR)/nmag/doc/nmag
-#         ln -s nsim/interface/nmag/manual tmp/$(SRCDIR)/nmag/doc/nmag
-#
-#
-# echo " *** REMOVING OLD TARBALLS *** "
-#
-#         rm -f output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)*.tar*
-#
-# echo " *** CREATING CORE NMAG BUILD ARCHIVE *** "
-#
-#         tar --directory $(INST_SYSTEMDIR) $(TAR_SVNEXCLUDE) -cvf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar nmag
-#
-# echo " *** ADDING NSIM SOURCES ARCHIVE *** "
-#
-# echo "tarball" >tmp/$(SRCDIR)/nmag/nsim/interface/nmag/DISTMODE
-#
-#         tar --directory tmp/$(SRCDIR) $(TAR_SVNEXCLUDE) --exclude=nmag/nsim/info -rf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar nmag/nsim nmag/doc
-#
-#         rm tmp/$(SRCDIR)/nmag/nsim/interface/nmag/DISTMODE
-#
-#         # This should not be necessary, as we built that manual anyway when we made installation-system:
-#         #tar --directory $(INST_SYSTEMDIR) -rf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar nmag/INSTALL.pdf nmag/INSTALL.html
-#
-# echo " *** ADDING MANUAL TO ARCHIVE *** "
-#
-#         tar --directory tmp/nsim-build $(TAR_SVNEXCLUDE) -rf output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar nmag/nsim/interface/nmag/manual
-#
-#         cp output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar \
-#            output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar
-#
-# echo " *** ADDING PACKAGE SOURCES TO BIG ARCHIVE *** "
-#
-#         tar --directory tmp -Af output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar $(LIBSOURCE_FILE)
-#
-# echo " *** ZIPPING TARBALLS *** "
-#
-#         # Gzip final tarballs:
-#         gzip -9 output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-core.tar
-#         gzip -9 output/$(NSIM_VERSION)/download/nmag-$(NSIM_VERSION)-all.tar
-#
