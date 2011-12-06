@@ -109,13 +109,13 @@ testr.add_alternative(Alternative("Do not include version control for test."))
 testr.add_alternative(Alternative("Include version control for test."))
 testr.when_should_ask(lambda: want_test.chosen == 1)
 
-msg = "Do you want to remove nmagprobe and its documentation?"
-rm_nmagprobe = plan.add_choice(Choice(msg))
-rm_nmagprobe.add_alternative(Alternative("Keep it, as I'm distributing the "
-                                         "tarball to members of DYNAMAG!"))
-rm_nmagprobe.add_alternative(Alternative("Remove it, as this tarball will be "
-                                         "given to people outside the "
-                                         "consortium,"))
+#msg = "Do you want to remove nmagprobe and its documentation?"
+#rm_nmagprobe = plan.add_choice(Choice(msg))
+#rm_nmagprobe.add_alternative(Alternative("Keep it, as I'm distributing the "
+#                                         "tarball to members of DYNAMAG!"))
+#rm_nmagprobe.add_alternative(Alternative("Remove it, as this tarball will be "
+#                                         "given to people outside the "
+#                                         "consortium,"))
 
 want_tarb = plan.add_choice(Choice("Do you want a tarball or the directory?"))
 want_tarb.add_alternative(Alternative("Give me just a tarball."))
@@ -230,12 +230,16 @@ if want_repo.chosen != 1:
     if remove_doc_hg:
         script.writeln('remove_hg "$PKGNAME/doc/manual"')
 
-if rm_nmagprobe.chosen:
-    script.writeln('remove_file "$PKGNAME" nsim/bin/nmagprobe')
-    if has_doc:
-        script.writeln('remove_dir "$PKGNAME" doc/manual/nmag/example_nmagprobe')
-    if has_test:
-        script.writeln('remove_dir "$PKGNAME" nsim/tests/regression/nmag/nmagprobe')
+#if rm_nmagprobe.chosen:
+#    script.writeln('remove_file "$PKGNAME" nsim/bin/nmagprobe')
+#    if has_doc:
+#        script.writeln('remove_dir "$PKGNAME" doc/manual/nmag/example_nmagprobe')
+#    if has_test:
+#        script.writeln('remove_dir "$PKGNAME" nsim/tests/regression/nmag/nmagprobe')
+
+# Remove the manual sources (to save space)
+if want_doc.chosen == 2:
+    script.writeln('remove_dir "$PKGNAME" doc/manual')
 
 if want_tarb.chosen in [0, 2]:
     script.writeln('gen_tarball "$PKGNAME"')
