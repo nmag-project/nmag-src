@@ -27,3 +27,13 @@ Script to release a new version of Nmag.
 It is an interactive scripts which asks you what it should do and give some
 hints about what you are supposed to do in the whole release process.
 
+---------------
+build-core.bash
+---------------
+
+This script can be used to build a core Nmag tarball out of a full tarball.
+A full Nmag tarball is a tarball created using the new-release.py script.
+A core tarball is a tarball which contains only the Nmag software, without
+the dependencies (i.e. without the libraries included in the full tarball).
+Use as follows: bash build-core.bash nmag-X.Y.Z.tar.gz
+This will create a new tarball with name nmag-core-X.Y.Z.tar.gz
