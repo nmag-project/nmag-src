@@ -1,0 +1,112 @@
+import sys
+import os
+import commands
+import getpass
+
+import repositories
+
+transition_dir = "$TRANSITION$"
+new_release_script = "$NEW-RELEASE$"
+tag = "$TAG$"
+tmpdir = "tmp-repo"
+
+# Make sure $...$ variables have been substituted
+assert "TAG" not in tag
+
+if os.path.isdir(tmpdir):
+  print ("Error: make sure the directory '%s' does not exist before launching "
+         "this script. This directory is used to create temporary files and "
+         "may have been left over from a failed attempt to run this script. "
+         "Please remove it manually.")
+  sys.exit(1)
+
+default_username = getpass.getuser()
+
+def run(cmd):
+  status, output = commands.getstatusoutput(cmd)
+  print output
+  if status != 0:
+    print ("Exit with status %s when executing the command '%s'" 
+           % (status, cmd))
+    sys.exit(1)
+
+help_msg = \
+  ("You should use this script only after using the $NEW-RELEASE$ "
+   "script. The idea is that: (1) you first create a new tarball with "
+   "$NEW-RELEASE$, (2) you test the tarball on many machines to make "
+   "sure that it works, (3) you use this script to confirm that the "
+   "tarball works and that you want to proceed with the release. "
+   "This script will then push the release changes to the main "
+   "repository and will tag the test and doc repositories with the "
+   "release version number. If you found that the tarball is not "
+   "working, then you can just remove the $TRANSITION$ directory and "
+   "start again.")
+
+if not os.path.isdir(transition_dir):
+  print "Cannot find the transition directory '%s'" % transition_dir
+  print help_msg
+  sys.exit(1)
+
+msg = \
+"""This script is going to do the following things:
+
+  - Push the transition src repository to the central repository
+    (this means that the tag created for the new version will be pushed
+    to the central repository);
+
+  - Checkout the doc and test repository and create tags for the new released
+    version. The changes are then pushed to the central repositories and
+    the local checkouts are removed;
+
+  - Remove the transition directory.
+
+It is left to you to update the current src repository (the one to which this
+script belongs). In other words, after running this script you may want to
+do an "hg pull".
+"""
+
+print msg
+
+print "Press RETURN to proceed..."
+raw_input()
+
+
+print "What username should I use to access the repository?"
+print "Username (default is %s):" % default_username,
+username = raw_input() or default_username
+
+print "Pushing transition repository to central repository..."
+src_repo = repositories.repos_main
+#src_repo = "/tmp/test-src"
+run("hg push -R $TRANSITION$ --config ui.username=%s %s"
+    % (username, src_repo))
+
+def tag_repo(repo, tag, tmpname="tmp-repo"):
+  # It looks as if we cannot tag remotely, we then need to clone the repo
+  # tag it, push and remove it.
+  print "Cloning repository..."
+  run("hg clone --config ui.username=%s %s %s"
+      % (username, repo, tmpname))
+
+  print "Tagging repository..."
+  run("hg tag -R %s %s" % (tmpname, tag))
+
+  print "Pushing repository..."
+  run("hg push -R %s --config ui.username=%s %s"
+      % (tmpname, username, repo))
+
+  print "Removing directory..."
+  run("rm -rf %s/" % tmpname)
+
+repos = [repositories.repos_doc,
+         repositories.repos_test,
+         repositories.repos_dist]
+
+#repos = ["ssh://eta.kk.soton.ac.uk//home/mf/test-repo"]
+
+for repo in repos:
+  print "Creating tag '%s' for repository %s:" % (tag, repo)
+  tag_repo(repo, tag)
+
+print "Removing transition directory..."
+run("rm -rf $TRANSITION$")

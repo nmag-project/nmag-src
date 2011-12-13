@@ -84,19 +84,13 @@ def problem_in_answer(ans):
                 "where X, Y and Z are three integers")
 what_ver.answer_checker(problem_in_answer)
 
-assisted = plan.add_choice(Choice("In mode do you want?"))
-assisted.add_alternative(Alternative("Assisted/debugging (I'll tell you what "
-                                     "I'm doing and ask you confirmation)"))
-assisted.add_alternative(Alternative("All in one go (if you already used this"
-                                     "script and you know what it does)"))
-
 #=============================================================================
 # Ask the user to take decision and take note of the answers
 script = Script()
 plan.ask_user(script)
 
 def confirm(s="", ask_anyway=False):
-    if assisted.chosen == 0 or ask_anyway:
+    if ask_anyway:
         print s
         print "PRESS [RETURN] TO CONTINUE...",
         raw_input()
@@ -201,7 +195,34 @@ confirm()
 print getoutput("cd %s && hg commit -m \"Back to %s-dev\""
                 % (transition_repos, new_version))
 
+new_release_script = sys.argv[0]
+confirm_script = "confirm-release.py"
 
+repls = [("$NEW-RELEASE$", new_release_script),
+         ("$TRANSITION$", transition_repos),
+         ("$CONFIRM-SCRIPT$", confirm_script),
+         ("$TAG$", maintag)]
+
+def subst(msg):
+  for inp, out in repls:
+    msg = msg.replace(inp, out)
+  return msg
+
+print "Creating confirmation script..."
+with open(confirm_script + ".in", "r") as f:
+  content = f.read()
+with open(confirm_script, "w") as f:
+  f.write(subst(content))
+
+msg = \
+  ("The tarball was created together with a confirmation script. You should "
+   "now test the tarball and make sure it works. If you find out that the "
+   "tarball needs further modifications, then you can just remove the "
+   "directory $TRANSITION$ and try again. If you are happy with the tarball "
+   "you can confirm the release by launching the $CONFIRM-SCRIPT$ script as "
+   "follows:\n\n  python $CONFIRM-SCRIPT$\n\nJust follow the instructions.")
+
+print subst(msg)
 sys.exit(0)
 
 
@@ -224,20 +245,4 @@ TYPICAL USAGE:
 
 For more info try "python new-version.py help"
 
-Press a key when ready (or CTRL+C to interrupt).
 """
-
-
-print help_msg
-raw_input()
-
-
-
-
-execfile("version.py")
-
-version_str = ".".join(map(str, current))
-
-
-print "Current version is " + version_str
-
