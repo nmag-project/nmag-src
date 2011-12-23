@@ -75,8 +75,11 @@ print "What username should I use to access the repository?"
 print "Username (default is %s):" % default_username,
 username = raw_input() or default_username
 
+def repo(rp):
+  return "ssh://%s" % rp if "soton.ac.uk" in rp else rp
+
 print "Pushing transition repository to central repository..."
-src_repo = repositories.repos_main
+src_repo = repo(repositories.repos_main)
 #src_repo = "/tmp/test-src"
 run("hg push -R $TRANSITION$ --config ui.username=%s %s"
     % (username, src_repo))
@@ -104,7 +107,7 @@ repos = [repositories.repos_doc,
 
 #repos = ["ssh://eta.kk.soton.ac.uk//home/mf/test-repo"]
 
-for repo in repos:
+for repo in map(repo, repos):
   print "Creating tag '%s' for repository %s:" % (tag, repo)
   tag_repo(repo, tag)
 
