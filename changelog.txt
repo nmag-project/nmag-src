@@ -1,7 +1,14 @@
-Unpublished changes:
 
-Next release 0.2.0 XXXX
+Unpublished (for 0.2.1)
 =======================
+
+Bugfixes/Improvements
+
+* Patch from U.Nitzsche@ifw-dresden.de, allowing from-source
+  installation in /opt
+
+release 0.2.0 (13 Dec 2011)
+===========================
 
 New Features
 
