@@ -1228,8 +1228,8 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
        *(eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*dm_dcurrent(q))_(j:3,k:3,p:3,q:3)
      + P*(xi - alpha)*(eps(i,j,k)*m(j)*dm_dcurrent(k))_(j:3,k:3)
      + sl_coeff
-       *(  alpha*(eps(i,j,k)*m(j)*sl_fix(k))_(j:3,k:3)
-         + (eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*sl_fix(q))_(j:3,k:3,p:3,q:3))
+       *( alpha*(eps(i,j,k)*m(j)*sl_fix(k))_(j:3,k:3)
+         - (eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*sl_fix(q))_(j:3,k:3,p:3,q:3))
     )*pin)_(i:3);"""
     llg = Equation("llg", eq)
     model.add_computation(llg)
