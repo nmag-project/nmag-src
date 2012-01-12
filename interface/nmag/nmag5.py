@@ -422,6 +422,7 @@ class Simulation(SimulationCore):
         set_quantity_value("P", "llg_polarisation")
         set_quantity_value("xi", "llg_xi")
         set_quantity_value("sl_P")
+        set_quantity_value("sl_lambda")
         set_quantity_value("sl_d")
         set_quantity_value("inv_alpha2")
 
@@ -1115,33 +1116,24 @@ def _add_stt_sl(model, contexts, quantity_creator=None, do_sl_stt=False):
                             unit=_su_of(SI("A/m^2")))
     sl_fix = qc(SpaceField, "sl_fix", [3], unit=SI(1))
     sl_P = qc(SpaceField, "sl_P", subfields=True, unit=SI(1))
-    model.add_quantity(sl_P, sl_d, sl_current_density, sl_fix)
+    sl_lambda = qc(SpaceField, "sl_lambda", subfields=True, unit=SI(1))
+    model.add_quantity(sl_P, sl_lambda, sl_d, sl_current_density, sl_fix)
 
     # Auxiliary quantities
     sl_coeff = qc(SpaceField, "sl_coeff", subfields=True)
     model.add_quantity(sl_coeff)
 
-    #eq = """
-    #sl_coeff <- gamma_G*Ms/(1.0 + alpha*alpha)
-    #            * sl_current_density/(mu0*Ms*Ms*e*sl_d/hbar)
-    #            * 4.0/(sl_Pf*sl_Pf*sl_Pf
-    #                   * (3.0 + m(0)*sl_fix(0)
-    #                          + m(1)*sl_fix(1)
-    #                          + m(2)*sl_fix(2))
-    #                   - 16.0);"""
-    #eq_sl_coeff = Equation("sl_coeff", eq)
-
     ccode = \
-      ("double P_factor1 = sqrt($sl_P$)/(1.0 + $sl_P$),\n"
-       "       P_factor3 = 4.0*P_factor1*P_factor1*P_factor1,\n"
+      ("double P = $sl_P$,\n"
+       "       lambda = $sl_lambda$, lambda2 = lambda*lambda,\n"
        "       alpha = $alpha$, alpha2 = alpha*alpha;\n"
        "$sl_coeff$ = \n"
        "  $gamma_G$/(1.0 + alpha2)\n"
        "  * $sl_current_density$/($mu0$*$Ms$*$e$*$sl_d$/$hbar$)\n"
-       "  * P_factor3/((3.0 + $m(0)$*$sl_fix(0)$\n"
-       "                    + $m(1)$*$sl_fix(1)$\n"
-       "                    + $m(2)$*$sl_fix(2)$)\n"
-       "               - 4.0*P_factor3);\n")
+       "  * P*lambda2/(lambda2 + 1.0\n"
+       "               + (  $m(0)$*$sl_fix(0)$\n"
+       "                  + $m(1)$*$sl_fix(1)$\n"
+       "                  + $m(2)$*$sl_fix(2)$) * (lambda2 - 1.0));\n")
     calc_sl_coeff = \
       CCode("calc_sl_coeff", inputs=["m"], outputs=["sl_coeff"], auto_dep=True)
     calc_sl_coeff.append(ccode)
