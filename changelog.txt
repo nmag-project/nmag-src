@@ -7,6 +7,13 @@ Bugfixes/Improvements
 * Patch from U.Nitzsche@ifw-dresden.de, allowing from-source
   installation in /opt
 
+* Fix for mpi regression test
+
+* Minor improvements for documentation (dispersion relation
+  computation and anisotropy examples in manual)
+
+* Correction for instructions to run tests in nmag-core install.
+
 release 0.2.0 (13 Dec 2011)
 ===========================
 
