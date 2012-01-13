@@ -1,6 +1,6 @@
 
-Unpublished (for 0.2.1)
-=======================
+release 0.2.1 (13 January 2012)
+===============================
 
 Bugfixes/Improvements
 
@@ -13,6 +13,9 @@ Bugfixes/Improvements
   computation and anisotropy examples in manual)
 
 * Correction for instructions to run tests in nmag-core install.
+
+* Adding python-pyvtk to list of required packages in installation
+  instructions.
 
 release 0.2.0 (13 Dec 2011)
 ===========================
