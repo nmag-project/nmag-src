@@ -23,6 +23,7 @@ import numpy
 
 # Nmag imports (modules nmag.*)
 from nmag_exceptions import *
+from nsim.doc_inherit import doc_inherit
 import nmesh
 from simulation_core import SimulationCore
 from nsim.model import *
@@ -482,8 +483,12 @@ class Simulation(SimulationCore):
             full_mat_name = "%s_%s" % (field_name, mat_name)
             return f.compute_average().as_constant(where=full_mat_name)
 
+    @doc_inherit
     def set_params(self, stopping_dm_dt=None,
-                   ts_rel_tol=None, ts_abs_tol=None):
+                   ts_rel_tol=None, ts_abs_tol=None,
+                   ts_pc_rel_tol=None, ts_pc_abs_tol=None,
+                   demag_dbc_rel_tol=None, demag_dbc_abs_tol=None,
+                   demag_nbc_rel_tol=None, demag_nbc_abs_tol=None):
         if stopping_dm_dt != None:
             if not SI("1/s").is_compatible_with(stopping_dm_dt):
                 raise ValueError("The value given for stopping_dm_dt must "
@@ -491,7 +496,8 @@ class Simulation(SimulationCore):
             self.stopping_dm_dt = stopping_dm_dt
 
         ts = self.model.timesteppers["ts_llg"]
-        ts.initialise(rtol=ts_rel_tol, atol=ts_abs_tol)
+        ts.initialise(rtol=ts_rel_tol, atol=ts_abs_tol,
+                      pc_rtol=ts_pc_rel_tol, pc_atol=ts_pc_abs_tol)
 
     def set_H_ext(self, values, unit=None):
         v = Value(values) if unit == None else Value(values, unit)
@@ -522,6 +528,7 @@ class Simulation(SimulationCore):
         ts.initialise(rtol=rel_tolerance, atol=abs_tolerance,
                       initial_time=initial_time)
 
+    @doc_inherit
     def advance_time(self, target_time, max_it=-1, exact_tstop=True):
         ts = self.model.timesteppers["ts_llg"]
 
@@ -559,10 +566,8 @@ class Simulation(SimulationCore):
         self.clock.last_step_dt_si = ts.get_last_dt()
         return t
 
+    @doc_inherit
     def is_converged(self):
-        """
-        Returns True when convergence has been reached.
-        """
         lg.debug("Entering is_converged()")
         self.clock.convergence = False
         if self.max_dm_dt != None:
@@ -592,47 +597,8 @@ class Simulation(SimulationCore):
                 self.model.computations[en].execute()
         return SimulationCore._save_averages(self, *args, **named_args)
 
+    @doc_inherit
     def save_data(self, fields=None, avoid_same_step=False):
-        """
-        Save the *averages* of all defined (subfields) into a ascii
-        data file. The filename iscomposed of the simulation name
-        and the extension ``_dat.ndt``. The
-        extension ``ndt`` stands for Nmag Data Table (analog to OOMMFs
-        ``.odt`` extension for this kind of data file.
-
-        If ``fields`` is provided, then it will also save the spatially
-        resolved fields to a file with extensions ``_dat.h5``.
-
-        :Parameters:
-          `fields` : None, 'all' or list of fieldnames
-
-            If None, then only spatially averaged data is saved into ``*ndt``
-            and ``*h5`` files.
-
-            If ``all`` (i.e. the string containing 'all'), then all fields are
-            saved.
-
-            If a list of fieldnames is given, then only the selected
-            fieldnames will be saved (i.e. ['m','H_demag']).
-
-          `avoid_same_step` : bool
-
-            If ``True``, then the data will only be saved if the
-            current ``clock.step`` counter is different from the
-            step counter of the last saved configuration. If
-            ``False``, then the data will be saved in any
-            case. Default is ```False```. This is internally used by
-            the hysteresis command (which uses ``avoid_same_step ==
-            True``) to avoid saving the same data twice.
-
-            The only situation where the step counter may not have
-            changed from the last saved configuration is if the user
-            is modifying the magnetisation or external field manually
-            (otherwise the call of the time integrator to advance or
-            relax the system will automatically increase the step
-            counter).
-        """
-
         lg.debug("Entering save_data, fields=%s, avoid_same_step=%s"
                   % (fields, avoid_same_step))
         timer1.start('save_data')

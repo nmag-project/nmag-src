@@ -17,14 +17,13 @@ Copyright |copy| 2005-2007 by University of Southampton
 
 :License: GNU Public License (GPL)
 
-:Version: $Id$
-
 """
 
 __docformat__="restructuredtext"
 
 # Define what gets imported with a 'from nmesh import *'
-__all__ = ['snippets', 'features', 'logtools', 'when', 'versions', 'reporttools']
+__all__ = ['snippets', 'features', 'logtools', 'when', 'versions',
+           'reporttools', 'doc_inherit']
 
 # Load __all__ in namespace so that a simple 'import nsim' gives
 # access to them via nsim.<name>
@@ -35,11 +34,10 @@ for name in __all__:
 # Namespace cleanup
 del name,glob,loc
 
-
 # get Nmag version string
 try:
     from versions import get_version_string
     __version__ = get_version_string()
+
 except:
     __version__ = 'not available'
-
