@@ -110,6 +110,9 @@ type las_timestepper_spec = {
   lts_use_jacobian : bool;
   lts_jacobi_equations : local_equations;
   lts_pc_same_nonzero_pattern : bool;
+  (* The quantities below are used only when setting up the KSP for the
+     preconditioner and are defined as mutable because the user may end up
+     changing the tolerances, before the preconditioner has been set up. *)
   mutable lts_pc_opt_rtol : float option;
   mutable lts_pc_opt_atol : float option;
   mutable lts_pc_opt_dtol : float option;
