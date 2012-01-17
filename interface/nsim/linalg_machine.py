@@ -241,3 +241,14 @@ def make_lam_cvode(linalg_machine,
 def cvode_advance(cvode,result_vector,target_time,max_steps=-1):
     return ocaml.raw_cvode_advance(cvode,result_vector,target_time,max_steps)
 
+def _optional(opt):
+    return [] if opt == None else [opt]
+
+def lam_ts_set_tols(lam_name, ts_name, rtol, atol, pc_rtol=None, pc_atol=None,
+                    pc_dtol=None, pc_maxits=None):
+    """Set the tolerance for the time integration and for the KSP (for the
+    preconditioning)."""
+    ocaml.lam_ts_set_tols(lam_name, ts_name,
+                          _optional(pc_rtol), _optional(pc_atol),
+                          _optional(pc_dtol), _optional(pc_maxits),
+                          rtol, atol)

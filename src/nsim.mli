@@ -100,7 +100,6 @@ type las_jacobi_plan_spec = {
 }
 type las_timestepper_spec = {
   lts_name : string;
-  lts_jacobian : string;
   lts_name_seq_velocities : string;
   lts_nr_primary_fields : int;
   lts_names_phys_field_mwes : string array;
@@ -111,10 +110,10 @@ type las_timestepper_spec = {
   lts_use_jacobian : bool;
   lts_jacobi_equations : local_equations;
   lts_pc_same_nonzero_pattern : bool;
-  lts_pc_opt_rtol : float option;
-  lts_pc_opt_atol : float option;
-  lts_pc_opt_dtol : float option;
-  lts_pc_opt_maxit : int option;
+  mutable lts_pc_opt_rtol : float option;
+  mutable lts_pc_opt_atol : float option;
+  mutable lts_pc_opt_dtol : float option;
+  mutable lts_pc_opt_maxit : int option;
   lts_max_order : int;
   lts_krylov_max : int;
 }
@@ -154,6 +153,8 @@ type linalg_machine = {
   timestepper_initialize_from_physics :
     string -> float -> float -> float -> unit;
   timestepper_advance : string -> bool -> float -> int -> float;
+  timestepper_set_tols: string -> float option -> float option ->
+    float option -> int option -> float -> float -> unit;
   timestepper_get_cvode : string -> Sundials_sp.cvode;
   timestepper_timings : string -> string -> (string * float * float) array;
   internal_ccpla_resources: unit -> string array;
@@ -186,8 +187,8 @@ type par_timestepper = {
     ?initial_time:float -> ?rel_tol:float -> ?abs_tol:float -> unit -> unit;
   mutable pts_advance : ?exact_tstop:bool -> float -> int -> float;
   mutable pts_set_tolerances :
-    float option * float option * float option * int option ->
-    float * float -> unit;
+    float option -> float option -> float option -> int option ->
+    float -> float -> unit;
   mutable pts_timing_control : string -> (string * float * float) array;
 }
 type 'a nsim_ccpla_resource =
@@ -214,6 +215,9 @@ type nsim_ccpla_opcode =
   | NSIM_OP_make_timestepper of (string * las_timestepper_spec)
   | NSIM_OP_init_timestepper of (float * float * float)
   | NSIM_OP_advance_timestepper of (bool * float * int)
+  | NSIM_OP_set_timestepper_tols of (float option * float option *
+                                     float option * int option *
+                                     float * float)
   | NSIM_OP_hmatrix_mult of
       ((Hlib.hmatrix * Mpi_petsc.vector * Mpi_petsc.vector) *
        Mpi_petsc.vector * Mpi_petsc.vector)
