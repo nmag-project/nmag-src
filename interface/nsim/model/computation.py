@@ -18,6 +18,7 @@ import ocaml
 
 from nsim import linalg_machine as nlam
 from nsim.doc_inherit import doc_inherit
+from nsim.snippets import optional
 
 import eqparser
 import opparser

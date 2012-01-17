@@ -501,11 +501,11 @@ class Simulation(SimulationCore):
 
         dbc = self.model.computations.get("solve_laplace_DBC", None)
         if dbc is not None:
-            dbc.set_params(rtol=demag_dbc_rel_tol, atol=demag_dbc_abs_tol)
+            dbc.set_tolerances(rtol=demag_dbc_rel_tol, atol=demag_dbc_abs_tol)
 
         nbc = self.model.computations.get("solve_neg_laplace_phi", None)
         if nbc is not None:
-            nbc.set_params(rtol=demag_nbc_rel_tol, atol=demag_nbc_abs_tol)
+            nbc.set_tolerances(rtol=demag_nbc_rel_tol, atol=demag_nbc_abs_tol)
 
     def set_H_ext(self, values, unit=None):
         v = Value(values) if unit == None else Value(values, unit)
