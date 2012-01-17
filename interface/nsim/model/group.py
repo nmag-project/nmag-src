@@ -57,13 +57,9 @@ class Group(object):
             self._all.append(obj)
             self._by_type.setdefault(obj.type_str, []).append(obj)
 
-    def get(self, name):
+    def get(self, name, default=None):
         """Return the quantity with the given name."""
-        try:
-            return self._by_name[name]
-        except KeyError:
-            raise KeyError("Cannot find %s object with name %s."
-                           % (self.type_str, name))
+        return self._by_name.get(name, default)
 
     def pop(self, item):
         """Remove an item from the group."""

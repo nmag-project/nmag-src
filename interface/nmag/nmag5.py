@@ -499,6 +499,14 @@ class Simulation(SimulationCore):
         ts.initialise(rtol=ts_rel_tol, atol=ts_abs_tol,
                       pc_rtol=ts_pc_rel_tol, pc_atol=ts_pc_abs_tol)
 
+        dbc = self.model.computations.get("solve_laplace_DBC", None)
+        if dbc is not None:
+            dbc.set_params(rtol=demag_dbc_rel_tol, atol=demag_dbc_abs_tol)
+
+        nbc = self.model.computations.get("solve_neg_laplace_phi", None)
+        if nbc is not None:
+            nbc.set_params(rtol=demag_nbc_rel_tol, atol=demag_nbc_abs_tol)
+
     def set_H_ext(self, values, unit=None):
         v = Value(values) if unit == None else Value(values, unit)
         self.model.quantities["H_ext"].set_value(v)
@@ -1228,7 +1236,9 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
     ts = Timestepper("ts_llg", x="m", dxdt="dmdt",
                      eq_for_jacobian=llg_jacobi,
                      derivatives=derivatives,
-                     time_unit=t_unit)
+                     time_unit=t_unit,
+                     pc_rtol=1e-2, pc_atol=1e-7,
+                     pc_maxits=1000000)
     model.add_timestepper(ts)
     model.declare_target(ts)
 
