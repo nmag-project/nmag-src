@@ -724,7 +724,7 @@ class Model(object):
         self._built["TSs"] = True
         return nlam_tss
 
-    def _build_lam(self, remove_unused=True):
+    def _build_lam(self, remove_unused=None):
         # Carry out equation and operator simplifications
         self._simplify_operators()
         self._simplify_equations()
@@ -734,7 +734,8 @@ class Model(object):
         self._build_dependency_tree()
 
         # Remove unused objects, if required
-        if remove_unused:
+        if (remove_unused is True 
+            or (remove_unused is None and len(self.targets) > 0)):
             self._remove_unused(self.targets)
 
         # First build all the elements
