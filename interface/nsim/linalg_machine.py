@@ -2,6 +2,8 @@
 
 import ocaml
 
+from snippets import optional
+
 # NOTE: we need way better internal representation wrt type error handling!
 # lam_vector should produce some very basic vector_spec object (that only
 # contains an array with all the data, but provides guarantees that this is
@@ -241,3 +243,11 @@ def make_lam_cvode(linalg_machine,
 def cvode_advance(cvode,result_vector,target_time,max_steps=-1):
     return ocaml.raw_cvode_advance(cvode,result_vector,target_time,max_steps)
 
+def lam_ts_set_tols(lam_name, ts_name, rtol, atol, pc_rtol=None, pc_atol=None,
+                    pc_dtol=None, pc_maxits=None):
+    """Set the tolerance for the time integration and for the KSP (for the
+    preconditioning)."""
+    ocaml.lam_ts_set_tols(lam_name, ts_name,
+                          optional(pc_rtol), optional(pc_atol),
+                          optional(pc_dtol), optional(pc_maxits),
+                          rtol, atol)

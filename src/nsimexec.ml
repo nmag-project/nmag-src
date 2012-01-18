@@ -3994,7 +3994,7 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 	      let data = guarded_pylist_toarray spec in
 	      let () = ensure_has_enough_args "spec_timestepper" 17 data in
 	      let name = guarded_pystring_asstring data.(0) in
-	      let name_jacobian = guarded_pystring_asstring data.(1) in
+	      let _ = guarded_pystring_asstring data.(1) in (*unused*)
 	      let nr_primary_fields = guarded_pyint_asint data.(2) in
 	      let jacobi_prealloc_diagonal = guarded_pyint_asint data.(3) in
 	      let jacobi_prealloc_off_diagonal = guarded_pyint_asint data.(4) in
@@ -4025,7 +4025,6 @@ let _py_raw_make_lam	= (* XXX TO BE EXTENDED QUITE DRAMATICALLY IN THE FUTURE! X
 		{
 		  (* lts=Linalgmachine Timestepper Specification *)
 		  Nsim.lts_name = name;
-		  Nsim.lts_jacobian = name_jacobian;
 		  Nsim.lts_name_seq_velocities = name_seq_velocities;
 		  Nsim.lts_nr_primary_fields = nr_primary_fields;
 		  Nsim.lts_names_phys_field_mwes = names_phys_field_mwes;
@@ -4113,7 +4112,9 @@ let _py_lam_get_timers =
 
 let _py_lam_ts_init =
   python_pre_interfaced_function
-    ~doc:"Initialise timestepper. Arguments: (linalgmachine:CamlPill,timesteppername:string,t_initial:float,rel_tol:float,abs_tol). rel_tol and abs_tol are sundials tolerance parameters."
+    ~doc:"Initialise the timestepper. Arguments: (linalgmachine:CamlPill, \
+          timesteppername:string, t_initial:float, rel_tol:float, abs_tol). \
+          rel_tol and abs_tol are sundials tolerance parameters."
     [|CamlpillType;StringType;FloatType;FloatType;FloatType|]
     (fun args ->
        let linalg_machine = linalg_machine_from_ocamlpill args.(0) in
@@ -4121,13 +4122,16 @@ let _py_lam_ts_init =
        let t_initial = pyfloat_asdouble args.(2) in
        let rel_tol = pyfloat_asdouble args.(3) in
        let abs_tol = pyfloat_asdouble args.(4) in
-       let () = linalg_machine.timestepper_initialize_from_physics name t_initial rel_tol abs_tol in
+       let () = linalg_machine.timestepper_initialize_from_physics
+                  name t_initial rel_tol abs_tol in
 	 pynone())
 ;;
 
 let _py_lam_ts_advance =
   python_pre_interfaced_function
-    ~doc:"Advance timestepper. Arguments: (linalgmachine:CamlPill,timesteppername:string,t_final:float,max_steps:int). max_steps=-1 means no step limit. Returns time reached (float)"
+    ~doc:"Advance timestepper. Arguments: (linalgmachine:CamlPill, \
+          timesteppername:string, t_final:float, max_steps:int). \
+          max_steps=-1 means no step limit. Returns time reached (float)"
     [|CamlpillType; StringType; BoolType; FloatType; IntType|]
     (fun args ->
        let linalg_machine = linalg_machine_from_ocamlpill args.(0) in
@@ -4135,13 +4139,42 @@ let _py_lam_ts_advance =
        let exact_tstop = pybool_asbool args.(2) in
        let t_final = pyfloat_asdouble args.(3) in
        let maxsteps = pyint_asint args.(4) in
-       let t_reached = linalg_machine.timestepper_advance name exact_tstop t_final maxsteps in
+       let t_reached =
+         linalg_machine.timestepper_advance name exact_tstop t_final maxsteps
+       in
 	 pyfloat_fromdouble t_reached)
+;;
+
+let _py_lam_ts_set_tols =
+  python_pre_interfaced_function
+    ~doc:"Set the tolerance for the time integration and for the KSP (for the \
+          preconditioning. The required argument are: lam:CamlPill, \
+          ts_name:string, ksp_rtol:opt_float, ksp_atol: opt_float, ksp_dtol: \
+          opt_float, ksp_maxits: opt_int, cvode_rtol: float, cvode_atol: \
+          float. ``opt_x'' is an optional value of type x. It is a list made \
+          by one element of type x or just an empty list (for the default value)"
+    [|CamlpillType; StringType; ListType; ListType; ListType; ListType;
+      FloatType; FloatType|]
+    (fun args ->
+       let linalg_machine = linalg_machine_from_ocamlpill args.(0) in
+       let name = pystring_asstring args.(1) in
+       let ksp_rtol = py_optionally guarded_pyfloat_asfloat args.(2) in
+       let ksp_atol = py_optionally guarded_pyfloat_asfloat args.(3) in
+       let ksp_dtol = py_optionally guarded_pyfloat_asfloat args.(4) in
+       let ksp_maxit = py_optionally guarded_pyint_asint args.(5) in
+       let cvode_rtol = pyfloat_asdouble args.(6) in
+       let cvode_atol = pyfloat_asdouble args.(7) in
+       let () =
+         linalg_machine.timestepper_set_tols
+           name ksp_rtol ksp_atol ksp_dtol ksp_maxit cvode_rtol cvode_atol
+       in
+	 pynone ())
 ;;
 
 let _py_lam_get_ts_cvode =
   python_pre_interfaced_function
-    ~doc:"Advance timestepper. Arguments: (linalgmachine:CamlPill,timesteppername:string). Returns Ocamlpill of cvode."
+    ~doc:"Advance timestepper. Arguments: (linalgmachine:CamlPill, \
+           =timesteppername:string). Returns Ocamlpill of cvode."
     [|CamlpillType;StringType|]
     (fun args ->
        let linalg_machine = linalg_machine_from_ocamlpill args.(0) in
@@ -4169,8 +4202,11 @@ let _py_lam_get_ts_timings =
 
 let _py_lam_set_ksp_tolerances =
   python_pre_interfaced_function
-    ~doc:"Set ksp tolerances for kspsolver. Arguments: (cvode:CamlPill,kspname:string,rel_tol: List of float, abs_tol: list of float, dtol: list of float, maxits: list of int ). Lists can be empty if corresponding value should not be modified."
-    [|CamlpillType; (* the cvode *)
+    ~doc:"Set ksp tolerances for kspsolver. Arguments: (cvode:CamlPill, \
+          kspname:string, rel_tol:list of float, abs_tol:list of float, \
+          dtol: list of float, maxits: list of int ). Lists can be empty if \
+          corresponding value should not be modified."
+    [|CamlpillType; (* the LAM *)
       StringType;  (* ksp name *)
       ListType;    (* opt rel_tol *)
       ListType;    (* opt abs_tol *)
@@ -4184,13 +4220,16 @@ let _py_lam_set_ksp_tolerances =
        let atol = py_optionally guarded_pyfloat_asfloat args.(3) in
        let dtol = py_optionally guarded_pyfloat_asfloat args.(4) in
        let maxits = py_optionally guarded_pyint_asint args.(5) in
-       let () = linalg_machine.set_ksp_tolerances ksp_name (rtol,atol,dtol,maxits) in
+       let () =
+         linalg_machine.set_ksp_tolerances ksp_name (rtol, atol, dtol, maxits)
+       in
 	 pynone())
 ;;
 
 let _py_lam_get_ksp_tolerances =
   python_pre_interfaced_function
-    ~doc:"Get ksp tolerances from kspsolver. Arguments: (cvode:CamlPill,kspname:string). Returns 4-tuple (rtol,atol,dtol,maxits)."
+    ~doc:"Get ksp tolerances from kspsolver. Arguments: (cvode:CamlPill, \
+          kspname:string). Returns 4-tuple (rtol, atol, dtol, maxits)."
     [|CamlpillType; (* the cvode *)
       StringType;  (* ksp name *)
     |]
@@ -4606,6 +4645,7 @@ let _ =
       ("lam_get_timers",_py_lam_get_timers);
       ("lam_ts_init",_py_lam_ts_init);
       ("lam_ts_advance",_py_lam_ts_advance);
+      ("lam_ts_set_tols", _py_lam_ts_set_tols);
       ("lam_get_ts_cvode",_py_lam_get_ts_cvode);
       ("lam_get_ts_timings",_py_lam_get_ts_timings);
       ("lam_set_ksp_tolerances",_py_lam_set_ksp_tolerances);

@@ -17,6 +17,8 @@ import re
 import ocaml
 
 from nsim import linalg_machine as nlam
+from nsim.doc_inherit import doc_inherit
+from nsim.snippets import optional
 
 import eqparser
 import opparser
@@ -103,8 +105,6 @@ class LAMProgram(Computation):
                 if isinstance(arg, Computation):
                     required_computations[arg.get_full_name()] = arg
         return required_computations.values()
-    get_required_computations.__doc__ = \
-      Computation.get_required_computations.__doc__
 
     def execute(self, fields=[], cofields=[]):
         """Execute the LAMProgram."""
@@ -473,8 +473,27 @@ class KSP(Computation):
 
     def get_required_computations(self):
         return [self.operator]
-    get_required_computations.__doc__ = \
-      Computation.get_required_computations.__doc__
+
+    def set_tolerances(self, **kwargs):
+        """KSP.set_tolerances(rtol=..., atol=..., dtol=..., maxits=...)
+        Set the tolerances for the KSP.
+        """
+        allowed_keys = ["rtol", "atol", "dtol", "maxits"]
+        for key, val in kwargs.iteritems():
+            if key not in allowed_keys:
+                raise TypeError("KSP.set_tolerances() got an unexpected "
+                                "argument '%s'")
+            if val is not None:
+                setattr(self, key, val)
+
+        if self.vivified:
+            lam = self.get_lam()
+            ksp_name = self.get_full_name()
+            ocaml.lam_set_ksp_tolerances(lam, ksp_name,
+                                         optional(self.rtol),
+                                         optional(self.atol),
+                                         optional(self.rtol),
+                                         optional(self.maxits))
 
     def _build_lam_object(self, model):
         return \

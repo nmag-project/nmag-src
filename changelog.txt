@@ -1,7 +1,24 @@
-Unpublished changes:
 
-Next release 0.2.0 XXXX
-=======================
+release 0.2.1 (13 January 2012)
+===============================
+
+Bugfixes/Improvements
+
+* Patch from U.Nitzsche@ifw-dresden.de, allowing from-source
+  installation in /opt
+
+* Fix for mpi regression test
+
+* Minor improvements for documentation (dispersion relation
+  computation and anisotropy examples in manual)
+
+* Correction for instructions to run tests in nmag-core install.
+
+* Adding python-pyvtk to list of required packages in installation
+  instructions.
+
+release 0.2.0 (13 Dec 2011)
+===========================
 
 New Features
 

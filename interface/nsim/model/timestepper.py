@@ -12,6 +12,9 @@
 __all__ = ['Timestepper', 'Timesteppers']
 
 import ocaml
+
+from nsim import linalg_machine as nlam
+
 from obj import ModelObj
 from group import Group
 from computation import Equation
@@ -27,7 +30,7 @@ class Timestepper(ModelObj):
     def __init__(self, name, x, dxdt,
                  eq_for_jacobian=None, time_unit=None,
                  derivatives=None,
-                 pc_rtol=1e-2, pc_atol=1e-7,
+                 pc_rtol=1e-2, pc_atol=1e-7, pc_dtol=None, pc_maxits=1000000,
                  rtol=1e-5, atol=1e-5, initial_time=0.0,
                  max_order=2, krylov_max=300,
                  jacobi_prealloc_diagonal=75,
@@ -58,6 +61,8 @@ class Timestepper(ModelObj):
         self.atol = atol
         self.pc_rtol = pc_rtol
         self.pc_atol = pc_atol
+        self.pc_dtol = pc_dtol
+        self.pc_maxits = pc_maxits
         self.initial_time = initial_time
         self.max_order = max_order
         self.krylov_max = krylov_max
@@ -84,8 +89,10 @@ class Timestepper(ModelObj):
             initial_time = remove_unit(initial_time, self.time_unit)
             ocaml.lam_ts_init(self.get_lam(), self.get_full_name(),
                               initial_time, self.rtol, self.atol)
-
-            # XXX NOTE: HERE WE SHOULD ALSO SET THE PC TOLERANCES
+            nlam.lam_ts_set_tols(self.get_lam(), self.get_full_name(),
+                                 self.rtol, self.atol,
+                                 pc_rtol=self.pc_rtol, pc_atol=self.pc_atol,
+                                 pc_dtol=self.pc_dtol, pc_maxits=self.pc_maxits)
             self.initialised = True
             self.need_reinitialise = False
 

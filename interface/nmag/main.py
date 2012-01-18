@@ -15,6 +15,7 @@ from   nmag_exceptions import *
 import nsim.setup
 nsim.setup.setup(sys.argv)
 
+from nsim.doc_inherit import doc_inherit
 import nfem.hdf5_v01 as hdf5
 
 import nsim.logtools
@@ -1043,38 +1044,9 @@ class Simulation(SimulationCore):
         stats = ocaml.cvode_get_stats(cvode)
         self._stat_writer.write_row(stats)
 
+    @doc_inherit
     def set_params(self, stopping_dm_dt=None, ts_rel_tol=None,
                    ts_abs_tol=None, exact_tstop=None):
-        """
-        Set the parameters which control the accuracy and performance
-        of the simulation.
-
-        :Parameters:
-
-          `ts_rel_tol` : float
-            the relative error tolerance (default is 1e-6) for the timestepper
-
-          `ts_abs_tol` : float
-            the absolute error tolerance (default is 1e-6) for the timestepper
-
-          `stopping_dm_dt` : SI_ object
-            the value used in the hysteresis_ and relax_ functions to decide
-            whether convergence has been reached. If the largest value for dm/dt drops
-            below ``stopping_dm_dt``, then convergence has been reached.
-
-            The default value for ``stopping_dm_dt`` this is that the
-            magnetisation changes less than one degree per nanosecond,
-            i.e. ``stopping_dm_dt = SI(17453292.519943293,['s',-1])``.
-
-          `exact_tstop` : bool
-            the value of exact_tstop which is used by the advance_time method
-            when the optional argument is not given. This is also the value
-            used by the relax and hysteresis methods. See the documentation
-            of advance_time for further details.
-
-        Note that this command has to be issued *after* having created
-        an m-field with the set_m_ command.
-        """
         msg = "" # just for logging the params which have been set
         if stopping_dm_dt != None:
             self.stopping_dm_dt = \
@@ -1349,32 +1321,8 @@ class Simulation(SimulationCore):
         mwe_m,field_m = self._master_mwes_and_fields_by_name['m']
         self._norm_dist_fun_m = ocaml.mwe_norm_dist_fun(mwe_m)
 
+    @doc_inherit
     def advance_time(self, target_time, max_it=-1, exact_tstop=None):
-        """
-        This method carries out the time integration of the
-        Landau-Lifshitz and Gilbert equation.
-
-        :Parameters:
-
-          `target_time` : SI Object
-            The simulation will run until this time is reached. If the target_time is
-            zero, this will simply update all fields.
-
-          `max_it` : integer
-            The maximum number of iterations (steps) to be carried out
-            in this time integration call. If set to ``-1``, then there is no limit.
-
-          `exact_tstop` : boolean
-            When exact_tstop is True, the time integration is advanced exactly
-            up to the given target_time. When False, the time integration ends
-            "close" to the target_time. The latter option can result in better
-            performance, since the time integrator is free to choose time
-            steps which are as wide as possible. When exact_tstop is not
-            given, or is None, the default value for this option will be used.
-            The default value can be set using the method set_params, which
-            should hence be used to control the behaviour of the hysteresis
-            and relax methods.
-        """
         memory_report("Beginning of advance_time")
 
         if self._temperature:
@@ -2529,47 +2477,10 @@ class Simulation(SimulationCore):
         timer1.stop('compute_averages')
         return res_field_name, res_field_value, res_field_unit
 
+    @doc_inherit
     def save_data(self,fields=None,avoid_same_step=False):
-        """
-        Save the *averages* of all defined (subfields) into a ascii
-        data file. The filename is composed of the simulation name
-        and the extension ``_dat.ndt``. The
-        extension ``ndt`` stands for Nmag Data Table (analog to OOMMFs
-        ``.odt`` extension for this kind of data file.
-
-        If ``fields`` is provided, then it will also save the spatially resolved fields
-        to a file with extensions ``_dat.h5``.
-
-        :Parameters:
-          `fields` : None, 'all' or list of fieldnames
-
-            If None, then only spatially averaged data is saved into ``*ndt`` and ``*h5`` files.
-
-            If ``all`` (i.e. the string containing 'all'), then all fields are saved.
-
-            If a list of fieldnames is given, then only the selected
-            fieldnames will be saved (i.e. ['m','H_demag']).
-
-          `avoid_same_step` : bool
-
-            If ``True``, then the data will only be saved if the
-            current ``clock['step']`` counter is different from the
-            step counter of the last saved configuration. If
-            ``False``, then the data will be saved in any
-            case. Default is ```False```. This is internally used by
-            the hysteresis command (which uses ``avoid_same_step ==
-            True``) to avoid saving the same data twice.
-
-            The only situation where the step counter may not have
-            changed from the last saved configuration is if the user
-            is modifying the magnetisation or external field manually
-            (otherwise the call of the time integrator to advance or
-            relax the system will automatically increase the step
-            counter).
-
-        """
-
-        log.debug("Entering save_data, fields=%s, avoid_same_step=%s" % (fields,avoid_same_step))
+        log.debug("Entering save_data, fields=%s, avoid_same_step=%s"
+                  % (fields,avoid_same_step))
         timer1.start('save_data')
 
         #get filenames
@@ -2823,10 +2734,8 @@ class Simulation(SimulationCore):
         self.max_dm_dt = None
         SimulationCore.do_next_stage(self, stage=stage)
 
+    @doc_inherit
     def is_converged(self):
-        """
-        Returns True when convergence has been reached.
-        """
         log.debug("Entering is_converged()")
         self.clock.convergence = False
         if self.max_dm_dt != None:

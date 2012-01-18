@@ -23,6 +23,7 @@ import numpy
 
 # Nmag imports (modules nmag.*)
 from nmag_exceptions import *
+from nsim.doc_inherit import doc_inherit
 import nmesh
 from simulation_core import SimulationCore
 from nsim.model import *
@@ -422,6 +423,7 @@ class Simulation(SimulationCore):
         set_quantity_value("P", "llg_polarisation")
         set_quantity_value("xi", "llg_xi")
         set_quantity_value("sl_P")
+        set_quantity_value("sl_lambda")
         set_quantity_value("sl_d")
         set_quantity_value("inv_alpha2")
 
@@ -481,8 +483,12 @@ class Simulation(SimulationCore):
             full_mat_name = "%s_%s" % (field_name, mat_name)
             return f.compute_average().as_constant(where=full_mat_name)
 
+    @doc_inherit
     def set_params(self, stopping_dm_dt=None,
-                   ts_rel_tol=None, ts_abs_tol=None):
+                   ts_rel_tol=None, ts_abs_tol=None,
+                   ts_pc_rel_tol=None, ts_pc_abs_tol=None,
+                   demag_dbc_rel_tol=None, demag_dbc_abs_tol=None,
+                   demag_nbc_rel_tol=None, demag_nbc_abs_tol=None):
         if stopping_dm_dt != None:
             if not SI("1/s").is_compatible_with(stopping_dm_dt):
                 raise ValueError("The value given for stopping_dm_dt must "
@@ -490,7 +496,16 @@ class Simulation(SimulationCore):
             self.stopping_dm_dt = stopping_dm_dt
 
         ts = self.model.timesteppers["ts_llg"]
-        ts.initialise(rtol=ts_rel_tol, atol=ts_abs_tol)
+        ts.initialise(rtol=ts_rel_tol, atol=ts_abs_tol,
+                      pc_rtol=ts_pc_rel_tol, pc_atol=ts_pc_abs_tol)
+
+        dbc = self.model.computations.get("solve_laplace_DBC", None)
+        if dbc is not None:
+            dbc.set_tolerances(rtol=demag_dbc_rel_tol, atol=demag_dbc_abs_tol)
+
+        nbc = self.model.computations.get("solve_neg_laplace_phi", None)
+        if nbc is not None:
+            nbc.set_tolerances(rtol=demag_nbc_rel_tol, atol=demag_nbc_abs_tol)
 
     def set_H_ext(self, values, unit=None):
         v = Value(values) if unit == None else Value(values, unit)
@@ -521,6 +536,7 @@ class Simulation(SimulationCore):
         ts.initialise(rtol=rel_tolerance, atol=abs_tolerance,
                       initial_time=initial_time)
 
+    @doc_inherit
     def advance_time(self, target_time, max_it=-1, exact_tstop=True):
         ts = self.model.timesteppers["ts_llg"]
 
@@ -558,10 +574,8 @@ class Simulation(SimulationCore):
         self.clock.last_step_dt_si = ts.get_last_dt()
         return t
 
+    @doc_inherit
     def is_converged(self):
-        """
-        Returns True when convergence has been reached.
-        """
         lg.debug("Entering is_converged()")
         self.clock.convergence = False
         if self.max_dm_dt != None:
@@ -591,47 +605,8 @@ class Simulation(SimulationCore):
                 self.model.computations[en].execute()
         return SimulationCore._save_averages(self, *args, **named_args)
 
+    @doc_inherit
     def save_data(self, fields=None, avoid_same_step=False):
-        """
-        Save the *averages* of all defined (subfields) into a ascii
-        data file. The filename iscomposed of the simulation name
-        and the extension ``_dat.ndt``. The
-        extension ``ndt`` stands for Nmag Data Table (analog to OOMMFs
-        ``.odt`` extension for this kind of data file.
-
-        If ``fields`` is provided, then it will also save the spatially
-        resolved fields to a file with extensions ``_dat.h5``.
-
-        :Parameters:
-          `fields` : None, 'all' or list of fieldnames
-
-            If None, then only spatially averaged data is saved into ``*ndt``
-            and ``*h5`` files.
-
-            If ``all`` (i.e. the string containing 'all'), then all fields are
-            saved.
-
-            If a list of fieldnames is given, then only the selected
-            fieldnames will be saved (i.e. ['m','H_demag']).
-
-          `avoid_same_step` : bool
-
-            If ``True``, then the data will only be saved if the
-            current ``clock.step`` counter is different from the
-            step counter of the last saved configuration. If
-            ``False``, then the data will be saved in any
-            case. Default is ```False```. This is internally used by
-            the hysteresis command (which uses ``avoid_same_step ==
-            True``) to avoid saving the same data twice.
-
-            The only situation where the step counter may not have
-            changed from the last saved configuration is if the user
-            is modifying the magnetisation or external field manually
-            (otherwise the call of the time integrator to advance or
-            relax the system will automatically increase the step
-            counter).
-        """
-
         lg.debug("Entering save_data, fields=%s, avoid_same_step=%s"
                   % (fields, avoid_same_step))
         timer1.start('save_data')
@@ -1115,33 +1090,24 @@ def _add_stt_sl(model, contexts, quantity_creator=None, do_sl_stt=False):
                             unit=_su_of(SI("A/m^2")))
     sl_fix = qc(SpaceField, "sl_fix", [3], unit=SI(1))
     sl_P = qc(SpaceField, "sl_P", subfields=True, unit=SI(1))
-    model.add_quantity(sl_P, sl_d, sl_current_density, sl_fix)
+    sl_lambda = qc(SpaceField, "sl_lambda", subfields=True, unit=SI(1))
+    model.add_quantity(sl_P, sl_lambda, sl_d, sl_current_density, sl_fix)
 
     # Auxiliary quantities
     sl_coeff = qc(SpaceField, "sl_coeff", subfields=True)
     model.add_quantity(sl_coeff)
 
-    #eq = """
-    #sl_coeff <- gamma_G*Ms/(1.0 + alpha*alpha)
-    #            * sl_current_density/(mu0*Ms*Ms*e*sl_d/hbar)
-    #            * 4.0/(sl_Pf*sl_Pf*sl_Pf
-    #                   * (3.0 + m(0)*sl_fix(0)
-    #                          + m(1)*sl_fix(1)
-    #                          + m(2)*sl_fix(2))
-    #                   - 16.0);"""
-    #eq_sl_coeff = Equation("sl_coeff", eq)
-
     ccode = \
-      ("double P_factor1 = sqrt($sl_P$)/(1.0 + $sl_P$),\n"
-       "       P_factor3 = 4.0*P_factor1*P_factor1*P_factor1,\n"
+      ("double P = $sl_P$,\n"
+       "       lambda = $sl_lambda$, lambda2 = lambda*lambda,\n"
        "       alpha = $alpha$, alpha2 = alpha*alpha;\n"
        "$sl_coeff$ = \n"
        "  $gamma_G$/(1.0 + alpha2)\n"
        "  * $sl_current_density$/($mu0$*$Ms$*$e$*$sl_d$/$hbar$)\n"
-       "  * P_factor3/((3.0 + $m(0)$*$sl_fix(0)$\n"
-       "                    + $m(1)$*$sl_fix(1)$\n"
-       "                    + $m(2)$*$sl_fix(2)$)\n"
-       "               - 4.0*P_factor3);\n")
+       "  * P*lambda2/(lambda2 + 1.0\n"
+       "               + (  $m(0)$*$sl_fix(0)$\n"
+       "                  + $m(1)$*$sl_fix(1)$\n"
+       "                  + $m(2)$*$sl_fix(2)$) * (lambda2 - 1.0));\n")
     calc_sl_coeff = \
       CCode("calc_sl_coeff", inputs=["m"], outputs=["sl_coeff"], auto_dep=True)
     calc_sl_coeff.append(ccode)
@@ -1228,8 +1194,8 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
        *(eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*dm_dcurrent(q))_(j:3,k:3,p:3,q:3)
      + P*(xi - alpha)*(eps(i,j,k)*m(j)*dm_dcurrent(k))_(j:3,k:3)
      + sl_coeff
-       *(  alpha*(eps(i,j,k)*m(j)*sl_fix(k))_(j:3,k:3)
-         + (eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*sl_fix(q))_(j:3,k:3,p:3,q:3))
+       *( alpha*(eps(i,j,k)*m(j)*sl_fix(k))_(j:3,k:3)
+         - (eps(i,j,k)*m(j)*eps(k,p,q)*m(p)*sl_fix(q))_(j:3,k:3,p:3,q:3))
     )*pin)_(i:3);"""
     llg = Equation("llg", eq)
     model.add_computation(llg)
@@ -1270,7 +1236,9 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
     ts = Timestepper("ts_llg", x="m", dxdt="dmdt",
                      eq_for_jacobian=llg_jacobi,
                      derivatives=derivatives,
-                     time_unit=t_unit)
+                     time_unit=t_unit,
+                     pc_rtol=1e-2, pc_atol=1e-7,
+                     pc_maxits=1000000)
     model.add_timestepper(ts)
     model.declare_target(ts)
 

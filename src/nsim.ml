@@ -230,7 +230,6 @@ type las_jacobi_plan_spec =
 type las_timestepper_spec =
     {
       lts_name: string;
-      lts_jacobian: string; (* name of the jacobi plan/jacobi matrix to be used for this timestepper -- OBSOLETE! *)
       lts_name_seq_velocities: string;
       lts_nr_primary_fields: int;
       (* usually, just one (m) for micromagnetism. May be 2 if we have
@@ -246,10 +245,10 @@ type las_timestepper_spec =
       lts_jacobi_equations: local_equations;
       (* We may want to turn off using Jacobians for some timesteppers. *)
       lts_pc_same_nonzero_pattern: bool;
-      lts_pc_opt_rtol: float option;
-      lts_pc_opt_atol: float option;
-      lts_pc_opt_dtol: float option;
-      lts_pc_opt_maxit: int option;
+      mutable lts_pc_opt_rtol: float option;
+      mutable lts_pc_opt_atol: float option;
+      mutable lts_pc_opt_dtol: float option;
+      mutable lts_pc_opt_maxit: int option;
       lts_max_order: int;
       lts_krylov_max: int;
     }
@@ -316,6 +315,8 @@ type linalg_machine =
       timestepper_initialize_from_physics: string -> float -> float -> float -> unit;
       (* Name of timestepper to init -> initial_time -> rel_tol -> abs_tol -> () *)
       timestepper_advance: string -> bool -> float -> int -> float;
+      timestepper_set_tols: string -> float option -> float option ->
+        float option -> int option -> float -> float -> unit;
       (* Name of timestepper -> target_time -> maxsteps_or_-1 -> () *)
       timestepper_get_cvode: string -> Sundials_sp.cvode;
       timestepper_timings: string -> string -> (string*float*float) array;
@@ -342,6 +343,7 @@ let dummy_linalg_machine =
       get_timers=(fun _ -> fail());
       timestepper_initialize_from_physics=(fun _ -> fail());
       timestepper_advance=(fun _ -> fail());
+      timestepper_set_tols=(fun _ -> fail());
       timestepper_get_cvode=(fun _ -> fail());
       timestepper_timings=(fun _ -> fail());
       internal_ccpla_resources=(fun _ -> fail());
@@ -399,8 +401,9 @@ type par_timestepper =
       *)
       mutable pts_set_initial_from_phys: ?initial_time:float -> ?rel_tol:float -> ?abs_tol:float -> unit -> unit;
       mutable pts_advance: ?exact_tstop:bool -> float -> int -> float;
-      mutable pts_set_tolerances: (float option * float option * float option * int option) ->
-					   (float * float) -> unit;
+      mutable pts_set_tolerances:
+        float option -> float option -> float option -> int option
+        -> float -> float -> unit;
       mutable pts_timing_control: string -> (string*float*float) array;
       (*
       mutable pts_reinit: unit -> unit;
@@ -528,6 +531,10 @@ type nsim_ccpla_opcode =
       (* DRES args: [|timestepper|] *)
   | NSIM_OP_advance_timestepper of (bool * float * int)
       (* DRES args: [|timestepper|] *)
+  | NSIM_OP_set_timestepper_tols of (float option * float option *
+                                     float option * int option *
+                                     float * float)
+      (* DRES args: [|timestepper|] *)
   | NSIM_OP_hmatrix_mult of ((Hlib.hmatrix * Mpi_petsc.vector * Mpi_petsc.vector) * Mpi_petsc.vector * Mpi_petsc.vector) option
 ;;
 
@@ -543,6 +550,7 @@ let nsim_opcode_to_string op =
   | NSIM_OP_make_timestepper _ -> "NSIM_OP_make_timestepper"
   | NSIM_OP_init_timestepper _ -> "NSIM_OP_init_timestepper"
   | NSIM_OP_advance_timestepper _ -> "NSIM_OP_advance_timestepper"
+  | NSIM_OP_set_timestepper_tols _ -> "NSIM_OP_set_timestepper_tols" 
   | NSIM_OP_hmatrix_mult _ -> "NSIM_OP_hmatrix_mult"
 ;;
 
@@ -1812,6 +1820,14 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	let t_reached = pts.pts_advance ~exact_tstop t_final maxits in
 	let () = pts.pts_time_reached <- t_reached in
 	  [||]
+    | NSIM_OP_set_timestepper_tols (ksp_rtol, ksp_atol, ksp_dtol, ksp_maxit,
+                                    cvode_rtol, cvode_atol) ->
+        let pts = dres_get_timestepper v_distributed_resources.(0) in
+	let t_reached =
+          pts.pts_set_tolerances
+            ksp_rtol ksp_atol ksp_dtol ksp_maxit
+            cvode_rtol cvode_atol
+        in [||]
     | NSIM_OP_init_timestepper (initial_time,rel_tol,abs_tol) ->
 	let pts = dres_get_timestepper v_distributed_resources.(0) in
 	let () = pts.pts_set_initial_from_phys ~initial_time ~rel_tol ~abs_tol () in
@@ -2115,6 +2131,11 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 	let ropt_cvode = ref None in
 	let ropt_jacobian = ref None in
 	let ropt_precond = ref None in	(* (KSP, 1-gamma*J matrix) *)
+        let has_jacobian () =
+          match !ropt_jacobian with
+              Some _ -> true
+            | None -> false
+        in
 	let get_jacobian () =
 	  (*let () = Printf.printf "DDD [Node=%d] get_jacobian #1\n%!" myrank in*)
 	  match !ropt_jacobian with
@@ -2199,9 +2220,7 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
                                PC without making Jacobian first!"
 		   else ())
 		in
-		  (* let () = Printf.printf "DDD [Node=%d] get_precond - duplicate jacobian\n%!" myrank in *)
 		let mx = Mpi_petsc.matrix_duplicate true jacobian in
-		  (* let () = Printf.printf "DDD [Node=%d] get_precond - ksp_create\n%!" myrank in *)
 		let () =
 		  begin
 		    Mpi_petsc.matrix_copy lts.lts_pc_same_nonzero_pattern jacobian mx;
@@ -2559,17 +2578,28 @@ let nsim_opcode_interpreter ccpla op v_distributed_resources =
 		    | None -> impossible ()
 		    | Some x -> x
 	in
-	let timestepper_set_tolerances ksp_tolerances (cvode_rtol,cvode_atol) =
-	  let (ksp,_) = get_precond 1e-10 in
-	  let (opt_rtol,opt_atol,opt_dtol,opt_maxit) = ksp_tolerances in
-	  let () =
-	    Mpi_petsc.ksp_set_tolerances_opt ksp opt_rtol opt_atol opt_dtol opt_maxit
+	let timestepper_set_tolerances
+              ksp_rtol ksp_atol ksp_dtol ksp_maxit
+              cvode_rtol cvode_atol =
+          let () =
+            if has_jacobian () then
+	      let (ksp, _) = get_precond 1e-10 in
+	        Mpi_petsc.ksp_set_tolerances_opt
+                  ksp ksp_rtol ksp_atol ksp_dtol ksp_maxit
+            else
+              begin
+                lts.lts_pc_opt_rtol <- ksp_rtol;
+                lts.lts_pc_opt_atol <- ksp_atol;
+                lts.lts_pc_opt_dtol <- ksp_dtol;
+                lts.lts_pc_opt_maxit <- ksp_maxit;
+              end
 	  in
 	    match !ropt_cvode with
 	      | None ->
 		  if myrank=0 then
 		    loginfo
-		      (Printf.sprintf "NOTE: timestepper_set_tolerances() not done - CVODE was not created first!")
+		      (Printf.sprintf "NOTE: timestepper_set_tolerances() not \
+                                       done - CVODE was not created first!")
 		  else ()
 	      | Some cvode ->
 		  Sundials_sp.cvode_set_tolerances cvode cvode_rtol cvode_atol
@@ -3612,15 +3642,32 @@ Thomas Fischbacher, 13.05.2008
 	    let drh_pts = get_timestepper name in
 	    let cmds =
 	      Array.make nr_nodes
-		(DCOM_opcode ((NSIM_OP_advance_timestepper (exact_tstop, t_final, maxsteps)),[|drh_pts|]))
+		(DCOM_opcode ((NSIM_OP_advance_timestepper
+                                 (exact_tstop, t_final, maxsteps)),
+                              [|drh_pts|]))
 	    in
 	    let () = Queue.push cmds !(ccpla.ccpla_queue) in
 	    let () = master_process_queue ccpla in
-	      (* Bad hack: should not resolve distributed resource handle (drh) on master, 24 Jan 2008 *)
+	      (* Bad hack: should not resolve distributed resource handle (drh)
+                 on master, 24 Jan 2008 *)
 	    let (DRH pts_name) = drh_pts in
 	    let pts = dres_get_timestepper (Ccpla.ccpla_get_resource ccpla pts_name) in
 	      pts.pts_time_reached
 	  in
+          let fun_timestepper_set_tols
+                name ksp_rtol ksp_atol ksp_dtol ksp_maxit cvode_rtol cvode_atol =
+            let drh_pts = get_timestepper name in
+            let cmds =
+              Array.make nr_nodes
+                (DCOM_opcode ((NSIM_OP_set_timestepper_tols
+                                 (ksp_rtol, ksp_atol, ksp_dtol, ksp_maxit,
+                                  cvode_rtol, cvode_atol)),
+                              [|drh_pts|]))
+            in
+            let () = Queue.push cmds !(ccpla.ccpla_queue) in
+            let () = master_process_queue ccpla in
+              ()
+          in
 	  let fun_timestepper_get_cvode name =
 	    let drh_pts = get_timestepper name in
 	      (* Bad hack: should not resolve distributed resource handle (drh) on master, 24 Jan 2008 *)
@@ -3659,6 +3706,7 @@ Thomas Fischbacher, 13.05.2008
 	      get_timers=fun_get_timers;
 	      timestepper_initialize_from_physics=fun_timestepper_initialize_from_physics;
 	      timestepper_advance=fun_timestepper_advance;
+              timestepper_set_tols=fun_timestepper_set_tols;
 	      timestepper_get_cvode=fun_timestepper_get_cvode;
 	      timestepper_timings=fun_timestepper_timings;
 	      internal_ccpla_resources=fun_internal_ccpla_resources;

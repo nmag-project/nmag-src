@@ -209,6 +209,9 @@ def remove_unit(x, x_unit):
         raise ValueError("Wrong units: expected %s, but got %s."
                          % (x_unit, x))
 
+def optional(opt):
+    """Used to pass an optional argument to OCaml."""
+    return [] if opt is None else [opt]
 
 #def get_main_program_path():
 #    """Returns a tuple (PATH,NAME) where PATH is the full path name of
