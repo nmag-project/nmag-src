@@ -8,7 +8,7 @@ to have the most commonly used objects in the current namespace.
 '''
 
 from nmag import SI, every, at, never, MagMaterial, Simulation, \
-                 uniaxial_anisotropy, cubic_anisotropy
+                 uniaxial_anisotropy, cubic_anisotropy, \
+                 vector_set
 
-from nsim.si_units.si import degrees_per_ns
-
+from nsim.si_units.si import degrees_per_ns, mu0, Tesla
