@@ -477,7 +477,7 @@ def do_scale_coordinates(mesh,options,outfile,scalevector):
     return None
 
 
-def do_distort_mesh_1D(mesh, options, outfile, distort_factor, correlation_length, distort_along_axis, front_rear_axis):
+def do_distort_mesh_1D(mesh, options, outfile, distort_factors, correlation_length, distort_along_axis, front_rear_axis):
     import numpy, scipy.interpolate, math, re
 
     points = mesh.points
@@ -485,9 +485,9 @@ def do_distort_mesh_1D(mesh, options, outfile, distort_factor, correlation_lengt
     eps = 1e-6
 
     assert len(points[0])==3
-    logging.debug("distort factor is %s" % distort_factor)
+    logging.debug("distort factor is %s" % distort_factors)
 
-    # TODO: Maybe allow arbitrary axes (not just coordinate directions)
+    # TODO: Maybe allow arbitrary axes (not just coordinate directions)?
     if front_rear_axis == 2:
         X=0; Y=1; Z=2
     elif front_rear_axis == 1:
@@ -632,24 +632,32 @@ def do_distort_mesh_1D(mesh, options, outfile, distort_factor, correlation_lengt
     # the corresponding distorted mesh.
     newpoints = {}
     for d in distort_factors:
-        newpoints[d] = []
+        if float(d) == 0.0:
+            # Simply copy the list of points because no work needs to be done
+            newpoints[d] = list(points)
+        else:
+            newpoints[d] = []
 
     numpts = len(points)
-    for i in xrange(len(points)):
-        if i % 1000 == 0:
-            print "Point %s of %s" % (i, numpts)
+    if set([0.0]) != set([float(d) for d in distort_factors]):
+        # We only need to distort the mesh if any of the distortion factors is non-zero
+        for i in xrange(len(points)):
+            if i % 1000 == 0:
+                print "Point %s of %s" % (i, numpts)
 
-        P = points[i]
-        Q1,Q2 = find_extremal_intersecting_surface_points(points[i])
-        for d in distort_factors:
-            R = P[:]
-            dd = float(d) # distort_factors contains string representations of the numbers,
-                          # hence we need to convert them to floats first
-            if dd != 0:
-                w1 = Q1[front_rear_axis] + dd*sp1(Q1[distort_along_axis])
-                w2 = Q2[front_rear_axis] + dd*sp2(Q2[distort_along_axis])
-                R[front_rear_axis] = interpolate_coordinate(R[front_rear_axis], Q1[front_rear_axis], Q2[front_rear_axis], w1, w2)
-            newpoints[d].append(R)
+            P = points[i]
+            Q1,Q2 = find_extremal_intersecting_surface_points(points[i])
+            for d in distort_factors:
+                dd = float(d) # distort_factors contains string representations of the numbers,
+                              # hence we need to convert them to floats first
+                if dd == 0.0:
+                    continue
+                R = P[:]
+                if dd != 0:
+                    w1 = Q1[front_rear_axis] + dd*sp1(Q1[distort_along_axis])
+                    w2 = Q2[front_rear_axis] + dd*sp2(Q2[distort_along_axis])
+                    R[front_rear_axis] = interpolate_coordinate(R[front_rear_axis], Q1[front_rear_axis], Q2[front_rear_axis], w1, w2)
+                newpoints[d].append(R)
 
     outfile = re.sub("\.nmesh$", "", outfile)  # strip suffix .nmesh from outfile (if present)
 
