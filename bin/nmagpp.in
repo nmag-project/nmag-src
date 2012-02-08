@@ -875,9 +875,11 @@ else:
     nonsummed_fields = fields_by_id
 
 if options.range:
-    user_range = parse_range_string(options.range,fields_by_id.keys())
-
     ids = fields_by_id.keys()
+
+    user_range = parse_range_string(options.range,fields_by_id.keys())
+    user_range = map(lambda x: x if x!=-1 else ids[-1], user_range)  # replace '-1' with the last ID available
+
     sl = short_list(ids, maxitem=30, formattoken="%2d ", enditems=3)
     log.info("available id-range = %r" % sl)
     log.log(15,"available id-range (all) = %r" % ids)
