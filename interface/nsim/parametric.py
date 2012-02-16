@@ -60,7 +60,7 @@ class ParametricRun:
             cwd = os.getcwd()
             self._directory_name = dn
             if not os.path.isdir(dn):
-                os.mkdir(dn)
+                os.makedirs(dn)
                 self.logger("Created directory '%s': " % dn)
             os.chdir(dn)
             if not is_already_done(self, state):
