@@ -585,7 +585,7 @@ configuration["PYTHON_LIBRARY_PATH"] = py_config_files_dir
 configuration["PYTHON_INCLUDE_PATH"] = py_headers_dir
 configuration["DLFLAGS"] = '-ldl'
 configuration["DLLIB"] = 'ldl'
-configuration["PETSC_INCFLAGS"] = "%s %s/usr/local/petsc/bmake/freebsd" % (configuration["PETSC_INCFLAGS"], inc_option)
+configuration["PETSC_INCFLAGS"] = "%s %s/usr/local/petsc/bmake/freebsd" % (configuration.get("PETSC_INCFLAGS", ""), inc_option)
 
 if os.uname()[0] == 'FreeBSD':
     configuration["DLFLAGS"] = '-lc' # dlopen, etc are built into libc on FreeBSD
