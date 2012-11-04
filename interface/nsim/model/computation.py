@@ -492,7 +492,7 @@ class KSP(Computation):
             ocaml.lam_set_ksp_tolerances(lam, ksp_name,
                                          optional(self.rtol),
                                          optional(self.atol),
-                                         optional(self.rtol),
+                                         optional(self.dtol),
                                          optional(self.maxits))
 
     def _build_lam_object(self, model):
