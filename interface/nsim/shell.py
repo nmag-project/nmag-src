@@ -25,7 +25,9 @@ class Shell(InteractiveConsole):
         return InteractiveConsole.interact(self, banner=banner)
 
 def ipython(globals=None, locals=None):
-    """Interactive python prompt (see :ref:`Example: IPython <example IPython>`)."""
+    """Interactive python prompt (see :ref:`Example: IPython <example
+    IPython>`)."""
+    # NOTE: WE ASSUME IPython HAS BEEN ALREADY IMPORTED!
     # We use an embedded ipython session
     # (http://ipython.scipy.org/doc/manual/node9.html)
     # to inspect the current state. The calling_frame magic is necessary
@@ -36,8 +38,15 @@ def ipython(globals=None, locals=None):
         globals = calling_frame.f_globals
     if locals == None:
         locals = calling_frame.f_locals
-    from IPython.Shell import IPShellEmbed
-    IPShellEmbed([])(local_ns=locals, global_ns=globals)
+
+    import IPython
+    if hasattr(IPython, "InteractiveShell"):
+        from IPython.config.loader import Config
+        cfg = Config()
+        IPython.embed(config=cfg)
+    else:
+        from IPython.Shell import IPShellEmbed
+        IPShellEmbed([])(local_ns=locals, global_ns=globals)
 
 def traceback_chain(tb):
     """Returns the list of traceback objects chained with tb."""
@@ -97,6 +106,7 @@ def main(args, locals=None, globals=None, use_ipython=True):
 
     else:
         # Run the interactive loop
+        sys.argv = ["nsim"]
 
         # We should use ipython, when possible
         try:
