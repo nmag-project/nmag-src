@@ -149,7 +149,7 @@ class Simulation(SimulationCore):
                 phi_BEM.set_default_params(cluster_strategy="geometric",
                                            eta=0.2)
             lg.info("Using HLib to compress the BEM matrix. "
-                     "HMatrix setup parameters are: %s" % str(phi_BEM))
+                    "HMatrix setup parameters are: %s" % str(phi_BEM))
             self.hlib_params = phi_BEM.get_params()
 
         # Mesh stuff...
@@ -195,6 +195,11 @@ class Simulation(SimulationCore):
         # their initial value, as set on a per-material basis in the given
         # MagMaterial objects.
         self._qs_from_material_setters = {}
+
+        # Extra functions to be called just before calculating the total
+        # effective field. This is used to implement time-dependent applied
+        # fields.
+        self.pre_rhs_funs = []
 
     def get_model(self):
         if self._model != None:
@@ -375,7 +380,8 @@ class Simulation(SimulationCore):
         _add_stt_zl(model, contexts, self._quantity_creator)
         _add_stt_sl(model, contexts, self._quantity_creator,
                     do_sl_stt=self.do_sl_stt)
-        _add_llg(model, contexts, self._quantity_creator, sim=self)
+        _add_llg(model, contexts, self._quantity_creator, sim=self,
+                 pre_rhs_funs=self.pre_rhs_funs)
         _add_energies(model, contexts, self._quantity_creator)
 
         # Set the values of the constants in the micromagnetic model
@@ -511,12 +517,39 @@ class Simulation(SimulationCore):
         v = Value(values) if unit == None else Value(values, unit)
         self.model.quantities["H_ext"].set_value(v)
 
+    def set_H_ext_updater(self, updater):
+        """This method can be used to specify a time-dependent applied field.
+        The caller must provide a function which takes two arguments. The first
+        is the simulation object, the second is a time as an SI object.
+        The user is expected to use the time to compute the applied field
+        as a function of the given time and to call the method sim.set_H_ext
+        to set the applied field, where sim is the simulation object received
+        in the first argument.
+
+        :parameters:
+
+          `updater` : function
+            As explained above, this is a function receiving (sim, time) where
+            sim is a Simulation object, while time is an SI object.
+        """
+        # Empty the pre-RHS function list.
+        fns = self.pre_rhs_funs
+        for _ in range(len(fns)):
+            fns.pop()
+
+        factor = SI("s")/simulation_units.of(SI("s"))
+        def raw_updater(t_su):
+            updater(self, t_su*factor)
+
+        # Append the new function.
+        fns.append(raw_updater)
+
     def set_m(self, values, subfieldname=None):
         if subfieldname != None:
-             sfn = canonical_subfieldname("m", subfieldname)
-             v = Value(sfn, values)
+            sfn = canonical_subfieldname("m", subfieldname)
+            v = Value(sfn, values)
         else:
-             v = Value(values)
+            v = Value(values)
         self.model.quantities["m"].set_value(v)
 
     def set_pinning(self, values):
@@ -1114,7 +1147,8 @@ def _add_stt_sl(model, contexts, quantity_creator=None, do_sl_stt=False):
 
     model.add_computation(calc_sl_coeff)
 
-def _add_llg(model, contexts, quantity_creator=None, sim=None):
+def _add_llg(model, contexts, quantity_creator=None, sim=None,
+            pre_rhs_funs=None):
     if "llg" in contexts:
         return
     contexts.append("llg")
@@ -1181,6 +1215,8 @@ def _add_llg(model, contexts, quantity_creator=None, sim=None):
         eq = ("(H_total(i) <- "
               " H_ext(i) + H_exch(i) + H_demag(i) + H_anis(i))_(i:3);")
         eq_H_total = Equation("H_total", eq)
+        if pre_rhs_funs != None:
+            eq_H_total.add_commands(["CALLPY", pre_rhs_funs])
         model.add_computation(eq_H_total)
 
     # Equation of motion
