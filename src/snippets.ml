@@ -855,28 +855,11 @@ let string_compare_n n str1 str2 =
 
 let string_one_shorter s n =
   let nr_chars = String.length s in
-  let result = String.create (nr_chars-1) in
-    begin
-      for i=0 to n-1 do
-	result.[i] <- s.[i];
-      done;
-      for i=n+1 to nr_chars-1 do
-	result.[i-1] <- s.[i];
-      done;
-      result
-    end
+  (String.sub s 0 n) ^ (String.sub s (n + 1) (nr_chars - 1 - n))
 ;;
 
 let string_append s1 s2 =
-  let ns1 = String.length s1
-  and ns2 = String.length s2
-  in
-  let s = String.create (ns1+ns2) in
-    begin
-    for i=0 to ns1-1 do s.[i] <- s1.[i] done;
-    for i=0 to ns2-1 do s.[i+ns1] <- s2.[i] done;
-    s
-    end
+  s1 ^ s2
 ;;
 
 (* Given a string 's' and an array of possible prefixes 'start_strings',
@@ -3485,7 +3468,7 @@ let mem_report_end (vmsize0, vmrss0, t0, id_string) =
      while an int32 occupy 4 bytes --> reduction to 25 %
  *)
 let pack_int_couple a b =
-  if a < 0 or a > 0x7fff or b < 0 or b > 0xffff then
+  if a < 0 || a > 0x7fff || b < 0 || b > 0xffff then
     failwith "pack_int_couple cannot pack integers: args out of bounds!"
   else
     (a lsl 16) lor b
@@ -4262,14 +4245,14 @@ let oommf_data oommf_filename =
 	int_of_float(read_double_from_string "\x49\x96\xb4\x38" true) <> 1234567
       in
       let readfloat_byte n =
-	let buf = String.make n ' ' in
+	let buf = Bytes.make n ' ' in
 	  fun () ->
 	    let () =
 	      for i=0 to n-1 do
-		buf.[i] <- input_char fd
+            buf.[i] <- input_char fd
 	      done
 	    in
-	      (read_double_from_string buf must_change_byteorder)*.valuemultiplier
+	      (read_double_from_string (Bytes.to_string buf) must_change_byteorder)*.valuemultiplier
       in
       let xscale x = x*.valuemultiplier in
       let readfloat_text () =

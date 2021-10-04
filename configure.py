@@ -317,7 +317,7 @@ configs["mpi-includedir"] = (
   "EXTRA_INCLUDE_PATH",
   "MPICH",
   ["mpi.h"],
-  std_inc_paths+['/usr/local/mpi/openmpi/include','/usr/include/mpi']
+  std_inc_paths+['/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi', '/usr/lib/x86_64-linux-gnu/openmpi/include']
 )
 
 configs["petsc-libdir"] = [
