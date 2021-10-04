@@ -57,8 +57,8 @@ value caml_mpi_init(value arguments)
   argv[i] = NULL;
   MPI_Init(&argc, &argv);
   /* Register an error handler */
-  MPI_Errhandler_create((MPI_Handler_function *)caml_mpi_error_handler, &hdlr);
-  MPI_Errhandler_set(MPI_COMM_WORLD, hdlr);
+  MPI_Comm_Create_errhandler((MPI_Comm_errhandler_function *)caml_mpi_error_handler, &hdlr);
+  MPI_Comm_set_errhandler(MPI_COMM_WORLD, hdlr);
   return Val_unit;
 }
 
